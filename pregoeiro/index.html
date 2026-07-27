@@ -2201,6 +2201,7 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button onclick="rkAbrirDesclassificacoes()" id="rkBtnDescPainel" style="background:#B45309;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(180,83,9,.25)" title="Timeline das desclassificações e checklist do que já foi lançado no portal">&#128220; Desclassificações <span id="rkDescBadge" style="background:#fff;color:#B45309;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
           <button onclick="rkAbrirPainelEmpresas()" style="background:#1d4ed8;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(29,78,216,.25)">&#127970; Painel por Empresa <span id="rkEmpBadge" style="background:#fff;color:#1d4ed8;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
+          <button onclick="rkGerarPDFFracassados()" id="rkBtnComFrac" style="display:none;background:#9F1239;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(159,18,57,.25)" title="Gera um PDF avisando a secretaria sobre os itens desertos/fracassados, para abrir um novo pedido de compra">&#128196; Comunicação em PDF <span id="rkComFracBadge" style="background:#fff;color:#9F1239;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
         </div>
       </div>
       <p class="rk-hint">Cada item mostra os reprovados e a colocação atual. Clique em Reprovado / Aprovado / Diligência na colocação atual — o motivo é salvo sozinho ao digitar. &nbsp;|&nbsp; Use os filtros acima para filtrar.</p>
@@ -4269,7 +4270,7 @@ window.addEventListener('drop', function(e){ e.preventDefault(); });
 function abrirRanking(pid){
   var proc=processos.find(function(p){ return p.id===pid; });
   if(!proc) return;
-  rkProcessoAtual={id:pid,numero:proc.numero,link:(proc.link||'').trim()};
+  rkProcessoAtual={id:pid,numero:proc.numero,link:(proc.link||'').trim(),objeto:proc.objeto||'',dataLicit:proc.dataLicit||'',horarioAbertura:proc.horarioAbertura||'',responsavel:proc.responsavel||''};
   var _rkPg=primeiroNomeAgente(proc.responsavel);
   document.getElementById('rkPanelTitle').textContent='Ranking — '+proc.numero+(_rkPg?' — '+_rkPg:'');
   var ph=document.getElementById('rkPrintHeaderTitle'); if(ph) ph.textContent='Ranking — '+proc.numero;
@@ -4290,6 +4291,7 @@ function abrirRanking(pid){
   rkGruposAbertos={};
   rkEmpModalAberto=false; var _em=document.getElementById('rkEmpModal'); if(_em) _em.style.display='none';
   rkDescModalAberto=false; var _dm=document.getElementById('rkDescModal'); if(_dm) _dm.style.display='none';
+  var _cb=document.getElementById('rkBtnComFrac'); if(_cb) _cb.style.display='none';
   rkDescFiltro='pendentes';
   var _bp=document.getElementById('rkDescFiltroPend'); if(_bp) _bp.classList.add('active');
   var _bt=document.getElementById('rkDescFiltroTodas'); if(_bt) _bt.classList.remove('active');
@@ -5756,6 +5758,169 @@ function rkGerarPDF(){
   doc.save(fname);
 }
 
+/* ── Comunicação de itens desertos/fracassados ────────────────────────────
+   As duas situações pedem a mesma providência da secretaria (revisar e
+   reabrir o item num novo processo), então entram juntas num só ofício:
+     - FRACASSADO: item com propostas, mas todas reprovadas.
+     - DESERTO: item sem nenhuma proposta — seja porque veio no ranking do
+       portal com a lista de fornecedores vazia, seja porque consta do
+       edital e nem chegou a aparecer no ranking (rkEditalFaltantes).      */
+function rkItensDesertoOuFracassado(){
+  var vistos={}, lista=[];
+  (rkItens||[]).forEach(function(it){
+    var isFrac=rkItemFracassado(it);
+    var semForn=(!it.fornecedores||!it.fornecedores.length);
+    if(!isFrac&&!semForn) return;
+    var num=String(it.num||'').trim(); if(!num||vistos[num]) return;
+    vistos[num]=true;
+    var refEdital=rkEdital&&rkEdital[num]&&rkEdital[num].ref;
+    lista.push({num:num, desc:rkDesc(it)||'', ref:it.ref||refEdital||'', deserto:semForn&&!isFrac});
+  });
+  rkEditalFaltantes().forEach(function(num){
+    if(vistos[num]) return; vistos[num]=true;
+    var e=(rkEdital&&rkEdital[num])||{};
+    lista.push({num:num, desc:e.desc||'', ref:e.ref||'', deserto:true});
+  });
+  lista.sort(function(a,b){ return String(a.num).localeCompare(String(b.num),'pt-BR',{numeric:true}); });
+  return lista;
+}
+
+function rkGerarPDFFracassados(){
+  if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando. Tente em segundos.'); return; }
+  if(!rkProcessoAtual){ alert('Abra um processo primeiro.'); return; }
+  var lista=rkItensDesertoOuFracassado();
+  if(!lista.length){ alert('Nenhum item deserto ou fracassado neste processo.'); return; }
+
+  var jsPDFCls=window.jspdf.jsPDF;
+  var doc=new jsPDFCls({orientation:'portrait',unit:'mm',format:'a4'});
+  var PW=210, PH=297, ML=20, MR=20, CW=PW-ML-MR;
+  var BOTTOM=PH-22;
+  var cNavy=[8,28,82], cText=[25,25,25], cMuted=[110,120,150], cBorder=[210,218,235];
+  var faixaSegs=[[227,36,43,14],[242,107,33,14],[255,194,14,14],[140,198,63,16],[30,122,52,14],[11,110,127,14],[20,64,168,14]];
+  function drawFaixa(x0,y0,w,h){ var acc=0; for(var fi=0;fi<faixaSegs.length;fi++){ var sg=faixaSegs[fi]; var sw=w*(sg[3]/100); doc.setFillColor(sg[0],sg[1],sg[2]); doc.rect(x0+acc,y0,sw+0.25,h,'F'); acc+=sw; } }
+  function fill(c){ doc.setFillColor(c[0],c[1],c[2]); }
+  function draw(c){ doc.setDrawColor(c[0],c[1],c[2]); }
+  function tc(c){ doc.setTextColor(c[0],c[1],c[2]); }
+  var y=0;
+
+  var proc=processos.find(function(p){ return p.id===rkProcessoAtual.id; })||rkProcessoAtual;
+  var ag=agentes.find(function(a){ return a.nomeAbrev===proc.responsavel; });
+  var nomeAssina=(ag&&ag.nomeCompleto)?ag.nomeCompleto:(proc.responsavel||'Pregoeiro(a)');
+  var tipo=tipoLicitacao(proc.numero||rkProcessoAtual.numero);
+  var titulo=(tipo?tipo+' ':'')+numeroSeq(proc.numero||rkProcessoAtual.numero||'');
+
+  function header(){
+    fill([255,255,255]); doc.rect(0,0,PW,PH,'F');
+    drawFaixa(0,0,PW,2.2);
+    try{ doc.addImage(LOGO_B64_PDF,'JPEG',(PW-46)/2,10,46,14.9); }catch(e){}
+    draw(cNavy); doc.setLineWidth(0.5); doc.line(ML,30,PW-MR,30);
+    y=40;
+  }
+  function newPage(){
+    doc.addPage();
+    drawFaixa(0,0,PW,1.6);
+    try{ doc.addImage(LOGO_B64_PDF,'JPEG',(PW-24)/2,6,24,7.8); }catch(e){}
+    draw(cBorder); doc.setLineWidth(0.3); doc.line(ML,17,PW-MR,17);
+    y=25;
+  }
+  function ensure(h){ if(y+h>BOTTOM) newPage(); }
+  function paragrafo(texto){
+    doc.setFont('helvetica','normal'); doc.setFontSize(11); tc(cText);
+    var linhas=doc.splitTextToSize(texto,CW);
+    linhas.forEach(function(ln){ ensure(6.5); doc.text(ln,ML,y); y+=6.5; });
+    y+=4;
+  }
+
+  header();
+  doc.setFont('helvetica','bold'); doc.setFontSize(15); tc(cNavy);
+  doc.text('Comunicação de Itens Desertos/Fracassados',PW/2,y,{align:'center'}); y+=8;
+  doc.setFont('helvetica','normal'); doc.setFontSize(10.5); tc(cMuted);
+  doc.text('Processo '+titulo,PW/2,y,{align:'center'}); y+=9;
+  draw(cBorder); doc.setLineWidth(0.3); doc.line(ML,y,PW-MR,y); y+=10;
+
+  var dataAb=proc.dataLicit?formatarData(proc.dataLicit):'';
+  var horaAb=proc.horarioAbertura||'';
+  var abTxt=dataAb?(dataAb+(horaAb?' às '+horaAb:'')):'não informada';
+  var objTxt=(proc.objeto||rkProcessoAtual.objeto||'').trim();
+
+  paragrafo('A COPAM comunica à Secretaria que os itens relacionados abaixo, do processo '+titulo+
+    (objTxt?(', cujo objeto é "'+objTxt+'"'):'')+
+    ', com abertura realizada em '+abTxt+', restaram desertos ou fracassados.');
+
+  var link=(proc.link||rkProcessoAtual.link||'').trim();
+  if(link){
+    ensure(15);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+    var lkTxt='Acessar o processo no Portal de Compras Públicas';
+    var lkW=Math.min(doc.getTextWidth(lkTxt)+16,CW), lkH=11;
+    var lkX=ML+(CW-lkW)/2, lkY=y;
+    fill(cNavy); draw(cNavy); doc.setLineWidth(0.3);
+    doc.roundedRect(lkX,lkY,lkW,lkH,2.2,2.2,'FD');
+    tc([255,255,255]);
+    doc.text(lkTxt,ML+CW/2,lkY+lkH/2+1.6,{align:'center'});
+    doc.link(lkX,lkY,lkW,lkH,{url:link});
+    y=lkY+lkH+10;
+  }
+
+  paragrafo('Um novo pedido de licitação deverá ser encaminhado para os itens abaixo. Favor revisar o '+
+    'orçamento e/ou a descrição destes itens, para evitar nova frustração do certame.');
+
+  y+=2;
+  var colW=[16,CW-16-36,36];
+  var colX=[ML,ML+colW[0],ML+colW[0]+colW[1]];
+  function linhaCab(){
+    ensure(10);
+    fill(cNavy); doc.rect(ML,y,CW,8,'F');
+    tc([255,255,255]); doc.setFont('helvetica','bold'); doc.setFontSize(9.5);
+    doc.text('Item',colX[0]+3,y+5.5);
+    doc.text('Descrição',colX[1]+3,y+5.5);
+    doc.text('Valor de Referência',colX[2]+colW[2]-3,y+5.5,{align:'right'});
+    y+=8;
+  }
+  linhaCab();
+  lista.forEach(function(it,idx){
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    var descLines=doc.splitTextToSize(it.desc||'(sem descrição)',colW[1]-6);
+    var refTxt=it.ref?('R$ '+it.ref):'—';
+    var rowH=Math.max(8,descLines.length*4.2+3)+(it.deserto?3.5:0);
+    if(y+rowH>BOTTOM){ newPage(); linhaCab(); }
+    fill(idx%2===0?[247,249,253]:[255,255,255]); doc.rect(ML,y,CW,rowH,'F');
+    draw(cBorder); doc.setLineWidth(0.15); doc.line(ML,y+rowH,ML+CW,y+rowH);
+    tc(cText); doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
+    doc.text(String(it.num),colX[0]+3,y+5.2);
+    doc.text(descLines,colX[1]+3,y+5.2);
+    doc.setFont('helvetica','bold');
+    doc.text(refTxt,colX[2]+colW[2]-3,y+5.2,{align:'right'});
+    if(it.deserto){
+      doc.setFont('helvetica','italic'); doc.setFontSize(8); tc(cMuted);
+      doc.text('(deserto — sem propostas)',colX[1]+3,y+rowH-2);
+    }
+    y+=rowH;
+  });
+  y+=12;
+
+  ensure(20);
+  doc.setFont('helvetica','normal'); doc.setFontSize(11); tc(cText);
+  doc.text(asgDataExtenso(hojeISO()),PW/2,y,{align:'center'}); y+=10;
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text(nomeAssina,PW/2,y,{align:'center'}); y+=5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); tc(cMuted);
+  doc.text('Pregoeiro(a) — COPAM/Ijuí',PW/2,y,{align:'center'});
+
+  var total=doc.internal.getNumberOfPages();
+  for(var pg=1;pg<=total;pg++){
+    doc.setPage(pg);
+    drawFaixa(ML,PH-16.8,CW,1.4);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); tc(cMuted);
+    doc.text('Município de Ijuí  ·  Capital Mundial das Etnias  ·  Gestão de Processos Licitatórios',ML,PH-11.5);
+    doc.text('Página '+pg+' de '+total,PW-MR,PH-11.5,{align:'right'});
+  }
+
+  var nomeArq='Comunicacao_Desertos_Fracassados_'+(numeroSeq(rkProcessoAtual.numero||proc.numero||'')||'processo').replace(/[^a-zA-Z0-9]+/g,'-')+'.pdf';
+  doc.save(nomeArq);
+  toast('PDF gerado: '+nomeArq);
+}
+
 function rkItemAp(it){ return it.fornecedores.some(function(_,i){ return rkEstados[it.num+'-'+i]==='aprovado'; }); }
 function rkItemDil(it){ return !rkItemAp(it)&&it.fornecedores.some(function(_,i){ return rkEstados[it.num+'-'+i]==='diligencia'; }); }
 function rkItemFracassado(it){ if(!it.fornecedores||!it.fornecedores.length) return false; return it.fornecedores.every(function(_,i){ return (rkEstados[it.num+'-'+i]||'neutro')==='reprovado'; }); }
@@ -5770,6 +5935,7 @@ function rkSetFiltro(f){
   ['rkBtnTodos','rkBtnAp','rkBtnDil','rkBtnPe','rkBtnFrac','rkBtnDesc'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('rk-active'); });
   var m={null:'rkBtnTodos',aprovado:'rkBtnAp',diligencia:'rkBtnDil',pendente:'rkBtnPe',fracassado:'rkBtnFrac',desclassificado:'rkBtnDesc'};
   var el=document.getElementById(m[rkFiltroAtivo]); if(el) el.classList.add('rk-active');
+  var cb=document.getElementById('rkBtnComFrac'); if(cb) cb.style.display=(rkFiltroAtivo==='fracassado')?'inline-flex':'none';
   rkRenderRanking();
 }
 function rkSetModo(m){
@@ -6438,6 +6604,7 @@ function rkRenderProcesso(){
   var de=document.getElementById('rks-desc'); if(de) de.textContent=desc;
   var eb=document.getElementById('rkEmpBadge'); if(eb) eb.textContent=rkAgruparPorEmpresa().length;
   var db=document.getElementById('rkDescBadge'); if(db) db.textContent=rkDescPendentes();
+  var cfb=document.getElementById('rkComFracBadge'); if(cfb) cfb.textContent=rkItensDesertoOuFracassado().length;
   if(rkDescModalAberto) rkRenderDesclassificacoes();
   if(rkDescAbrirAoCarregar){ rkDescAbrirAoCarregar=false; rkAbrirDesclassificacoes(); }
   ['rkBtnTodos','rkBtnAp','rkBtnDil','rkBtnFrac','rkBtnPe','rkBtnDesc'].forEach(function(id){ var el=document.getElementById(id); if(el) el.classList.remove('rk-active'); });
