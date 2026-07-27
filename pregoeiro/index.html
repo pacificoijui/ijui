@@ -413,7 +413,7 @@
   .rk-btn-close{background:rgba(255,255,255,.12);color:#fff;width:32px;height:32px;padding:0;border-radius:6px;font-size:18px;justify-content:center}.rk-btn-close:hover{background:rgba(255,255,255,.25)}
   .rk-body{flex:1;overflow-y:auto;padding:18px 24px;position:relative}
   .rk-body.rk-dragover::after{
-    content:"Solte o arquivo JSON para importar";
+    content:"Solte o JSON — propostas do portal ou descrições do edital";
     position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;
     background:rgba(29,78,216,.12);backdrop-filter:blur(1px);
     border:3px dashed #1d4ed8;border-radius:0;
@@ -804,6 +804,14 @@
     display:inline-block;vertical-align:1px;
   }
   .rks-item-ref{float:right;font-size:14px;color:#1a3a6b;font-weight:700;margin-left:10px;white-space:nowrap}
+  /* Linha de dados vindos do edital (quantidade, unidade, referência) */
+  .rks-item-meta{display:flex;flex-wrap:wrap;gap:7px;margin:-4px 0 12px}
+  .rks-item-meta span{background:#eef4ff;color:#1e3a5f;border:1px solid #d7e3f8;font-size:12px;font-weight:600;padding:3px 10px;border-radius:8px;white-space:nowrap}
+  .rks-item-meta span b{color:#1d4ed8;font-weight:800}
+  .rks-selo-edital{background:#e7f6ec;color:#166534;border:1px solid #bfe3cb;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:7px;margin-left:8px;white-space:nowrap;vertical-align:1px}
+  /* Aviso de itens do edital que ainda não têm proposta no ranking */
+  .rk-edital-faltantes{background:#fffbeb;border:1.5px solid #fde68a;color:#92400e;border-radius:11px;padding:11px 15px;margin:0 0 12px;font-size:13px;line-height:1.5}
+  .rk-edital-faltantes b{font-weight:800}
   /* Fornecedor info */
   .rks-card-forn{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #eef0f3}
   .rks-forn-nome{display:block;font-weight:700;color:#1a1a1a;font-size:16px;margin-bottom:8px;line-height:1.3}
@@ -2157,9 +2165,13 @@
     <div class="rk-topbar-actions">
       <button class="rk-btn rk-btn-import" onclick="rkCopiarLink()" title="Copiar link para preencher análise">&#128279; Compartilhar</button>
       <button class="rk-btn rk-btn-import" id="rkBtnOcultarRep" onclick="rkToggleOcultarReprovados()" title="Mostra só a empresa atualmente arrematante de cada item, ocultando as reprovadas">&#128683; Ocultar Reprovados</button>
-      <label class="rk-btn rk-btn-import" style="cursor:pointer">
-        &#128196; Importar JSON
+      <label class="rk-btn rk-btn-import" style="cursor:pointer" title="JSON do ranking do Portal de Compras Públicas (empresas, valores, marcas)">
+        &#128202; Propostas do portal
         <input type="file" id="rkFileInput" accept=".json" style="display:none">
+      </label>
+      <label class="rk-btn rk-btn-import" id="rkBtnEdital" style="cursor:pointer" title="JSON do edital: descrição completa, quantidade e unidade de cada item">
+        &#128216; Descrições do edital
+        <input type="file" id="rkEditalInput" accept=".json" style="display:none">
       </label>
       <button class="rk-btn rk-btn-pdf" onclick="rkGerarPDF()">&#128438; Exportar PDF</button>
       <button class="rk-btn rk-btn-close" onclick="fecharRanking()">&#10005;</button>
@@ -2168,7 +2180,9 @@
   <div class="rk-body" id="rkBody">
     <div class="rk-no-json" id="rkNoJson">
       <h3>Nenhum ranking importado para este processo</h3>
-      <p>Clique em <strong>Importar JSON</strong> ou arraste o arquivo até aqui para carregar o ranking.</p>
+      <p>Arraste o arquivo até aqui (ou use os botões acima). São dois JSON, e o sistema reconhece sozinho qual é qual:<br>
+      <strong>&#128202; Propostas do portal</strong> — empresas, valores, modelo e marca.<br>
+      <strong>&#128216; Descrições do edital</strong> — descrição completa, quantidade e unidade de cada item.</p>
     </div>
     <div id="rkConteudo" style="display:none">
       <div class="rk-stats">
@@ -3882,6 +3896,90 @@ var rkEventos = [];
    Chave = "numeroDoItem-indiceDoFornecedor" (mesma de rkEstados/rkMotivos).   */
 var rkDescTs = {};
 var rkDescPortal = {};
+
+/* ── Camada do EDITAL ────────────────────────────────────────────────────────
+   O JSON do portal costuma trazer a descrição do item truncada, obrigando a
+   abrir o edital toda hora. Por isso a importação é dividida em dois arquivos:
+
+     1) Propostas do portal → empresas, valores, modelo e marca (rkItens)
+     2) Descrições do edital → descrição completa, quantidade e unidade
+
+   O edital é guardado à parte, em rkEdital, indexado pelo número do item:
+     rkEdital = { "1": {desc, qtde, unidade, ref}, "2": {...} }
+   e é "aplicado" sobre rkItens (rkAplicarEdital), que grava descEdital/qtde/
+   unidade em cada item. Assim os dois arquivos podem ser reimportados em
+   qualquer ordem, quantas vezes for preciso, sem um apagar o outro — e a
+   quantidade fica disponível também no painel de Vencedores e na página
+   pública ?venc=, que leem os itens já enriquecidos.                        */
+var rkEdital = {};
+function rkEditalQtd(){ return Object.keys(rkEdital||{}).length; }
+
+/* Aceita variações de nome de campo, já que o JSON pode vir de fontes
+   diferentes (planilha do edital, extração por IA, etc.). */
+function rkEditalNorm(bruto){
+  var lista = Array.isArray(bruto) ? bruto : (bruto && (bruto.itens||bruto.items||bruto.edital));
+  if(!Array.isArray(lista)) return null;
+  var mapa={}, achou=false;
+  lista.forEach(function(it){
+    if(!it || typeof it!=='object') return;
+    var num = it.num!==undefined?it.num : (it.numero!==undefined?it.numero : (it.item!==undefined?it.item : it.codigo));
+    if(num===undefined||num===null||String(num).trim()==='') return;
+    var desc = it.desc||it.descricao||it.descricaoCompleta||it.especificacao||it.objeto||'';
+    var qtde = (it.qtde!==undefined?it.qtde : (it.quantidade!==undefined?it.quantidade : it.qtd));
+    var unid = it.unidade||it.unid||it.um||'';
+    var ref  = it.ref||it.referencia||it.valorReferencia||it.valorUnitario||'';
+    var reg={};
+    if(String(desc).trim()) reg.desc=String(desc).trim();
+    if(qtde!==undefined&&qtde!==null&&String(qtde).trim()!=='') reg.qtde=qtde;
+    if(String(unid).trim()) reg.unidade=String(unid).trim();
+    if(String(ref).trim()) reg.ref=String(ref).trim();
+    if(!Object.keys(reg).length) return;
+    mapa[String(num).trim()]=reg;
+    achou=true;
+  });
+  return achou?mapa:null;
+}
+
+/* Copia os dados do edital para os itens do ranking, casando pelo número.
+   A descrição do portal NÃO é sobrescrita: fica preservada em `desc` e a do
+   edital entra em `descEdital`, para dar pra conferir as duas se precisar.
+   A referência só é preenchida quando o portal não trouxe nenhuma, para não
+   alterar sozinho o cálculo de percentual que já estava valendo.            */
+function rkAplicarEdital(){
+  if(!rkItens || !rkItens.length) return;
+  rkItens.forEach(function(it){
+    var e = rkEdital && rkEdital[String(it.num).trim()];
+    if(!e) return;
+    if(e.desc) it.descEdital=e.desc;
+    if(e.qtde!==undefined) it.qtde=e.qtde;
+    if(e.unidade) it.unidade=e.unidade;
+    if(e.ref && !String(it.ref||'').trim()) it.ref=e.ref;
+  });
+}
+/* Descrição exibida: a do edital quando existir, senão a do portal. */
+function rkDesc(it){ return (it&&(it.descEdital||it.desc))||''; }
+/* Faixa de quantidade / unidade do edital, logo abaixo do título do item. */
+function rkItemMetaHtml(it){
+  if(!it) return '';
+  var tem=(it.qtde!==undefined&&it.qtde!==null&&String(it.qtde).trim()!=='');
+  if(!tem && !it.unidade) return '';
+  var h='<div class="rks-item-meta">';
+  if(tem) h+='<span><b>Quantidade</b> '+escHtml(String(it.qtde))+(it.unidade?' '+escHtml(it.unidade):'')+'</span>';
+  else if(it.unidade) h+='<span><b>Unidade</b> '+escHtml(it.unidade)+'</span>';
+  h+='</div>';
+  return h;
+}
+/* Para busca: procura nas duas, assim o texto truncado do portal continua
+   encontrando o item mesmo depois de importado o edital. */
+function rkDescBusca(it){ return (((it&&it.descEdital)||'')+' '+((it&&it.desc)||'')).toLowerCase(); }
+/* Itens do edital que ainda não aparecem no ranking do portal (sem proposta). */
+function rkEditalFaltantes(){
+  if(!rkEditalQtd()||!rkItens.length) return [];
+  var tem={};
+  rkItens.forEach(function(it){ tem[String(it.num).trim()]=true; });
+  return Object.keys(rkEdital).filter(function(n){ return !tem[n]; })
+    .sort(function(a,b){ return String(a).localeCompare(String(b),'pt-BR',{numeric:true}); });
+}
 var rkPendConfirm = null; /* {key, st} aguardando confirmação */
 var rkPendDil = null; /* {num, key} aguardando confirmação do prazo da diligência */
 var rkDilUltimaHora = '17:00'; /* lembra o último horário usado no prazo da diligência */
@@ -3972,9 +4070,11 @@ function rkApplySnap(d){
     rkEventos=d.eventos||[];
     rkDescTs=d.descTs||{};
     rkDescPortal=d.descPortal||{};
+    rkEdital=d.edital||{};
   } else {
-    rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={};
+    rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={}; rkEdital={};
   }
+  rkAplicarEdital();
   var noJson=document.getElementById('rkNoJson');
   if(rkItens.length){
     if(noJson) noJson.style.display='none';
@@ -3982,7 +4082,11 @@ function rkApplySnap(d){
     rkRenderProcesso();
   } else {
     if(noJson){
-      noJson.innerHTML='<h3>Nenhum ranking importado para este processo</h3><p>Clique em <strong>Importar JSON</strong> ou arraste o arquivo até aqui para carregar o ranking.</p>';
+      noJson.innerHTML='<h3>Nenhum ranking importado para este processo</h3>'
+        +'<p>Arraste o arquivo até aqui (ou use os botões acima). São dois JSON, e o sistema reconhece sozinho qual é qual:<br>'
+        +'<strong>&#128202; Propostas do portal</strong> — empresas, valores, modelo e marca.<br>'
+        +'<strong>&#128216; Descrições do edital</strong> — descrição completa, quantidade e unidade de cada item.'
+        +(rkEditalQtd()?'<br><br>&#128216; Edital já carregado ('+rkEditalQtd()+' itens) — falta importar as propostas do portal.':'')+'</p>';
       noJson.style.display='block';
     }
     document.getElementById('rkConteudo').style.display='none';
@@ -4007,6 +4111,7 @@ function rkSalvarFirestore(){
   rkOwnTimer=setTimeout(function(){ rkOwn=false; rkFlushPending(); }, 2500);
   rkColRef.doc(rkProcessoAtual.id).set({
     itens: rkItens,
+    edital: rkEdital,
     estados: rkEstados,
     motivos: rkMotivos,
     eventos: rkEventos,
@@ -4018,37 +4123,112 @@ function rkSalvarFirestore(){
   }).catch(function(e){ console.error('Erro ao salvar ranking:', e); toast('Erro ao salvar na nuvem'); });
 }
 
-/* Processa um arquivo JSON de ranking, seja vindo do seletor de arquivo
-   (input[type=file]) ou arrastado e solto sobre o painel. */
-function rkProcessarArquivoJSON(file){
+/* Um JSON é de PROPOSTAS quando algum item traz lista de fornecedores; sem
+   isso (só número/descrição/quantidade) é o arquivo do EDITAL. O tipo também
+   pode vir declarado no próprio arquivo ("tipo":"edital"). Serve para que
+   arrastar e soltar continue sendo um gesto só, sem escolher o tipo antes. */
+function rkTipoJSON(obj){
+  var t=(obj&&obj.tipo||'').toString().toLowerCase();
+  if(t==='edital'||t==='propostas'||t==='portal') return t==='edital'?'edital':'propostas';
+  var lista = Array.isArray(obj) ? obj : (obj && (obj.itens||obj.items||obj.edital));
+  if(!Array.isArray(lista)||!lista.length) return null;
+  var temForn=lista.some(function(it){ return it && Array.isArray(it.fornecedores) && it.fornecedores.length; });
+  return temForn?'propostas':'edital';
+}
+
+/* Aplica o JSON de PROPOSTAS (ranking do portal), preservando o edital que já
+   estiver carregado — por isso o rkAplicarEdital logo depois. */
+function rkImportarPropostas(proc){
+  if(!proc.itens){ alert('JSON de propostas inválido: não encontrei a lista "itens".'); return; }
+  /* Garante fornecedores como lista em todo item — o resto do painel percorre
+     it.fornecedores sem checar, e um arquivo fora do padrão travaria a tela. */
+  rkItens=proc.itens.map(function(it){
+    if(!it||typeof it!=='object') return {num:'', desc:'', fornecedores:[]};
+    if(!Array.isArray(it.fornecedores)) it.fornecedores=[];
+    return it;
+  });
+  rkPendConfirm=null; rkPendDil=null;
+  rkAplicarEdital();
+  rkLogEvento('Propostas importadas ('+rkItens.length+' itens)');
+  if(proc.motivos) rkMotivos=Object.assign({}, rkMotivos, proc.motivos);
+  rkSalvarFirestore();
+  document.getElementById('rkNoJson').style.display='none';
+  document.getElementById('rkConteudo').style.display='block';
+  rkRenderProcesso();
+  var comp=rkEditalQtd()?' Descrições do edital reaplicadas.':'';
+  toast('Propostas importadas e salvas na nuvem!'+comp);
+}
+
+/* Aplica o JSON do EDITAL. Pode ser importado antes ou depois das propostas. */
+function rkImportarEdital(bruto){
+  var mapa=rkEditalNorm(bruto);
+  if(!mapa){ alert('JSON do edital inválido: esperava uma lista de itens com número e descrição.'); return; }
+  rkEdital=mapa;
+  rkAplicarEdital();
+  var n=rkEditalQtd();
+  rkLogEvento('Descrições do edital importadas ('+n+' itens)');
+  rkSalvarFirestore();
+  if(rkItens.length){
+    document.getElementById('rkNoJson').style.display='none';
+    document.getElementById('rkConteudo').style.display='block';
+    rkRenderProcesso();
+    var falt=rkEditalFaltantes().length;
+    toast('Edital importado: '+n+' itens.'+(falt?' '+falt+' ainda sem proposta.':''));
+  } else {
+    rkApplySnapEditalVazio();
+    toast('Edital importado: '+n+' itens. Agora importe as propostas do portal.');
+  }
+}
+/* Reaproveita o texto do estado vazio para já avisar que o edital está pronto. */
+function rkApplySnapEditalVazio(){
+  var noJson=document.getElementById('rkNoJson');
+  if(!noJson) return;
+  noJson.innerHTML='<h3>Edital carregado — faltam as propostas</h3>'
+    +'<p>&#128216; <strong>'+rkEditalQtd()+' itens</strong> do edital já estão guardados neste processo.<br>'
+    +'Agora arraste (ou importe) o JSON <strong>&#128202; Propostas do portal</strong> para montar o ranking.</p>';
+  noJson.style.display='block';
+  document.getElementById('rkConteudo').style.display='none';
+}
+
+/* Processa um arquivo JSON, seja vindo dos seletores de arquivo ou arrastado
+   e solto sobre o painel. Quando `forcarTipo` é informado (clique no botão
+   específico), respeita a escolha; no arraste, detecta sozinho.            */
+function rkProcessarArquivoJSON(file, forcarTipo){
   if(!file) return;
   if(!rkProcessoAtual){ alert('Selecione um processo primeiro.'); return; }
   if(!/\.json$/i.test(file.name||'')){ alert('Selecione (ou arraste) um arquivo .json.'); return; }
   var r=new FileReader();
   r.onload=function(e){
     try{
-      var proc=JSON.parse(e.target.result);
-      if(!proc.itens) return alert('JSON inválido.');
-      rkItens=proc.itens;
-      rkPendConfirm=null; rkPendDil=null;
-      rkLogEvento('Propostas importadas ('+rkItens.length+' itens)');
-      if(proc.motivos) rkMotivos=Object.assign({}, rkMotivos, proc.motivos);
-      rkSalvarFirestore();
-      document.getElementById('rkNoJson').style.display='none';
-      document.getElementById('rkConteudo').style.display='block';
-      rkRenderProcesso();
-      toast('Ranking importado e salvo na nuvem!');
+      var obj=JSON.parse(e.target.result);
+      var detectado=rkTipoJSON(obj);
+      if(!detectado){ alert('JSON inválido: não encontrei uma lista de itens.'); return; }
+      /* Se o botão diz um tipo e o conteúdo diz outro, o conteúdo manda — mas
+         só depois de confirmar. Sem isso, escolher o arquivo errado no botão
+         errado apagaria em silêncio o edital (ou travaria a lista de itens). */
+      var tipo=detectado;
+      if(forcarTipo && forcarTipo!==detectado){
+        var nome=function(t){ return t==='edital'?'descrições do edital':'propostas do portal'; };
+        if(!confirm('Este arquivo parece ser de '+nome(detectado)+', e não de '+nome(forcarTipo)+'.\n\nImportar como '+nome(detectado)+'?')) return;
+      }
+      if(tipo==='edital') rkImportarEdital(obj);
+      else rkImportarPropostas(obj);
     }catch(ex){ alert('Erro: '+ex.message); }
   };
   r.readAsText(file);
 }
 document.getElementById('rkFileInput').addEventListener('change', function(){
-  rkProcessarArquivoJSON(this.files[0]);
+  rkProcessarArquivoJSON(this.files[0], 'propostas');
+  this.value='';
+});
+document.getElementById('rkEditalInput').addEventListener('change', function(){
+  rkProcessarArquivoJSON(this.files[0], 'edital');
   this.value='';
 });
 
-/* Arrastar e soltar o JSON do ranking diretamente sobre o painel, sem
-   precisar abrir o seletor de arquivo. */
+/* Arrastar e soltar o JSON diretamente sobre o painel, sem precisar abrir o
+   seletor de arquivo. Serve para os dois arquivos — o tipo é detectado pelo
+   conteúdo (ver rkTipoJSON). */
 (function(){
   var corpo=document.getElementById('rkBody');
   if(!corpo) return;
@@ -4099,7 +4279,7 @@ function abrirRanking(pid){
   var fn=document.getElementById('rkFiltroNum'); if(fn) fn.value='';
   var fd=document.getElementById('rkFiltroDesc'); if(fd) fd.value='';
   var ff=document.getElementById('rkFiltroForn'); if(ff) ff.value='';
-  rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={};
+  rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={}; rkEdital={};
   var noJson=document.getElementById('rkNoJson');
   noJson.innerHTML='<h3>Carregando...</h3>';
   noJson.style.display='block';
@@ -5003,7 +5183,7 @@ function vencDerivarEmpresas(itens, estados){
     var valorUnit=rkParseBRL(f.valor);
     var valorTotal=(qtde!==null)?qtde*valorUnit:null;
     if(valorTotal!==null) emp.total+=valorTotal; else emp.totalParcial=true;
-    emp.itens.push({num:it.num, desc:it.desc||'', modelo:f.modelo||'', marca:f.marca||'', qtde:qtde, unidade:unidade, valorUnit:valorUnit, valorTotal:valorTotal});
+    emp.itens.push({num:it.num, desc:rkDesc(it), modelo:f.modelo||'', marca:f.marca||'', qtde:qtde, unidade:unidade, valorUnit:valorUnit, valorTotal:valorTotal});
   });
   var lista=ordem.map(function(k){ return map[k]; });
   lista.sort(function(a,b){ return (a.nome||'').localeCompare((b.nome||''),'pt-BR',{sensitivity:'base'}); });
@@ -5457,7 +5637,7 @@ function rkGerarPDF(){
   else if(rkFiltroAtivo==='pendente') lista=rkItens.filter(rkItemPe);
   else if(rkFiltroAtivo==='desclassificado') lista=rkItens.filter(rkItemTemDesc);
   if(rkFiltroNum){ lista=lista.filter(function(it){ return it.num.toLowerCase()===rkFiltroNum; }); }
-  if(rkFiltroDesc){ lista=lista.filter(function(it){ return it.desc.toLowerCase().includes(rkFiltroDesc); }); }
+  if(rkFiltroDesc){ lista=lista.filter(function(it){ return rkDescBusca(it).includes(rkFiltroDesc); }); }
   if(rkFiltroForn){ lista=lista.filter(function(it){ return it.fornecedores.some(function(f){ return f.nome.toLowerCase().includes(rkFiltroForn); }); }); }
 
   if(!lista.length){ alert('Nenhum item para exportar com os filtros atuais.'); return; }
@@ -5479,7 +5659,7 @@ function rkGerarPDF(){
     var ic=itemStatusColor(it);
     doc.setFontSize(8.5); doc.setFont('helvetica','bold');
     var titleMax=CW-40;
-    var titleLines=doc.splitTextToSize('Item '+it.num+' — '+(it.desc||''), titleMax);
+    var titleLines=doc.splitTextToSize('Item '+it.num+' — '+rkDesc(it), titleMax);
     var ihH=Math.max(7, titleLines.length*4+3);
     if(y+ihH+8 > BOTTOM){ y=newPage(); }
     fill(ic); doc.rect(ML,y,CW,ihH,'F');
@@ -5781,7 +5961,7 @@ function rkAgruparPorEmpresa(){
     if(st==='aprovado') return;
     var nome=f.nome;
     if(!mapa[nome]) mapa[nome]={nome:nome, dil:[], pend:[]};
-    var reg={num:String(it.num), desc:it.desc||'', key:it.num+'-'+idx};
+    var reg={num:String(it.num), desc:rkDesc(it), key:it.num+'-'+idx};
     if(st==='diligencia') mapa[nome].dil.push(reg);
     else mapa[nome].pend.push(reg);
   });
@@ -6102,7 +6282,7 @@ function rkListaDesc(){
       var key=String(it.num)+'-'+i;
       if((rkEstados[key]||'neutro')!=='reprovado') return;
       out.push({
-        key:key, num:String(it.num), desc:it.desc||'', emp:(f.nome||''),
+        key:key, num:String(it.num), desc:rkDesc(it), emp:(f.nome||''),
         motivo:rkMotivos[key]||'', t:rkDescTs[key]||back[key]||'', portal:rkDescPortal[key]||''
       });
     });
@@ -6293,7 +6473,7 @@ function rkRenderRanking(){
     lista=lista.filter(function(it){ return rkFiltroPin.indexOf(String(it.num))!==-1; });
   }
   if(rkFiltroNum){ lista=lista.filter(function(it){ return String(it.num).toLowerCase()===rkFiltroNum; }); }
-  if(rkFiltroDesc){ lista=lista.filter(function(it){ return (it.desc||'').toLowerCase().includes(rkFiltroDesc); }); }
+  if(rkFiltroDesc){ lista=lista.filter(function(it){ return rkDescBusca(it).includes(rkFiltroDesc); }); }
   if(rkFiltroForn){ lista=lista.filter(function(it){ return it.fornecedores.some(function(f){ return (f.nome||'').toLowerCase().includes(rkFiltroForn); }); }); }
 
   if(!lista.length){
@@ -6303,6 +6483,16 @@ function rkRenderRanking(){
   }
 
   var html='';
+  /* Itens que constam do edital mas não vieram no ranking do portal: ficam
+     fora das estatísticas (não são "pendentes de julgamento"), mas o pregoeiro
+     precisa saber que existem — normalmente é item deserto. */
+  var faltantes=rkEditalFaltantes();
+  if(faltantes.length && !temBuscaTexto && !rkFiltroAtivo){
+    var amostra=faltantes.slice(0,25).map(escHtml).join(', ');
+    html+='<div class="rk-edital-faltantes">&#9888;&#65039; <b>'+faltantes.length+' '
+      +(faltantes.length>1?'itens do edital ainda sem proposta':'item do edital ainda sem proposta')
+      +'</b> no ranking do portal: '+amostra+(faltantes.length>25?'…':'')+'</div>';
+  }
   /* Com filtro de texto/status ativo, os grupos abrem sozinhos — a lista já
      está reduzida, não faz sentido esconder de novo atrás de um clique. */
   var forcarAberto = temBuscaTexto || !!rkFiltroAtivo;
@@ -6366,7 +6556,9 @@ function rkRenderRanking(){
     else if(status==='diligencia') cardCls+=' rks-diligencia';
 
     var titleHtml='<div class="rks-card-title"><span class="rks-item-num">Item '+escHtml(it.num)+'</span>'
-      +'<span class="rks-item-ref">'+escHtml(it.ref||'')+'</span>'+escHtml(it.desc||'')+'</div>';
+      +'<span class="rks-item-ref">'+escHtml(it.ref||'')+'</span>'+escHtml(rkDesc(it))
+      +(it.descEdital?'<span class="rks-selo-edital" title="Descrição completa vinda do edital">&#128216; edital</span>':'')
+      +'</div>'+rkItemMetaHtml(it);
 
     /* Lista de colocações: reprovados em letra pequena (com motivo editável e
        botão de desfazer); a colocação atual em destaque com valor/modelo/marca. */
@@ -6721,7 +6913,8 @@ function rkCopiarLink(){
       else if(st==='diligencia') cardCls+=' rks-diligencia';
       else if(isConfirming) cardCls+=' rks-confirmando';
       var titleHtml='<div class="rks-card-title"><span class="rks-item-num">Item '+escHtml(it.num)+'</span>'
-        +'<span class="rks-item-ref">'+escHtml(it.ref)+'</span>'+escHtml(it.desc)+'</div>';
+        +'<span class="rks-item-ref">'+escHtml(it.ref)+'</span>'+escHtml(rkDesc(it))+'</div>'
+        +rkItemMetaHtml(it);
 
       /* Lista de colocações: cada reprovado fica registrado em letra pequena
          ("Nª colocada — Empresa — Reprovado"); a colocação atual (próxima a
