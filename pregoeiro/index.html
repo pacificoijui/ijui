@@ -411,7 +411,15 @@
   .rk-btn-import{background:rgba(255,255,255,.15);color:#fff}.rk-btn-import:hover{background:rgba(255,255,255,.25)}
   .rk-btn-pdf{background:#1E5F3A;color:#fff}.rk-btn-pdf:hover{background:#164d2e}
   .rk-btn-close{background:rgba(255,255,255,.12);color:#fff;width:32px;height:32px;padding:0;border-radius:6px;font-size:18px;justify-content:center}.rk-btn-close:hover{background:rgba(255,255,255,.25)}
-  .rk-body{flex:1;overflow-y:auto;padding:18px 24px}
+  .rk-body{flex:1;overflow-y:auto;padding:18px 24px;position:relative}
+  .rk-body.rk-dragover::after{
+    content:"Solte o arquivo JSON para importar";
+    position:fixed;inset:0;z-index:800;display:flex;align-items:center;justify-content:center;
+    background:rgba(29,78,216,.12);backdrop-filter:blur(1px);
+    border:3px dashed #1d4ed8;border-radius:0;
+    color:#1d4ed8;font-family:'Sora',system-ui,sans-serif;font-size:20px;font-weight:800;
+    pointer-events:none;
+  }
   .rk-no-json{text-align:center;padding:60px 20px;color:#888}.rk-no-json h3{font-size:16px;color:#444;margin-bottom:8px}
   .rk-stats{display:flex;gap:10px;margin-bottom:14px}
   .rk-stat{background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 16px;text-align:center;flex:1;cursor:pointer;transition:all .15s}.rk-stat:hover{border-color:#1E3A5F}
@@ -2160,7 +2168,7 @@
   <div class="rk-body" id="rkBody">
     <div class="rk-no-json" id="rkNoJson">
       <h3>Nenhum ranking importado para este processo</h3>
-      <p>Clique em <strong>Importar JSON</strong> para carregar o arquivo de ranking.</p>
+      <p>Clique em <strong>Importar JSON</strong> ou arraste o arquivo até aqui para carregar o ranking.</p>
     </div>
     <div id="rkConteudo" style="display:none">
       <div class="rk-stats">
@@ -3974,7 +3982,7 @@ function rkApplySnap(d){
     rkRenderProcesso();
   } else {
     if(noJson){
-      noJson.innerHTML='<h3>Nenhum ranking importado para este processo</h3><p>Clique em <strong>Importar JSON</strong> para carregar o arquivo de ranking.</p>';
+      noJson.innerHTML='<h3>Nenhum ranking importado para este processo</h3><p>Clique em <strong>Importar JSON</strong> ou arraste o arquivo até aqui para carregar o ranking.</p>';
       noJson.style.display='block';
     }
     document.getElementById('rkConteudo').style.display='none';
@@ -4010,9 +4018,12 @@ function rkSalvarFirestore(){
   }).catch(function(e){ console.error('Erro ao salvar ranking:', e); toast('Erro ao salvar na nuvem'); });
 }
 
-document.getElementById('rkFileInput').addEventListener('change', function(){
-  var file=this.files[0]; if(!file) return;
+/* Processa um arquivo JSON de ranking, seja vindo do seletor de arquivo
+   (input[type=file]) ou arrastado e solto sobre o painel. */
+function rkProcessarArquivoJSON(file){
+  if(!file) return;
   if(!rkProcessoAtual){ alert('Selecione um processo primeiro.'); return; }
+  if(!/\.json$/i.test(file.name||'')){ alert('Selecione (ou arraste) um arquivo .json.'); return; }
   var r=new FileReader();
   r.onload=function(e){
     try{
@@ -4030,8 +4041,50 @@ document.getElementById('rkFileInput').addEventListener('change', function(){
     }catch(ex){ alert('Erro: '+ex.message); }
   };
   r.readAsText(file);
+}
+document.getElementById('rkFileInput').addEventListener('change', function(){
+  rkProcessarArquivoJSON(this.files[0]);
   this.value='';
 });
+
+/* Arrastar e soltar o JSON do ranking diretamente sobre o painel, sem
+   precisar abrir o seletor de arquivo. */
+(function(){
+  var corpo=document.getElementById('rkBody');
+  if(!corpo) return;
+  var contador=0; /* dragenter/dragleave disparam também nos filhos; contamos para não "piscar" */
+  function temArquivo(ev){
+    return ev.dataTransfer && Array.prototype.indexOf.call(ev.dataTransfer.types||[], 'Files')>-1;
+  }
+  corpo.addEventListener('dragenter', function(ev){
+    if(!temArquivo(ev)) return;
+    ev.preventDefault();
+    contador++;
+    corpo.classList.add('rk-dragover');
+  });
+  corpo.addEventListener('dragover', function(ev){
+    if(!temArquivo(ev)) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect='copy';
+  });
+  corpo.addEventListener('dragleave', function(ev){
+    if(!temArquivo(ev)) return;
+    contador=Math.max(0,contador-1);
+    if(contador===0) corpo.classList.remove('rk-dragover');
+  });
+  corpo.addEventListener('drop', function(ev){
+    if(!temArquivo(ev)) return;
+    ev.preventDefault();
+    contador=0;
+    corpo.classList.remove('rk-dragover');
+    var file=ev.dataTransfer.files && ev.dataTransfer.files[0];
+    rkProcessarArquivoJSON(file);
+  });
+})();
+/* Rede de segurança: se o arquivo for solto fora da área de importação (ex.:
+   na barra do topo), evita que o navegador abra o arquivo e derrube a sessão. */
+window.addEventListener('dragover', function(e){ e.preventDefault(); });
+window.addEventListener('drop', function(e){ e.preventDefault(); });
 
 function abrirRanking(pid){
   var proc=processos.find(function(p){ return p.id===pid; });
@@ -9098,6 +9151,49 @@ function usuariosExcluir(id, usuario, total){
     } else prompt('Copie o link:', window.location.href);
   });
 })();
+
+/* ── Esc fecha os menus internos ──────────────────────────────────────────
+   Um único Esc fecha a camada mais "de cima" que estiver aberta (na ordem:
+   sub-modais dentro do Ranking → popover de status → modais → painéis em
+   tela cheia), sempre chamando a MESMA função usada pelo botão ✕/Voltar de
+   cada um, para o comportamento ficar idêntico ao de fechar clicando.
+   Não mexe nas páginas de link compartilhado (?ranking=, ?hab=, ?assinar=,
+   ?venc=) nem na tela de login — não há "menu" ali para sair.             */
+document.addEventListener("keydown", function(e){
+  if(e.key!=="Escape") return;
+
+  if(typeof rkDescModalAberto!=="undefined" && rkDescModalAberto){ rkFecharDesclassificacoes(); return; }
+  if(typeof rkEmpModalAberto!=="undefined" && rkEmpModalAberto){ rkFecharPainelEmpresas(); return; }
+
+  if(_statusPopEl && _statusPopEl.classList.contains("open")){ fecharStatusPop(); return; }
+
+  var modais=[
+    ["modalHabTec", habFecharTecModal],
+    ["modalEmail", fecharModalEmail],
+    ["modalAgentes", fecharModalAgentes],
+    ["modalStatus", fecharModalStatus],
+    ["modalDec", fecharModalDec],
+    ["modalDil", fecharModalDil],
+    ["modalUsuarios", fecharModalUsuarios],
+    ["modalProcesso", fecharModal]
+  ];
+  for(var i=0;i<modais.length;i++){
+    var el=document.getElementById(modais[i][0]);
+    if(el && el.classList.contains("open")){ modais[i][1](); return; }
+  }
+
+  var paineis=[
+    ["habPanel", fecharHabilitacao],
+    ["vencPanel", fecharVencedores],
+    ["rankingPanel", fecharRanking],
+    ["painelDec", fecharPainelDec],
+    ["painelDil", fecharPainelDil]
+  ];
+  for(var j=0;j<paineis.length;j++){
+    var el2=document.getElementById(paineis[j][0]);
+    if(el2 && el2.classList.contains("open")){ paineis[j][1](); return; }
+  }
+});
 
 /* Inicialização do portão de acesso */
 (function(){
