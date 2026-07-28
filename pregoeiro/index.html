@@ -4336,14 +4336,13 @@ var habFiltroAtivo=null, habSaveTimer=null, habDocId=null, habUnsubscribe=null;
 var habRkUnsubscribe=null, habRkItens=[], habRkEstados={};
 var habLegacyEmpresas=[], habOwn=false;
 
-/* ── Catálogo de documentos padrão (presentes em todos os editais) ── */
+/* ── Catálogo de documentos padrão (presentes em todos os editais) ──
+   Mantido o id 'j_c' (em vez de renumerar) para preservar as aprovações já
+   registradas em processos antigos — quem já tinha esse documento aprovado
+   continua aprovado; só as demais opções (empresário individual, MEI,
+   sociedade simples, cooperativa, estrangeira) saíram da lista.            */
 var HAB_DOCS_JUR=[
-  {id:'j_a',nome:'Empresário individual — inscrição no Registro Público de Empresas Mercantis (Junta Comercial da sede)'},
-  {id:'j_b',nome:'MEI — Certificado da Condição de Microempreendedor Individual (CCMEI)'},
-  {id:'j_c',nome:'Sociedade empresária / EIRELI — ato constitutivo, estatuto ou contrato social registrado na Junta Comercial + doc. comprobatório dos administradores'},
-  {id:'j_d',nome:'Sociedade simples — inscrição do ato constitutivo no Registro Civil das PJ + prova da indicação dos administradores'},
-  {id:'j_e',nome:'Cooperativa — ata de fundação e estatuto social em vigor + registro do art. 107 da Lei nº 5.764/71'},
-  {id:'j_f',nome:'Empresa/sociedade estrangeira em funcionamento no País — decreto de autorização'}
+  {id:'j_c',nome:'Ato constitutivo, estatuto ou contrato social registrado na Junta Comercial + doc. comprobatório dos administradores'}
 ];
 var HAB_DOCS_FIS=[
   {id:'f_a',nome:'Prova de inscrição no CNPJ (ou CPF, conforme o caso)'},
@@ -5003,8 +5002,19 @@ function habGerarPDF(){
     var nItens=(e.itens&&e.itens.length)||0;
     /* Sem status fechado no sistema → sai como folha de conferência (checklist) */
     var chkMode=!s;
-    /* Bloco cabeçalho da empresa */
-    var empH=18;
+    /* Bloco cabeçalho da empresa — altura calculada, não fixa.
+       Nome de empresa longo (comum em razão social) quebra em 2-3 linhas; a
+       caixa e a linha de CNPJ/cidade abaixo dele precisam empurrar para
+       baixo na mesma proporção, senão o texto se sobrepõe (era o bug: com
+       empH e as posições de y+6/y+12 fixas, um nome de 2+ linhas invadia a
+       linha de baixo).                                                     */
+    var maxNomeW=chkMode?(CW-74):(CW-62);
+    doc.setFontSize(12); doc.setFont('helvetica','bold');
+    var nomeLinesEmp=doc.splitTextToSize(e.nome, maxNomeW);
+    var nomeHEmp=doc.getTextDimensions(nomeLinesEmp).h;
+    var lhEmp=nomeHEmp/nomeLinesEmp.length;
+    var linha2Y=12+(nomeLinesEmp.length-1)*lhEmp; /* "+12" original, esticado por linha extra do nome */
+    var empH=Math.max(18, linha2Y+6);
     checkPage(empH+6);
     /* Separador entre empresas (exceto primeira) */
     if(idx>0){ y+=3; }
@@ -5018,9 +5028,9 @@ function habGerarPDF(){
       draw(C_NAVY); doc.setLineWidth(0.6); doc.rect(ML,y,CW,empH);
       fill(C_NAVY); doc.rect(ML,y,2,empH,'F');
       txt(C_NAVY); doc.setFontSize(12); doc.setFont('helvetica','bold');
-      doc.text(doc.splitTextToSize(e.nome, CW-74), ML+6, y+6);
+      doc.text(nomeLinesEmp, ML+6, y+6);
       doc.setFontSize(9); doc.setFont('helvetica','normal'); txt(C_MUTED);
-      if(linha2.length) doc.text(linha2.join('   '), ML+6, y+12);
+      if(linha2.length) doc.text(linha2.join('   '), ML+6, y+linha2Y);
       var bdgLabelC='PARA CONFERÊNCIA';
       doc.setFontSize(9.5); doc.setFont('helvetica','bold');
       var bdgWc=doc.getTextWidth(bdgLabelC)+8;
@@ -5036,10 +5046,10 @@ function habGerarPDF(){
       fill(empBg); doc.rect(ML,y,CW,empH,'F');
       /* Nome */
       txt([255,255,255]); doc.setFontSize(12); doc.setFont('helvetica','bold');
-      doc.text(doc.splitTextToSize(e.nome, CW-62), ML+3, y+6);
+      doc.text(nomeLinesEmp, ML+3, y+6);
       /* CNPJ e cidade */
       doc.setFontSize(9); doc.setFont('helvetica','normal'); txt(rgb(232,243,233));
-      if(linha2.length) doc.text(linha2.join('   '), ML+3, y+12);
+      if(linha2.length) doc.text(linha2.join('   '), ML+3, y+linha2Y);
       /* Badge status */
       var bdgLabel=s==='habilitado'?'HABILITADA':'INABILITADA';
       doc.setFontSize(9.5); doc.setFont('helvetica','bold'); txt([255,255,255]);
