@@ -934,6 +934,10 @@
   .card-cfg-btn:hover { border-color: var(--navy); color: var(--navy); background: #eef1f8; }
   .card-wa-btn { background: #25a657; border: 1.5px solid #1e8c49; border-radius: 7px; width: 34px; height: 34px; flex: none; flex-shrink: 0; cursor: pointer; font-size: 16px; line-height: 1; transition: all .15s; display: flex; align-items: center; justify-content: center; }
   .card-wa-btn:hover { background: #1e8c49; }
+  /* Link direto pro processo no Portal de Compras Públicas (sem passar pelo texto de compartilhar) */
+  .card-portal-btn { background: #0B6E7F; border: 1.5px solid #095766; border-radius: 7px; width: 34px; height: 34px; flex: none; flex-shrink: 0; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .card-portal-btn:hover { background: #095766; }
+  .card-portal-btn svg { width: 16px; height: 16px; display: block; }
   .card-concluido-bar { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px 14px; border: none; border-top: 1px solid var(--border); background: var(--green-bg); color: #1b6e2a; font-family: 'Sora', system-ui, sans-serif; font-size: 13px; font-weight: 800; cursor: pointer; transition: background .15s; }
   .card-concluido-bar:hover { background: #d3edd8; }
   .card-concluido-bar .ck { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--green); color: #fff; font-size: 12px; font-weight: 900; }
@@ -3412,6 +3416,11 @@ function renderizar(){
     html+='<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
     html+='<button class="card-wa-btn" data-action="share-proc" title="Compartilhar no WhatsApp">&#128242;</button>';
     html+='<button class="card-pin-btn'+(p.fixado?' on':'')+'" data-action="pin" title="'+(p.fixado?'Desafixar':'Fixar no topo')+'">&#128204;</button>';
+    if(p.link){
+      html+='<a class="card-portal-btn" href="'+escHtml(p.link)+'" target="_blank" rel="noopener" title="Abrir o processo direto no portal">'
+        +'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 18 L12 5 L19 18" stroke="#F26B21" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        +'</a>';
+    }
     html+='</div>';
     html+='</div>';
     html+='<div class="card-meta"><span class="status-tag" data-action="status-pop" title="Clique para alterar o status" style="'+getStatusStyle(p.status)+'">'+escHtml((st.nome||st.label||p.status))+'<span class="status-caret">&#9660;</span></span>'+anexarBtn+linkBtn+homologBtn+pastaBtn+'</div>';
