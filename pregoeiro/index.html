@@ -2379,6 +2379,21 @@ function _slugSt(nome){
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"");
 }
+/* Transforma o assunto/t\u00edtulo de uma decis\u00e3o ou dilig\u00eancia num peda\u00e7o de nome
+   de arquivo \u2014 mesmo estilo "Palavra_Palavra" j\u00e1 usado no resto do nome
+   (Pedido_Diligencia_007_2026), s\u00f3 que preservando a capitaliza\u00e7\u00e3o original
+   em vez de for\u00e7ar min\u00fasculas. Corta num limite razo\u00e1vel para o nome do
+   arquivo n\u00e3o ficar gigante quando o assunto \u00e9 uma frase inteira.          */
+function pdfSlugTitulo(txt, maxLen){
+  var s=(txt||"").toString().trim()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")   /* remove acentos */
+    .replace(/[^a-zA-Z0-9]+/g,"_")                       /* espa\u00e7os/pontua\u00e7\u00e3o -> _ */
+    .replace(/^_+|_+$/g,"");                             /* sem _ sobrando nas pontas */
+  if(!s) return "";
+  var lim=maxLen||60;
+  if(s.length>lim){ s=s.slice(0,lim).replace(/_[^_]*$/,""); } /* corta na \u00faltima palavra inteira */
+  return s;
+}
 /* Encontra o status canônico para um valor salvo no processo (id OU nome, com
    qualquer grafia/acentuação). Busca na lista COMPLETA — inclusive duplicatas
    ocultas — para que um processo apontando para um id legado ainda resolva.   */
@@ -8104,7 +8119,8 @@ function decGerarPDF(dec){
     doc.text("Página "+pg+" de "+total,PW-MR,PH-11.5,{align:"right"});
   }
 
-  var nome="Decisao_Pregoeiro_"+("00"+(parseInt(dec.numero,10)||0)).slice(-3)+"_"+dec.ano+".pdf";
+  var _slugDec=pdfSlugTitulo(dec.titulo);
+  var nome="Decisao_Pregoeiro_"+("00"+(parseInt(dec.numero,10)||0)).slice(-3)+"_"+dec.ano+(_slugDec?"_"+_slugDec:"")+".pdf";
   doc.save(nome); toast("PDF gerado: "+nome);
 }
 
@@ -8770,7 +8786,8 @@ function dilGerarPDF(dec){
     doc.text("Página "+pg+" de "+total,PW-MR,PH-11.5,{align:"right"});
   }
 
-  var nome="Pedido_Diligencia_"+("00"+(parseInt(dec.numero,10)||0)).slice(-3)+"_"+dec.ano+".pdf";
+  var _slugDil=pdfSlugTitulo(dec.titulo);
+  var nome="Pedido_Diligencia_"+("00"+(parseInt(dec.numero,10)||0)).slice(-3)+"_"+dec.ano+(_slugDil?"_"+_slugDil:"")+".pdf";
   doc.save(nome); toast("PDF gerado: "+nome);
 }
 
