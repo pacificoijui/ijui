@@ -860,6 +860,7 @@
   .rks-coloc-rep-linha{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12px;color:#8a6d6d}
   .rks-coloc-pos{font-weight:700;color:#A32D2D;background:#fdeeee;border:1px solid #f3cccc;border-radius:7px;padding:2px 8px;font-size:11px;white-space:nowrap}
   .rks-coloc-nome-rep{font-weight:700;color:#6b4a4a}
+  .rks-coloc-marca-rep{font-size:11px;font-weight:600;color:#7a5c5c;background:#f3e9e9;border:1px solid #e6d3d3;border-radius:6px;padding:1px 7px;white-space:nowrap}
   .rks-coloc-tag-rep{margin-left:auto;font-size:11px;font-weight:700;color:#A32D2D;text-transform:uppercase;letter-spacing:.3px}
   .rks-coloc-motivo-rep{margin-top:5px;font-size:11.5px;color:#9a7b7b;line-height:1.45;font-style:italic;white-space:pre-wrap}
   /* ── Painel interno de Propostas (cards estilo secretaria) ─────────────── */
@@ -6595,25 +6596,54 @@ function rkSetMotivo(key,val){
   if(rkMotivoTimer) clearTimeout(rkMotivoTimer);
   rkMotivoTimer=setTimeout(rkSalvarFirestore, 900);
 }
+/* Remove marcação HTML que às vezes vem junto do texto "puro" do clipboard —
+   acontece ao colar de páginas web (portal de compras, e-mail em HTML,
+   PDF exportado de página web) cujo próprio navegador de origem monta a
+   versão "texto simples" da área de transferência de forma malformada,
+   deixando tags soltas como "</p>", "<br>", "&nbsp;" no meio do texto.    */
+function rkLimparTagsColadas(texto){
+  return (texto||"")
+    /* tags de bloco viram quebra de linha — remover direto (sem deixar
+       separador) grudaria as palavras quando as tags vêm coladas, tipo
+       "</p><p>" sem espaço entre uma e outra */
+    .replace(/<\/?(p|div|br|ul|ol|li|tr|table|h[1-6])\b[^>]*>/gi,"\n")
+    /* tags inline não precisam de separador — o texto ao redor já tem espaço */
+    .replace(/<\/?(span|strong|em|b|i|a|font|u)\b[^>]*>/gi,"")
+    .replace(/&nbsp;/gi," ");
+}
 /* Normaliza texto colado nos campos de motivo: textos vindos do Word/WhatsApp
    costumam trazer uma quebra de linha "dura" a cada ~70 caracteres, o que faz
    o parágrafo aparecer todo quebrado dentro da caixa. Aqui juntamos essas
    quebras soltas em espaço, preservando quebras intencionais (linha em
    branco = novo parágrafo). */
 function rkNormalizarColado(texto){
-  texto=(texto||"").replace(/\r\n?/g,"\n");
+  texto=rkLimparTagsColadas(texto);
+  texto=texto.replace(/\r\n?/g,"\n");
   texto=texto.replace(/([^\n])\n(?!\n)/g,"$1 ");
+  texto=texto.replace(/\n{3,}/g,"\n\n");
+  texto=texto.replace(/[ \t]{2,}/g," ");
+  return texto.trim();
+}
+/* Mesma limpeza de tags, mas SEM juntar quebras de linha — usado nos campos
+   de Decisão/Diligência, onde cada linha tem significado próprio para a
+   formatação (título, lista, citação); juntar linhas ali destruiria a
+   estrutura do texto colado.                                              */
+function rkNormalizarColadoPreservandoLinhas(texto){
+  texto=rkLimparTagsColadas(texto).replace(/\r\n?/g,"\n");
   texto=texto.replace(/\n{3,}/g,"\n\n");
   texto=texto.replace(/[ \t]{2,}/g," ");
   return texto.trim();
 }
 document.addEventListener("paste", function(e){
   var el=e.target;
-  if(!el||!el.classList||!el.classList.contains("rk-motivo-input")) return;
+  if(!el||!el.classList) return;
+  var preservarLinhas=el.id==="decTexto"||el.id==="dilTexto";
+  var motivoCurto=el.classList.contains("rk-motivo-input")||el.classList.contains("hab-motivo")||el.classList.contains("card-obs-input");
+  if(!preservarLinhas && !motivoCurto) return;
   var texto=(e.clipboardData||window.clipboardData).getData("text");
   if(!texto) return;
   e.preventDefault();
-  var limpo=rkNormalizarColado(texto);
+  var limpo=preservarLinhas?rkNormalizarColadoPreservandoLinhas(texto):rkNormalizarColado(texto);
   var start=el.selectionStart, end=el.selectionEnd;
   var val=el.value||"";
   el.value=val.slice(0,start)+limpo+val.slice(end);
@@ -6774,6 +6804,7 @@ function rkRenderRanking(){
           +'<div class="rks-coloc-rep-linha">'
             +'<span class="rks-coloc-pos">'+rkOrdinalF(ci+1)+' colocada</span>'
             +'<span class="rks-coloc-nome-rep">'+escHtml(rkPrimeiroNome(cf.nome))+'</span>'
+            +(cf.marca?'<span class="rks-coloc-marca-rep" title="Marca cotada por esta empresa">Marca: '+escHtml(cf.marca)+'</span>':'')
             +'<span class="rks-coloc-tag-rep">Reprovado</span>'
             +'<button class="rks-coloc-undo" data-rkundo="'+escHtml(ckey)+'" title="Desfazer reprovação">&#8634;</button>'
           +'</div>'
@@ -7130,6 +7161,7 @@ function rkCopiarLink(){
             +'<div class="rks-coloc-rep-linha">'
               +'<span class="rks-coloc-pos">'+sOrdinalF(ci+1)+' colocada</span>'
               +'<span class="rks-coloc-nome-rep">'+escHtml(sPrimeiroNome(cf.nome))+'</span>'
+              +(cf.marca?'<span class="rks-coloc-marca-rep" title="Marca cotada por esta empresa">Marca: '+escHtml(cf.marca)+'</span>':'')
               +'<span class="rks-coloc-tag-rep">Reprovado</span>'
             +'</div>'
             +(cmv?'<div class="rks-coloc-motivo-rep">'+escHtml(cmv)+'</div>':'')
