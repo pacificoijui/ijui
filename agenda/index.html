@@ -28,9 +28,6 @@
   });
   const db        = firebase.firestore();
   const colRef    = db.collection("processos");
-  const reqColRef   = db.collection("reequilibrios");
-  const reqStColRef = db.collection("reequilibrio_status");
-  const reqTramColRef = db.collection("reequilibrio_tramites");
   const agColRef  = db.collection("agentes");
 </script>
 
@@ -243,179 +240,6 @@
   .mini-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .mini-tag { font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 5px; }
   .search-hint { color: var(--muted); font-size: 12.5px; font-style: italic; padding: 16px 2px 2px; }
-  /* Painel lateral "Próximas Férias" (modo Visualizar férias) */
-  .fer-count { margin-left:auto; background:#26a69a; color:#fff; font-size:11px; font-weight:800; padding:3px 11px; border-radius:20px; }
-  .fer-card { background:#e8f6f4; border:1px solid #b6e0da; border-left:4px solid #26a69a; border-radius:12px; padding:13px 15px; box-shadow:var(--shadow); }
-  .fer-card + .fer-card { margin-top:12px; }
-  .fer-when { font-size:11px; font-weight:800; color:#00897b; text-transform:uppercase; letter-spacing:.3px; display:flex; align-items:center; gap:7px; margin-bottom:5px; }
-  .fer-when .fer-chip { background:#26a69a; color:#fff; padding:2px 8px; border-radius:20px; font-size:10px; }
-  .fer-nome { font-size:15px; font-weight:800; color:var(--navy); }
-  .fer-faixa { font-size:12.5px; color:var(--text); margin-top:3px; font-weight:600; }
-  .fer-dias { font-size:11.5px; color:var(--muted); font-weight:700; margin-top:4px; }
-  .fer-empty { color:var(--muted); font-size:13px; font-style:italic; padding:22px 6px; text-align:center; line-height:1.5; }
-
-  /* ── Modo Reequilíbrios (Anna) ──────────────────────────────────────────── */
-  .cal-ev-req { background:#ede7f6; color:#4527a0; border-color:#7e57c2; font-weight:700; }
-  .anna-head-actions { display:flex; gap:6px; margin-left:auto; flex-shrink:0; }
-  #annaSection .section-head { flex-wrap:wrap; gap:8px; padding:13px 14px; }
-  #annaSection .section-head h3 { font-size:12px; letter-spacing:0.2px; flex:1; min-width:0; }
-  .anna-mini-btn { border:1px solid var(--border); background:#fff; color:var(--navy); border-radius:8px; padding:6px 9px; font-family:inherit; font-size:11.5px; font-weight:800; cursor:pointer; transition:all .14s; white-space:nowrap; }
-  .anna-mini-btn:hover { border-color:var(--navy-light); background:#eef2fb; }
-  .anna-mini-btn.prim { background:var(--navy); border-color:var(--navy); color:#fff; }
-  .anna-mini-btn.prim:hover { background:var(--navy-mid); }
-  .req-card { background:#fff; border:1px solid var(--border); border-left:4px solid var(--navy); border-radius:12px; padding:12px 13px; box-shadow:var(--shadow); }
-  .req-card + .req-card { margin-top:11px; }
-  .req-emp { font-size:14px; font-weight:800; color:var(--navy); line-height:1.25; }
-  .req-proc { font-size:11.5px; color:var(--muted); font-weight:700; margin-top:2px; }
-  .req-desc { font-size:12px; color:var(--text); margin-top:5px; line-height:1.4; }
-  .req-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:9px; }
-  .req-status { padding:3px 9px; border-radius:6px; font-size:11px; font-weight:800; color:#fff; }
-  .req-prazo { margin-left:auto; font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:20px; }
-  .rq-vencido { background:var(--red-bg); color:var(--red); } .rq-hoje { background:#ffe9d6; color:#b85000; }
-  .rq-perto { background:var(--amber-bg); color:var(--amber); } .rq-ok { background:var(--green-bg); color:var(--green); }
-  .req-data { font-size:11.5px; color:var(--text); font-weight:700; margin-top:7px; }
-  /* atrasado (vermelho) */
-  .req-card.req-atrasado { background:#fdeef0; border-color:#f1c9cb; }
-  .req-badge-late { background:#c0282a; color:#fff; }
-  .list-card.list-atrasado { background:#fdeef0; }
-  /* empresas no card do painel */
-  .req-emps { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
-  .re-emp { display:flex; align-items:baseline; gap:6px; font-size:12px; line-height:1.35; }
-  .re-emp .re-sim { color:#2a8a3a; font-weight:800; } .re-emp .re-nao { color:#c0282a; font-weight:800; } .re-emp .re-ind { color:var(--muted); font-weight:800; }
-  .re-emp .re-nome { font-weight:700; color:var(--text); }
-  .re-emp .re-obs { color:var(--muted); font-style:italic; }
-  /* editor de empresas no modal */
-  .re-vazio { font-size:12.5px; color:var(--muted); font-style:italic; padding:6px 2px; }
-  .re-row { display:grid; grid-template-columns:1fr auto auto; gap:7px; align-items:center; margin-bottom:7px; }
-  .re-nome-in, .re-obs-in { padding:8px 10px; border:1.5px solid var(--border); border-radius:9px; font-family:inherit; font-size:13px; outline:none; }
-  .re-nome-in:focus, .re-obs-in:focus { border-color:var(--navy-light); }
-  .re-obs-in { grid-column:1/4; font-size:12.5px; }
-  .re-toggle { display:flex; gap:5px; }
-  .re-sim-bt, .re-nao-bt { width:34px; height:34px; border:1.5px solid var(--border); background:#fff; border-radius:9px; cursor:pointer; font-size:15px; font-weight:800; color:var(--muted); }
-  .re-sim-bt.on { background:#e6f4ea; border-color:#2a8a3a; color:#2a8a3a; }
-  .re-nao-bt.on { background:var(--red-bg); border-color:#c0282a; color:#c0282a; }
-  .re-del { width:30px; height:34px; border:1.5px solid var(--border); background:#fff; border-radius:9px; cursor:pointer; font-size:17px; color:var(--red); }
-  .re-del:hover { background:var(--red-bg); }
-  /* login anna */
-  .anna-lg-erro { color:var(--red); font-size:13px; font-weight:700; min-height:18px; }
-  .req-acts { display:flex; gap:6px; margin-top:10px; }
-  .req-acts button { flex:1; border:1px solid var(--border); background:#fff; color:var(--navy); border-radius:8px; padding:7px 4px; font-family:inherit; font-size:11px; font-weight:800; cursor:pointer; transition:all .14s; }
-  .req-acts button:hover { background:#eef2fb; }
-  .req-acts .rq-av { background:var(--navy); border-color:var(--navy); color:#fff; }
-  .req-acts .rq-av:hover { background:var(--navy-mid); }
-  .req-acts .rq-del:hover { background:var(--red-bg); border-color:var(--red); color:var(--red); }
-  .req-hist { margin-top:9px; border-top:1px dashed var(--border); padding-top:8px; display:none; }
-  .req-hist.open { display:block; }
-  .req-hist .hi { display:flex; gap:7px; padding:5px 0; font-size:11px; }
-  .req-hist .hi b { color:var(--navy); } .req-hist .hi span { color:var(--muted); }
-  .req-hdot { width:9px; height:9px; border-radius:50%; flex-shrink:0; margin-top:2px; box-shadow:0 0 0 1px rgba(0,0,0,.12); }
-
-  /* Modais Anna (reaproveita overlay; estilos próprios) */
-  .anna-ov { position:fixed; inset:0; background:rgba(15,28,55,0.55); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; z-index:1200; overflow-y:auto; }
-  .anna-ov.open { display:flex; }
-  .anna-modal { background:#fff; border-radius:18px; box-shadow:var(--shadow-lg); width:100%; max-width:520px; overflow:hidden; }
-  .anna-mh { background:linear-gradient(120deg,var(--navy-dark),var(--navy)); color:#fff; padding:15px 22px; display:flex; align-items:center; justify-content:space-between; }
-  .anna-mh h3 { font-size:16px; font-weight:800; }
-  .anna-mh .x { background:rgba(255,255,255,0.15); border:none; color:#fff; width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; }
-  .anna-mb { padding:19px 22px; }
-  .anna-c { margin-bottom:14px; }
-  .anna-c label { display:block; font-size:11.5px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px; }
-  .anna-c input, .anna-c select, .anna-c textarea { width:100%; padding:10px 13px; border:1.5px solid var(--border); border-radius:10px; font-family:inherit; font-size:14px; color:var(--text); background:#fff; outline:none; }
-  .anna-c input:focus, .anna-c select:focus, .anna-c textarea:focus { border-color:var(--navy-light); }
-  .anna-c textarea { resize:vertical; min-height:62px; }
-  .anna-c .hint { font-size:11.5px; color:var(--muted); margin-top:5px; }
-  .anna-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-  .anna-mf { display:flex; gap:10px; justify-content:flex-end; padding:15px 22px; border-top:1px solid var(--border); background:#f7f9fd; }
-  .anna-btn { padding:10px 18px; border-radius:10px; border:1.5px solid var(--border); background:#fff; color:var(--muted); font-family:inherit; font-size:13px; font-weight:800; cursor:pointer; }
-  .anna-btn:hover { border-color:var(--navy-light); color:var(--navy); }
-  .anna-btn.prim { background:var(--navy); border-color:var(--navy); color:#fff; }
-  .anna-btn.prim:hover { background:var(--navy-mid); color:#fff; }
-  .anna-paleta { display:flex; flex-wrap:wrap; gap:9px; }
-  .anna-sw { width:30px; height:30px; border-radius:9px; cursor:pointer; border:3px solid transparent; }
-  .anna-sw.sel { border-color:#1c2433; box-shadow:0 0 0 2px #fff inset; }
-  .anna-stl { display:flex; flex-direction:column; gap:8px; margin-bottom:15px; }
-  .anna-st-row { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border); border-radius:10px; }
-  .anna-st-dot { width:16px; height:16px; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.12); flex-shrink:0; }
-  .anna-st-row .nm { flex:1; font-size:13.5px; font-weight:700; }
-  .anna-st-row button { border:none; background:transparent; cursor:pointer; color:var(--muted); font-size:12px; font-weight:800; padding:4px 7px; border-radius:6px; }
-  .anna-st-row button:hover { background:#eef2fb; color:var(--navy); }
-  .anna-st-row button.del:hover { background:var(--red-bg); color:var(--red); }
-  .anna-st-empty { color:var(--muted); font-size:13px; font-style:italic; text-align:center; padding:16px 6px; line-height:1.6; }
-  /* etapa atual e concluído no card */
-  .req-etapa { font-size:12.5px; color:var(--text); margin-top:8px; line-height:1.4; font-weight:600; }
-  .req-step-n { display:inline-block; background:#eef2fb; color:var(--navy); font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:20px; margin-right:5px; }
-  .req-card.req-done { opacity:.86; }
-  .req-card.req-done .req-emp { color:#2e7d32; }
-  /* modal avançar */
-  .av-atual { background:#f3f6fc; border:1px solid var(--border); border-radius:10px; padding:11px 13px; font-size:13px; color:var(--navy); margin-bottom:14px; line-height:1.4; }
-  .av-atual b { font-size:14.5px; }
-  .av-next { background:#eef7f0; border:1px solid #cfe8d6; border-radius:10px; padding:11px 13px; font-size:13px; color:var(--navy); margin:6px 0 12px; line-height:1.45; }
-  .av-next b { font-size:14.5px; }
-  .av-prazo { color:#1b6e2a; font-weight:700; }
-  .av-dec-lbl { font-size:12px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin:4px 0 8px; }
-  .av-decisoes { display:flex; flex-direction:column; gap:9px; }
-  .av-dec-btn { text-align:left; border:1.5px solid var(--border); background:#fff; border-radius:11px; padding:11px 14px; cursor:pointer; transition:all .14s; display:flex; flex-direction:column; gap:3px; font-family:inherit; }
-  .av-dec-btn:hover { border-color:var(--navy); background:#f3f6fc; transform:translateY(-1px); box-shadow:var(--shadow); }
-  .av-dec-btn span { font-size:14px; font-weight:800; color:var(--navy); }
-  .av-dec-btn small { font-size:11.5px; color:var(--muted); font-weight:600; }
-  /* visão dos trâmites */
-  .tv-tram { border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:14px; }
-  .tv-tram-head { display:flex; align-items:center; gap:9px; padding:11px 14px; font-size:15px; font-weight:800; color:var(--navy); background:#f5f7fc; }
-  .tv-dot { width:14px; height:14px; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.12); }
-  .tv-etapas { list-style:none; margin:0; padding:6px 14px 12px; }
-  .tv-etapas li { display:grid; grid-template-columns:14px 1fr auto; align-items:center; gap:9px; padding:7px 0; border-bottom:1px dashed var(--border); font-size:13px; }
-  .tv-etapas li:last-child { border-bottom:none; }
-  .tv-e-dot { width:11px; height:11px; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.12); }
-  .tv-e-nome { color:var(--text); font-weight:600; }
-  .tv-e-prazo { font-size:11px; font-weight:800; color:var(--muted); white-space:nowrap; }
-  .tv-dec { grid-column:2/4; font-size:11.5px; color:#7e57c2; font-weight:700; padding:2px 0 2px 2px; line-height:1.5; }
-  .tm-top { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
-  .tm-row { display:flex; align-items:center; gap:10px; padding:11px 13px; border:1px solid var(--border); border-radius:11px; margin-bottom:9px; }
-  .tm-nome { font-size:14.5px; font-weight:800; color:var(--navy); }
-  .tm-meta { font-size:11.5px; color:var(--muted); font-weight:700; margin-left:auto; }
-  .tm-row button { border:none; background:transparent; cursor:pointer; color:var(--muted); font-size:12.5px; font-weight:800; padding:5px 8px; border-radius:7px; }
-  .tm-row button:hover { background:#eef2fb; color:var(--navy); }
-  .tm-row button.del:hover { background:var(--red-bg); color:var(--red); }
-  .tr-cab { display:flex; gap:12px; align-items:flex-end; }
-  .tr-corsw { width:100%; height:42px; border-radius:10px; border:1.5px solid var(--border); cursor:pointer; }
-  .tr-multi { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--navy); background:#f3f6fc; border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:14px; cursor:pointer; }
-  .tr-multi input { width:16px; height:16px; }
-  .tr-etapas-lbl { font-size:12px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; margin:18px 0 10px; }
-  .et-card { border:1px solid var(--border); border-left:4px solid var(--navy); border-radius:11px; padding:11px 12px; margin-bottom:11px; background:#fbfcff; }
-  .et-l1 { display:flex; align-items:center; gap:9px; }
-  .et-num { width:24px; height:24px; flex-shrink:0; border-radius:50%; background:var(--navy); color:#fff; font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; }
-  .et-nome { flex:1; padding:8px 11px; border:1.5px solid var(--border); border-radius:9px; font-family:inherit; font-size:13.5px; outline:none; }
-  .et-nome:focus { border-color:var(--navy-light); }
-  .et-sw { width:34px; height:34px; flex-shrink:0; border-radius:9px; border:1.5px solid var(--border); cursor:pointer; }
-  .et-l2 { display:flex; align-items:center; gap:14px; margin-top:9px; flex-wrap:wrap; }
-  .et-l2 label { font-size:11.5px; font-weight:700; color:var(--muted); display:flex; align-items:center; gap:6px; }
-  .et-dias { width:64px; padding:6px 9px; border:1.5px solid var(--border); border-radius:8px; font-family:inherit; font-size:13px; outline:none; }
-  .et-chk { cursor:pointer; }
-  .et-chk input { width:15px; height:15px; }
-  .et-prox { margin-top:9px; display:flex; align-items:center; gap:9px; }
-  .et-prox label { font-size:11.5px; font-weight:800; color:var(--muted); text-transform:uppercase; }
-  .et-prox select, .et-op-prox { flex:1; padding:7px 9px; border:1.5px solid var(--border); border-radius:8px; font-family:inherit; font-size:13px; background:#fff; outline:none; }
-  .et-dec { margin-top:10px; background:#f4f0fb; border:1px solid #e0d4f5; border-radius:9px; padding:9px; }
-  .et-op { display:flex; align-items:center; gap:7px; margin-bottom:7px; }
-  .et-op-label { flex:1; padding:6px 9px; border:1.5px solid var(--border); border-radius:8px; font-family:inherit; font-size:13px; outline:none; }
-  .et-op-prox { flex:1; }
-  .et-op span { color:var(--muted); font-weight:800; }
-  .et-op-del { border:1px solid var(--border); background:#fff; color:var(--red); width:28px; height:28px; border-radius:8px; cursor:pointer; font-size:15px; font-weight:800; flex-shrink:0; }
-  .et-mini { border:1px dashed var(--navy-light); background:#fff; color:var(--navy); border-radius:8px; padding:6px 11px; font-family:inherit; font-size:12px; font-weight:800; cursor:pointer; }
-  .et-acts { display:flex; gap:7px; margin-top:10px; }
-  .et-acts button { border:1px solid var(--border); background:#fff; border-radius:8px; padding:5px 11px; font-family:inherit; font-size:12.5px; font-weight:800; color:var(--navy); cursor:pointer; }
-  .et-acts button[disabled] { opacity:.35; cursor:default; }
-  .et-acts button:not([disabled]):hover { background:#eef2fb; }
-  .et-acts .del { color:var(--red); margin-left:auto; }
-  .et-acts .del:hover { background:var(--red-bg); }
-  .pal-grid { display:grid; grid-template-columns:repeat(10,minmax(0,1fr)); gap:6px; }
-  .pal-sw { width:100%; aspect-ratio:1; border-radius:7px; cursor:pointer; border:3px solid transparent; transition:transform .1s; }
-  .pal-sw:hover { transform:scale(1.18); }
-  .pal-sw.sel { border-color:#1c2433; box-shadow:0 0 0 2px #fff inset; }
-  .pal-custom { display:flex; align-items:center; gap:10px; margin-top:16px; border-top:1px solid var(--border); padding-top:14px; }
-  .pal-custom label { font-size:12px; font-weight:800; color:var(--muted); }
-  .pal-custom input[type=color] { width:46px; height:38px; border:1px solid var(--border); border-radius:8px; cursor:pointer; background:#fff; padding:2px; }
-  .pal-custom .anna-btn { margin-left:auto; }
 
   /* filtros separados (tipo / número / objeto / ano) — iguais ao index */
   .ag-filtros { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 10px; }
@@ -548,23 +372,8 @@
   .list-daygroup.holiday .list-daybox { box-shadow:0 0 0 2px var(--red); }
   .list-holiday-flag { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:800; color:var(--red); background:var(--red-bg); border:1px solid #f1c9cb; padding:2px 8px; border-radius:20px; margin-left:8px; vertical-align:middle; letter-spacing:0.2px; }
 
-  /* ── Camadas: férias e aniversários ─────────────────────────────────────── */
-  .cal-ev-ferias { background:#e0f2f1; color:#00695c; border-color:#26a69a; }
+  /* ── Camada: aniversários ────────────────────────────────────────────────── */
   .cal-ev-aniv   { background:#fce4ec; color:#c2185b; border-color:#ec407a; }
-  .layer-toggle-mini-group { display:flex; gap:6px; }
-  .layer-pill-mini { width:38px; height:38px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--muted); font-size:16px; cursor:pointer; transition:all .14s; display:flex; align-items:center; justify-content:center; position:relative; }
-  .layer-pill-mini:hover { border-color:var(--navy-light); transform:translateY(-1px); box-shadow:var(--shadow); }
-  /* estado ativo: mantém o fundo claro (não escurece) para o ícone nunca ficar invisível;
-     o indicador é um aro colorido + um pontinho no canto */
-  .layer-pill-mini.on { background:#fff; border-color:var(--navy); box-shadow:0 0 0 2px rgba(26,58,107,0.18); }
-  .layer-pill-mini.on::after { content:""; position:absolute; bottom:3px; right:3px; width:7px; height:7px; border-radius:50%; background:var(--navy); border:1.5px solid #fff; }
-  .layer-pill-text { height:38px; padding:0 14px; border-radius:10px; border:1px solid var(--border); background:#fff; color:var(--muted); font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:all .14s; display:inline-flex; align-items:center; gap:7px; white-space:nowrap; }
-  .layer-pill-text:hover { border-color:var(--navy-light); transform:translateY(-1px); box-shadow:var(--shadow); }
-  /* impede que as regras ".cal-nav button"/".list-nav button" (largura fixa) cortem o texto */
-  .cal-nav .layer-pill-text, .list-nav .layer-pill-text { width:auto; height:38px; font-size:13px; padding:0 14px; }
-  .layer-pill-text.on { background:var(--navy); border-color:var(--navy); color:#fff; box-shadow:0 0 0 2px rgba(26,58,107,0.18); }
-  /* só aparece no desktop — em telas estreitas, fica oculto */
-  @media (max-width:1000px){ .layer-toggle-mini-group { display:none; } }
   .gear-corner-btn { flex-shrink:0; width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--muted); font-size:15px; cursor:pointer; transition:all .14s; display:flex; align-items:center; justify-content:center; }
   .gear-corner-btn:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
 
@@ -595,12 +404,10 @@
   .pn-item .pi-nome { font-size:12.5px; font-weight:800; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pn-item .pi-sub { font-size:11px; font-weight:700; color:var(--muted); }
   .pn-item.is-pf { border-left:4px solid var(--red); }
-  .pn-item.is-fer { border-left:4px solid #00695c; }
   .pn-item.is-an { border-left:4px solid #c2185b; }
   .pi-del { background:#fff; border:1px solid var(--border); color:var(--muted); width:28px; height:28px; border-radius:7px; font-size:13px; cursor:pointer; flex-shrink:0; transition:all .14s; display:flex; align-items:center; justify-content:center; }
   .pi-del:hover { background:var(--red-bg); border-color:#f1c9cb; color:var(--red); }
   .pn-vazio { text-align:center; color:var(--muted); font-size:12px; font-style:italic; padding:12px 6px; }
-  .list-card-ferias { border-left-color:#26a69a !important; }
   .list-card-aniv   { border-left-color:#ec407a !important; }
   .list-card-extra { display:flex; align-items:center; gap:9px; }
   .list-card-extra .lc-ico { font-size:18px; flex-shrink:0; }
@@ -659,8 +466,6 @@
   .btn-cancel{border-radius:11px}
   .ag-voltar{border-radius:10px}
   .ag-voltar:hover{background:var(--real);border-color:var(--real)}
-  .anna-btn.prim{background:var(--real);border-color:var(--real)}
-  .anna-btn.prim:hover{background:var(--real-2)}
   .pn-add{background:var(--real);border-color:var(--real);border-radius:11px}
   .pn-add:hover{background:var(--real-2)}
 
@@ -674,9 +479,6 @@
   .cal-nav button:hover{background:var(--real);border-color:var(--real)}
   .list-nav button:hover{background:var(--real)}
   .view-toggle button.active{background:var(--real);box-shadow:0 1px 4px rgba(20,64,168,.3)}
-  .layer-pill-text.on{background:var(--real);border-color:var(--real);box-shadow:0 0 0 2px rgba(20,64,168,.18)}
-  .layer-pill-mini.on{border-color:var(--real);box-shadow:0 0 0 2px rgba(20,64,168,.18)}
-  .layer-pill-mini.on::after{background:var(--real)}
   .gear-corner-btn:hover{background:var(--real);border-color:var(--real)}
   .pdf-btn:hover{background:var(--real);border-color:var(--real)}
 
@@ -696,8 +498,7 @@
   .section-head::before{content:"";width:5px;height:22px;border-radius:99px;background:var(--cor-secao,var(--real));flex-shrink:0}
   #proximosSection{--cor-secao:var(--real)}
   #buscaSection{--cor-secao:var(--petroleo)}
-  #annaSection{--cor-secao:#7E57C2}
-  .section-head .count,.fer-count{font-family:'Space Grotesk',monospace}
+  .section-head .count{font-family:'Space Grotesk',monospace}
   .side-brand{position:relative;overflow:hidden}
   .side-brand::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--faixa)}
   .up-card{border-left-color:var(--real);border-radius:13px}
@@ -707,13 +508,11 @@
   .up-num{font-family:'Space Grotesk',monospace}
   .mini-card{border-left-color:var(--real)}
   .mini-num,.mini-date{font-family:'Space Grotesk',monospace}
-  .req-card{border-left-color:var(--real)}
 
   /* ── Busca / campos ── */
   #buscaInput{border-radius:12px}
   #buscaInput:focus{border-color:var(--real-2);box-shadow:0 0 0 3px rgba(20,64,168,.12)}
   .field input:focus,.field select:focus,
-  .anna-c input:focus,.anna-c select:focus,.anna-c textarea:focus,
   .ag-filtro-input:focus,.ag-filtro-select:focus{border-color:var(--real-2);box-shadow:0 0 0 3px rgba(20,64,168,.12)}
 
   /* ── Modais / detalhe ── */
@@ -817,10 +616,6 @@
         <div class="cal-title" id="calTitulo">—</div>
       </div>
       <div class="cal-nav">
-        <div class="layer-toggle-mini-group">
-          <button class="layer-pill-text" data-tipo="ferias" onclick="toggleCamada('ferias')" title="Mostrar/ocultar férias dos servidores">&#127958; Visualizar férias</button>
-          <button class="layer-pill-text" id="btnModoAnna" onclick="toggleModoAnna()" title="Reequilíbrios e Aditivos">&#9878;&#65039; Reequilíbrios/Aditivos</button>
-        </div>
         <button class="btn-primary cal-novo" onclick="abrirCadastro()">&#43; Novo Processo</button>
         <button class="hoje-btn" onclick="irHoje()">Hoje</button>
         <button onclick="mudarMes(-1)" title="Mês anterior">&#8249;</button>
@@ -841,10 +636,6 @@
         <div class="list-title" id="listTitulo">—</div>
       </div>
       <div class="list-nav">
-        <div class="layer-toggle-mini-group">
-          <button class="layer-pill-text" data-tipo="ferias" onclick="toggleCamada('ferias')" title="Mostrar/ocultar férias dos servidores">&#127958; Visualizar férias</button>
-          <button class="layer-pill-text" id="btnModoAnna" onclick="toggleModoAnna()" title="Reequilíbrios e Aditivos">&#9878;&#65039; Reequilíbrios/Aditivos</button>
-        </div>
         <button class="btn-primary cal-novo" onclick="abrirCadastro()" style="height:36px;padding:0 14px">&#43; Novo</button>
         <button class="hoje-btn" onclick="irHojeList()">Hoje</button>
         <button onclick="mudarMesList(-1)" title="Mês anterior">&#8249;</button>
@@ -914,32 +705,6 @@
       <div class="up-grid" id="proximosLista">
         <div class="empty">Carregando processos…</div>
       </div>
-    </div>
-  </section>
-  <!-- Próximas Férias (aparece no modo "Visualizar férias") -->
-  <section class="section" id="feriasSection" style="display:none">
-    <div class="section-head">
-      <span class="ico">&#127958;</span>
-      <h3>Próximas Férias</h3>
-      <span class="fer-count" id="feriasCount"></span>
-    </div>
-    <div class="section-body">
-      <div id="feriasLista"><div class="fer-empty">Carregando…</div></div>
-    </div>
-  </section>
-
-  <!-- Reequilíbrios (modo Anna dentro da agenda) -->
-  <section class="section" id="annaSection" style="display:none">
-    <div class="section-head">
-      <span class="ico">&#9878;&#65039;</span>
-      <h3>Reequilíbrios/Aditivos</h3>
-      <div class="anna-head-actions">
-        <button class="anna-mini-btn" onclick="annaAbrirStatus()" title="Gerenciar status">&#9881;&#65039;</button>
-        <button class="anna-mini-btn prim" onclick="annaAbrirPedido()">&#43; Novo</button>
-      </div>
-    </div>
-    <div class="section-body">
-      <div id="reqLista"><div class="fer-empty">Carregando…</div></div>
     </div>
   </section>
   </aside>
@@ -1055,20 +820,6 @@
           </div>
         </div>
 
-        <!-- Férias -->
-        <div class="pcard">
-          <div class="pcard-head"><span class="ico">&#127958;</span><h4>Férias dos Servidores</h4><span class="count" id="pnFerCount">0</span></div>
-          <div class="pcard-body">
-            <div class="field"><label>Servidor</label><input type="text" id="pnFerServidor" list="pnServidoresList" placeholder="Nome do servidor" autocomplete="off"></div>
-            <div class="row2">
-              <div class="field"><label>Início</label><input type="date" id="pnFerInicio"></div>
-              <div class="field"><label>Fim</label><input type="date" id="pnFerFim"></div>
-            </div>
-            <button class="pn-add" onclick="pnAddFer()">&#43; Cadastrar</button>
-            <div class="pn-lista" id="pnFerLista"></div>
-          </div>
-        </div>
-
         <!-- Aniversários -->
         <div class="pcard">
           <div class="pcard-head"><span class="ico">&#127874;</span><h4>Aniversários</h4><span class="count" id="pnAnCount">0</span></div>
@@ -1159,16 +910,8 @@ function feriadoNome(iso){
   return feriadosDoAno(ano)[iso]||null;
 }
 
-/* ── Férias e aniversários por dia ──────────────────────────────────────── */
-function feriasNoDia(iso){
-  var out=[];
-  feriasList.forEach(function(f){
-    if(!f.inicio) return;
-    var fim=f.fim||f.inicio;
-    if(iso>=f.inicio && iso<=fim) out.push(f.servidor||"Servidor");
-  });
-  return out;
-}
+/* ── Aniversários por dia ─────────────────────────────────────────────── */
+function addDiasIso(iso,n){ var d=new Date((iso||hojeStr())+"T12:00:00"); d.setDate(d.getDate()+(parseInt(n,10)||0)); return ymd(new Date(d.getFullYear(),d.getMonth(),d.getDate())); }
 function aniversariosNoDia(iso){
   var p=iso.split("-"); var mes=parseInt(p[1],10), dia=parseInt(p[2],10);
   var out=[];
@@ -1189,16 +932,6 @@ function anivCelula(iso){
   }
   return out;
 }
-function toggleCamada(tipo){
-  var ativo;
-  if(tipo==="ferias"){ _mostrarFerias=!_mostrarFerias; ativo=_mostrarFerias; if(_mostrarFerias) _modoAnna=false; }
-  else { _mostrarAniv=!_mostrarAniv; ativo=_mostrarAniv; }
-  document.querySelectorAll('[data-tipo="'+tipo+'"]').forEach(function(b){
-    b.classList.toggle("on", ativo);
-  });
-  render();
-}
-
 /* ── Tipo de licitação e rótulos ────────────────────────────────────────── */
 /* Traduz prefixos/códigos para nome legível: PE/RPPE -> Pregão; CC/CONCORRENCIA -> Concorrência */
 function tipoLicitacao(numero){
@@ -1323,19 +1056,13 @@ try { obsColRef = db.collection("observacoes"); } catch(e){ obsColRef = null; }
 var _portalDebounceTimer = null;
 var _viewAtual = "list";  /* view ativa: "list" ou "month" */
 
-/* ── Camadas internas (pontos facultativos, férias, aniversários) ───────────
+/* ── Camadas internas (pontos facultativos, aniversários) ───────────────────
    Declaradas ANTES dos onSnapshots para evitar erro de ordem de inicialização. */
 var pontosFac   = {};      /* iso "YYYY-MM-DD" -> nome do ponto facultativo */
-var feriasList  = [];      /* { servidor, inicio, fim } */
 var anivList    = [];      /* { servidor, dia, mes } */
-var _mostrarFerias = false, _mostrarAniv = true;
-var _modoAnna = false;
-var reqPedidos = [], reqStatus = [];
-var reqEditId=null, reqAvancarId=null, reqEditStId=null, reqCorSel="#1565c0";
-var annaEmpresas=[];
-var pfColRef, ferColRef, anivColRef;
+var _mostrarAniv = true;
+var pfColRef, anivColRef;
 try { pfColRef   = db.collection("pontos_facultativos"); } catch(e){ pfColRef   = null; }
-try { ferColRef  = db.collection("ferias"); }             catch(e){ ferColRef  = null; }
 try { anivColRef = db.collection("aniversarios"); }       catch(e){ anivColRef = null; }
 
 /* ── Firestore em tempo real ────────────────────────────────────────────── */
@@ -1389,11 +1116,6 @@ try{ if(pfColRef) pfColRef.onSnapshot(function(snap){
   _feriadosCache={};   /* limpa cache para recolorir o calendário */
   render(); refreshPainel();
 }); }catch(e){ console.warn("pontos_facultativos onSnapshot:", e); }
-
-try{ if(ferColRef) ferColRef.onSnapshot(function(snap){
-  feriasList=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
-  render(); refreshPainel();
-}); }catch(e){ console.warn("ferias onSnapshot:", e); }
 
 try{ if(anivColRef) anivColRef.onSnapshot(function(snap){
   anivList=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
@@ -1483,562 +1205,7 @@ function render(){
   renderProximos();
   popularFiltroAno();
   renderBusca();
-  aplicarModos();
-  renderFeriasPanel();
-  renderReqPanel();
 }
-/* Mostra no lado o painel do modo ativo (normal / férias / reequilíbrios) */
-function aplicarModos(){
-  var fer=!!_mostrarFerias, anna=!!_modoAnna;
-  var b=document.getElementById("buscaSection");    if(b) b.style.display=(fer||anna)?"none":"";
-  var p=document.getElementById("proximosSection"); if(p) p.style.display=(fer||anna)?"none":"";
-  var f=document.getElementById("feriasSection");   if(f) f.style.display=fer?"":"none";
-  var a=document.getElementById("annaSection");     if(a) a.style.display=anna?"":"none";
-  var bm=document.getElementById("btnModoAnna");
-  if(bm) document.querySelectorAll('#btnModoAnna').forEach(function(x){ x.classList.toggle("on", anna); });
-}
-function _feriasDuracaoDias(ini,fim){
-  var a=new Date(ini+"T12:00:00"), b=new Date((fim||ini)+"T12:00:00");
-  return Math.round((b-a)/86400000)+1;
-}
-function renderFeriasPanel(){
-  var box=document.getElementById("feriasLista"); if(!box) return;
-  var hoje=hojeStr();
-  var lista=feriasList.filter(function(f){ return f.inicio && (f.fim||f.inicio)>=hoje; })
-    .sort(function(a,b){ return (a.inicio||"").localeCompare(b.inicio||""); });
-  var cnt=document.getElementById("feriasCount");
-  if(cnt) cnt.textContent=lista.length?lista.length:"";
-  if(!lista.length){
-    box.innerHTML='<div class="fer-empty">Nenhuma férias futura cadastrada.<br>Cadastre pelo painel interno (engrenagem &#9881;).</div>';
-    return;
-  }
-  var html="";
-  lista.forEach(function(f){
-    var fim=f.fim||f.inicio;
-    var emCurso=(hoje>=f.inicio && hoje<=fim);
-    var quando=emCurso?"Em curso":(diasAte(f.inicio)||"A partir de "+fmtData(f.inicio));
-    var chip=emCurso?'<span class="fer-chip">agora</span>':'';
-    html+='<div class="fer-card">';
-    html+='<div class="fer-when">&#127958; '+escHtml(quando)+chip+'</div>';
-    html+='<div class="fer-nome">'+escHtml(f.servidor||"Servidor")+'</div>';
-    html+='<div class="fer-faixa">'+fmtData(f.inicio)+' a '+fmtData(fim)+'</div>';
-    html+='<div class="fer-dias">'+_feriasDuracaoDias(f.inicio,fim)+' dia(s)</div>';
-    html+='</div>';
-  });
-  box.innerHTML=html;
-}
-
-/* ═══ Modo Reequilíbrios/Aditivos (Anna) — fluxo guiado por TRÂMITES ════════
-   Cada pedido segue um trâmite pré-definido (Renovação, Revisão de Valor ou
-   Aditivo). As etapas têm prazo em DIAS ÚTEIS (pulam fim de semana e feriados)
-   e pontos de decisão (aceita/não aceita) que definem o caminho seguinte.
-   Trâmites e etapas (e suas cores) já vêm prontos por padrão.                */
-var TRAMITES_PADRAO=[
-  { id:"renovacao", nome:"Renovação", cor:"#1565c0", icone:"\u267B\uFE0F", ordem:0, multiempresas:true, etapas:[
-    {id:"r0", nome:"Interesse recebido (secretaria)",                 dias:0, cor:"#1565c0", proxima:"r1"},
-    {id:"r1", nome:"Consulta aos fornecedores (aceitam renovar?)",    dias:2, cor:"#0097a7", proxima:"r2"},
-    {id:"r2", nome:"Verificar resposta dos fornecedores",             dias:0, cor:"#f9a825", decisao:[
-        {label:"Aceitaram a renovação",  proxima:"r3"},
-        {label:"Não aceitaram",          proxima:"r6"}]},
-    {id:"r3", nome:"Renovar e enviar para assinatura",                dias:2, cor:"#7cb342", proxima:"r4"},
-    {id:"r4", nome:"Enviado ao Andrei (aguardar retorno)",            dias:3, cor:"#6a1b9a", proxima:"FIM"},
-    {id:"r6", nome:"Verificar itens e convocar demais licitantes",    dias:2, cor:"#e64a19", proxima:"r7"},
-    {id:"r7", nome:"Convocação, assinatura e prefeito assina",        dias:3, cor:"#2e7d32", proxima:"FIM"}
-  ]},
-  { id:"revisao", nome:"Revisão de Valor", cor:"#00838f", icone:"\uD83D\uDCB2", ordem:1, etapas:[
-    {id:"v0", nome:"Pedido de revisão recebido (empresa)",            dias:0, cor:"#00838f", proxima:"v1"},
-    {id:"v1", nome:"Análise: pedir NF (se faltar) e fazer cálculos",  dias:1, cor:"#ff9800", proxima:"v2"},
-    {id:"v2", nome:"Consultar demais colocados (nova cotação)",       dias:2, cor:"#0097a7", proxima:"v3"},
-    {id:"v3", nome:"Negociar com o 1º colocado",                      dias:0, cor:"#f9a825", decisao:[
-        {label:"1º colocado aceitou",            proxima:"v4"},
-        {label:"1º não aceitou (próximo colocado)", proxima:"v5"}]},
-    {id:"v4", nome:"Fazer a revisão de valor",                        dias:1, cor:"#7cb342", proxima:"v6"},
-    {id:"v5", nome:"Repassar ao próximo colocado",                    dias:1, cor:"#e64a19", proxima:"v6"},
-    {id:"v6", nome:"Assinatura (empresa + Andrei)",                   dias:2, cor:"#2e7d32", proxima:"FIM"}
-  ]},
-  { id:"aditivo", nome:"Aditivo", cor:"#6a1b9a", icone:"\uD83D\uDCCE", ordem:2, etapas:[
-    {id:"a0", nome:"Recebido do setor de contratos",                 dias:0, cor:"#6a1b9a", proxima:"a1"},
-    {id:"a1", nome:"Elaborar aditivo e devolver ao setor de contratos", dias:2, cor:"#2e7d32", proxima:"FIM"}
-  ]}
-];
-var TRAMITES=[];   /* carregado do Firestore (editável) */
-/* Paleta Mosaico das Etnias — cores puras (linha 1) e tons suaves (linha 2) */
-var REQ_PALETA=[
-  "#081C52","#12306B","#1440A8","#1E52CC","#0B6E7F","#1E7A34","#8CC63F","#FFC20E","#F26B21","#E3242B",
-  "#8FA3D9","#A7B6DE","#7C96D6","#9DB4EF","#7FB5BF","#7FBC93","#C4E29B","#FFDF7A","#F9B183","#F1969A"
-];
-function tramiteById(id){ for(var i=0;i<TRAMITES.length;i++){ if(TRAMITES[i].id===id) return TRAMITES[i]; } return null; }
-function etapaById(tid, eid){ var t=tramiteById(tid); if(!t) return null; for(var i=0;i<t.etapas.length;i++){ if(t.etapas[i].id===eid) return t.etapas[i]; } return null; }
-function tramiteIcone(tid){ var t=tramiteById(tid); return t&&t.icone?t.icone:"\u2696\uFE0F"; }
-
-/* datas / dias úteis (pula sábado, domingo e feriados/pontos facultativos) */
-function addDiasIso(iso,n){ var d=new Date((iso||hojeStr())+"T12:00:00"); d.setDate(d.getDate()+(parseInt(n,10)||0)); return ymd(new Date(d.getFullYear(),d.getMonth(),d.getDate())); }
-function diasEntreIso(a,b){ return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
-function ehDiaUtil(iso){ var dow=new Date(iso+"T12:00:00").getDay(); return dow!==0 && dow!==6 && !feriadoNome(iso); }
-function addDiasUteis(iso,n){
-  var base=iso||hojeStr(); n=parseInt(n,10)||0;
-  if(n<=0) return base;
-  var cur=base, c=0;
-  while(c<n){ cur=addDiasIso(cur,1); if(ehDiaUtil(cur)) c++; }
-  return cur;
-}
-function reqPrazoInfo(dl){
-  if(!dl) return {cls:"rq-ok",txt:"sem prazo"};
-  var d=diasEntreIso(hojeStr(),dl);
-  if(d<0) return {cls:"rq-vencido",txt:"vencido há "+Math.abs(d)+(Math.abs(d)===1?" dia":" dias")};
-  if(d===0) return {cls:"rq-hoje",txt:"vence hoje"};
-  if(d===1) return {cls:"rq-perto",txt:"vence amanhã"};
-  if(d<=3) return {cls:"rq-perto",txt:"vence em "+d+" dias"};
-  return {cls:"rq-ok",txt:"vence em "+d+" dias"};
-}
-function reqNoDia(iso){ return reqPedidos.filter(function(p){ return !p.concluido && p.dataLimite===iso; }); }
-
-var _annaAuth = (function(){ try{ return sessionStorage.getItem("anna_auth")==="1"; }catch(e){ return false; } })();
-var _annaViewAnterior=null;
-function toggleModoAnna(){
-  if(!_modoAnna){
-    if(!_annaAuth){ annaAbrirLogin(); return; }   /* exige login do modo Reequilíbrios */
-    annaEntrarModo();
-  } else {
-    _modoAnna=false;
-    aplicarVisibViewToggle();
-    if(_annaViewAnterior){ aplicarView(_annaViewAnterior); _annaViewAnterior=null; } else { render(); }
-  }
-}
-function annaEntrarModo(){
-  _modoAnna=true;
-  _mostrarFerias=false; document.querySelectorAll('[data-tipo="ferias"]').forEach(function(b){ b.classList.remove("on"); });
-  _annaViewAnterior=_viewAtual;
-  aplicarVisibViewToggle();
-  aplicarView("list");   /* no módulo, só lista (sem calendário mensal) */
-  render();
-}
-function aplicarVisibViewToggle(){ var vt=document.getElementById("viewToggle"); if(vt) vt.style.display=_modoAnna?"none":""; }
-function annaAbrirLogin(){
-  var u=document.getElementById("annaLgUser"), s=document.getElementById("annaLgPass"), e=document.getElementById("annaLgErro");
-  if(u) u.value=""; if(s) s.value=""; if(e) e.textContent="";
-  document.getElementById("annaOvLogin").classList.add("open");
-  setTimeout(function(){ var x=document.getElementById("annaLgUser"); if(x) x.focus(); },60);
-}
-function annaFecharLogin(){ document.getElementById("annaOvLogin").classList.remove("open"); }
-/* SHA-256 compacto e síncrono (funciona em https e file://, sem dependências).
-   As credenciais do modo Reequilíbrios não ficam mais em texto puro no fonte:
-   apenas o hash de "copam-anna:usuario:senha" é comparado.                    */
-function annaSha256(ascii){
-  function rightRotate(value, amount){ return (value>>>amount)|(value<<(32-amount)); }
-  var mathPow=Math.pow, maxWord=mathPow(2,32), result="";
-  var words=[], asciiBitLength=ascii.length*8;
-  var hash=annaSha256.h=annaSha256.h||[];
-  var k=annaSha256.k=annaSha256.k||[];
-  var primeCounter=k.length;
-  var isComposite={};
-  for(var candidate=2; primeCounter<64; candidate++){
-    if(!isComposite[candidate]){
-      for(var i=0;i<313;i+=candidate){ isComposite[i]=candidate; }
-      hash[primeCounter]=(mathPow(candidate,0.5)*maxWord)|0;
-      k[primeCounter++]=(mathPow(candidate,1/3)*maxWord)|0;
-    }
-  }
-  ascii+="\x80";
-  while(ascii.length%64-56) ascii+="\x00";
-  for(i=0;i<ascii.length;i++){
-    var j=ascii.charCodeAt(i);
-    if(j>>8){ return ""; }
-    words[i>>2]|=j<<((3-i)%4)*8;
-  }
-  words[words.length]=((asciiBitLength/maxWord)|0);
-  words[words.length]=(asciiBitLength);
-  for(j=0;j<words.length;){
-    var w=words.slice(j,j+=16);
-    var oldHash=hash;
-    hash=hash.slice(0,8);
-    for(i=0;i<64;i++){
-      var w15=w[i-15], w2=w[i-2];
-      var a=hash[0], e=hash[4];
-      var temp1=hash[7]
-        +(rightRotate(e,6)^rightRotate(e,11)^rightRotate(e,25))
-        +((e&hash[5])^((~e)&hash[6]))
-        +k[i]
-        +(w[i]=(i<16)?w[i]:(
-            w[i-16]
-            +(rightRotate(w15,7)^rightRotate(w15,18)^(w15>>>3))
-            +w[i-7]
-            +(rightRotate(w2,17)^rightRotate(w2,19)^(w2>>>10))
-          )|0
-        );
-      var temp2=(rightRotate(a,2)^rightRotate(a,13)^rightRotate(a,22))
-        +((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
-      hash=[(temp1+temp2)|0].concat(hash);
-      hash[4]=(hash[4]+temp1)|0;
-    }
-    for(i=0;i<8;i++){ hash[i]=(hash[i]+oldHash[i])|0; }
-  }
-  for(i=0;i<8;i++){
-    for(j=3;j+1;j--){
-      var b=(hash[i]>>(j*8))&255;
-      result+=((b<16)?0:"")+b.toString(16);
-    }
-  }
-  return result;
-}
-var ANNA_AUTH_HASH="8a613e93195d8e81062ff6078add2d6392dcd95c91a85a470a0e72519907351a";
-function annaLoginEntrar(){
-  var u=(document.getElementById("annaLgUser").value||"").trim().toLowerCase();
-  var s=(document.getElementById("annaLgPass").value||"");
-  if(annaSha256("copam-anna:"+u+":"+s)===ANNA_AUTH_HASH){
-    _annaAuth=true; try{ sessionStorage.setItem("anna_auth","1"); }catch(e){}
-    annaFecharLogin(); annaEntrarModo();
-  } else {
-    document.getElementById("annaLgErro").textContent="Usuário ou senha incorretos.";
-  }
-}
-
-try{ reqColRef.onSnapshot(function(snap){
-  reqPedidos=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
-  render();
-}, function(err){ console.error("req pedidos:", err); }); }catch(e){ console.warn("reqPedidos onSnapshot:", e); }
-
-try{ reqTramColRef.onSnapshot(function(snap){
-  TRAMITES=snap.docs.map(function(d){ var x=d.data()||{}; return {id:d.id, nome:x.nome||"Trâmite", cor:corSegura(x.cor), icone:x.icone||"\u2696\uFE0F", ordem:(x.ordem==null?999:x.ordem), multiempresas:!!x.multiempresas, etapas:(x.etapas||[]).map(function(e){ return Object.assign({}, e, {cor:corSegura(e.cor)}); })}; })
-    .sort(function(a,b){ return a.ordem-b.ordem; });
-  var ovSt=document.getElementById("annaOvStatus");
-  if(ovSt && ovSt.classList.contains("open")) renderTramManager();
-  render();
-}, function(err){ console.error("trâmites:", err); }); }catch(e){ console.warn("trâmites onSnapshot:", e); }
-
-/* ── Painel lateral ──────────────────────────────────────────────────────── */
-function renderReqPanel(){
-  var box=document.getElementById("reqLista"); if(!box) return;
-  var lista=reqPedidos.slice().sort(function(a,b){
-    if(!!a.concluido!==!!b.concluido) return a.concluido?1:-1;        /* concluídos no fim */
-    return (a.dataLimite||"9999-99-99").localeCompare(b.dataLimite||"9999-99-99");
-  });
-  if(!lista.length){
-    if(!TRAMITES.length){
-      box.innerHTML='<div class="fer-empty">Nenhum trâmite criado ainda.<br>Clique em &#9881;&#65039; para criar/editar os fluxos (Renovação, Revisão de Valor, Aditivo) ou montar o seu.</div>';
-    } else {
-      box.innerHTML='<div class="fer-empty">Nenhum pedido cadastrado.<br>Clique em <b>+ Novo</b> e escolha um trâmite.</div>';
-    }
-    return;
-  }
-  var html="";
-  lista.forEach(function(p){
-    var t=tramiteById(p.tramiteId), et=etapaById(p.tramiteId,p.etapaId);
-    var atrasado=!p.concluido && p.dataLimite && p.dataLimite<hojeStr();
-    var cor=p.concluido?"#2e7d32":(atrasado?"#c0282a":((et&&et.cor)||(t&&t.cor)||"#546e7a"));
-    var hist=(p.historico||[]); var total=t?t.etapas.length:0;
-    html+='<div class="req-card'+(p.concluido?" req-done":"")+(atrasado?" req-atrasado":"")+'" style="border-left-color:'+cor+'">';
-    html+='<div class="req-emp">'+escHtml(tramiteIcone(p.tramiteId))+' '+escHtml(p.empresa||"Sem identificação")+'</div>';
-    html+='<div class="req-proc">'+escHtml(t?t.nome:"—")+(p.processo?" · "+escHtml(p.processo):"")+'</div>';
-    if(p.descricao) html+='<div class="req-desc">'+escHtml(p.descricao)+'</div>';
-    if(p.empresas && p.empresas.length){
-      html+='<div class="req-emps">';
-      p.empresas.forEach(function(e){
-        var ic=(e.aceitou===true)?'<span class="re-sim">&#10003;</span>':(e.aceitou===false?'<span class="re-nao">&#10007;</span>':'<span class="re-ind">&#8226;</span>');
-        html+='<div class="re-emp">'+ic+'<span class="re-nome">'+escHtml(e.nome||"")+'</span>'+(e.obs?'<span class="re-obs">'+escHtml(e.obs)+'</span>':"")+'</div>';
-      });
-      html+='</div>';
-    }
-    if(p.concluido){
-      html+='<div class="req-row"><span class="req-status" style="background:#2e7d32">&#10003; Concluído</span></div>';
-    } else if(et){
-      var pi=reqPrazoInfo(p.dataLimite);
-      html+='<div class="req-etapa"><span class="req-step-n">Fase '+(hist.length+1)+(total?"/"+total:"")+'</span> '+escHtml(et.nome)+'</div>';
-      html+='<div class="req-row"><span class="req-status'+(atrasado?" req-badge-late":"")+'"'+(atrasado?"":' style="background:'+cor+'"')+'>'+(atrasado?"&#9888; ATRASADO":(et.decisao?"&#9878;&#65039; decisão":"em andamento"))+'</span>'
-          +'<span class="req-prazo '+pi.cls+'">'+pi.txt+'</span></div>';
-      html+='<div class="req-data">&#128197; '+fmtData(p.dataLimite)+'</div>';
-    }
-    if(hist.length){
-      html+='<div class="req-hist" id="reqhist_'+p.id+'">';
-      hist.forEach(function(h){
-        html+='<div class="hi"><span class="req-hdot" style="background:'+escHtml(h.cor||"#999")+'"></span><div><b>'+escHtml(h.etapaNome||"")+'</b>'+(h.decisao?' <span>('+escHtml(h.decisao)+')</span>':"")+' &#8212; até '+fmtData(h.dataLimite)+(h.nota?'<br><span>'+escHtml(h.nota)+'</span>':"")+'</div></div>';
-      });
-      html+='</div>';
-    }
-    html+='<div class="req-acts">';
-    if(!p.concluido) html+='<button class="rq-av" onclick="annaAbrirAvancar(\''+p.id+'\')">&#9193; Avançar</button>';
-    if(hist.length) html+='<button onclick="reqToggleHist(\''+p.id+'\')">&#128338; '+hist.length+'</button>';
-    html+='<button onclick="annaAbrirPedido(\''+p.id+'\')">&#9998;</button>';
-    html+='<button class="rq-del" onclick="annaExcluirPedido(\''+p.id+'\')">&#128465;</button>';
-    html+='</div></div>';
-  });
-  box.innerHTML=html;
-}
-function reqToggleHist(id){ var el=document.getElementById("reqhist_"+id); if(el) el.classList.toggle("open"); }
-
-/* ── Novo / editar pedido (escolhe o trâmite) ────────────────────────────── */
-function annaAbrirPedido(id){
-  if(!TRAMITES.length){ toast("Crie um trâmite primeiro."); annaAbrirStatus(); return; }
-  reqEditId=id||null;
-  var p=id?reqPedidos.find(function(x){return x.id===id;}):null;
-  document.getElementById("annaPedTit").textContent=p?"Editar pedido":"Novo pedido (reequilíbrio/aditivo)";
-  var sel=document.getElementById("annaTramiteSel");
-  sel.innerHTML=TRAMITES.map(function(t){ return '<option value="'+t.id+'">'+escHtml(t.nome)+'</option>'; }).join("");
-  sel.value=p?(p.tramiteId||TRAMITES[0].id):TRAMITES[0].id;
-  sel.disabled=!!p;
-  document.getElementById("annaEmpresa").value=p?(p.empresa||""):"";
-  document.getElementById("annaProcesso").value=p?(p.processo||""):"";
-  document.getElementById("annaDescricao").value=p?(p.descricao||""):"";
-  annaEmpresas=(p&&p.empresas)?JSON.parse(JSON.stringify(p.empresas)):[];
-  annaTramitePrev();
-  document.getElementById("annaOvPedido").classList.add("open");
-}
-function annaFecharPedido(){ document.getElementById("annaOvPedido").classList.remove("open"); reqEditId=null; }
-function annaTramitePrev(){
-  var sel=document.getElementById("annaTramiteSel"); var prev=document.getElementById("annaTramitePrev");
-  if(!sel||!prev) return;
-  var t=tramiteById(sel.value); if(!t) return;
-  prev.innerHTML='Inicia em: <b>'+escHtml(t.etapas[0].nome)+'</b><br>'+t.etapas.length+' etapa(s) · prazos contados em dias úteis';
-  var wrap=document.getElementById("annaEmpresasWrap");
-  if(wrap){
-    if(t.multiempresas){ wrap.style.display=""; annaRenderEmpresas(); }
-    else { wrap.style.display="none"; }
-  }
-}
-/* lista de empresas (renovação): nome + aceite ✓/✗ + observação */
-function annaRenderEmpresas(){
-  var box=document.getElementById("annaEmpresasList"); if(!box) return;
-  if(!annaEmpresas.length){ box.innerHTML='<div class="re-vazio">Nenhuma empresa. Clique em “+ Adicionar empresa”.</div>'; return; }
-  box.innerHTML=annaEmpresas.map(function(e, i){
-    return '<div class="re-row">'
-      +'<input class="re-nome-in" value="'+escHtml(e.nome||"")+'" placeholder="Nome da empresa" oninput="annaSetEmpresa('+i+',\'nome\',this.value)">'
-      +'<div class="re-toggle"><button type="button" class="re-sim-bt'+(e.aceitou===true?" on":"")+'" title="Aceitou renovar" onclick="annaSetAceitou('+i+',true)">&#10003;</button>'
-      +'<button type="button" class="re-nao-bt'+(e.aceitou===false?" on":"")+'" title="Não aceitou" onclick="annaSetAceitou('+i+',false)">&#10007;</button></div>'
-      +'<button type="button" class="re-del" title="Remover" onclick="annaDelEmpresa('+i+')">&times;</button>'
-      +'<input class="re-obs-in" value="'+escHtml(e.obs||"")+'" placeholder="Observação (ex: renovou só os itens 1, 3 e 5)" oninput="annaSetEmpresa('+i+',\'obs\',this.value)">'
-      +'</div>';
-  }).join("");
-}
-function annaAddEmpresa(){ annaEmpresas.push({nome:"", aceitou:null, obs:""}); annaRenderEmpresas(); }
-function annaDelEmpresa(i){ annaEmpresas.splice(i,1); annaRenderEmpresas(); }
-function annaSetEmpresa(i, campo, val){ if(annaEmpresas[i]) annaEmpresas[i][campo]=val; }
-function annaSetAceitou(i, val){ if(annaEmpresas[i]){ annaEmpresas[i].aceitou=(annaEmpresas[i].aceitou===val?null:val); annaRenderEmpresas(); } }
-function annaSalvarPedido(){
-  var empresa=document.getElementById("annaEmpresa").value.trim();
-  if(!empresa){ toast("Informe a empresa / identificação."); return; }
-  var emps=(annaEmpresas||[]).filter(function(e){ return (e.nome||"").trim(); }).map(function(e){ return {nome:e.nome.trim(), aceitou:(e.aceitou===true||e.aceitou===false)?e.aceitou:null, obs:(e.obs||"").trim()}; });
-  if(reqEditId){
-    reqColRef.doc(reqEditId).update({
-      empresa:empresa, processo:document.getElementById("annaProcesso").value.trim(),
-      descricao:document.getElementById("annaDescricao").value.trim(), empresas:emps,
-      atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function(){ toast("Pedido atualizado."); annaFecharPedido(); }).catch(function(e){ toast("Erro: "+e.message); });
-  } else {
-    var t=tramiteById(document.getElementById("annaTramiteSel").value); var e0=t.etapas[0];
-    reqColRef.add({
-      empresa:empresa, tramiteId:t.id, etapaId:e0.id,
-      processo:document.getElementById("annaProcesso").value.trim(),
-      descricao:document.getElementById("annaDescricao").value.trim(), empresas:emps,
-      dataLimite:addDiasUteis(hojeStr(), e0.dias), prazoDias:e0.dias,
-      concluido:false, historico:[],
-      criadoEm:firebase.firestore.FieldValue.serverTimestamp(),
-      atualizadoEm:firebase.firestore.FieldValue.serverTimestamp()
-    }).then(function(){ toast("Pedido criado no trâmite "+t.nome+"."); annaFecharPedido(); }).catch(function(e){ toast("Erro: "+e.message); });
-  }
-}
-function annaExcluirPedido(id){
-  var p=reqPedidos.find(function(x){return x.id===id;});
-  if(!confirm("Excluir o pedido de \""+((p&&p.empresa)||"")+"\"?")) return;
-  reqColRef.doc(id).delete().then(function(){ toast("Pedido excluído."); }).catch(function(e){ toast("Erro: "+e.message); });
-}
-
-/* ── Avançar etapa (com decisão quando houver) ───────────────────────────── */
-function annaAbrirAvancar(id){
-  reqAvancarId=id;
-  var p=reqPedidos.find(function(x){return x.id===id;}); if(!p) return;
-  var et=etapaById(p.tramiteId,p.etapaId);
-  var body=document.getElementById("annaAvBody");
-  if(!et){ body.innerHTML='<p style="color:var(--muted)">Etapa não encontrada.</p>'; document.getElementById("annaOvAvancar").classList.add("open"); return; }
-  var h='<div class="av-atual">Etapa atual<br><b>'+escHtml(et.nome)+'</b></div>';
-  h+='<div class="anna-c"><label>Observação desta etapa (opcional)</label><textarea id="annaAvNota" placeholder="Ex: aguardando NF para comparação"></textarea></div>';
-  if(et.decisao){
-    h+='<div class="av-dec-lbl">Qual foi o resultado?</div><div class="av-decisoes">';
-    et.decisao.forEach(function(op, idx){
-      var prox=etapaById(p.tramiteId, op.proxima);
-      var info=prox?(prox.dias>0?(prox.dias+"d úteis"):"sem prazo"):"concluir";
-      h+='<button class="av-dec-btn" onclick="reqAvancar(\''+p.id+'\',\''+op.proxima+'\','+idx+')"><span>'+escHtml(op.label)+'</span><small>&#8594; '+escHtml(prox?prox.nome:"Concluir")+' · '+info+'</small></button>';
-    });
-    h+='</div>';
-  } else if(et.proxima==="FIM" || !etapaById(p.tramiteId, et.proxima)){
-    h+='<div class="av-next">Esta é a última etapa do trâmite.</div>';
-    h+='<button class="anna-btn prim" style="width:100%" onclick="reqAvancar(\''+p.id+'\',\'FIM\',-1)">&#10003; Concluir trâmite</button>';
-  } else {
-    var prox=etapaById(p.tramiteId, et.proxima);
-    h+='<div class="av-next">Próxima etapa<br><b>'+escHtml(prox.nome)+'</b><br><span class="av-prazo">'+(prox.dias>0?("Novo prazo: "+prox.dias+" dia(s) útil(eis) &#8594; "+fmtData(addDiasUteis(hojeStr(),prox.dias))):"Sem prazo (hoje)")+'</span></div>';
-    h+='<button class="anna-btn prim" style="width:100%" onclick="reqAvancar(\''+p.id+'\',\''+et.proxima+'\',-1)">&#9193; Avançar etapa</button>';
-  }
-  body.innerHTML=h;
-  document.getElementById("annaOvAvancar").classList.add("open");
-}
-function annaFecharAvancar(){ document.getElementById("annaOvAvancar").classList.remove("open"); reqAvancarId=null; }
-function reqAvancar(pid, proximaId, decIdx){
-  var p=reqPedidos.find(function(x){return x.id===pid;}); if(!p) return;
-  var et=etapaById(p.tramiteId,p.etapaId); if(!et) return;
-  var notaEl=document.getElementById("annaAvNota"); var nota=notaEl?notaEl.value.trim():"";
-  var decLabel="";
-  if(et.decisao && decIdx>=0 && et.decisao[decIdx]) decLabel=et.decisao[decIdx].label;
-  var hist=(p.historico||[]).slice();
-  hist.push({ etapaId:et.id, etapaNome:et.nome, cor:et.cor, dataLimite:p.dataLimite||null, decisao:decLabel, nota:nota||"", em:Date.now() });
-  var upd={ historico:hist, atualizadoEm:firebase.firestore.FieldValue.serverTimestamp() };
-  if(proximaId==="FIM"){
-    upd.concluido=true;
-  } else {
-    var prox=etapaById(p.tramiteId, proximaId);
-    if(!prox){ toast("Próxima etapa inválida."); return; }
-    upd.etapaId=prox.id; upd.prazoDias=prox.dias; upd.dataLimite=addDiasUteis(hojeStr(), prox.dias);
-  }
-  reqColRef.doc(p.id).update(upd)
-    .then(function(){ toast(proximaId==="FIM"?"Trâmite concluído!":"Etapa avançada."); annaFecharAvancar(); })
-    .catch(function(e){ toast("Erro: "+e.message); });
-}
-
-/* ── Gerenciador de TRÂMITES (editável) ─────────────────────────────────── */
-function annaAbrirStatus(){ renderTramManager(); document.getElementById("annaOvStatus").classList.add("open"); }
-function annaFecharStatus(){ document.getElementById("annaOvStatus").classList.remove("open"); }
-function renderTramManager(){
-  var box=document.getElementById("annaTramitesView"); if(!box) return;
-  var h='<div class="tm-top"><button class="anna-btn prim" onclick="tramNovo()">&#43; Novo trâmite</button>';
-  if(!TRAMITES.length) h+='<button class="anna-btn" onclick="criarTramitesPadrao()">Criar trâmites padrão</button>';
-  h+='</div>';
-  if(!TRAMITES.length){
-    h+='<div class="anna-st-empty">Nenhum trâmite ainda.<br>Crie um do zero ou use os 3 padrões (Renovação, Revisão de Valor, Aditivo) e personalize.</div>';
-  } else {
-    TRAMITES.forEach(function(t){
-      var usados=reqPedidos.filter(function(p){return p.tramiteId===t.id;}).length;
-      h+='<div class="tm-row"><span class="tv-dot" style="background:'+t.cor+'"></span>'
-        +'<span class="tm-nome">'+escHtml((t.icone||"")+" "+t.nome)+'</span>'
-        +'<span class="tm-meta">'+t.etapas.length+' etapa(s)'+(t.multiempresas?' · empresas':"")+(usados?' · '+usados+' pedido(s)':'')+'</span>'
-        +'<button onclick="tramEditar(\''+t.id+'\')">&#9998; Editar</button>'
-        +'<button class="del" onclick="tramExcluir(\''+t.id+'\')">&#128465;</button></div>';
-    });
-  }
-  box.innerHTML=h;
-}
-function criarTramitesPadrao(){
-  var batch=db.batch();
-  TRAMITES_PADRAO.forEach(function(t){ batch.set(reqTramColRef.doc(t.id), {nome:t.nome, cor:t.cor, icone:t.icone, ordem:t.ordem, multiempresas:!!t.multiempresas, etapas:t.etapas}); });
-  batch.commit().then(function(){ toast("Trâmites padrão criados."); }).catch(function(e){ toast("Erro: "+e.message); });
-}
-function tramExcluir(id){
-  var usados=reqPedidos.filter(function(p){return p.tramiteId===id;}).length;
-  var t=tramiteById(id);
-  if(!confirm("Excluir o trâmite \""+((t&&t.nome)||"")+"\"?"+(usados?("\n\nAtenção: "+usados+" pedido(s) usam este trâmite."):""))) return;
-  reqTramColRef.doc(id).delete().then(function(){ toast("Trâmite excluído."); }).catch(function(e){ toast("Erro: "+e.message); });
-}
-
-/* ── Editor de um trâmite (working copy) ────────────────────────────────── */
-var tramEdit=null, tramEditId=null;
-function _novoId(){ return "e"+Date.now().toString(36)+Math.floor(Math.random()*1000); }
-function tramNovo(){
-  tramEditId=null;
-  tramEdit={ nome:"", cor:"#1565c0", icone:"\u2696\uFE0F", ordem:TRAMITES.length, multiempresas:false, etapas:[
-    {id:_novoId(), nome:"Recebido", dias:0, cor:"#1565c0", proxima:"FIM"}
-  ]};
-  renderTramEditor(); document.getElementById("annaOvTramite").classList.add("open");
-}
-function tramEditar(id){
-  var t=tramiteById(id); if(!t) return;
-  tramEditId=id;
-  tramEdit=JSON.parse(JSON.stringify({ nome:t.nome, cor:t.cor, icone:t.icone||"\u2696\uFE0F", ordem:(t.ordem==null?TRAMITES.length:t.ordem), multiempresas:!!t.multiempresas, etapas:t.etapas }));
-  renderTramEditor(); document.getElementById("annaOvTramite").classList.add("open");
-}
-function tramFecharEditor(){ document.getElementById("annaOvTramite").classList.remove("open"); tramEdit=null; tramEditId=null; }
-function _opcoesEtapas(selfId, sel){
-  var o='';
-  tramEdit.etapas.forEach(function(e){
-    if(e.id===selfId) return;
-    o+='<option value="'+e.id+'"'+(sel===e.id?" selected":"")+'>'+escHtml(e.nome||"(sem nome)")+'</option>';
-  });
-  o+='<option value="FIM"'+(sel==="FIM"?" selected":"")+'>FIM (concluir)</option>';
-  return o;
-}
-function renderTramEditor(){
-  if(!tramEdit) return;
-  document.getElementById("trEdTit").textContent=tramEditId?"Editar trâmite":"Novo trâmite";
-  document.getElementById("trEdNome").value=tramEdit.nome||"";
-  document.getElementById("trEdIcone").value=tramEdit.icone||"";
-  document.getElementById("trEdCorSw").style.background=tramEdit.cor;
-  var chk=document.getElementById("trEdMulti"); if(chk) chk.checked=!!tramEdit.multiempresas;
-  var box=document.getElementById("trEdEtapas"), h="";
-  tramEdit.etapas.forEach(function(e, idx){
-    var ehDec=!!(e.decisao && e.decisao.length);
-    h+='<div class="et-card" style="border-left-color:'+e.cor+'">';
-    h+='<div class="et-l1"><span class="et-num">'+(idx+1)+'</span>'
-      +'<input class="et-nome" value="'+escHtml(e.nome||"")+'" placeholder="Nome da etapa" oninput="tramSetEtapa('+idx+',\'nome\',this.value)">'
-      +'<button class="et-sw" style="background:'+e.cor+'" title="Cor" onclick="tramPickCorEtapa('+idx+')"></button></div>';
-    h+='<div class="et-l2"><label>Prazo (dias úteis)</label><input type="number" min="0" step="1" class="et-dias" value="'+(e.dias==null?0:e.dias)+'" oninput="tramSetEtapa('+idx+',\'dias\',this.value)">';
-    h+='<label class="et-chk"><input type="checkbox" '+(ehDec?"checked":"")+' onchange="tramToggleDecisao('+idx+',this.checked)"> Decisão (vários caminhos)</label></div>';
-    if(ehDec){
-      h+='<div class="et-dec">';
-      e.decisao.forEach(function(op, oi){
-        h+='<div class="et-op"><input class="et-op-label" value="'+escHtml(op.label||"")+'" placeholder="Ex: Aceitaram" oninput="tramSetOpcao('+idx+','+oi+',\'label\',this.value)">'
-          +'<span>&#8594;</span><select class="et-op-prox" onchange="tramSetOpcao('+idx+','+oi+',\'proxima\',this.value)">'+_opcoesEtapas(e.id, op.proxima)+'</select>'
-          +'<button class="et-op-del" onclick="tramDelOpcao('+idx+','+oi+')">&times;</button></div>';
-      });
-      h+='<button class="et-mini" onclick="tramAddOpcao('+idx+')">&#43; opção</button></div>';
-    } else {
-      h+='<div class="et-prox"><label>Avança para</label><select onchange="tramSetEtapa('+idx+',\'proxima\',this.value)">'+_opcoesEtapas(e.id, e.proxima||"FIM")+'</select></div>';
-    }
-    h+='<div class="et-acts"><button onclick="tramMoveEtapa('+idx+',-1)" '+(idx===0?"disabled":"")+'>&#8593;</button>'
-      +'<button onclick="tramMoveEtapa('+idx+',1)" '+(idx===tramEdit.etapas.length-1?"disabled":"")+'>&#8595;</button>'
-      +'<button class="del" onclick="tramDelEtapa('+idx+')">&#128465; etapa</button></div>';
-    h+='</div>';
-  });
-  box.innerHTML=h;
-}
-function tramSetCab(campo, val){ if(tramEdit) tramEdit[campo]=val; }
-function tramSetMulti(on){ if(tramEdit) tramEdit.multiempresas=!!on; }
-function tramSetEtapa(idx, campo, val){
-  if(!tramEdit||!tramEdit.etapas[idx]) return;
-  tramEdit.etapas[idx][campo]=(campo==="dias")?(parseInt(val,10)||0):val;
-}
-function tramAddEtapa(){ if(!tramEdit) return; tramEdit.etapas.push({id:_novoId(), nome:"", dias:0, cor:REQ_PALETA[10], proxima:"FIM"}); renderTramEditor(); }
-function tramDelEtapa(idx){
-  if(!tramEdit) return;
-  if(tramEdit.etapas.length<=1){ toast("O trâmite precisa de pelo menos 1 etapa."); return; }
-  tramEdit.etapas.splice(idx,1); renderTramEditor();
-}
-function tramMoveEtapa(idx, dir){
-  if(!tramEdit) return; var j=idx+dir;
-  if(j<0||j>=tramEdit.etapas.length) return;
-  var tmp=tramEdit.etapas[idx]; tramEdit.etapas[idx]=tramEdit.etapas[j]; tramEdit.etapas[j]=tmp;
-  renderTramEditor();
-}
-function tramToggleDecisao(idx, on){
-  var e=tramEdit.etapas[idx]; if(!e) return;
-  if(on){ e.decisao=[{label:"Sim", proxima:"FIM"},{label:"Não", proxima:"FIM"}]; }
-  else { delete e.decisao; if(!e.proxima) e.proxima="FIM"; }
-  renderTramEditor();
-}
-function tramAddOpcao(idx){ var e=tramEdit.etapas[idx]; if(!e)return; e.decisao=e.decisao||[]; e.decisao.push({label:"", proxima:"FIM"}); renderTramEditor(); }
-function tramDelOpcao(idx, oi){ var e=tramEdit.etapas[idx]; if(!e||!e.decisao)return; e.decisao.splice(oi,1); if(!e.decisao.length){ delete e.decisao; if(!e.proxima)e.proxima="FIM"; } renderTramEditor(); }
-function tramSetOpcao(idx, oi, campo, val){ var e=tramEdit.etapas[idx]; if(!e||!e.decisao||!e.decisao[oi])return; e.decisao[oi][campo]=val; }
-function tramSalvar(){
-  if(!tramEdit) return;
-  tramEdit.nome=(document.getElementById("trEdNome").value||"").trim();
-  tramEdit.icone=(document.getElementById("trEdIcone").value||"").trim()||"\u2696\uFE0F";
-  if(!tramEdit.nome){ toast("Dê um nome ao trâmite."); return; }
-  for(var i=0;i<tramEdit.etapas.length;i++){ if(!(tramEdit.etapas[i].nome||"").trim()){ toast("A etapa "+(i+1)+" está sem nome."); return; } }
-  var dados={ nome:tramEdit.nome, cor:tramEdit.cor, icone:tramEdit.icone, ordem:(tramEdit.ordem==null?TRAMITES.length:tramEdit.ordem), multiempresas:!!tramEdit.multiempresas, etapas:tramEdit.etapas };
-  var p = tramEditId ? reqTramColRef.doc(tramEditId).set(dados) : reqTramColRef.add(dados);
-  p.then(function(){ toast("Trâmite salvo."); tramFecharEditor(); }).catch(function(e){ toast("Erro: "+e.message); });
-}
-
-/* ── Paleta de cores (reutilizável) ─────────────────────────────────────── */
-var _paletaCb=null;
-function abrirPaleta(cb, atual){
-  _paletaCb=cb;
-  document.getElementById("paletaGrid").innerHTML=REQ_PALETA.map(function(c){ return '<div class="pal-sw'+(c===atual?" sel":"")+'" style="background:'+c+'" onclick="paletaPick(\''+c+'\')"></div>'; }).join("");
-  var ci=document.getElementById("paletaCustom"); if(ci) ci.value=(/^#[0-9a-fA-F]{6}$/.test(atual||"")?atual:"#1440A8");
-  document.getElementById("annaOvPaleta").classList.add("open");
-}
-function paletaPick(c){ if(_paletaCb) _paletaCb(c); document.getElementById("annaOvPaleta").classList.remove("open"); _paletaCb=null; }
-function paletaUsarCustom(){ paletaPick(document.getElementById("paletaCustom").value); }
-function tramPickCorTramite(){ abrirPaleta(function(c){ tramEdit.cor=c; document.getElementById("trEdCorSw").style.background=c; }, tramEdit&&tramEdit.cor); }
-function tramPickCorEtapa(idx){ abrirPaleta(function(c){ tramEdit.etapas[idx].cor=c; renderTramEditor(); }, tramEdit&&tramEdit.etapas[idx]&&tramEdit.etapas[idx].cor); }
-
-/* fecha modais Anna ao clicar no fundo */
-document.querySelectorAll(".anna-ov").forEach(function(ov){ ov.addEventListener("click", function(e){ if(e.target===ov) ov.classList.remove("open"); }); });
 
 function renderCalendario(){
   var grid=document.getElementById("calGrid");
@@ -2093,33 +1260,20 @@ function renderCalendario(){
       if(!aberto&&temNota) html+='<span class="cal-note-text" title="'+escHtml(observacoes[iso])+'">'+escHtml(observacoes[iso])+'</span>';
       html+='</div>';
       if(nomeFer) html+='<div class="cal-holiday-name" title="Feriado: '+escHtml(nomeFer)+'">'+escHtml(nomeFer)+'</div>';
-      if(_mostrarFerias){
-        /* várias pessoas de férias no mesmo dia: uma linha só (evita amontoar) */
-        var _fers=feriasNoDia(iso);
-        if(_fers.length){
-          html+='<div class="cal-ev cal-ev-ferias" title="Férias: '+escHtml(_fers.join(", "))+'">&#127958; '+escHtml(_fers.join(", "))+'</div>';
-        }
-      }
-      if(_mostrarAniv && !_modoAnna){
+      if(_mostrarAniv){
         /* dois ou mais aniversários no mesmo dia: uma linha só — "🎂 Gabriel, Julio (Sáb)" */
         var _anivs=anivCelula(iso);
         if(_anivs.length){
           html+='<div class="cal-ev cal-ev-aniv" title="Aniversário: '+escHtml(_anivs.join(", "))+'">&#127874; '+escHtml(_anivs.join(", "))+'</div>';
         }
       }
-      if(_modoAnna) reqNoDia(iso).forEach(function(rp){
-        var et=etapaById(rp.tramiteId,rp.etapaId);
-        html+='<div class="cal-ev cal-ev-req" onclick="annaAbrirAvancar(\''+escHtml(rp.id)+'\')" title="'+escHtml((tramiteById(rp.tramiteId)?tramiteById(rp.tramiteId).nome:"")+": "+(rp.empresa||"")+(et?" — "+et.nome:""))+'">'+escHtml(tramiteIcone(rp.tramiteId))+' '+escHtml(rp.empresa||"Pedido")+'</div>';
-      });
       if(aberto) html+='<textarea class="cal-obs-edit" id="calobs_'+isoC+'" placeholder="observação…" onclick="event.stopPropagation()" oninput="onObsInput(\''+iso+'\',this)">'+escHtml(observacoes[iso]||"")+'</textarea>';
-      if(!_mostrarFerias && !_modoAnna){
-        var evs=(porData[iso]||[]).slice().sort(function(a,b){ return (a.horarioAbertura||"99:99").localeCompare(b.horarioAbertura||"99:99"); });
-        var CAP=6; /* a grade se adapta em altura, então dá pra mostrar mais antes do "+N mais" */
-        evs.slice(0,CAP).forEach(function(p){
-          html+='<div class="cal-ev '+corClasseEv(p)+'" onclick="abrirDetalhe(\''+escHtml(p.id)+'\')" title="'+escHtml((p.numero||"")+" — "+(p.objeto||""))+'">'+escHtml(rotuloAgenda(p))+'</div>';
-        });
-        if(evs.length>CAP){ html+='<span class="cal-more" onclick="abrirDetalhe(\''+escHtml(evs[CAP].id)+'\')">+'+(evs.length-CAP)+' mais</span>'; }
-      }
+      var evs=(porData[iso]||[]).slice().sort(function(a,b){ return (a.horarioAbertura||"99:99").localeCompare(b.horarioAbertura||"99:99"); });
+      var CAP=6; /* a grade se adapta em altura, então dá pra mostrar mais antes do "+N mais" */
+      evs.slice(0,CAP).forEach(function(p){
+        html+='<div class="cal-ev '+corClasseEv(p)+'" onclick="abrirDetalhe(\''+escHtml(p.id)+'\')" title="'+escHtml((p.numero||"")+" — "+(p.objeto||""))+'">'+escHtml(rotuloAgenda(p))+'</div>';
+      });
+      if(evs.length>CAP){ html+='<span class="cal-more" onclick="abrirDetalhe(\''+escHtml(evs[CAP].id)+'\')">+'+(evs.length-CAP)+' mais</span>'; }
       html+='</div>';
     });
   });
@@ -2298,38 +1452,20 @@ function renderLista(){
     return (a.horarioAbertura||"").localeCompare(b.horarioAbertura||"");
   });
 
-  /* agrupa processos por data (ocultos nos modos férias e reequilíbrios) */
+  /* agrupa processos por data */
   var grupos={};
-  if(!_mostrarFerias && !_modoAnna){
-    doMes.forEach(function(p){
-      (grupos[p.dataLicit]=grupos[p.dataLicit]||[]).push(p);
-    });
-  }
+  doMes.forEach(function(p){
+    (grupos[p.dataLicit]=grupos[p.dataLicit]||[]).push(p);
+  });
 
-  /* camadas opcionais: férias (ancoradas no início dentro do mês) e aniversários */
-  var firstISO=ymd(new Date(ano,mes,1));
-  var lastISO=ymd(new Date(ano,mes+1,0));
-  var extraFerias={}, extraAniv={}, extraReq={};
-  if(_modoAnna){
-    reqPedidos.forEach(function(rp){
-      if(!rp.dataLimite || rp.dataLimite<firstISO || rp.dataLimite>lastISO) return;
-      (extraReq[rp.dataLimite]=extraReq[rp.dataLimite]||[]).push(rp);
-    });
-  }
-  if(_mostrarFerias){
-    feriasList.forEach(function(f){
-      if(!f.inicio) return;
-      var fim=f.fim||f.inicio;
-      if(f.inicio>lastISO || fim<firstISO) return;        /* sem sobreposição com o mês */
-      var anchor=(f.inicio<firstISO)?firstISO:f.inicio;    /* aparece uma vez no mês */
-      (extraFerias[anchor]=extraFerias[anchor]||[]).push(f);
-    });
-  }
-  if(_mostrarAniv && !_modoAnna){
+  /* camada opcional: aniversários */
+  var mesNum=mes+1;
+  var extraAniv={};
+  if(_mostrarAniv){
     anivList.forEach(function(a){
-      if(parseInt(a.mes,10)!==mes+1) return;
+      if(parseInt(a.mes,10)!==mesNum) return;
       var dia=parseInt(a.dia,10); if(!dia) return;
-      var iso=ano+"-"+("0"+(mes+1)).slice(-2)+"-"+("0"+dia).slice(-2);
+      var iso=ano+"-"+("0"+mesNum).slice(-2)+"-"+("0"+dia).slice(-2);
       (extraAniv[iso]=extraAniv[iso]||[]).push(a.servidor||"Servidor");
     });
   }
@@ -2337,13 +1473,11 @@ function renderLista(){
   /* todas as datas com algo a exibir, em ordem crescente */
   var todasDatas={};
   Object.keys(grupos).forEach(function(k){ todasDatas[k]=true; });
-  Object.keys(extraFerias).forEach(function(k){ todasDatas[k]=true; });
   Object.keys(extraAniv).forEach(function(k){ todasDatas[k]=true; });
-  Object.keys(extraReq).forEach(function(k){ todasDatas[k]=true; });
   var ordem=Object.keys(todasDatas).sort();
 
   if(!ordem.length){
-    box.innerHTML='<div class="list-empty">'+(_modoAnna?('Nenhum reequilíbrio/aditivo com prazo em '+MESES[mes]+'.<br>Use <b>+ Novo</b> no painel ao lado.'):(_mostrarFerias?('Nenhuma férias em '+MESES[mes]+'.'):('Nenhum processo agendado em '+MESES[mes]+'.<br>Toque em “+ Novo” para cadastrar.')))+'</div>';
+    box.innerHTML='<div class="list-empty">Nenhum processo agendado em '+MESES[mes]+'.<br>Toque em “+ Novo” para cadastrar.</div>';
     return;
   }
 
@@ -2367,24 +1501,8 @@ function renderLista(){
     html+='</div><span class="list-day-chevron">&#9660;</span></div>';
     html+='<div class="obs-wrap" id="obswrap_'+isoClean+'" style="display:'+(aberto?'flex':'none')+'"><span class="obs-icon">📝</span><textarea class="obs-input" id="'+obsId+'" rows="1" placeholder="Adicionar observação para este dia…" oninput="onObsInput(\''+iso+'\',this)">'+obsVal+'</textarea><span class="obs-saving" id="'+obsStId+'" style="opacity:0"></span><button class="obs-close" title="Fechar" onclick="fecharDiaObs(\''+iso+'\')">&#10005;</button></div>';
     html+='<div class="list-items">';
-    (extraFerias[iso]||[]).forEach(function(f){
-      var ff=f.fim||f.inicio;
-      var faixa=(f.inicio===ff)?fmtData(f.inicio):(fmtData(f.inicio)+" a "+fmtData(ff));
-      html+='<div class="list-card list-card-ferias list-card-extra"><span class="lc-ico">🏖</span><span class="lc-nome">Férias — '+escHtml(f.servidor||"Servidor")+'</span><span class="lc-sub">'+escHtml(faixa)+'</span></div>';
-    });
     (extraAniv[iso]||[]).forEach(function(nm){
       html+='<div class="list-card list-card-aniv list-card-extra"><span class="lc-ico">🎂</span><span class="lc-nome">Aniversário — '+escHtml(nm)+'</span></div>';
-    });
-    (extraReq[iso]||[]).forEach(function(rp){
-      var t=tramiteById(rp.tramiteId), et=etapaById(rp.tramiteId,rp.etapaId);
-      var atrasado=!rp.concluido && rp.dataLimite && rp.dataLimite<hojeStr();
-      var cor=rp.concluido?"#2e7d32":(atrasado?"#c0282a":((et&&et.cor)||(t&&t.cor)||"#546e7a"));
-      html+='<div class="list-card'+(atrasado?" list-atrasado":"")+'" style="border-left-color:'+cor+'" onclick="annaAbrirAvancar(\''+escHtml(rp.id)+'\')">';
-      html+='<div class="list-card-top"><span class="list-card-num">'+escHtml(tramiteIcone(rp.tramiteId))+' '+escHtml(rp.empresa||"Pedido")+'</span>';
-      html+='<span class="list-card-time" style="background:'+cor+';color:#fff">'+escHtml(t?t.nome:"")+'</span></div>';
-      if(rp.processo) html+='<div class="list-card-obj">'+escHtml(rp.processo)+(rp.descricao?' — '+escHtml(rp.descricao):'')+'</div>';
-      html+='<div class="list-card-meta"><span class="list-card-tag" style="background:'+cor+';color:#fff">'+escHtml(rp.concluido?"Concluído":(atrasado?"\u26A0 ATRASADO":(et?et.nome:"")))+'</span></div>';
-      html+='</div>';
     });
     (grupos[iso]||[]).forEach(function(p){
       var tipo=tipoLicitacao(p.numero);
@@ -2826,8 +1944,8 @@ function salvarCadastro(){
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   PAINEL INTERNO EMBUTIDO — cadastros de pontos facultativos, férias e
-   aniversários. Grava nas coleções pfColRef / ferColRef / anivColRef.
+   PAINEL INTERNO EMBUTIDO — cadastros de pontos facultativos e aniversários.
+   Grava nas coleções pfColRef / anivColRef.
    ══════════════════════════════════════════════════════════════════════════ */
 /* Senha padrão: copam2026 — troque gerando o SHA-256 da nova senha. */
 var PN_SENHA_HASH = "e5564018e94c236f86bf95125278ff2c78adfd7f464cf98109584926ce909fae";
@@ -2883,7 +2001,7 @@ function pnPopularServidores(){
 function refreshPainel(){
   if(!document.getElementById("modalPainel").classList.contains("open")) return;
   if(!_pnAutenticado()) return;
-  pnRenderPF(); pnRenderFer(); pnRenderAniv();
+  pnRenderPF(); pnRenderAniv();
 }
 
 function pnRenderPF(){
@@ -2908,35 +2026,6 @@ function pnAddPF(){
 function pnDelPF(id){
   if(!confirm("Excluir este ponto facultativo?")) return;
   pfColRef.doc(id).delete().then(function(){ toast("Excluído."); }).catch(function(){ toast("Erro ao excluir."); });
-}
-
-function pnRenderFer(){
-  var box=document.getElementById("pnFerLista"); if(!box) return;
-  document.getElementById("pnFerCount").textContent=feriasList.length;
-  if(!feriasList.length){ box.innerHTML='<div class="pn-vazio">Nenhuma cadastrada.</div>'; return; }
-  var arr=feriasList.slice().sort(function(a,b){ return (a.inicio||"").localeCompare(b.inicio||""); });
-  var html="";
-  arr.forEach(function(f){
-    var fim=f.fim||f.inicio;
-    var faixa=(f.inicio===fim)?fmtData(f.inicio):(fmtData(f.inicio)+" a "+fmtData(fim));
-    html+='<div class="pn-item is-fer"><span class="pi-ico">&#127958;</span><div class="pi-main"><div class="pi-nome">'+escHtml(f.servidor||"Servidor")+'</div><div class="pi-sub">'+escHtml(faixa)+'</div></div><button class="pi-del" title="Excluir" onclick="pnDelFer(\''+escHtml(f.id)+'\')">&#10005;</button></div>';
-  });
-  box.innerHTML=html;
-}
-function pnAddFer(){
-  var servidor=document.getElementById("pnFerServidor").value.trim();
-  var inicio=document.getElementById("pnFerInicio").value;
-  var fim=document.getElementById("pnFerFim").value;
-  if(!servidor){ toast("Informe o servidor."); return; }
-  if(!inicio){ toast("Informe a data de início."); return; }
-  if(fim && fim<inicio){ toast("A data fim não pode ser antes do início."); return; }
-  ferColRef.add({servidor:servidor, inicio:inicio, fim:fim||inicio, criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){ toast("Férias cadastradas."); document.getElementById("pnFerServidor").value=""; document.getElementById("pnFerInicio").value=""; document.getElementById("pnFerFim").value=""; })
-    .catch(function(e){ toast("Erro ao salvar."); console.warn(e); });
-}
-function pnDelFer(id){
-  if(!confirm("Excluir este registro de férias?")) return;
-  ferColRef.doc(id).delete().then(function(){ toast("Excluído."); }).catch(function(){ toast("Erro ao excluir."); });
 }
 
 function pnRenderAniv(){
@@ -2973,83 +2062,5 @@ function pnDelAniv(id){
   document.getElementById(id).addEventListener("click", function(e){ if(e.target===this) this.classList.remove("open"); });
 });
 </script>
-<!-- ── Modais do modo Reequilíbrios (Anna) ─────────────────────────────────── -->
-<div class="anna-ov" id="annaOvPedido">
-  <div class="anna-modal">
-    <div class="anna-mh"><h3 id="annaPedTit">Novo pedido (reequilíbrio/aditivo)</h3><button class="x" onclick="annaFecharPedido()">&times;</button></div>
-    <div class="anna-mb">
-      <div class="anna-c"><label>Trâmite</label><select id="annaTramiteSel" onchange="annaTramitePrev()"></select><div class="hint" id="annaTramitePrev"></div></div>
-      <div class="anna-c"><label>Empresa / Identificação *</label><input type="text" id="annaEmpresa" placeholder="Nome da empresa solicitante"></div>
-      <div class="anna-c" id="annaEmpresasWrap" style="display:none">
-        <label>Empresas (aceite da renovação)</label>
-        <div id="annaEmpresasList"></div>
-        <button type="button" class="anna-btn" style="width:100%;margin-top:8px" onclick="annaAddEmpresa()">&#43; Adicionar empresa</button>
-      </div>
-      <div class="anna-c"><label>Processo</label><input type="text" id="annaProcesso" placeholder="Ex: PE 75/2026"></div>
-      <div class="anna-c"><label>Descrição / Objeto</label><textarea id="annaDescricao" placeholder="Resumo do pedido (opcional)"></textarea></div>
-    </div>
-    <div class="anna-mf"><button class="anna-btn" onclick="annaFecharPedido()">Cancelar</button><button class="anna-btn prim" onclick="annaSalvarPedido()">Salvar</button></div>
-  </div>
-</div>
-
-<div class="anna-ov" id="annaOvAvancar">
-  <div class="anna-modal">
-    <div class="anna-mh"><h3>Avançar etapa</h3><button class="x" onclick="annaFecharAvancar()">&times;</button></div>
-    <div class="anna-mb" id="annaAvBody"></div>
-    <div class="anna-mf"><button class="anna-btn" onclick="annaFecharAvancar()">Fechar</button></div>
-  </div>
-</div>
-
-<div class="anna-ov" id="annaOvStatus">
-  <div class="anna-modal">
-    <div class="anna-mh"><h3>Trâmites e fluxos</h3><button class="x" onclick="annaFecharStatus()">&times;</button></div>
-    <div class="anna-mb"><div id="annaTramitesView"></div></div>
-    <div class="anna-mf"><button class="anna-btn prim" onclick="annaFecharStatus()">Fechar</button></div>
-  </div>
-</div>
-
-<!-- Editor de um trâmite -->
-<div class="anna-ov" id="annaOvTramite">
-  <div class="anna-modal" style="max-width:600px">
-    <div class="anna-mh"><h3 id="trEdTit">Editar trâmite</h3><button class="x" onclick="tramFecharEditor()">&times;</button></div>
-    <div class="anna-mb">
-      <div class="tr-cab">
-        <div class="anna-c" style="flex:1"><label>Nome do trâmite</label><input type="text" id="trEdNome" placeholder="Ex: Renovação" oninput="tramSetCab('nome',this.value)"></div>
-        <div class="anna-c" style="width:84px"><label>Ícone</label><input type="text" id="trEdIcone" maxlength="4" placeholder="⚖️" oninput="tramSetCab('icone',this.value)"></div>
-        <div class="anna-c" style="width:64px"><label>Cor</label><button class="tr-corsw" id="trEdCorSw" onclick="tramPickCorTramite()"></button></div>
-      </div>
-      <label class="tr-multi"><input type="checkbox" id="trEdMulti" onchange="tramSetMulti(this.checked)"> Permite cadastrar várias empresas (aceite &#10003;/&#10007; + observação)</label>
-      <div class="tr-etapas-lbl">Etapas do fluxo</div>
-      <div id="trEdEtapas"></div>
-      <button class="anna-btn" style="width:100%;margin-top:10px" onclick="tramAddEtapa()">&#43; Adicionar etapa</button>
-    </div>
-    <div class="anna-mf"><button class="anna-btn" onclick="tramFecharEditor()">Cancelar</button><button class="anna-btn prim" onclick="tramSalvar()">Salvar trâmite</button></div>
-  </div>
-</div>
-
-<!-- Paleta de cores -->
-<div class="anna-ov" id="annaOvPaleta" style="z-index:1300">
-  <div class="anna-modal" style="max-width:380px">
-    <div class="anna-mh"><h3>Escolher cor</h3><button class="x" onclick="document.getElementById('annaOvPaleta').classList.remove('open')">&times;</button></div>
-    <div class="anna-mb">
-      <div class="pal-grid" id="paletaGrid"></div>
-      <div class="pal-custom"><label>Cor personalizada</label><input type="color" id="paletaCustom" value="#1440A8"><button class="anna-btn prim" onclick="paletaUsarCustom()">Usar esta cor</button></div>
-    </div>
-  </div>
-</div>
-
-<!-- Login do módulo Reequilíbrios/Aditivos -->
-<div class="anna-ov" id="annaOvLogin" style="z-index:1400">
-  <div class="anna-modal" style="max-width:380px">
-    <div class="anna-mh"><h3>&#9878;&#65039; Acesso — Reequilíbrios/Aditivos</h3><button class="x" onclick="annaFecharLogin()">&times;</button></div>
-    <div class="anna-mb">
-      <div class="anna-c"><label>Usuário</label><input type="text" id="annaLgUser" autocomplete="off" placeholder="usuário" onkeydown="if(event.key==='Enter')document.getElementById('annaLgPass').focus()"></div>
-      <div class="anna-c"><label>Senha</label><input type="password" id="annaLgPass" placeholder="senha" onkeydown="if(event.key==='Enter')annaLoginEntrar()"></div>
-      <div class="anna-lg-erro" id="annaLgErro"></div>
-    </div>
-    <div class="anna-mf"><button class="anna-btn" onclick="annaFecharLogin()">Cancelar</button><button class="anna-btn prim" onclick="annaLoginEntrar()">Entrar</button></div>
-  </div>
-</div>
-
 </body>
 </html>
