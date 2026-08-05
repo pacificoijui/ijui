@@ -1290,6 +1290,13 @@
   .rkd-chk{flex-shrink:0;width:24px;height:24px;border-radius:7px;border:2px solid #d8c9ae;background:#fff;cursor:pointer;font-size:14px;font-weight:800;color:transparent;line-height:1;padding:0;margin-top:2px}
   .rkd-chk:hover{border-color:#B45309}
   .rkd-card.feito .rkd-chk{background:#1E5F3A;border-color:#1E5F3A;color:#fff}
+  /* Origem da desclassificação: da secretaria (precisa lançar no portal) x
+     feita aqui no painel (já foi lançada na hora, sem controle a fazer). */
+  .rkd-origem{flex-shrink:0;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 7px;white-space:nowrap;letter-spacing:.02em}
+  .rkd-origem.sec{background:#FEF0E3;color:#8a4a00;border:1px solid #f3d5b5}
+  .rkd-origem.preg{background:#EAF6EC;color:#1E5F3A;border:1px solid #c6e3cd}
+  .rkd-card.rkd-propria{opacity:.72}
+  .rkd-chk-na{display:flex;align-items:center;justify-content:center;border-style:dashed;border-color:#d5dae2;color:#aab2bf;cursor:default}
   .rkd-info{flex:1;min-width:0}
   .rkd-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
   .rkd-item{background:linear-gradient(120deg,#8a3f06,#B45309);color:#fff;border-radius:7px;padding:2px 9px;font-family:'Space Grotesk',monospace;font-size:12px;font-weight:700}
@@ -3336,16 +3343,150 @@ function cardProgresso(ex){
   return {pct: total?Math.round(done/total*100):0, done:done, total:total};
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   BUSCA INTELIGENTE — tolera acento, caixa, pontuação, ordem das palavras e
+   erro de digitação.
+
+   "pavimentacao asfaltica" acha "Pavimentação Asfáltica"
+   "medicamento"            acha "MEDICAMENTOS"           (radical)
+   "pavimentaçao"           acha "pavimentação"           (erro de digitação)
+   "asfaltica pavimentacao" acha "pavimentação asfáltica" (ordem trocada)
+   "75/2026"                acha "PE 75/2026"             (pontuação)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Tira acento, caixa e pontuação. "PE 75/2026" e "pe75-2026" viram a mesma coisa. */
+function buscaNorm(s){
+  return (s||"").toString().toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g,"")
+    .replace(/[^a-z0-9]+/g," ")
+    .replace(/\s+/g," ").trim();
+}
+
+/* Distância de edição (Levenshtein) com corte: para assim que passa do limite
+   tolerado, o que deixa a comparação barata quando as palavras são bem
+   diferentes — que é a maioria esmagadora dos casos. */
+function buscaDist(a, b, max){
+  var la=a.length, lb=b.length;
+  if(Math.abs(la-lb)>max) return max+1;
+  if(!la) return lb; if(!lb) return la;
+  var prev=new Array(lb+1), cur=new Array(lb+1), i, j;
+  for(j=0;j<=lb;j++) prev[j]=j;
+  for(i=1;i<=la;i++){
+    cur[0]=i;
+    var melhorLinha=cur[0];
+    for(j=1;j<=lb;j++){
+      var custo=(a.charCodeAt(i-1)===b.charCodeAt(j-1))?0:1;
+      var v=prev[j]+1;
+      if(cur[j-1]+1<v) v=cur[j-1]+1;
+      if(prev[j-1]+custo<v) v=prev[j-1]+custo;
+      cur[j]=v;
+      if(v<melhorLinha) melhorLinha=v;
+    }
+    if(melhorLinha>max) return max+1;   /* nem a melhor hipótese salva */
+    var tmp=prev; prev=cur; cur=tmp;
+  }
+  return prev[lb];
+}
+
+/* Quanto erro de digitação aceitar, conforme o tamanho do que foi digitado.
+   Palavra curta não ganha tolerância: com 3 letras, 1 erro já vira outra
+   palavra e a busca encheria de resultado errado. */
+function buscaTol(n){ return n<=3 ? 0 : (n<=6 ? 1 : 2); }
+
+/* Pontua um termo contra um texto normalizado. 0 = não casou.
+   Nota maior = casamento melhor, o que ordena os resultados por relevância. */
+function buscaPontuaTermo(termo, texto, palavras){
+  if(!termo) return 0;
+  if(!texto) return 0;
+
+  /* Número só casa em começo de palavra: quem procura "75" quer o processo
+     75, não o 175 nem o 2075. */
+  if(/^[0-9]+$/.test(termo)){
+    if(texto===termo) return 120;
+    if(texto.lastIndexOf(termo,0)===0) return 110;
+    return (" "+texto).indexOf(" "+termo)>=0 ? 100 : 0;
+  }
+
+  var pos=texto.indexOf(termo);
+  if(pos===0) return 100;                                   /* começa com */
+  if(pos>0) return texto.charAt(pos-1)===" " ? 90 : 60;     /* começo de palavra / meio */
+
+  /* Não achou literal: tenta aproximado, palavra a palavra. */
+  var tol=buscaTol(termo.length);
+  if(!tol) return 0;
+  var melhor=0;
+  for(var i=0;i<palavras.length;i++){
+    var p=palavras[i];
+    if(Math.abs(p.length-termo.length)>tol) continue;
+    var d=buscaDist(termo,p,tol);
+    if(d<=tol){
+      var nota=40-(d*10);                 /* 1 erro = 30, 2 erros = 20 */
+      if(nota>melhor) melhor=nota;
+      if(d===1) break;                    /* já é o melhor possível aqui */
+    }
+  }
+  return melhor;
+}
+
+/* Prepara o que foi digitado. Devolve null se não houver nada a buscar. */
+function buscaPreparar(consulta){
+  var n=buscaNorm(consulta);
+  if(!n) return null;
+  return { termos:n.split(" ").filter(Boolean), texto:n };
+}
+
+/* Pontua um registro. `campos` = [{t:"texto", peso:3}, ...].
+   Todo termo precisa casar em ALGUM campo (E entre termos, OU entre campos) —
+   é o que faz "caneta azul" achar "Caneta esferográfica na cor azul".
+   Devolve 0 quando algum termo não casou em lugar nenhum. */
+function buscaPontuar(q, campos){
+  if(!q) return 1;
+  var prep=[], i, c;
+  for(i=0;i<campos.length;i++){
+    c=campos[i];
+    var texto=buscaNorm(c.t);
+    prep.push({ texto:texto, palavras:texto?texto.split(" "):[], peso:(c.peso||1) });
+  }
+  var total=0;
+  for(var ti=0; ti<q.termos.length; ti++){
+    var melhor=0;
+    for(i=0;i<prep.length;i++){
+      var nota=buscaPontuaTermo(q.termos[ti], prep[i].texto, prep[i].palavras)*prep[i].peso;
+      if(nota>melhor) melhor=nota;
+    }
+    if(!melhor) return 0;      /* este termo não apareceu em campo nenhum */
+    total+=melhor;
+  }
+  /* Bônus quando o que foi digitado aparece inteiro, na ordem: quem procura
+     "materiais de expediente" quer primeiro quem tem a frase, não quem tem as
+     três palavras espalhadas pelo texto. */
+  if(q.termos.length>1){
+    for(i=0;i<prep.length;i++){
+      if(prep[i].texto.indexOf(q.texto)>=0){ total+=60*prep[i].peso; break; }
+    }
+  }
+  return total;
+}
+
+/* Casamento simples contra um texto só — para os filtros de uma coluna. */
+function buscaCasa(consulta, texto){
+  var q=buscaPreparar(consulta);
+  if(!q) return true;
+  return buscaPontuar(q, [{t:texto, peso:1}])>0;
+}
+
 /* Desclassificações do processo que ainda não foram marcadas como lançadas no
    Portal de Compras Públicas — alimenta o aviso laranja no rodapé do card.  */
 function cardDescPendentes(ex){
   var rk=(ex||{}).rk||{};
-  var itens=rk.itens||[], est=rk.estados||{}, port=rk.descPortal||{};
+  var itens=rk.itens||[], est=rk.estados||{}, port=rk.descPortal||{}, orig=rk.descOrigem||{};
   var n=0;
   itens.forEach(function(it){
     (it.fornecedores||[]).forEach(function(f,i){
       var k=String(it.num)+'-'+i;
-      if((est[k]||'neutro')==='reprovado' && !port[k]) n++;
+      /* só avisa sobre o que a secretaria reprovou pelo link: o que foi
+         reprovado aqui no painel já foi lançado no portal na mesma hora */
+      if((est[k]||'neutro')==='reprovado' && !port[k] && (orig[k]||'pregoeiro')==='secretaria') n++;
     });
   });
   return n;
@@ -3353,21 +3494,31 @@ function cardDescPendentes(ex){
 
 function renderizar(){
   var fTipo=(document.getElementById("filtroTipoSel")||{value:"todos"}).value;
-  var fNum=((document.getElementById("filtroNumero")||{value:""}).value||"").toLowerCase().trim();
-  var fObj=((document.getElementById("filtroObjeto")||{value:""}).value||"").toLowerCase().trim();
+  var fNum=((document.getElementById("filtroNumero")||{value:""}).value||"").trim();
+  var fObj=((document.getElementById("filtroObjeto")||{value:""}).value||"").trim();
+  var qNum=buscaPreparar(fNum), qObj=buscaPreparar(fObj);
+  var _notas={};   /* nota de relevância por processo, para ordenar depois */
   /* "busca" = há algum filtro de texto ativo (mostra concluídos e aberturas futuras) */
   var busca=(fTipo!=="todos")||fNum||fObj;
   renderFiltroAnos();
   var lista=processos.filter(function(p){
     if(fTipo!=="todos" && tipoLicitacao(p.numero)!==fTipo)return false;
-    if(fNum){
-      var numTxt=((p.numero||"")+" "+numeroSeq(p.numero)).toLowerCase();
-      if(!numTxt.includes(fNum))return false;
+    var _nota=0;
+    if(qNum){
+      var n=buscaPontuar(qNum, [{t:(p.numero||"")+" "+numeroSeq(p.numero)+" "+rotuloProcesso(p), peso:3}]);
+      if(!n) return false;
+      _nota+=n;
     }
-    if(fObj){
-      var objTxt=(p.objeto+" "+p.responsavel+" "+(p.contato||"")+" "+rotuloProcesso(p)).toLowerCase();
-      if(!objTxt.includes(fObj))return false;
+    if(qObj){
+      var o=buscaPontuar(qObj, [
+        {t:p.objeto||"",                 peso:3},
+        {t:rotuloProcesso(p),            peso:2},
+        {t:(p.responsavel||"")+" "+(p.contato||""), peso:1}
+      ]);
+      if(!o) return false;
+      _nota+=o;
     }
+    _notas[p.id]=_nota;
     if(filtroAgentes.length && filtroAgentes.indexOf(p.responsavel)<0)return false;
     /* concluídos e revogados ficam ocultos; aparecem quando há busca ativa */
     if(!busca&&isArquivado(p.status))return false;
@@ -3376,7 +3527,10 @@ function renderizar(){
     if(filtroAno!=="todos"){ var ano=p.dataLicit?p.dataLicit.split("-")[0]:null; if(ano!==filtroAno)return false; }
     return true;
   });
-  if(fTipo!=="todos"){
+  if(qNum||qObj){
+    /* com texto digitado, o mais parecido vem primeiro */
+    lista=lista.slice().sort(function(a,b){ return (_notas[b.id]||0)-(_notas[a.id]||0); });
+  } else if(fTipo!=="todos"){
     /* ao filtrar por categoria, ordena por número do processo (decrescente) */
     lista=lista.slice().sort(function(a,b){ return numeroSeqInt(b.numero)-numeroSeqInt(a.numero); });
   } else {
@@ -3921,6 +4075,17 @@ var rkEventos = [];
    Chave = "numeroDoItem-indiceDoFornecedor" (mesma de rkEstados/rkMotivos).   */
 var rkDescTs = {};
 var rkDescPortal = {};
+/* rkDescOrigem[key] = quem reprovou a proposta:
+     'secretaria' → veio pelo link compartilhado (?ranking=) — o pregoeiro não
+                    estava no portal na hora, então PRECISA lançar lá depois
+     'pregoeiro'  → foi feito aqui no painel, já lançando no portal em paralelo
+   Só as de origem 'secretaria' entram no checklist "faltam lançar".
+   Registros antigos, sem origem gravada, contam como 'pregoeiro' — são de
+   antes desta versão, quando tudo era lançado no portal na hora. */
+var rkDescOrigem = {};
+function rkDescEhDaSecretaria(key, mapa){
+  return ((mapa||rkDescOrigem)[key]||'pregoeiro')==='secretaria';
+}
 
 /* ── Camada do EDITAL ────────────────────────────────────────────────────────
    O JSON do portal costuma trazer a descrição do item truncada, obrigando a
@@ -4093,9 +4258,10 @@ function rkApplySnap(d){
     rkEventos=d.eventos||[];
     rkDescTs=d.descTs||{};
     rkDescPortal=d.descPortal||{};
+    rkDescOrigem=d.descOrigem||{};
     rkEdital=d.edital||{};
   } else {
-    rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={}; rkEdital={};
+    rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={}; rkDescOrigem={}; rkEdital={};
   }
   rkAplicarEdital();
   var noJson=document.getElementById('rkNoJson');
@@ -4140,6 +4306,7 @@ function rkSalvarFirestore(){
     eventos: rkEventos,
     descTs: rkDescTs,
     descPortal: rkDescPortal,
+    descOrigem: rkDescOrigem,
     numero: rkProcessoAtual.numero,
     linkPortal: rkProcessoAtual.link||'',
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -4302,7 +4469,7 @@ function abrirRanking(pid){
   var fn=document.getElementById('rkFiltroNum'); if(fn) fn.value='';
   var fd=document.getElementById('rkFiltroDesc'); if(fd) fd.value='';
   var ff=document.getElementById('rkFiltroForn'); if(ff) ff.value='';
-  rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={}; rkEdital={};
+  rkItens=[]; rkEstados={}; rkMotivos={}; rkEventos=[]; rkDescTs={}; rkDescPortal={}; rkDescOrigem={}; rkEdital={};
   var noJson=document.getElementById('rkNoJson');
   noJson.innerHTML='<h3>Carregando...</h3>';
   noJson.style.display='block';
@@ -5671,8 +5838,8 @@ function rkGerarPDF(){
   else if(rkFiltroAtivo==='pendente') lista=rkItens.filter(rkItemPe);
   else if(rkFiltroAtivo==='desclassificado') lista=rkItens.filter(rkItemTemDesc);
   if(rkFiltroNum){ lista=lista.filter(function(it){ return it.num.toLowerCase()===rkFiltroNum; }); }
-  if(rkFiltroDesc){ lista=lista.filter(function(it){ return rkDescBusca(it).includes(rkFiltroDesc); }); }
-  if(rkFiltroForn){ lista=lista.filter(function(it){ return it.fornecedores.some(function(f){ return f.nome.toLowerCase().includes(rkFiltroForn); }); }); }
+  if(rkFiltroDesc){ var _qd=buscaPreparar(rkFiltroDesc); lista=lista.filter(function(it){ return buscaPontuar(_qd,[{t:rkDescBusca(it),peso:1}])>0; }); }
+  if(rkFiltroForn){ var _qf=buscaPreparar(rkFiltroForn); lista=lista.filter(function(it){ return it.fornecedores.some(function(f){ return buscaPontuar(_qf,[{t:f.nome||'',peso:1}])>0; }); }); }
 
   if(!lista.length){ alert('Nenhum item para exportar com os filtros atuais.'); return; }
 
@@ -6051,6 +6218,7 @@ function rkConfirmarReprovacao(key){
   var fn=(it.fornecedores[idx]?it.fornecedores[idx].nome:'');
   rkEstados[key]='reprovado'; rkMotivos[key]=mv;
   rkDescTs[key]=new Date().toISOString(); delete rkDescPortal[key];
+  rkDescOrigem[key]='pregoeiro';   /* feito aqui: já vai para o portal na hora */
   rkLogEvento('Item '+nIt+' — proposta de '+fn+' reprovada');
   rkPendConfirm=null;
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso();
@@ -6369,6 +6537,7 @@ function rkEmpDesclassificar(nomeEmp){
     rkEstados[r.key]='reprovado';
     rkMotivos[r.key]='Não retornou a diligência.';
     rkDescTs[r.key]=_tsLote; delete rkDescPortal[r.key];
+    rkDescOrigem[r.key]='pregoeiro';
   });
   rkLogEvento('Desclassificação em lote — '+nomeEmp+' ('+rkFormatarListaItens(nums)+') por não retornar a diligência');
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso(); rkRenderPainelEmpresas();
@@ -6394,7 +6563,7 @@ function rkNaoEnviouCatalogo(num){
 }
 function rkDesfazerReprovado(key){
   rkEstados[key]='neutro'; delete rkMotivos[key];
-  delete rkDescTs[key]; delete rkDescPortal[key];
+  delete rkDescTs[key]; delete rkDescPortal[key]; delete rkDescOrigem[key];
   var sep=key.lastIndexOf('-'); var numIt=key.slice(0,sep);
   rkLogEvento('Item '+numIt+' — reprovação desfeita');
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso();
@@ -6479,7 +6648,8 @@ function rkListaDesc(){
       if((rkEstados[key]||'neutro')!=='reprovado') return;
       out.push({
         key:key, num:String(it.num), desc:rkDesc(it), emp:(f.nome||''),
-        motivo:rkMotivos[key]||'', t:rkDescTs[key]||back[key]||'', portal:rkDescPortal[key]||''
+        motivo:rkMotivos[key]||'', t:rkDescTs[key]||back[key]||'', portal:rkDescPortal[key]||'',
+        daSecretaria:rkDescEhDaSecretaria(key)
       });
     });
   });
@@ -6492,7 +6662,9 @@ function rkListaDesc(){
   return out;
 }
 function rkDescPendentes(){
-  return rkListaDesc().filter(function(r){ return !r.portal; }).length;
+  /* Só conta o que veio pelo link da secretaria: o que o pregoeiro reprovou
+     aqui ele já lançou no portal no mesmo momento. */
+  return rkListaDesc().filter(function(r){ return r.daSecretaria && !r.portal; }).length;
 }
 function rkAbrirDesclassificacoes(){
   if(!rkItens.length){ toast('Importe o ranking primeiro.'); return; }
@@ -6516,23 +6688,30 @@ function rkRenderDesclassificacoes(){
   if(!rkDescModalAberto) return;
   var cont=document.getElementById('rkDescLista'); if(!cont) return;
   var todas=rkListaDesc();
-  var falta=todas.filter(function(r){ return !r.portal; }).length;
-  var feitas=todas.length-falta;
+  /* O checklist do portal vale só para o que a secretaria reprovou pelo link;
+     o que foi reprovado aqui no painel já foi lançado no portal na hora. */
+  var daSec=todas.filter(function(r){ return r.daSecretaria; });
+  var falta=daSec.filter(function(r){ return !r.portal; }).length;
+  var feitas=daSec.length-falta;
 
   var res=document.getElementById('rkDescResumo');
   if(res){
     var _proc=(typeof processos!=='undefined'&&rkProcessoAtual)?processos.find(function(p){ return p.id===rkProcessoAtual.id; }):null;
     var linkSes=(rkProcessoAtual&&rkProcessoAtual.link)?linkSessaoPublica(rkProcessoAtual.link,(_proc&&_proc.responsavel)||''):'';
     res.innerHTML='<div class="rkd-box tot"><div class="n">'+todas.length+'</div><div class="l">Desclassificações</div></div>'
-      +'<div class="rkd-box ok"><div class="n">'+feitas+'</div><div class="l">Já no portal</div></div>'
+      +'<div class="rkd-box ok"><div class="n">'+feitas+'</div><div class="l">Da secretaria,<br>já no portal</div></div>'
       +'<div class="rkd-box falta"><div class="n">'+falta+'</div><div class="l">Faltam lançar</div></div>'
       +(linkSes?'<a href="'+escHtml(linkSes)+'" target="_blank" rel="noopener" class="rkd-box" style="text-decoration:none;display:flex;flex-direction:column;justify-content:center;background:#1d4ed8;border-color:#1d4ed8"><div class="l" style="color:#fff;font-size:12.5px;font-weight:800">&#128279; Abrir sessão<br>no portal</div></a>':'');
   }
 
-  var lista=(rkDescFiltro==='pendentes')?todas.filter(function(r){ return !r.portal; }):todas;
+  var lista=(rkDescFiltro==='pendentes')
+    ? todas.filter(function(r){ return r.daSecretaria && !r.portal; })
+    : todas;
   if(!lista.length){
     cont.innerHTML='<div class="rkd-vazio">'+(todas.length
-      ? '&#127881; Nenhuma desclassificação pendente.<br>Todas as '+todas.length+' já foram lançadas no portal.'
+      ? (daSec.length
+          ? '&#127881; Nenhuma desclassificação pendente.<br>Todas as '+daSec.length+' vindas da secretaria já foram lançadas no portal.'
+          : '&#127881; Nada a lançar.<br>As '+todas.length+' desclassificações deste processo foram feitas aqui no painel — já foram para o portal na hora.<br>Use <b>Todas</b> para vê-las.')
       : 'Nenhuma desclassificação registrada neste processo ainda.')+'</div>';
     return;
   }
@@ -6542,11 +6721,16 @@ function rkRenderDesclassificacoes(){
     if(dia!==diaAtual){ diaAtual=dia; html+='<div class="rkd-dia">'+escHtml(dia)+'</div>'; }
     var hora=r.t?rkFmtHoraISO(r.t):'';
     var descCurta=(r.desc||'').length>110?(r.desc||'').slice(0,110)+'…':(r.desc||'');
-    html+='<div class="rkd-card'+(r.portal?' feito':'')+'">'
-      +'<button class="rkd-chk" data-rkdchk="'+escHtml(r.key)+'" title="'+(r.portal?'Desmarcar':'Marcar como lançada no portal')+'">&#10003;</button>'
+    html+='<div class="rkd-card'+(r.portal?' feito':'')+(r.daSecretaria?'':' rkd-propria')+'">'
+      +(r.daSecretaria
+          ? '<button class="rkd-chk" data-rkdchk="'+escHtml(r.key)+'" title="'+(r.portal?'Desmarcar':'Marcar como lançada no portal')+'">&#10003;</button>'
+          : '<span class="rkd-chk rkd-chk-na" title="Feita aqui no painel — não precisa de controle de lançamento">&#8226;</span>')
       +'<div class="rkd-info">'
       +'<div class="rkd-top"><span class="rkd-item">Item '+escHtml(r.num)+'</span>'
       +'<span class="rkd-emp">'+escHtml(r.emp)+'</span>'
+      +(r.daSecretaria
+          ? '<span class="rkd-origem sec" title="Reprovada pela secretaria no link compartilhado — precisa ser lançada no portal">&#128231; secretaria</span>'
+          : '<span class="rkd-origem preg" title="Reprovada aqui no painel — já foi lançada no portal na hora">&#9989; lançada aqui</span>')
       +(hora?'<span class="rkd-hora">'+escHtml(hora)+'</span>':'<span class="rkd-hora">sem hora registrada</span>')+'</div>'
       +(descCurta?'<div class="rkd-desc">'+escHtml(descCurta)+'</div>':'')
       +'<div class="rkd-motivo'+(r.motivo?'':' vazio')+'">'+escHtml(r.motivo||'Sem motivo registrado')+'</div>'
@@ -6571,7 +6755,9 @@ function rkToggleDescPortal(key){
   var b=document.getElementById('rkDescBadge'); if(b) b.textContent=rkDescPendentes();
 }
 function rkDescMarcarTodas(){
-  var pend=rkListaDesc().filter(function(r){ return !r.portal; });
+  /* Só o que veio da secretaria entra aqui: o resto já foi lançado no portal
+     na hora, e marcar não significaria nada. */
+  var pend=rkListaDesc().filter(function(r){ return r.daSecretaria && !r.portal; });
   if(!pend.length){ toast('Não há desclassificações pendentes.'); return; }
   if(!confirm('Marcar '+pend.length+' desclassificaç'+(pend.length>1?'ões':'ão')+' como já lançada'+(pend.length>1?'s':'')+' no portal?\n\nUse isso para zerar o histórico antigo deste processo.')) return;
   var agora=new Date().toISOString();
@@ -6699,8 +6885,8 @@ function rkRenderRanking(){
     lista=lista.filter(function(it){ return rkFiltroPin.indexOf(String(it.num))!==-1; });
   }
   if(rkFiltroNum){ lista=lista.filter(function(it){ return String(it.num).toLowerCase()===rkFiltroNum; }); }
-  if(rkFiltroDesc){ lista=lista.filter(function(it){ return rkDescBusca(it).includes(rkFiltroDesc); }); }
-  if(rkFiltroForn){ lista=lista.filter(function(it){ return it.fornecedores.some(function(f){ return (f.nome||'').toLowerCase().includes(rkFiltroForn); }); }); }
+  if(rkFiltroDesc){ var _qd2=buscaPreparar(rkFiltroDesc); lista=lista.filter(function(it){ return buscaPontuar(_qd2,[{t:rkDescBusca(it),peso:1}])>0; }); }
+  if(rkFiltroForn){ var _qf2=buscaPreparar(rkFiltroForn); lista=lista.filter(function(it){ return it.fornecedores.some(function(f){ return buscaPontuar(_qf2,[{t:f.nome||'',peso:1}])>0; }); }); }
 
   if(!lista.length){
     var d=document.createElement('div'); d.className='rk-no-results';
@@ -6945,7 +7131,7 @@ function rkCopiarLink(){
   var sharedEvts=[];
   /* Mantidos aqui só para não serem apagados na gravação — quem usa é o painel
      do pregoeiro (timeline de desclassificações x portal). */
-  var sharedDescTs={}, sharedDescPortal={};
+  var sharedDescTs={}, sharedDescPortal={}, sharedDescOrigem={};
   var sharedLinkPortal='';   /* link externo do Portal de Compras (o mesmo cadastrado na agenda) */
   var sharedLinkTentado=false; /* fallback: busca no doc do processo caso o ranking ainda não tenha o link salvo */
   var sharedGruposAbertos={}; /* empresas com o grupo expandido (por nome) — fechado é o padrão */
@@ -6964,6 +7150,7 @@ function rkCopiarLink(){
       sharedMotivos=d.motivos||{}; sharedNumero=d.numero||'';
       sharedEvts=d.eventos||[];
       sharedDescTs=d.descTs||{}; sharedDescPortal=d.descPortal||{};
+      sharedDescOrigem=d.descOrigem||{};
       if(d.linkPortal) sharedLinkPortal=d.linkPortal;
     } else { sharedItens=[]; sharedNumero='Não encontrado'; }
     /* Rankings salvos antes desta versão não têm o link — busca uma vez no
@@ -6994,7 +7181,7 @@ function rkCopiarLink(){
     rkColRef.doc(sharedId).set({
       itens:sharedItens, estados:sharedEstados, motivos:sharedMotivos,
       eventos:sharedEvts,
-      descTs:sharedDescTs, descPortal:sharedDescPortal,
+      descTs:sharedDescTs, descPortal:sharedDescPortal, descOrigem:sharedDescOrigem,
       numero:sharedNumero, linkPortal:sharedLinkPortal||'',
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){ setSaveDot('saved'); setTimeout(function(){ sharedOwn=false; sFlushPending(); },3000); })
@@ -7045,6 +7232,8 @@ function rkCopiarLink(){
     if(mv&&mv.trim()) sharedMotivos[key]=mv.trim(); else delete sharedMotivos[key];
     /* carimba a hora da desclassificação e zera o "já lancei no portal" */
     sharedDescTs[key]=new Date().toISOString(); delete sharedDescPortal[key];
+    /* veio pelo link da secretaria: o pregoeiro ainda precisa lançar no portal */
+    sharedDescOrigem[key]='secretaria';
     sLog('Item '+it.num+' — proposta de '+(it.fornecedores[idx]?it.fornecedores[idx].nome:'')+' reprovada');
   }
   function sContaReprovados(it){
