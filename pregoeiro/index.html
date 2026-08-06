@@ -318,6 +318,11 @@
   .dec-tag-proc { background: var(--blue-bg); color: var(--blue-text); }
   .dec-tag-data { background: var(--navy); color: #fff; }
   .dec-card-footer { display: flex; gap: 6px; margin-top: 2px; }
+  /* Processo vinculado: tipo · número · ano, em vez de digitar "PE 45/2026" */
+  .proc-vinc { display: flex; gap: 6px; }
+  .proc-vinc select { flex: 2; min-width: 0; }
+  .proc-vinc #decProcNum, .proc-vinc #dilProcNum { flex: 1; min-width: 0; }
+  .proc-vinc input[type="number"] { flex: 0 0 82px; }
   .dec-tpl-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .dec-tpl-bar span { font-size: 11.5px; font-weight: 700; color: var(--muted); }
   .dec-tpl-btn { padding: 5px 10px; border-radius: 7px; border: 1.5px dashed var(--border); background: #f8fafd; font-family: 'Sora', system-ui, sans-serif; font-size: 11.5px; font-weight: 700; color: var(--navy); cursor: pointer; transition: all 0.15s; }
@@ -1763,7 +1768,11 @@
       <div class="row">
         <div class="field">
           <label>Processo Vinculado <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(opcional)</span></label>
-          <input type="text" id="decProcesso" list="decListaProcessos" placeholder="Ex: PE 45/2026">
+          <div class="proc-vinc">
+            <select id="decProcTipo" onchange="procSugerirNumeros('dec')" title="Tipo do processo"></select>
+            <input type="text" id="decProcNum" list="decListaProcessos" inputmode="numeric" placeholder="N&#186;" title="Número do processo">
+            <input type="number" id="decProcAno" min="2020" max="2100" placeholder="Ano" title="Ano do processo" oninput="procSugerirNumeros('dec')">
+          </div>
           <datalist id="decListaProcessos"></datalist>
         </div>
         <div class="field">
@@ -1871,7 +1880,11 @@
       <div class="row">
         <div class="field">
           <label>Processo Vinculado <span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">(opcional)</span></label>
-          <input type="text" id="dilProcesso" list="dilListaProcessos" placeholder="Ex: PE 45/2026">
+          <div class="proc-vinc">
+            <select id="dilProcTipo" onchange="procSugerirNumeros('dil')" title="Tipo do processo"></select>
+            <input type="text" id="dilProcNum" list="dilListaProcessos" inputmode="numeric" placeholder="N&#186;" title="Número do processo">
+            <input type="number" id="dilProcAno" min="2020" max="2100" placeholder="Ano" title="Ano do processo" oninput="procSugerirNumeros('dil')">
+          </div>
           <datalist id="dilListaProcessos"></datalist>
         </div>
         <div class="field">
@@ -7805,6 +7818,84 @@ function decRender(){
   el.innerHTML=html;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   PROCESSO VINCULADO (Decisões e Diligências)
+   Digitar "PE 45/2026" num campo só era onde mais aparecia erro de digitação
+   e onde a sugestão nunca ajudava. Agora são três campos — tipo, número e
+   ano — e a lista de números sugeridos filtra pelo tipo e pelo ano
+   escolhidos, mostrando o objeto do processo ao lado.
+   ══════════════════════════════════════════════════════════════════════════ */
+var PROC_TIPO_NOME = { PE:"Pregão", RPE:"Reg. de Preços", RPPE:"Reg. de Preços",
+                       CC:"Concorrência", CONC:"Concorrência", TP:"Tomada de Preços", DL:"Dispensa" };
+/* Prefixo + número + ano de um "PE 45/2026". Devolve null se não for esse formato. */
+function procPartes(txt){
+  var m=/^\s*([A-Za-z]*)\s*(\d+)\s*\/\s*(\d{4})\s*$/.exec(txt||"");
+  return m ? { tipo:m[1].toUpperCase(), num:m[2], ano:m[3] } : null;
+}
+/* Tipos que existem de fato nos processos cadastrados, mais os usuais. */
+function procTiposDisponiveis(){
+  var vistos={ PE:true, RPPE:true, CC:true };
+  (typeof processos!=="undefined"?processos:[]).forEach(function(p){
+    var pt=procPartes(p.numero);
+    if(pt&&pt.tipo) vistos[pt.tipo]=true;
+  });
+  return Object.keys(vistos).sort();
+}
+function procPopularTipos(pref){
+  var sel=document.getElementById(pref+"ProcTipo");
+  if(!sel) return;
+  var atual=sel.value;
+  var html='<option value="">— tipo —</option>';
+  procTiposDisponiveis().forEach(function(k){
+    html+='<option value="'+escHtml(k)+'">'+escHtml(k+(PROC_TIPO_NOME[k]?" · "+PROC_TIPO_NOME[k]:""))+'</option>';
+  });
+  sel.innerHTML=html;
+  if(atual) sel.value=atual;
+  procSugerirNumeros(pref);
+}
+function procSugerirNumeros(pref){
+  var dl=document.getElementById(pref+"ListaProcessos");
+  if(!dl) return;
+  var tipo=(document.getElementById(pref+"ProcTipo")||{value:""}).value;
+  var ano=String((document.getElementById(pref+"ProcAno")||{value:""}).value||"").trim();
+  var html="";
+  (typeof processos!=="undefined"?processos:[]).forEach(function(p){
+    var pt=procPartes(p.numero);
+    if(!pt) return;
+    if(tipo && pt.tipo!==tipo) return;
+    if(ano && pt.ano!==ano) return;
+    var obj=(p.objeto||"").replace(/\s+/g," ").trim();
+    html+='<option value="'+escHtml(pt.num)+'">'+escHtml(p.numero+(obj?" — "+obj.slice(0,70):""))+'</option>';
+  });
+  dl.innerHTML=html;
+}
+/* Junta os três campos no texto guardado no banco ("PE 45/2026"). */
+function procLer(pref){
+  var t=(document.getElementById(pref+"ProcTipo")||{value:""}).value.trim();
+  var n=String((document.getElementById(pref+"ProcNum")||{value:""}).value||"").trim();
+  var a=String((document.getElementById(pref+"ProcAno")||{value:""}).value||"").trim();
+  if(!n) return "";
+  return (t?t+" ":"")+n+(a?"/"+a:"");
+}
+/* Caminho inverso. Valor fora do padrão fica inteiro no campo do número, para
+   nada se perder num documento antigo. */
+function procEscrever(pref, valor, anoPadrao){
+  var sel=document.getElementById(pref+"ProcTipo");
+  var num=document.getElementById(pref+"ProcNum");
+  var ano=document.getElementById(pref+"ProcAno");
+  if(!sel||!num||!ano) return;
+  procPopularTipos(pref);
+  var pt=procPartes(valor);
+  if(pt){
+    if(pt.tipo && !Array.prototype.some.call(sel.options,function(o){return o.value===pt.tipo;}))
+      sel.add(new Option(pt.tipo,pt.tipo));
+    sel.value=pt.tipo; num.value=pt.num; ano.value=pt.ano;
+  } else {
+    sel.value=""; num.value=(valor||"").trim(); ano.value=(valor?"":(anoPadrao||""));
+  }
+  procSugerirNumeros(pref);
+}
+
 /* ── Modal ──────────────────────────────────────────────────────────────── */
 function decPopularSelects(){
   var sel=document.getElementById("decAgente");
@@ -7813,10 +7904,7 @@ function decPopularSelects(){
   agentes.forEach(function(a){ html+='<option value="'+escHtml(a.nomeAbrev)+'">'+escHtml(a.nomeAbrev)+'</option>'; });
   sel.innerHTML=html;
   if(atual) sel.value=atual;
-  var dl=document.getElementById("decListaProcessos");
-  var dh="";
-  (processos||[]).forEach(function(p){ if(p.numero) dh+='<option value="'+escHtml(p.numero)+'">'; });
-  dl.innerHTML=dh;
+  procPopularTipos("dec");
 }
 function decSugerirNumero(){
   if(editandoDecId) return;
@@ -7831,7 +7919,8 @@ function abrirModalDec(){
   editandoDecId=null;
   document.getElementById("modalDecTitulo").textContent="Nova Decisão do Pregoeiro";
   document.getElementById("btnExcluirDec").style.display="none";
-  ["decTitulo","decProcesso","decTexto"].forEach(function(id){ document.getElementById(id).value=""; });
+  ["decTitulo","decTexto"].forEach(function(id){ document.getElementById(id).value=""; });
+  procEscrever("dec","",new Date().getFullYear());
   document.getElementById("decData").value=hoje();
   document.getElementById("decAno").value=new Date().getFullYear();
   decPopularSelects();
@@ -7854,7 +7943,7 @@ function editarDec(id){
   document.getElementById("decAno").value=d.ano||new Date().getFullYear();
   document.getElementById("decData").value=d.dataDecisao||"";
   document.getElementById("decTitulo").value=d.titulo||"";
-  document.getElementById("decProcesso").value=d.processoNumero||"";
+  procEscrever("dec", d.processoNumero||"");
   document.getElementById("decAgente").value=d.agente||"";
   document.getElementById("decTexto").value=d.texto||"";
   asgEditInit("dec", d, d.agente);
@@ -7887,7 +7976,7 @@ function salvarDec(){
     numero:numero,
     ano:ano,
     titulo:titulo,
-    processoNumero:document.getElementById("decProcesso").value.trim(),
+    processoNumero:procLer("dec"),
     agente:document.getElementById("decAgente").value,
     dataDecisao:document.getElementById("decData").value,
     assinantes:asgMergeForSave("dec", editandoDecId?decisoes.find(function(x){return x.id===editandoDecId;}):null),
@@ -7914,7 +8003,7 @@ function excluirDec(){
 function decInserirModelo(tipo){
   var ta=document.getElementById("decTexto");
   if(ta.value.trim() && !confirm("O texto atual será substituído pelo modelo. Continuar?")) return;
-  var proc=document.getElementById("decProcesso").value.trim()||"[NÚMERO DO PROCESSO]";
+  var proc=procLer("dec")||"[NÚMERO DO PROCESSO]";
   var corpo={
     impugnacao:
       "I. RELATÓRIO\n\nTrata-se de impugnação ao edital do "+proc+", apresentada por [NOME DA EMPRESA], "
@@ -8153,15 +8242,31 @@ function decGerarPDF(dec){
     }
   }
 
+  /* ── Quebra de página ────────────────────────────────────────────────
+     Um parágrafo PODE se dividir entre duas páginas; o que não pode é deixar
+     linha solta. Ficam no mínimo 2 linhas embaixo e 2 seguem para a página
+     nova — e, quando não dá para dividir assim, o parágrafo inteiro desce.
+     Empurrar todo bloco por inteiro, como antes, é o que abria aqueles vãos
+     em branco no pé da página.                                            */
+  var MIN_LINHAS=2;
+  /* Em que linha quebrar: 0 = antes do bloco todo, n = não precisa quebrar. */
+  function planoDeQuebra(n){
+    var cabem=Math.floor((BOTTOM-y)/LH);
+    if(cabem>=n) return n;
+    var k=Math.min(cabem, n-MIN_LINHAS);
+    return (k>=MIN_LINHAS)?k:0;
+  }
+
   function renderPara(raw,indent){
     var ws=mkWords(mkSegs(raw||""));
     if(!ws.length){y+=PARA;return;}
     var lines=buildLines(ws,CW,indent);
     if(!lines.length){y+=PARA;return;}
-    var totalH=lines.length*LH+PARA;
-    if(totalH<(BOTTOM-28)&&y+totalH>BOTTOM) newPage();
+    var corte=planoDeQuebra(lines.length);
+    if(corte===0) newPage();
     lines.forEach(function(line,li){
-      if(y+LH>BOTTOM) newPage();
+      if(corte>0&&li===corte) newPage();
+      else if(y+LH>BOTTOM) newPage();
       renderLine(line,li===lines.length-1,ML,CW);
       y+=LH;
     });
@@ -8173,10 +8278,11 @@ function decGerarPDF(dec){
     if(!ws.length) return;
     var LII=10;
     var lines=buildLines(ws,CW-LII,0);
-    var totalH=lines.length*LH+2.5;
-    if(totalH<(BOTTOM-28)&&y+totalH>BOTTOM) newPage();
+    var corte=planoDeQuebra(lines.length);
+    if(corte===0) newPage();
     lines.forEach(function(line,li){
-      if(y+LH>BOTTOM) newPage();
+      if(corte>0&&li===corte) newPage();
+      else if(y+LH>BOTTOM) newPage();
       if(li===0){tc(cText);ft("normal");fs(FS);doc.text("\u2013",ML+3,y);}
       renderLine(line,li===lines.length-1,ML+LII,CW-LII);
       y+=LH;
@@ -8201,48 +8307,66 @@ function decGerarPDF(dec){
 
   fs(15);ft("bold");tc(cNavy);
   doc.text("Decisão do Pregoeiro "+numFmt,PW/2,y,{align:"center"}); y+=9;
-  if(dec.processoNumero){
-    fs(11);ft("normal");tc(cMuted);
-    doc.text(dec.processoNumero,PW/2,y,{align:"center"}); y+=7;
-  }
-  var infoLn="";
-  if(dec.dataDecisao) infoLn="Ijui/RS, "+formatarData(dec.dataDecisao);
-  if(nomeAssina&&nomeAssina!=="Pregoeiro(a)") infoLn+=(infoLn?"   \u00b7   ":"")+"Pregoeiro(a): "+nomeAssina;
-  if(infoLn){fs(9.5);ft("normal");tc(cMuted);doc.text(infoLn,PW/2,y,{align:"center"});y+=6;}
   y+=6;
 
+  /* Entre os fios fica só o assunto. O número do processo, a data e o nome do
+     pregoeiro já aparecem no corpo e no fecho do documento. */
   draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=8;
   if(dec.titulo){
-    fs(FS);ft("bold");tc(cNavy);doc.text("ASSUNTO:",ML,y);
-    ft("normal");tc(cText);
-    var asL=doc.splitTextToSize(dec.titulo,CW-27);fs(FS);
-    doc.text(asL,ML+27,y); y+=asL.length*LH+4;
+    fs(FS);ft("bold");tc(cNavy);
+    var asL=doc.splitTextToSize(dec.titulo,CW);
+    doc.text(asL,ML,y); y+=asL.length*LH+4;
   }
   draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;
 
   var blocos=decParseBlocos(dec.texto||"");
+  /* Altura que um título ocupa, para decidir quebra de página. */
+  function alturaTitulo(b){
+    if(b.t==="h1"){ fs(12);ft("bold"); return 6+doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+9; }
+    if(b.t==="h2"){ fs(FS);ft("bold"); return 4+doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+8; }
+    if(b.t==="h3"){ fs(FS);ft("bold"); return 3+doc.splitTextToSize(b.x,CW).length*LH+5; }
+    return 0;
+  }
+  /* Espaço que um título precisa reservar para o que vem depois dele. Se o
+     seguinte for outro título, soma o dele também — era por não olhar isso
+     que "II. ANÁLISE E FUNDAMENTAÇÃO" ficava sozinha no pé da página com a
+     subseção pulando para a página de baixo. */
+  function companhia(i){
+    var prox=blocos[i+1];
+    if(!prox) return 0;
+    var h=alturaTitulo(prox);
+    return h ? h+companhia(i+1) : MIN_LINHAS*LH;
+  }
   for(var bi=0;bi<blocos.length;bi++){
     var b=blocos[bi];
     if(b.t==="h1"){
-      if(y+22>BOTTOM) newPage(); else y+=6;
-      fs(12);ft("bold");tc(cNavy);
+      /* Título só entra aqui se couber ele MAIS o começo do que vem depois —
+         senão fica pendurado sozinho no pé da página. */
+      var comp1=companhia(bi);
+      fs(12);ft("bold");
       var h1l=doc.splitTextToSize(b.x.toUpperCase(),CW);
+      if(y+6+h1l.length*7.5+9+comp1>BOTTOM) newPage(); else y+=6;
+      tc(cNavy);
       doc.text(h1l,ML,y); y+=h1l.length*7.5;
       draw(cGold);doc.setLineWidth(0.9);doc.line(ML,y,ML+30,y);
       y+=9;
     } else if(b.t==="h2"){
-      if(y+18>BOTTOM) newPage(); else y+=4;
-      fs(FS);ft("bold");tc(cNavy);
+      var comp2=companhia(bi);
+      fs(FS);ft("bold");
       var h2u=b.x.toUpperCase();
       var h2l=doc.splitTextToSize(h2u,CW);
+      if(y+4+h2l.length*LH+8+comp2>BOTTOM) newPage(); else y+=4;
+      tc(cNavy);
       doc.text(h2l,ML,y);
       draw(cNavy);doc.setLineWidth(0.3);
       doc.line(ML,y+2,ML+Math.min(doc.getTextWidth(h2u)+2,CW),y+2);
       y+=h2l.length*LH+8;
     } else if(b.t==="h3"){
-      if(y+15>BOTTOM) newPage(); else y+=3;
-      fs(FS);ft("bold");tc(cText);
+      var comp3=companhia(bi);
+      fs(FS);ft("bold");
       var h3l=doc.splitTextToSize(b.x,CW);
+      if(y+3+h3l.length*LH+5+comp3>BOTTOM) newPage(); else y+=3;
+      tc(cText);
       doc.text(h3l,ML,y); y+=h3l.length*LH+5;
     } else if(b.t==="q"){
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
@@ -8267,11 +8391,17 @@ function decGerarPDF(dec){
     }
   }
 
+  /* O fecho não se parte: ou a data e as assinaturas cabem juntas nesta
+     página, ou descem juntas. Separá-las deixava a data perdida no pé de uma
+     página e a assinatura sozinha na seguinte. */
+  var assinantes=asgSignersDoc(dec,nomeAssina);
+  var altFecho=18+Math.ceil(Math.min(assinantes.length,6)/2)*46;
+  if(y+altFecho>BOTTOM) newPage();
   y+=10;
   fs(FS);ft("normal");tc(cText);
   doc.text(asgDataExtenso(dec.dataDecisao||hoje()),PW/2,y,{align:"center"}); y+=8;
   y=asgAssinaturasPDF(doc,{
-    signers:asgSignersDoc(dec,nomeAssina),
+    signers:assinantes,
     PW:PW,ML:ML,MR:MR,CW:CW,BOTTOM:BOTTOM,LH:LH,
     cNavy:cNavy,cMuted:cMuted,cText:cText,cBorder:cBorder,
     y:y,
@@ -8458,10 +8588,7 @@ function dilPopularSelects(){
   agentes.forEach(function(a){ html+='<option value="'+escHtml(a.nomeAbrev)+'">'+escHtml(a.nomeAbrev)+'</option>'; });
   sel.innerHTML=html;
   if(atual) sel.value=atual;
-  var dl=document.getElementById("dilListaProcessos");
-  var dh="";
-  (processos||[]).forEach(function(p){ if(p.numero) dh+='<option value="'+escHtml(p.numero)+'">'; });
-  dl.innerHTML=dh;
+  procPopularTipos("dil");
 }
 function dilSugerirNumero(){
   if(editandoDilId) return;
@@ -8476,7 +8603,8 @@ function abrirModalDil(){
   editandoDilId=null;
   document.getElementById("modalDilTitulo").textContent="Novo Pedido de Diligência";
   document.getElementById("btnExcluirDil").style.display="none";
-  ["dilTitulo","dilProcesso","dilTexto"].forEach(function(id){ document.getElementById(id).value=""; });
+  ["dilTitulo","dilTexto"].forEach(function(id){ document.getElementById(id).value=""; });
+  procEscrever("dil","",new Date().getFullYear());
   document.getElementById("dilTipo").value="impugnacao";
   document.getElementById("dilResultado").value="procedente";
   document.getElementById("dilData").value=hoje();
@@ -8501,7 +8629,7 @@ function editarDil(id){
   document.getElementById("dilAno").value=d.ano||new Date().getFullYear();
   document.getElementById("dilData").value=d.dataDecisao||"";
   document.getElementById("dilTitulo").value=d.titulo||"";
-  document.getElementById("dilProcesso").value=d.processoNumero||"";
+  procEscrever("dil", d.processoNumero||"");
   document.getElementById("dilAgente").value=d.agente||"";
   document.getElementById("dilTipo").value=DIL_TIPOS[d.tipo]?d.tipo:"outro";
   document.getElementById("dilResultado").value=DIL_RESULTADOS[d.resultado]?d.resultado:"outro";
@@ -8536,7 +8664,7 @@ function salvarDil(){
     numero:numero,
     ano:ano,
     titulo:titulo,
-    processoNumero:document.getElementById("dilProcesso").value.trim(),
+    processoNumero:procLer("dil"),
     agente:document.getElementById("dilAgente").value,
     tipo:document.getElementById("dilTipo").value,
     resultado:document.getElementById("dilResultado").value,
@@ -8565,7 +8693,7 @@ function excluirDil(){
 function dilInserirModelo(tipo){
   var ta=document.getElementById("dilTexto");
   if(ta.value.trim() && !confirm("O texto atual será substituído pelo modelo. Continuar?")) return;
-  var proc=document.getElementById("dilProcesso").value.trim()||"[NÚMERO DO PROCESSO]";
+  var proc=procLer("dil")||"[NÚMERO DO PROCESSO]";
   var corpo={
     impugnacao:
       "I. RELATÓRIO\n\nTrata-se de impugnação ao edital do "+proc+", apresentada por [NOME DA EMPRESA], "
@@ -8807,15 +8935,31 @@ function dilGerarPDF(dec){
     }
   }
 
+  /* ── Quebra de página ────────────────────────────────────────────────
+     Um parágrafo PODE se dividir entre duas páginas; o que não pode é deixar
+     linha solta. Ficam no mínimo 2 linhas embaixo e 2 seguem para a página
+     nova — e, quando não dá para dividir assim, o parágrafo inteiro desce.
+     Empurrar todo bloco por inteiro, como antes, é o que abria aqueles vãos
+     em branco no pé da página.                                            */
+  var MIN_LINHAS=2;
+  /* Em que linha quebrar: 0 = antes do bloco todo, n = não precisa quebrar. */
+  function planoDeQuebra(n){
+    var cabem=Math.floor((BOTTOM-y)/LH);
+    if(cabem>=n) return n;
+    var k=Math.min(cabem, n-MIN_LINHAS);
+    return (k>=MIN_LINHAS)?k:0;
+  }
+
   function renderPara(raw,indent){
     var ws=mkWords(mkSegs(raw||""));
     if(!ws.length){y+=PARA;return;}
     var lines=buildLines(ws,CW,indent);
     if(!lines.length){y+=PARA;return;}
-    var totalH=lines.length*LH+PARA;
-    if(totalH<(BOTTOM-28)&&y+totalH>BOTTOM) newPage();
+    var corte=planoDeQuebra(lines.length);
+    if(corte===0) newPage();
     lines.forEach(function(line,li){
-      if(y+LH>BOTTOM) newPage();
+      if(corte>0&&li===corte) newPage();
+      else if(y+LH>BOTTOM) newPage();
       renderLine(line,li===lines.length-1,ML,CW);
       y+=LH;
     });
@@ -8827,10 +8971,11 @@ function dilGerarPDF(dec){
     if(!ws.length) return;
     var LII=10;
     var lines=buildLines(ws,CW-LII,0);
-    var totalH=lines.length*LH+2.5;
-    if(totalH<(BOTTOM-28)&&y+totalH>BOTTOM) newPage();
+    var corte=planoDeQuebra(lines.length);
+    if(corte===0) newPage();
     lines.forEach(function(line,li){
-      if(y+LH>BOTTOM) newPage();
+      if(corte>0&&li===corte) newPage();
+      else if(y+LH>BOTTOM) newPage();
       if(li===0){tc(cText);ft("normal");fs(FS);doc.text("\u2013",ML+3,y);}
       renderLine(line,li===lines.length-1,ML+LII,CW-LII);
       y+=LH;
@@ -8875,28 +9020,53 @@ function dilGerarPDF(dec){
   draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;
 
   var blocos=dilParseBlocos(dec.texto||"");
+  /* Altura que um título ocupa, para decidir quebra de página. */
+  function alturaTitulo(b){
+    if(b.t==="h1"){ fs(12);ft("bold"); return 6+doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+9; }
+    if(b.t==="h2"){ fs(FS);ft("bold"); return 4+doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+8; }
+    if(b.t==="h3"){ fs(FS);ft("bold"); return 3+doc.splitTextToSize(b.x,CW).length*LH+5; }
+    return 0;
+  }
+  /* Espaço que um título precisa reservar para o que vem depois dele. Se o
+     seguinte for outro título, soma o dele também — era por não olhar isso
+     que "II. ANÁLISE E FUNDAMENTAÇÃO" ficava sozinha no pé da página com a
+     subseção pulando para a página de baixo. */
+  function companhia(i){
+    var prox=blocos[i+1];
+    if(!prox) return 0;
+    var h=alturaTitulo(prox);
+    return h ? h+companhia(i+1) : MIN_LINHAS*LH;
+  }
   for(var bi=0;bi<blocos.length;bi++){
     var b=blocos[bi];
     if(b.t==="h1"){
-      if(y+22>BOTTOM) newPage(); else y+=6;
-      fs(12);ft("bold");tc(cNavy);
+      /* Título só entra aqui se couber ele MAIS o começo do que vem depois —
+         senão fica pendurado sozinho no pé da página. */
+      var comp1=companhia(bi);
+      fs(12);ft("bold");
       var h1l=doc.splitTextToSize(b.x.toUpperCase(),CW);
+      if(y+6+h1l.length*7.5+9+comp1>BOTTOM) newPage(); else y+=6;
+      tc(cNavy);
       doc.text(h1l,ML,y); y+=h1l.length*7.5;
       draw(cGold);doc.setLineWidth(0.9);doc.line(ML,y,ML+30,y);
       y+=9;
     } else if(b.t==="h2"){
-      if(y+18>BOTTOM) newPage(); else y+=4;
-      fs(FS);ft("bold");tc(cNavy);
+      var comp2=companhia(bi);
+      fs(FS);ft("bold");
       var h2u=b.x.toUpperCase();
       var h2l=doc.splitTextToSize(h2u,CW);
+      if(y+4+h2l.length*LH+8+comp2>BOTTOM) newPage(); else y+=4;
+      tc(cNavy);
       doc.text(h2l,ML,y);
       draw(cNavy);doc.setLineWidth(0.3);
       doc.line(ML,y+2,ML+Math.min(doc.getTextWidth(h2u)+2,CW),y+2);
       y+=h2l.length*LH+8;
     } else if(b.t==="h3"){
-      if(y+15>BOTTOM) newPage(); else y+=3;
-      fs(FS);ft("bold");tc(cText);
+      var comp3=companhia(bi);
+      fs(FS);ft("bold");
       var h3l=doc.splitTextToSize(b.x,CW);
+      if(y+3+h3l.length*LH+5+comp3>BOTTOM) newPage(); else y+=3;
+      tc(cText);
       doc.text(h3l,ML,y); y+=h3l.length*LH+5;
     } else if(b.t==="q"){
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
@@ -8934,11 +9104,17 @@ function dilGerarPDF(dec){
     }
   }
 
+  /* O fecho não se parte: ou a data e as assinaturas cabem juntas nesta
+     página, ou descem juntas. Separá-las deixava a data perdida no pé de uma
+     página e a assinatura sozinha na seguinte. */
+  var assinantes=asgSignersDoc(dec,nomeAssina);
+  var altFecho=18+Math.ceil(Math.min(assinantes.length,6)/2)*46;
+  if(y+altFecho>BOTTOM) newPage();
   y+=10;
   fs(FS);ft("normal");tc(cText);
   doc.text(asgDataExtenso(dec.dataDecisao||hoje()),PW/2,y,{align:"center"}); y+=8;
   y=asgAssinaturasPDF(doc,{
-    signers:asgSignersDoc(dec,nomeAssina),
+    signers:assinantes,
     PW:PW,ML:ML,MR:MR,CW:CW,BOTTOM:BOTTOM,LH:LH,
     cNavy:cNavy,cMuted:cMuted,cText:cText,cBorder:cBorder,
     y:y, semPendente:true,
