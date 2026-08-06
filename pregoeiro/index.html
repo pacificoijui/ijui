@@ -316,12 +316,7 @@
   .dec-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .dec-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
   .dec-tag-proc { background: var(--blue-bg); color: var(--blue-text); }
-  .dec-tag-tipo { background: #fff3e0; color: #e65100; }
   .dec-tag-data { background: var(--navy); color: #fff; }
-  .dec-tag-res-procedente { background: #d4edda; color: #1E5F3A; }
-  .dec-tag-res-improcedente { background: #f8d7da; color: #A32D2D; }
-  .dec-tag-res-parcial { background: #fef3dc; color: #c07000; }
-  .dec-tag-res-outro { background: #eceff4; color: #546e7a; }
   .dec-card-footer { display: flex; gap: 6px; margin-top: 2px; }
   .dec-tpl-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .dec-tpl-bar span { font-size: 11.5px; font-weight: 700; color: var(--muted); }
@@ -968,6 +963,13 @@
   .asg-badge.wait{background:#fff4e0;color:#9a6a10}
   .asg-link{font-size:12px;background:#102040;color:#fff;border:none;border-radius:7px;padding:6px 11px;cursor:pointer}
   .asg-note{font-size:12px;color:var(--muted);font-style:italic}
+  .asg-prev{margin-top:8px;border:1px solid #e6e9f0;border-radius:8px;background:#fff;padding:6px}
+  .asg-prev img{max-width:100%;max-height:70px;display:block;margin:0 auto}
+  /* Assinatura padrão na lista de agentes */
+  .ag-asg{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:7px}
+  .ag-asg-img{height:30px;width:auto;max-width:120px;border:1px solid var(--border);border-radius:6px;background:#fff;padding:2px}
+  .ag-asg-link{font-size:11.5px;background:#102040;color:#fff;border:none;border-radius:7px;padding:5px 10px;cursor:pointer;font-family:inherit}
+  .ag-asg-link.del{background:#fff;color:#c0392b;border:1px solid #e3b3b3}
 
   /* ── Página de assinatura (?assinar=ID) ── */
   body.asg-shared-mode>*:not(#asgSharedPanel){display:none!important}
@@ -991,6 +993,9 @@
   .asgs-input{width:100%;padding:11px 13px;border:1px solid #c8d0e0;border-radius:9px;font-size:15px;box-sizing:border-box}
   .asgs-padwrap{margin-top:6px;position:relative}
   .asgs-pad{width:100%;height:180px;background:#fff;border:2px dashed #b9c3d8;border-radius:12px;touch-action:none;display:block}
+  /* Quadro da assinatura padrão: grande, para assinar com o dedo no celular */
+  .asgs-pad.big{height:min(56vh,430px);min-height:240px;width:calc(100% + 24px);margin-left:-12px;margin-right:-12px}
+  @media (orientation:landscape) and (max-height:560px){ .asgs-pad.big{height:62vh;min-height:180px} }
   .asgs-padhint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#aab2c4;font-size:13px;pointer-events:none}
   .asgs-padbtns{display:flex;gap:10px;margin-top:8px}
   .asgs-btn{flex:1;padding:13px;border-radius:10px;font-size:15px;font-weight:700;border:none;cursor:pointer}
@@ -1475,14 +1480,6 @@
           <label>Ano</label>
           <select id="decFiltroAno" onchange="decRender()"><option value="todos">Todos</option></select>
         </div>
-        <div class="dec-filter-field">
-          <label>Tipo</label>
-          <select id="decFiltroTipo" onchange="decRender()"><option value="todos">Todos</option></select>
-        </div>
-        <div class="dec-filter-field">
-          <label>Resultado</label>
-          <select id="decFiltroResultado" onchange="decRender()"><option value="todos">Todos</option></select>
-        </div>
       </div>
       <div class="dec-grid" id="decGrid">
         <div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:20px;font-style:italic">Nenhuma decisão cadastrada.</div>
@@ -1772,31 +1769,6 @@
         <div class="field">
           <label>Pregoeiro / Agente</label>
           <select id="decAgente"><option value="">-- Selecione --</option></select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>Tipo de Decisão</label>
-          <select id="decTipo">
-            <option value="impugnacao">Impugnação</option>
-            <option value="esclarecimento">Esclarecimento</option>
-            <option value="recurso">Recurso</option>
-            <option value="diligencia">Diligência</option>
-            <option value="habilitacao">Habilitação / Inabilitação</option>
-            <option value="adjudicacao">Adjudicação</option>
-            <option value="outro">Outro</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Resultado</label>
-          <select id="decResultado">
-            <option value="procedente">Procedente</option>
-            <option value="parcial">Parcialmente Procedente</option>
-            <option value="improcedente">Improcedente</option>
-            <option value="nao_conhecido">Não Conhecido</option>
-            <option value="prejudicado">Prejudicado</option>
-            <option value="outro">Outro</option>
-          </select>
         </div>
       </div>
       <div class="field">
@@ -2089,7 +2061,7 @@
   <div class="asgs-header">
     <img class="asgs-logo" id="asgsLogo" alt="">
     <div>
-      <div class="asgs-htitle">Assinatura de Documento</div>
+      <div class="asgs-htitle" id="asgsHtitle">Assinatura de Documento</div>
       <div class="asgs-hsub">Município de Ijuí · Gestão de Processos Licitatórios</div>
     </div>
   </div>
@@ -2542,6 +2514,8 @@ document.addEventListener("click", function(e){
   if(action === "excluir"   && pid) excluirProcesso(pid);
   if(action === "editar-ag")  editarAgente(btn.dataset.agid);
   if(action === "excluir-ag") excluirAgente(btn.dataset.agid);
+  if(action === "link-asg"){ agCopiarLinkAssinatura(btn.dataset.agid); return; }
+  if(action === "del-asg"){ agRemoverAssinatura(btn.dataset.agid); return; }
   if(action === "editar-st")  editarStatus(btn.dataset.stid);
   if(action === "excluir-st") excluirStatus(btn.dataset.stid);
   if(action === "copiar-atalho"){ copiarAtalhoStatus(btn.dataset.stid, parseInt(btn.dataset.idx,10)); return; }
@@ -3711,7 +3685,18 @@ function renderListaAgentes(){
     html+='<div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1.5px solid var(--border);border-radius:9px;padding:10px 14px;gap:10px">';
     html+='<div><div style="font-weight:700;font-size:14px;color:var(--navy)">'+escHtml(a.nomeAbrev)+'</div>';
     var nc2=a.nomeCompleto2?'<div style="font-size:11.5px;color:var(--muted);margin-top:1px">'+escHtml(a.nomeCompleto2)+'</div>':'';
-    html+='<div style="font-size:12.5px;color:var(--muted);margin-top:2px">'+escHtml(a.nomeCompleto)+'</div>'+nc2+'</div>';
+    html+='<div style="font-size:12.5px;color:var(--muted);margin-top:2px">'+escHtml(a.nomeCompleto)+'</div>'+nc2;
+    html+='<div class="ag-asg">';
+    if(a.assinaturaImg){
+      html+='<img class="ag-asg-img" src="'+escHtml(a.assinaturaImg)+'" alt="assinatura padrão">';
+      html+='<span class="asg-badge ok">&#10003; assinatura padrão</span>';
+      html+='<button class="ag-asg-link" data-action="link-asg" data-agid="'+escHtml(a.id)+'">&#128279; Refazer no celular</button>';
+      html+='<button class="ag-asg-link del" data-action="del-asg" data-agid="'+escHtml(a.id)+'">Remover</button>';
+    } else {
+      html+='<span class="asg-badge wait">sem assinatura padrão</span>';
+      html+='<button class="ag-asg-link" data-action="link-asg" data-agid="'+escHtml(a.id)+'">&#128279; Copiar link para assinar no celular</button>';
+    }
+    html+='</div></div>';
     html+='<div style="display:flex;gap:6px;flex-shrink:0">';
     html+='<button class="btn-sm" style="flex:none;padding:5px 12px;font-size:12px" data-action="editar-ag" data-agid="'+escHtml(a.id)+'">Editar</button>';
     html+='<button class="btn-sm danger" style="flex:none;padding:5px 12px;font-size:12px" data-action="excluir-ag" data-agid="'+escHtml(a.id)+'">Excluir</button>';
@@ -3739,6 +3724,18 @@ function excluirAgente(id){
   var ag=agentes.find(function(a){return a.id===id;});
   if(!ag||!confirm("Excluir o agente "+ag.nomeAbrev+"?"))return;
   agColRef.doc(id).delete().then(function(){toast("Agente excluido.");}).catch(function(e){alert("Erro: "+e.message);});
+}
+/* Assinatura padrão: link aberto no celular, onde o agente assina com o dedo.
+   A partir daí toda decisão/diligência nova já nasce assinada por ele. */
+function agCopiarLinkAssinatura(id){
+  asgCopy(window.location.origin+window.location.pathname+"?assinatura="+id);
+}
+function agRemoverAssinatura(id){
+  var ag=agentes.find(function(a){return a.id===id;});
+  if(!ag||!confirm("Remover a assinatura padrão de "+ag.nomeAbrev+"?\n\nOs documentos já assinados não são afetados.")) return;
+  agColRef.doc(id).set({assinaturaImg:"",assinaturaEm:""},{merge:true})
+    .then(function(){toast("Assinatura padrão removida.");})
+    .catch(function(e){alert("Erro: "+e.message);});
 }
 
 /* ── Modal Processo (edição — novos processos são cadastrados na agenda) ─────── */
@@ -7736,29 +7733,6 @@ var editandoDecId = null;
 var decSectionOpen = true;
 var decPreviewAberto = false;
 
-var DEC_TIPOS = {
-  impugnacao:    "Impugnação",
-  esclarecimento:"Esclarecimento",
-  recurso:       "Recurso",
-  diligencia:    "Diligência",
-  habilitacao:   "Habilitação / Inabilitação",
-  adjudicacao:   "Adjudicação",
-  outro:         "Outro"
-};
-var DEC_RESULTADOS = {
-  procedente:    "Procedente",
-  parcial:       "Parcialmente Procedente",
-  improcedente:  "Improcedente",
-  nao_conhecido: "Não Conhecido",
-  prejudicado:   "Prejudicado",
-  outro:         "Outro"
-};
-function decResultadoCls(r){
-  if(r==="procedente") return "dec-tag-res-procedente";
-  if(r==="improcedente") return "dec-tag-res-improcedente";
-  if(r==="parcial") return "dec-tag-res-parcial";
-  return "dec-tag-res-outro";
-}
 function decFmtNum(d){
   var n=parseInt(d.numero,10)||0;
   return (n<100?("00"+n).slice(-3):String(n))+"/"+(d.ano||"");
@@ -7781,10 +7755,8 @@ function fecharPainelDec(){ document.getElementById("painelDec").classList.remov
 /* ── Filtros ────────────────────────────────────────────────────────────── */
 function decRenderFiltros(){
   var selAno=document.getElementById("decFiltroAno");
-  var selTipo=document.getElementById("decFiltroTipo");
-  var selRes=document.getElementById("decFiltroResultado");
-  if(!selAno||!selTipo||!selRes) return;
-  var anoAtual=selAno.value, tipoAtual=selTipo.value, resAtual=selRes.value;
+  if(!selAno) return;
+  var anoAtual=selAno.value;
   var anos={};
   decisoes.forEach(function(d){ if(d.ano) anos[d.ano]=true; });
   var listaAnos=Object.keys(anos).sort().reverse();
@@ -7792,14 +7764,6 @@ function decRenderFiltros(){
   listaAnos.forEach(function(a){ html+='<option value="'+escHtml(a)+'">'+escHtml(a)+'</option>'; });
   selAno.innerHTML=html;
   if(listaAnos.indexOf(anoAtual)>=0) selAno.value=anoAtual;
-  html='<option value="todos">Todos</option>';
-  Object.keys(DEC_TIPOS).forEach(function(k){ html+='<option value="'+k+'">'+DEC_TIPOS[k]+'</option>'; });
-  selTipo.innerHTML=html;
-  if(DEC_TIPOS[tipoAtual]) selTipo.value=tipoAtual;
-  html='<option value="todos">Todos</option>';
-  Object.keys(DEC_RESULTADOS).forEach(function(k){ html+='<option value="'+k+'">'+DEC_RESULTADOS[k]+'</option>'; });
-  selRes.innerHTML=html;
-  if(DEC_RESULTADOS[resAtual]) selRes.value=resAtual;
 }
 
 /* ── Render dos cards ───────────────────────────────────────────────────── */
@@ -7808,12 +7772,8 @@ function decRender(){
   var badge=document.getElementById("decBadge");
   var busca=(document.getElementById("decFiltroBusca")||{value:""}).value.toLowerCase().trim();
   var fAno=(document.getElementById("decFiltroAno")||{value:"todos"}).value;
-  var fTipo=(document.getElementById("decFiltroTipo")||{value:"todos"}).value;
-  var fRes=(document.getElementById("decFiltroResultado")||{value:"todos"}).value;
   var lista=decisoes.filter(function(d){
     if(fAno!=="todos"&&String(d.ano)!==String(fAno)) return false;
-    if(fTipo!=="todos"&&d.tipo!==fTipo) return false;
-    if(fRes!=="todos"&&d.resultado!==fRes) return false;
     if(busca){
       var txt=(decFmtNum(d)+" "+(d.titulo||"")+" "+(d.processoNumero||"")).toLowerCase();
       if(!txt.includes(busca)) return false;
@@ -7834,8 +7794,6 @@ function decRender(){
     if(d.titulo) html+='<div class="dec-card-title">'+escHtml(d.titulo)+'</div>';
     html+='<div class="dec-card-meta">';
     if(d.processoNumero) html+='<span class="dec-tag dec-tag-proc">'+escHtml(d.processoNumero)+'</span>';
-    html+='<span class="dec-tag dec-tag-tipo">'+escHtml(DEC_TIPOS[d.tipo]||d.tipo||"")+'</span>';
-    if(d.resultado) html+='<span class="dec-tag '+decResultadoCls(d.resultado)+'">'+escHtml(DEC_RESULTADOS[d.resultado]||d.resultado)+'</span>';
     if(d.dataDecisao) html+='<span class="dec-tag dec-tag-data">&#128198; '+formatarData(d.dataDecisao)+'</span>';
     html+='</div>';
     if(d.agente) html+='<div style="font-size:11.5px;color:var(--muted)">Pregoeiro(a): <b style="color:var(--navy)">'+escHtml(d.agente)+'</b></div>';
@@ -7874,8 +7832,6 @@ function abrirModalDec(){
   document.getElementById("modalDecTitulo").textContent="Nova Decisão do Pregoeiro";
   document.getElementById("btnExcluirDec").style.display="none";
   ["decTitulo","decProcesso","decTexto"].forEach(function(id){ document.getElementById(id).value=""; });
-  document.getElementById("decTipo").value="impugnacao";
-  document.getElementById("decResultado").value="procedente";
   document.getElementById("decData").value=hoje();
   document.getElementById("decAno").value=new Date().getFullYear();
   decPopularSelects();
@@ -7900,8 +7856,6 @@ function editarDec(id){
   document.getElementById("decTitulo").value=d.titulo||"";
   document.getElementById("decProcesso").value=d.processoNumero||"";
   document.getElementById("decAgente").value=d.agente||"";
-  document.getElementById("decTipo").value=DEC_TIPOS[d.tipo]?d.tipo:"outro";
-  document.getElementById("decResultado").value=DEC_RESULTADOS[d.resultado]?d.resultado:"outro";
   document.getElementById("decTexto").value=d.texto||"";
   asgEditInit("dec", d, d.agente);
   decPreviewAberto=false;
@@ -7935,8 +7889,6 @@ function salvarDec(){
     titulo:titulo,
     processoNumero:document.getElementById("decProcesso").value.trim(),
     agente:document.getElementById("decAgente").value,
-    tipo:document.getElementById("decTipo").value,
-    resultado:document.getElementById("decResultado").value,
     dataDecisao:document.getElementById("decData").value,
     assinantes:asgMergeForSave("dec", editandoDecId?decisoes.find(function(x){return x.id===editandoDecId;}):null),
     texto:texto,
@@ -9081,17 +9033,34 @@ function asgCpfValido(cpf){
 }
 
 /* ── Editor de assinantes (dentro dos modais) ── */
+function asgAgentePorAbrev(abrev){
+  return (typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===abrev;});
+}
+/* Aplica a assinatura padrão do agente na linha do pregoeiro, se ele tiver uma
+   cadastrada e ainda não houver assinatura ali. A data registrada é a de agora
+   — é quando o documento está sendo assinado, não quando o traço foi desenhado. */
+function asgAplicarPadrao(linha, ag){
+  if(!ag || !ag.assinaturaImg || linha.img) return false;
+  linha.img=ag.assinaturaImg;
+  linha.assinadoEm=new Date().toISOString();
+  linha.padrao=true;
+  if(!linha.nome) linha.nome=ag.nomeCompleto||"";
+  return true;
+}
 function asgEditInit(tipo, docObj, agenteAbrev){
   var arr=[];
   if(docObj && docObj.assinantes && docObj.assinantes.length){
     arr=docObj.assinantes.map(function(s){
       return { id:s.id||asgUid(), nome:s.nome||"", cargo:s.cargo||"", cpf:s.cpf||"",
-               email:s.email||"", img:s.img||"", assinadoEm:s.assinadoEm||"", ehPregoeiro:!!s.ehPregoeiro };
+               email:s.email||"", img:s.img||"", assinadoEm:s.assinadoEm||"",
+               ehPregoeiro:!!s.ehPregoeiro, padrao:!!s.padrao };
     });
   } else {
-    var ag=(typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===agenteAbrev;});
-    arr=[{ id:asgUid(), nome:(ag&&ag.nomeCompleto)?ag.nomeCompleto:"",
-           cargo:"Pregoeiro(a) - Município de Ijuí", cpf:"", email:"", img:"", assinadoEm:"", ehPregoeiro:true }];
+    var ag=asgAgentePorAbrev(agenteAbrev);
+    var linha={ id:asgUid(), nome:(ag&&ag.nomeCompleto)?ag.nomeCompleto:"",
+                cargo:"Pregoeiro(a) - Município de Ijuí", cpf:"", email:"", img:"", assinadoEm:"", ehPregoeiro:true };
+    asgAplicarPadrao(linha, ag);
+    arr=[linha];
   }
   asgEditState[tipo]=arr;
   asgEditRender(tipo);
@@ -9104,16 +9073,22 @@ function asgEditRender(tipo){
   var html="";
   list.forEach(function(s){
     var assinado=!!s.img;
+    /* Assinatura padrão é do próprio pregoeiro — ele ainda pode ajustar o nome.
+       Só a assinatura feita pelo link externo trava o campo. */
+    var travado=assinado && !s.padrao;
     html+='<div class="asg-row">';
     html+='<div class="asg-row-top">';
-    html+='<input type="text" class="asg-in-nome" placeholder="Nome completo" value="'+escHtml(s.nome||"")+'"'+(assinado?" readonly":"")+' oninput="asgEditField(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;,&#39;nome&#39;,this.value)">';
+    html+='<input type="text" class="asg-in-nome" placeholder="Nome completo" value="'+escHtml(s.nome||"")+'"'+(travado?" readonly":"")+' oninput="asgEditField(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;,&#39;nome&#39;,this.value)">';
     html+='<button type="button" class="asg-rm" title="Remover" onclick="asgEditRemove(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;)">&times;</button>';
     html+='</div>';
     html+='<input type="text" class="asg-in-cargo" placeholder="Cargo / função (ex.: Pregoeiro(a), Engenheiro Civil)" value="'+escHtml(s.cargo||"")+'" oninput="asgEditField(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;,&#39;cargo&#39;,this.value)">';
+    if(s.padrao && s.img) html+='<div class="asg-prev"><img src="'+escHtml(s.img)+'" alt="assinatura padrão"></div>';
     html+='<div class="asg-row-foot">';
-    if(assinado) html+='<span class="asg-badge ok">&#10003; Assinado em '+escHtml(asgFmtDataHora(s.assinadoEm))+'</span>';
+    if(s.padrao) html+='<span class="asg-badge ok">&#10003; Assinatura padrão aplicada</span>';
+    else if(assinado) html+='<span class="asg-badge ok">&#10003; Assinado em '+escHtml(asgFmtDataHora(s.assinadoEm))+'</span>';
     else html+='<span class="asg-badge wait">Aguardando assinatura</span>';
-    if(editId) html+='<button type="button" class="asg-link" onclick="asgEditCopyLink(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;)">&#128279; Copiar link</button>';
+    if(s.padrao) html+='<button type="button" class="asg-link" style="background:#fff;color:#c0392b;border:1px solid #e3b3b3" onclick="asgTirarPadrao(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;)">Tirar deste documento</button>';
+    else if(editId) html+='<button type="button" class="asg-link" onclick="asgEditCopyLink(&#39;'+tipo+'&#39;,&#39;'+s.id+'&#39;)">&#128279; Copiar link</button>';
     html+='</div>';
     html+='</div>';
   });
@@ -9129,6 +9104,12 @@ function asgEditAdd(tipo){
   asgEditState[tipo].push({ id:asgUid(), nome:"", cargo:"", cpf:"", email:"", img:"", assinadoEm:"", ehPregoeiro:false });
   asgEditRender(tipo);
 }
+function asgTirarPadrao(tipo,id){
+  var s=(asgEditState[tipo]||[]).find(function(x){return x.id===id;});
+  if(!s) return;
+  s.img=""; s.assinadoEm=""; s.padrao=false;
+  asgEditRender(tipo);
+}
 function asgEditRemove(tipo,id){
   asgEditState[tipo]=(asgEditState[tipo]||[]).filter(function(x){return x.id!==id;});
   asgEditRender(tipo);
@@ -9136,10 +9117,14 @@ function asgEditRemove(tipo,id){
 function asgAgenteChanged(tipo){
   var sel=document.getElementById(tipo+"Agente");
   if(!sel) return;
-  var ag=(typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===sel.value;});
+  var ag=asgAgentePorAbrev(sel.value);
   if(!ag) return;
   var preg=(asgEditState[tipo]||[]).find(function(x){return x.ehPregoeiro && !x.img;});
-  if(preg && !preg.nome){ preg.nome=ag.nomeCompleto||""; asgEditRender(tipo); }
+  if(!preg) return;
+  var mudou=false;
+  if(!preg.nome){ preg.nome=ag.nomeCompleto||""; mudou=true; }
+  if(asgAplicarPadrao(preg, ag)) mudou=true;
+  if(mudou) asgEditRender(tipo);
 }
 function asgEditCopyLink(tipo,id){
   var editId=(tipo==="dec")?editandoDecId:editandoDilId;
@@ -9160,11 +9145,15 @@ function asgMergeForSave(tipo, storedDoc){
   var stored=(storedDoc && storedDoc.assinantes)?storedDoc.assinantes:[];
   return (asgEditState[tipo]||[]).map(function(e){
     var prev=stored.find(function(p){return p.id===e.id;});
-    if(prev && prev.img){
+    /* Assinatura vinda do link externo é a verdade: nunca é sobrescrita pelo
+       que está na tela (que pode estar aberta desde antes de a pessoa assinar). */
+    if(prev && prev.img && !prev.padrao){
       return { id:e.id, nome:prev.nome||e.nome||"", cargo:(e.cargo||prev.cargo||""), cpf:prev.cpf||"",
-               email:prev.email||"", img:prev.img, assinadoEm:prev.assinadoEm||"", ehPregoeiro:!!e.ehPregoeiro };
+               email:prev.email||"", img:prev.img, assinadoEm:prev.assinadoEm||"", ehPregoeiro:!!e.ehPregoeiro, padrao:false };
     }
-    return { id:e.id, nome:e.nome||"", cargo:e.cargo||"", cpf:"", email:"", img:"", assinadoEm:"", ehPregoeiro:!!e.ehPregoeiro };
+    return { id:e.id, nome:e.nome||"", cargo:e.cargo||"", cpf:"", email:"",
+             img:e.padrao?(e.img||""):"", assinadoEm:e.padrao?(e.assinadoEm||""):"",
+             ehPregoeiro:!!e.ehPregoeiro, padrao:!!e.padrao };
   });
 }
 
@@ -9201,7 +9190,17 @@ function asgAssinaturasPDF(doc, o){
       var half=solo?44:38;
       if(sg.img){
         try{
-          var iw=solo?60:50, ih=solo?20:18;
+          /* Respeita a proporção da imagem: a assinatura feita no celular pode
+             vir num quadro alto, e esticá-la num retângulo fixo a deformaria. */
+          var maxW=solo?60:50, maxH=solo?20:18, iw=maxW, ih=maxH;
+          try{
+            var ip=doc.getImageProperties(sg.img);
+            if(ip && ip.width && ip.height){
+              var rz=ip.width/ip.height;
+              ih=Math.min(maxH, maxW/rz); iw=ih*rz;
+              if(iw>maxW){ iw=maxW; ih=iw/rz; }
+            }
+          }catch(e2){}
           doc.addImage(sg.img,"PNG",cx-iw/2,lineY-ih-1,iw,ih);
         }catch(e){}
       }
@@ -9254,6 +9253,31 @@ function asgMaskCpfInput(el){
   else if(d.length>3) out=d.slice(0,3)+"."+d.slice(3);
   el.value=out;
 }
+/* Recorta o retângulo efetivamente desenhado, descartando o espaço em branco
+   ao redor. Sem isso, um quadro grande no celular geraria uma imagem quase toda
+   vazia — e a assinatura sairia minúscula no PDF. */
+function asgRecortarCanvas(canvas, margem){
+  var w=canvas.width, h=canvas.height;
+  if(!w||!h) return null;
+  var dados;
+  try{ dados=canvas.getContext("2d").getImageData(0,0,w,h).data; }catch(e){ return null; }
+  var x0=w, y0=h, x1=-1, y1=-1;
+  for(var y=0;y<h;y++){
+    for(var x=0;x<w;x++){
+      if(dados[(y*w+x)*4+3]===0) continue;
+      if(x<x0) x0=x; if(x>x1) x1=x;
+      if(y<y0) y0=y; if(y>y1) y1=y;
+    }
+  }
+  if(x1<0) return null;
+  var m=margem||Math.round(Math.max(w,h)*0.02);
+  x0=Math.max(0,x0-m); y0=Math.max(0,y0-m);
+  x1=Math.min(w-1,x1+m); y1=Math.min(h-1,y1+m);
+  var out=document.createElement("canvas");
+  out.width=x1-x0+1; out.height=y1-y0+1;
+  out.getContext("2d").drawImage(canvas, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  return out.toDataURL("image/png");
+}
 function asgPadInit(canvas){
   var ctx=canvas.getContext("2d"); var ready=false;
   function resize(){
@@ -9272,7 +9296,8 @@ function asgPadInit(canvas){
   canvas.addEventListener("touchstart",start,{passive:false}); canvas.addEventListener("touchmove",move,{passive:false}); canvas.addEventListener("touchend",end);
   setTimeout(resize,60);
   return { clear:function(){ ctx.clearRect(0,0,canvas.width,canvas.height); dirty=false; var h=document.getElementById("asgPadHint"); if(h) h.style.display=""; },
-           isEmpty:function(){ return !dirty; }, toDataURL:function(){ return canvas.toDataURL("image/png"); } };
+           isEmpty:function(){ return !dirty; },
+           toDataURL:function(){ return asgRecortarCanvas(canvas) || canvas.toDataURL("image/png"); } };
 }
 
 (function(){
@@ -9374,7 +9399,7 @@ function asgPadInit(canvas){
           var dd=s2.data()||{}; var arr=(dd.assinantes||[]).slice();
           var idx=-1; for(var k=0;k<arr.length;k++){ if(arr[k].id===signerId){ idx=k; break; } }
           if(idx<0) throw new Error("Assinante não encontrado.");
-          arr[idx]=Object.assign({},arr[idx],{nome:nome,cpf:cpf,email:email,img:img,assinadoEm:nowIso});
+          arr[idx]=Object.assign({},arr[idx],{nome:nome,cpf:cpf,email:email,img:img,assinadoEm:nowIso,padrao:false});
           tx.update(ref,{assinantes:arr, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
         });
       }).then(function(){
@@ -9382,6 +9407,70 @@ function asgPadInit(canvas){
       }).catch(function(e){
         err.textContent="Erro ao salvar: "+e.message; btn.disabled=false; btn.textContent="Confirmar assinatura";
       });
+    };
+  }
+})();
+
+/* ── Cadastro da assinatura padrão (?assinatura=AGENTE_ID) ──────────────
+   O pregoeiro abre este link no celular, assina uma vez com o dedo, e a
+   assinatura passa a vir pronta em toda decisão/diligência nova dele.   */
+(function(){
+  var agId=new URLSearchParams(window.location.search).get("assinatura");
+  if(!agId) return;
+  document.body.classList.add("asg-shared-mode");
+  var panel=document.getElementById("asgSharedPanel");
+  if(panel) panel.style.display="flex";
+  var tit=document.getElementById("asgsHtitle");
+  if(tit) tit.textContent="Assinatura Padrão";
+  try{ var lg=document.getElementById("asgsLogo"); if(lg && typeof LOGO_B64_PDF!=="undefined") lg.src=LOGO_B64_PDF; }catch(e){}
+  var body=document.getElementById("asgsBody");
+  var ref=db.collection("agentes").doc(agId);
+  var pad=null;
+
+  function msg(t){ body.innerHTML='<div class="asgs-card"><p style="text-align:center;color:#667;margin:8px 0">'+t+'</p></div>'; }
+  msg("Carregando...");
+
+  ref.get().then(function(snap){
+    if(!snap.exists){ msg("Agente não encontrado. Peça um link novo."); return; }
+    render(snap.data());
+  }).catch(function(e){ msg("Erro ao carregar: "+e.message); });
+
+  function render(ag){
+    var nome=ag.nomeCompleto||ag.nomeAbrev||"";
+    var head='<div class="asgs-card">'
+      +'<h1 class="asgs-doctitle">'+escHtml(nome)+'</h1>'
+      +'<div class="asgs-docmeta">Assine uma vez aqui. A partir de agora, toda Decisão e todo Pedido de Diligência que você criar já sai com esta assinatura.</div>';
+    if(ag.assinaturaImg){
+      head+='<div class="asgs-sigprev" style="margin-top:12px"><img src="'+escHtml(ag.assinaturaImg)+'" alt="assinatura atual"></div>'
+        +'<div class="asgs-docmeta" style="text-align:center;margin-top:6px">Assinatura atual — cadastrada em '+escHtml(asgFmtDataHora(ag.assinaturaEm))+'</div>';
+    }
+    head+='</div>';
+
+    var form='<div class="asgs-card">'
+      +'<label class="asgs-label" style="margin-top:0">'+(ag.assinaturaImg?"Nova assinatura":"Sua assinatura")+'</label>'
+      +'<div class="asgs-padwrap"><canvas id="asgPad" class="asgs-pad big"></canvas><span class="asgs-padhint" id="asgPadHint">assine aqui com o dedo</span></div>'
+      +'<div class="asgs-padbtns"><button class="asgs-btn ghost" type="button" onclick="aspLimpar()">Limpar</button><button class="asgs-btn primary" id="aspBtn" type="button" onclick="aspSalvar()">Salvar assinatura</button></div>'
+      +'<div class="asgs-err" id="aspErr"></div>'
+      +'</div>';
+    body.innerHTML=head+form;
+
+    pad=asgPadInit(document.getElementById("asgPad"));
+    window.aspLimpar=function(){ if(pad) pad.clear(); };
+    window.aspSalvar=function(){
+      var err=document.getElementById("aspErr");
+      if(!pad||pad.isEmpty()){ err.textContent="Faça a assinatura no quadro acima."; return; }
+      if(ag.assinaturaImg && !confirm("Substituir a assinatura padrão já cadastrada?")) return;
+      err.textContent="";
+      var btn=document.getElementById("aspBtn"); btn.disabled=true; btn.textContent="Salvando...";
+      ref.set({assinaturaImg:pad.toDataURL(), assinaturaEm:new Date().toISOString(),
+               updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})
+        .then(function(){
+          body.innerHTML='<div class="asgs-card asgs-done"><div class="chk">&#10003;</div>'
+            +'<h2>Assinatura cadastrada</h2><p><b>'+escHtml(nome)+'</b></p>'
+            +'<p>Pode fechar esta página. Suas próximas decisões já saem assinadas.</p></div>';
+          window.scrollTo(0,0);
+        })
+        .catch(function(e){ err.textContent="Erro ao salvar: "+e.message; btn.disabled=false; btn.textContent="Salvar assinatura"; });
     };
   }
 })();
@@ -9770,7 +9859,7 @@ function usuariosExcluir(id, usuario, total){
    tela cheia), sempre chamando a MESMA função usada pelo botão ✕/Voltar de
    cada um, para o comportamento ficar idêntico ao de fechar clicando.
    Não mexe nas páginas de link compartilhado (?ranking=, ?hab=, ?assinar=,
-   ?venc=) nem na tela de login — não há "menu" ali para sair.             */
+   ?assinatura=, ?venc=) nem na tela de login — não há "menu" ali para sair. */
 document.addEventListener("keydown", function(e){
   if(e.key!=="Escape") return;
 
@@ -9810,7 +9899,7 @@ document.addEventListener("keydown", function(e){
 /* Inicialização do portão de acesso */
 (function(){
   var params=new URLSearchParams(window.location.search);
-  if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("venc")){
+  if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("assinatura")||params.has("venc")){
     var g0=document.getElementById("authGate"); if(g0) g0.style.display="none";
     return;
   }
