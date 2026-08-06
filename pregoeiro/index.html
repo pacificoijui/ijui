@@ -8248,13 +8248,14 @@ function decGerarPDF(dec){
      nova — e, quando não dá para dividir assim, o parágrafo inteiro desce.
      Empurrar todo bloco por inteiro, como antes, é o que abria aqueles vãos
      em branco no pé da página.                                            */
-  var MIN_LINHAS=2;
+  var MIN_TOPO=2;   /* nunca deixa uma linha sozinha no alto da página nova */
+  var MIN_PE=1;     /* mas uma linha só no pé, antes da quebra, é aceitável */
   /* Em que linha quebrar: 0 = antes do bloco todo, n = não precisa quebrar. */
   function planoDeQuebra(n){
     var cabem=Math.floor((BOTTOM-y)/LH);
     if(cabem>=n) return n;
-    var k=Math.min(cabem, n-MIN_LINHAS);
-    return (k>=MIN_LINHAS)?k:0;
+    var k=Math.min(cabem, n-MIN_TOPO);
+    return (k>=MIN_PE)?k:0;
   }
 
   function renderPara(raw,indent){
@@ -8320,22 +8321,40 @@ function decGerarPDF(dec){
   draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;
 
   var blocos=decParseBlocos(dec.texto||"");
-  /* Altura que um título ocupa, para decidir quebra de página. */
+  /* Altura mínima de um título: o texto mais o menor respiro de baixo. */
   function alturaTitulo(b){
-    if(b.t==="h1"){ fs(12);ft("bold"); return 6+doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+9; }
-    if(b.t==="h2"){ fs(FS);ft("bold"); return 4+doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+8; }
-    if(b.t==="h3"){ fs(FS);ft("bold"); return 3+doc.splitTextToSize(b.x,CW).length*LH+5; }
+    if(b.t==="h1"){ fs(12);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+5; }
+    if(b.t==="h2"){ fs(FS);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+5; }
+    if(b.t==="h3"){ fs(FS);ft("bold"); return doc.splitTextToSize(b.x,CW).length*LH+3; }
     return 0;
   }
-  /* Espaço que um título precisa reservar para o que vem depois dele. Se o
-     seguinte for outro título, soma o dele também — era por não olhar isso
-     que "II. ANÁLISE E FUNDAMENTAÇÃO" ficava sozinha no pé da página com a
-     subseção pulando para a página de baixo. */
+  /* Todo título tem dois espaços elásticos: o respiro antes e o depois.
+     Faltando um dedo de página, eles encolhem — primeiro o de cima, depois o
+     de baixo — em vez de a seção inteira descer e deixar meia página em
+     branco. Devolve [antes, depois], ou null quando nem encolhido cabe. */
+  function encaixarTitulo(antes, texto, depois, minDepois, comp){
+    var op=[[antes,depois],[0,depois],[0,minDepois]];
+    for(var i=0;i<op.length;i++)
+      if(y+op[i][0]+texto+op[i][1]+comp<=BOTTOM) return op[i];
+    return null;
+  }
+  /* Espaço que um título precisa reservar para o que vem depois dele. Título
+     seguido de título soma os dois — era por não olhar isso que "II. ANÁLISE E
+     FUNDAMENTAÇÃO" ficava sozinha no pé com a subseção pulando de página.
+     Para um parágrafo basta reservar a primeira linha, já que o resto pode
+     continuar na página seguinte; a exceção é o parágrafo curto demais para
+     se dividir, que desce inteiro e leva o título junto. */
   function companhia(i){
     var prox=blocos[i+1];
     if(!prox) return 0;
     var h=alturaTitulo(prox);
-    return h ? h+companhia(i+1) : MIN_LINHAS*LH;
+    if(h) return h+companhia(i+1);
+    if(prox.t==="p"||prox.t==="li"){
+      var ehLi=(prox.t==="li");
+      var n=buildLines(mkWords(mkSegs(prox.x||"")), ehLi?CW-10:CW, ehLi?0:IND).length;
+      return (n<=MIN_TOPO?n:MIN_PE)*LH;
+    }
+    return MIN_TOPO*LH;
   }
   for(var bi=0;bi<blocos.length;bi++){
     var b=blocos[bi];
@@ -8345,29 +8364,32 @@ function decGerarPDF(dec){
       var comp1=companhia(bi);
       fs(12);ft("bold");
       var h1l=doc.splitTextToSize(b.x.toUpperCase(),CW);
-      if(y+6+h1l.length*7.5+9+comp1>BOTTOM) newPage(); else y+=6;
+      var e1=encaixarTitulo(6, h1l.length*7.5, 9, 5, comp1);
+      if(!e1){ newPage(); e1=[0,9]; } else y+=e1[0];
       tc(cNavy);
       doc.text(h1l,ML,y); y+=h1l.length*7.5;
       draw(cGold);doc.setLineWidth(0.9);doc.line(ML,y,ML+30,y);
-      y+=9;
+      y+=e1[1];
     } else if(b.t==="h2"){
       var comp2=companhia(bi);
       fs(FS);ft("bold");
       var h2u=b.x.toUpperCase();
       var h2l=doc.splitTextToSize(h2u,CW);
-      if(y+4+h2l.length*LH+8+comp2>BOTTOM) newPage(); else y+=4;
+      var e2=encaixarTitulo(4, h2l.length*LH, 8, 5, comp2);
+      if(!e2){ newPage(); e2=[0,8]; } else y+=e2[0];
       tc(cNavy);
       doc.text(h2l,ML,y);
       draw(cNavy);doc.setLineWidth(0.3);
       doc.line(ML,y+2,ML+Math.min(doc.getTextWidth(h2u)+2,CW),y+2);
-      y+=h2l.length*LH+8;
+      y+=h2l.length*LH+e2[1];
     } else if(b.t==="h3"){
       var comp3=companhia(bi);
       fs(FS);ft("bold");
       var h3l=doc.splitTextToSize(b.x,CW);
-      if(y+3+h3l.length*LH+5+comp3>BOTTOM) newPage(); else y+=3;
+      var e3=encaixarTitulo(3, h3l.length*LH, 5, 3, comp3);
+      if(!e3){ newPage(); e3=[0,5]; } else y+=e3[0];
       tc(cText);
-      doc.text(h3l,ML,y); y+=h3l.length*LH+5;
+      doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
     } else if(b.t==="q"){
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
       var ql=doc.splitTextToSize(qclean,CW-14);
@@ -8941,13 +8963,14 @@ function dilGerarPDF(dec){
      nova — e, quando não dá para dividir assim, o parágrafo inteiro desce.
      Empurrar todo bloco por inteiro, como antes, é o que abria aqueles vãos
      em branco no pé da página.                                            */
-  var MIN_LINHAS=2;
+  var MIN_TOPO=2;   /* nunca deixa uma linha sozinha no alto da página nova */
+  var MIN_PE=1;     /* mas uma linha só no pé, antes da quebra, é aceitável */
   /* Em que linha quebrar: 0 = antes do bloco todo, n = não precisa quebrar. */
   function planoDeQuebra(n){
     var cabem=Math.floor((BOTTOM-y)/LH);
     if(cabem>=n) return n;
-    var k=Math.min(cabem, n-MIN_LINHAS);
-    return (k>=MIN_LINHAS)?k:0;
+    var k=Math.min(cabem, n-MIN_TOPO);
+    return (k>=MIN_PE)?k:0;
   }
 
   function renderPara(raw,indent){
@@ -9020,22 +9043,40 @@ function dilGerarPDF(dec){
   draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;
 
   var blocos=dilParseBlocos(dec.texto||"");
-  /* Altura que um título ocupa, para decidir quebra de página. */
+  /* Altura mínima de um título: o texto mais o menor respiro de baixo. */
   function alturaTitulo(b){
-    if(b.t==="h1"){ fs(12);ft("bold"); return 6+doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+9; }
-    if(b.t==="h2"){ fs(FS);ft("bold"); return 4+doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+8; }
-    if(b.t==="h3"){ fs(FS);ft("bold"); return 3+doc.splitTextToSize(b.x,CW).length*LH+5; }
+    if(b.t==="h1"){ fs(12);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+5; }
+    if(b.t==="h2"){ fs(FS);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+5; }
+    if(b.t==="h3"){ fs(FS);ft("bold"); return doc.splitTextToSize(b.x,CW).length*LH+3; }
     return 0;
   }
-  /* Espaço que um título precisa reservar para o que vem depois dele. Se o
-     seguinte for outro título, soma o dele também — era por não olhar isso
-     que "II. ANÁLISE E FUNDAMENTAÇÃO" ficava sozinha no pé da página com a
-     subseção pulando para a página de baixo. */
+  /* Todo título tem dois espaços elásticos: o respiro antes e o depois.
+     Faltando um dedo de página, eles encolhem — primeiro o de cima, depois o
+     de baixo — em vez de a seção inteira descer e deixar meia página em
+     branco. Devolve [antes, depois], ou null quando nem encolhido cabe. */
+  function encaixarTitulo(antes, texto, depois, minDepois, comp){
+    var op=[[antes,depois],[0,depois],[0,minDepois]];
+    for(var i=0;i<op.length;i++)
+      if(y+op[i][0]+texto+op[i][1]+comp<=BOTTOM) return op[i];
+    return null;
+  }
+  /* Espaço que um título precisa reservar para o que vem depois dele. Título
+     seguido de título soma os dois — era por não olhar isso que "II. ANÁLISE E
+     FUNDAMENTAÇÃO" ficava sozinha no pé com a subseção pulando de página.
+     Para um parágrafo basta reservar a primeira linha, já que o resto pode
+     continuar na página seguinte; a exceção é o parágrafo curto demais para
+     se dividir, que desce inteiro e leva o título junto. */
   function companhia(i){
     var prox=blocos[i+1];
     if(!prox) return 0;
     var h=alturaTitulo(prox);
-    return h ? h+companhia(i+1) : MIN_LINHAS*LH;
+    if(h) return h+companhia(i+1);
+    if(prox.t==="p"||prox.t==="li"){
+      var ehLi=(prox.t==="li");
+      var n=buildLines(mkWords(mkSegs(prox.x||"")), ehLi?CW-10:CW, ehLi?0:IND).length;
+      return (n<=MIN_TOPO?n:MIN_PE)*LH;
+    }
+    return MIN_TOPO*LH;
   }
   for(var bi=0;bi<blocos.length;bi++){
     var b=blocos[bi];
@@ -9045,29 +9086,32 @@ function dilGerarPDF(dec){
       var comp1=companhia(bi);
       fs(12);ft("bold");
       var h1l=doc.splitTextToSize(b.x.toUpperCase(),CW);
-      if(y+6+h1l.length*7.5+9+comp1>BOTTOM) newPage(); else y+=6;
+      var e1=encaixarTitulo(6, h1l.length*7.5, 9, 5, comp1);
+      if(!e1){ newPage(); e1=[0,9]; } else y+=e1[0];
       tc(cNavy);
       doc.text(h1l,ML,y); y+=h1l.length*7.5;
       draw(cGold);doc.setLineWidth(0.9);doc.line(ML,y,ML+30,y);
-      y+=9;
+      y+=e1[1];
     } else if(b.t==="h2"){
       var comp2=companhia(bi);
       fs(FS);ft("bold");
       var h2u=b.x.toUpperCase();
       var h2l=doc.splitTextToSize(h2u,CW);
-      if(y+4+h2l.length*LH+8+comp2>BOTTOM) newPage(); else y+=4;
+      var e2=encaixarTitulo(4, h2l.length*LH, 8, 5, comp2);
+      if(!e2){ newPage(); e2=[0,8]; } else y+=e2[0];
       tc(cNavy);
       doc.text(h2l,ML,y);
       draw(cNavy);doc.setLineWidth(0.3);
       doc.line(ML,y+2,ML+Math.min(doc.getTextWidth(h2u)+2,CW),y+2);
-      y+=h2l.length*LH+8;
+      y+=h2l.length*LH+e2[1];
     } else if(b.t==="h3"){
       var comp3=companhia(bi);
       fs(FS);ft("bold");
       var h3l=doc.splitTextToSize(b.x,CW);
-      if(y+3+h3l.length*LH+5+comp3>BOTTOM) newPage(); else y+=3;
+      var e3=encaixarTitulo(3, h3l.length*LH, 5, 3, comp3);
+      if(!e3){ newPage(); e3=[0,5]; } else y+=e3[0];
       tc(cText);
-      doc.text(h3l,ML,y); y+=h3l.length*LH+5;
+      doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
     } else if(b.t==="q"){
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
       var ql=doc.splitTextToSize(qclean,CW-14);
