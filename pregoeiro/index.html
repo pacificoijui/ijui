@@ -3667,7 +3667,7 @@ function onProcObsInput(pid, el){
         if(s2){ s2.textContent="erro ao salvar"; s2.style.opacity="1"; }
         console.error("obs proc:",e);
       });
-  }, 800);
+  }, 10000);
 }
 function abrirModalAgentes(){ document.getElementById("modalAgentes").classList.add("open"); renderListaAgentes(); }
 function fecharModalAgentes(){ document.getElementById("modalAgentes").classList.remove("open"); limparFormAgente(); }
@@ -5978,13 +5978,17 @@ function rkGerarPDF(){
 function rkItensDesertoOuFracassado(){
   var vistos={}, lista=[];
   (rkItens||[]).forEach(function(it){
-    var isFrac=rkItemFracassado(it);
     var semForn=(!it.fornecedores||!it.fornecedores.length);
+    var isFrac=rkItemFracassado(it);
     if(!isFrac&&!semForn) return;
     var num=String(it.num||'').trim(); if(!num||vistos[num]) return;
     vistos[num]=true;
     var refEdital=rkEdital&&rkEdital[num]&&rkEdital[num].ref;
-    lista.push({num:num, desc:rkDesc(it)||'', ref:it.ref||refEdital||'', deserto:semForn&&!isFrac});
+    /* semForn (não isFrac) decide o rótulo: rkItemFracassado agora também é
+       true para deserto, mas a comunicação à secretaria precisa dizer QUAL
+       dos dois motivos foi — "sem propostas" pede providência diferente de
+       "todas as propostas foram reprovadas". */
+    lista.push({num:num, desc:rkDesc(it)||'', ref:it.ref||refEdital||'', deserto:semForn});
   });
   rkEditalFaltantes().forEach(function(num){
     if(vistos[num]) return; vistos[num]=true;
@@ -6258,7 +6262,10 @@ function rkGerarPDFFracassados(){
 
 function rkItemAp(it){ return it.fornecedores.some(function(_,i){ return rkEstados[it.num+'-'+i]==='aprovado'; }); }
 function rkItemDil(it){ return !rkItemAp(it)&&it.fornecedores.some(function(_,i){ return rkEstados[it.num+'-'+i]==='diligencia'; }); }
-function rkItemFracassado(it){ if(!it.fornecedores||!it.fornecedores.length) return false; return it.fornecedores.every(function(_,i){ return (rkEstados[it.num+'-'+i]||'neutro')==='reprovado'; }); }
+/* Item sem nenhuma proposta (deserto) entra como fracassado sozinho — é o
+   mesmo destino prático (reabrir a compra), e o Painel por Empresa já
+   agrupava os dois juntos no balaio "Itens Fracassados" mesmo antes disso. */
+function rkItemFracassado(it){ if(!it.fornecedores||!it.fornecedores.length) return true; return it.fornecedores.every(function(_,i){ return (rkEstados[it.num+'-'+i]||'neutro')==='reprovado'; }); }
 function rkItemPe(it){ return !rkItemAp(it)&&!rkItemDil(it)&&!rkItemFracassado(it); }
 /* Item que teve ao menos uma empresa/proposta DESCLASSIFICADA (reprovada) —
    usado no filtro de revisão cruzada com o portal. */
