@@ -336,6 +336,30 @@
   .dec-preview li { margin: 0 0 4px; }
   .dec-preview blockquote { margin: 8px 0 8px 12px; padding: 6px 12px; border-left: 3px solid var(--border); color: #555; font-style: italic; background: #f8fafd; }
 
+  /* ── Bloco arrastável com as instruções de formatação para a IA ──────── */
+  .ia-drag { display: inline-flex; align-items: center; gap: 11px; cursor: grab; user-select: none;
+             background: linear-gradient(135deg, #f4f1fe, #eef4ff); border: 1.5px dashed #a99bea;
+             border-radius: 10px; padding: 10px 15px; transition: border-color .15s, background .15s, transform .1s; }
+  .ia-drag:hover { border-color: #7C3AED; background: linear-gradient(135deg, #efe9fd, #e6efff); }
+  .ia-drag:active { cursor: grabbing; transform: scale(.99); }
+  .ia-drag-grip { color: #a99bea; font-size: 15px; letter-spacing: -3px; flex-shrink: 0; }
+  .ia-drag-txt { display: flex; flex-direction: column; line-height: 1.35; }
+  .ia-drag-txt b { font-size: 13px; color: #4C1D95; font-weight: 800; }
+  .ia-drag-txt small { font-size: 11px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 500; }
+
+  /* ── Blocos novos (inciso, alínea, fonte, destaque, tabela, divisória) ──
+     Mesmas classes na prévia dos modais e na página de assinatura. */
+  .pv-oli { display: flex; gap: 8px; margin: 0 0 5px; text-align: justify; }
+  .pv-oli-n { flex: 0 0 auto; font-weight: 700; color: var(--navy); min-width: 22px; }
+  .pv-fonte { text-align: right; font-size: 11.5px; font-style: italic; color: var(--muted); margin: -4px 0 10px; }
+  .pv-destaque { background: #fff8e8; border: 1px solid var(--gold, #F26B21); border-radius: 7px; padding: 9px 13px; margin: 10px 0; font-weight: 700; color: #7c2d12; }
+  .pv-hr { border: none; border-top: 1px solid var(--border); margin: 14px 40px; }
+  .pv-tab-wrap { overflow-x: auto; margin: 10px 0; }
+  .pv-tab { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .pv-tab th { background: var(--navy); color: #fff; text-align: left; padding: 6px 9px; font-weight: 700; }
+  .pv-tab td { padding: 5px 9px; border-bottom: 1px solid var(--border); }
+  .pv-tab tr:nth-child(even) td { background: #f7f9fd; }
+
   /* ── PAINÉIS PÁGINA CHEIA (Decisões / Diligências) ──────────────────────── */
   .panel-overlay { position: fixed; inset: 0; background: #f0f2f5; z-index: 500; display: none; flex-direction: column; overflow: hidden; }
   .panel-overlay.open { display: flex; }
@@ -1781,6 +1805,16 @@
         </div>
       </div>
       <div class="field">
+        <label>Escrever com IA</label>
+        <div class="ia-drag" id="decIaDrag" draggable="true"
+             ondragstart="pdfIaDragStart(event,'dec')" onclick="pdfIaCopiar('dec')"
+             title="Arraste para a conversa do Claude (ou clique para copiar). Vai junto o formato que o sistema entende e os dados já preenchidos aqui.">
+          <span class="ia-drag-grip">&#8942;&#8942;</span>
+          <span class="ia-drag-txt"><b>&#129302; Instruções de formatação</b>
+            <small>arraste para o Claude &middot; ou clique para copiar</small></span>
+        </div>
+      </div>
+      <div class="field">
         <label>Modelos Internos</label>
         <div class="dec-tpl-bar">
           <span>Inserir estrutura:</span>
@@ -1915,6 +1949,16 @@
             <option value="prejudicado">Prejudicado</option>
             <option value="outro">Outro</option>
           </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Escrever com IA</label>
+        <div class="ia-drag" id="dilIaDrag" draggable="true"
+             ondragstart="pdfIaDragStart(event,'dil')" onclick="pdfIaCopiar('dil')"
+             title="Arraste para a conversa do Claude (ou clique para copiar). Vai junto o formato que o sistema entende e os dados já preenchidos aqui.">
+          <span class="ia-drag-grip">&#8942;&#8942;</span>
+          <span class="ia-drag-txt"><b>&#129302; Instruções de formatação</b>
+            <small>arraste para o Claude &middot; ou clique para copiar</small></span>
         </div>
       </div>
       <div class="field">
@@ -8215,6 +8259,24 @@ function decParseBlocos(texto){
     var l=raw.trim();
     if(!l) continue;
     var m;
+    /* Tabela: linhas seguidas entre barras. Uma linha de traços (|---|---|)
+       logo abaixo da primeira marca aquela primeira como cabeçalho. */
+    if(/^\|.*\|$/.test(l)){
+      var tab=[], temCab=false;
+      while(i<linhas.length){
+        var lt=linhas[i].trim();
+        if(!/^\|.*\|$/.test(lt)) break;
+        if(/^\|[\s:|-]+\|$/.test(lt)){ if(tab.length===1) temCab=true; i++; continue; }
+        tab.push(lt.replace(/^\|/,"").replace(/\|$/,"").split("|").map(function(cel){ return decLimparPara(cel.trim()); }));
+        i++;
+      }
+      i--;
+      if(tab.length) blocos.push({t:"tabela", linhas:tab, cab:temCab});
+      continue;
+    }
+    /* Linha divisória */
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(l)){ blocos.push({t:"hr"}); continue; }
+
     m=l.match(/^(#{1,6})\s+(.*)$/);
     if(m){
       var nivel=Math.min(m[1].length,3);
@@ -8223,15 +8285,35 @@ function decParseBlocos(texto){
     }
     m=l.match(/^(\*\*|__)(.+?)(\*\*|__)\s*:?\s*$/);
     if(m){ blocos.push({t:"h2", x:decLimparInline(m[2])}); continue; }
+    /* Fonte da citação (">> Lei nº ...") — tem de vir antes da citação */
+    if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:decLimparInline(l.replace(/^>>\s?/,""))}); continue; }
     if(/^>\s?/.test(l)){ blocos.push({t:"q", x:decLimparPara(l.replace(/^>\s?/,""))}); continue; }
-    if(/^[-*\u2022]\s+/.test(l)){ blocos.push({t:"li", x:decLimparPara(l.replace(/^[-*\u2022]\s+/,""))}); continue; }
-    m=l.match(/^([IVXLC]+)\s*[\u2013\u2014.\-)]\s+(.+)$/);
-    if(m && decEhMaiuscula(m[2])){ blocos.push({t:"h1", x:decLimparInline(l)}); continue; }
-    m=l.match(/^(\d+(?:\.\d+)*)\s*[.)\u2013\u2014-]\s+(.+)$/);
-    if(m && decEhMaiuscula(m[2])){
-      blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:decLimparInline(l)});
+    /* Caixa de destaque — dispositivo, conclusão, o que não pode passar batido */
+    if(/^!!\s?/.test(l)){ blocos.push({t:"destaque", x:decLimparPara(l.replace(/^!!\s?/,""))}); continue; }
+    if(/^[-*•]\s+/.test(l)){ blocos.push({t:"li", x:decLimparPara(l.replace(/^[-*•]\s+/,""))}); continue; }
+    /* Algarismo romano: em MAIÚSCULAS é título de seção; em texto corrido é
+       inciso. O separador ponto fica de fora do inciso, senão "V. Exa." e
+       companhia virariam lista. */
+    m=l.match(/^([IVXLC]+)\s*([–—.\-)])\s+(.+)$/);
+    if(m){
+      if(decEhMaiuscula(m[3])){ blocos.push({t:"h1", x:decLimparInline(l)}); continue; }
+      if(m[2]!=="."){ blocos.push({t:"oli", n:m[1]+" –", x:decLimparPara(m[3])}); continue; }
+    }
+    /* Item numerado. No máximo 3 dígitos por grupo, para "2021. O edital..."
+       continuar sendo parágrafo. */
+    m=l.match(/^(\d{1,3}(?:\.\d{1,3})*)\s*([.)–—-])\s+(.+)$/);
+    if(m){
+      if(decEhMaiuscula(m[3])){
+        blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:decLimparInline(l)});
+        continue;
+      }
+      blocos.push({t:"oli", n:m[1]+(m[2]===")"?")":"."), x:decLimparPara(m[3])});
       continue;
     }
+    /* Alínea: a) b) c) */
+    m=l.match(/^([a-z])\)\s+(.+)$/);
+    if(m){ blocos.push({t:"oli", n:m[1]+")", x:decLimparPara(m[2])}); continue; }
+
     if(decEhMaiuscula(l) && l.length<=90 && !/[.;,]$/.test(l)){
       blocos.push({t:(decEhSecaoPrincipal(l)?"h1":"h2"), x:decLimparInline(l)});
       continue;
@@ -8248,23 +8330,105 @@ function decTogglePreview(){
   el.style.display=decPreviewAberto?"block":"none";
   if(decPreviewAberto) decAtualizarPreview();
 }
+/* ══════════════════════════════════════════════════════════════════════════
+   INSTRUÇÕES DE FORMATAÇÃO PARA A IA
+   O texto que sai daqui é o mesmo que o botão arrastável entrega ao Claude
+   (ou ao ChatGPT). Ele descreve o formato que decParseBlocos/dilParseBlocos
+   entendem — se um bloco novo for criado no parser, precisa ser descrito
+   aqui também, senão a IA nunca vai usá-lo.
+   ══════════════════════════════════════════════════════════════════════════ */
+var PDF_IA_BASE = "INSTRUÇÕES DE FORMATAÇÃO — {{DOCNOME}}\nSistema de Gestão de Processos Licitatórios · Município de Ijuí · COPAM\n\nVocê vai redigir o TEXTO de {{DOCARTIGO}}. Esse texto será colado no campo\n\"{{CAMPO}}\" do sistema, que monta sozinho o PDF oficial — com brasão,\ncabeçalho, rodapé, numeração de páginas e bloco de assinatura. Escreva\nsomente o corpo do documento, usando exatamente as marcações abaixo.\n\nDADOS DESTE DOCUMENTO\n{{DADOS}}\n\n════════════════════════════════════════════════════════════════════════\nREGRA DE OURO: UM PARÁGRAFO = UMA LINHA\n════════════════════════════════════════════════════════════════════════\nO sistema lê o texto LINHA A LINHA. Toda quebra de linha começa um bloco\nnovo. Portanto, um parágrafo inteiro — por mais longo que seja — precisa\nficar numa única linha, sem quebras no meio. Se você quebrar um parágrafo\nem várias linhas \"para caber na tela\", ele vira vários parágrafos soltos\nno PDF, cada um com seu próprio recuo.\n\nLinhas em branco entre os blocos são opcionais: o sistema as ignora. Use-as\nà vontade para deixar o rascunho legível.\n\n════════════════════════════════════════════════════════════════════════\nO QUE O SISTEMA JÁ PÕE SOZINHO — NÃO ESCREVA\n════════════════════════════════════════════════════════════════════════\n• Brasão, cabeçalho e rodapé do Município, em todas as páginas\n• O título \"{{TITULOAUTO}}\", centralizado no alto\n• O assunto, entre dois fios, logo abaixo do título\n• A data por extenso (\"Ijuí/RS, 6 de agosto de 2026\") no fecho\n• O bloco de assinatura do pregoeiro e dos demais assinantes\n• A numeração das páginas e as quebras de página\n\nNão repita nada disso no texto. Comece direto na primeira seção.\n\n════════════════════════════════════════════════════════════════════════\nMARCAÇÕES DISPONÍVEIS\n════════════════════════════════════════════════════════════════════════\n\n1) TÍTULO DE SEÇÃO\n   Uma linha em MAIÚSCULAS, sozinha, sem ponto final:\n\n       I. RELATÓRIO\n       II. ANÁLISE E FUNDAMENTAÇÃO\n       III. DECISÃO\n\n   Sai grande, em azul-marinho, com um traço laranja embaixo.\n   Também funciona com cerquilha:  # RELATÓRIO\n\n2) SUBTÍTULO\n   MAIÚSCULAS numeradas com ponto, ou duas cerquilhas:\n\n       DA TEMPESTIVIDADE\n       2.1. DO MÉRITO\n       ## Da regularidade fiscal\n\n   Sai menor, em azul-marinho, sublinhado.\n   Para um terceiro nível, use três cerquilhas:  ### Do atestado técnico\n\n3) PARÁGRAFO\n   Escreva a linha inteira, sem marcação nenhuma. Sai justificado, com recuo\n   na primeira linha. Use **negrito** para destacar trechos dentro dele.\n\n4) LISTA SIMPLES\n       - certidão negativa de débitos municipais\n       - certidão de regularidade do FGTS\n\n5) INCISO (algarismo romano)\n       I – o preço proposto mostrou-se inexequível;\n       II – a licitante não apresentou o atestado exigido no item 9.4;\n\n   Use travessão (–), hífen (-) ou parêntese, NUNCA ponto: com ponto e em\n   maiúsculas, a linha vira título de seção.\n\n6) ITEM NUMERADO\n       1. Trata-se de impugnação apresentada tempestivamente.\n       2. A impugnante alega violação ao princípio da isonomia.\n\n7) ALÍNEA\n       a) contrato social consolidado;\n       b) certidão de falência e concordata;\n\n8) CITAÇÃO DE LEI, EDITAL OU JURISPRUDÊNCIA\n       > Art. 64. Após a entrega dos documentos de habilitação, verificado o descumprimento, a licitante será inabilitada.\n       >> Lei nº 14.133/2021, art. 64\n\n   A linha iniciada por \">\" vira uma caixa recuada, em itálico, com barra\n   azul à esquerda. A linha iniciada por \">>\" logo abaixo vira a fonte da\n   citação: pequena, em itálico, alinhada à direita.\n\n9) CAIXA DE DESTAQUE\n       !! DECIDO pela INABILITAÇÃO da licitante, determinando a convocação da segunda colocada.\n\n   Sai numa tarja âmbar, em negrito. Reserve para o dispositivo, a conclusão\n   do parecer, o prazo que a empresa não pode perder. No máximo duas por\n   documento — usada demais, deixa de destacar.\n\n10) TABELA / QUADRO COMPARATIVO\n       | Item | Empresa | Valor do edital | Proposta | % acima |\n       |---|---|---|---|---|\n       | 1 | ALFA LTDA | R$ 2,50 | R$ 3,00 | +20,0% |\n       | 2 | BETA ME | R$ 22,00 | R$ 26,40 | +20,0% |\n\n    Toda linha começa e termina com barra vertical. A segunda linha, só com\n    traços, é o que marca a primeira como cabeçalho — sem ela, a primeira\n    linha vira uma linha comum. As colunas se ajustam sozinhas ao conteúdo, e\n    o cabeçalho se repete quando a tabela vira a página.\n\n11) LINHA DIVISÓRIA\n       ---\n{{EXTRA}}\n════════════════════════════════════════════════════════════════════════\nESQUELETO SUGERIDO\n════════════════════════════════════════════════════════════════════════\n{{ESQUELETO}}\n════════════════════════════════════════════════════════════════════════\nERROS COMUNS — NÃO FAÇA\n════════════════════════════════════════════════════════════════════════\n✗ Quebrar um parágrafo em várias linhas. Vira vários parágrafos.\n✗ Escrever UMA FRASE INTEIRA EM MAIÚSCULAS no meio do texto: ela vira\n  título. Para dar ênfase, use **negrito** ou a caixa de destaque !!\n✗ Terminar um título com ponto final: ele deixa de ser reconhecido.\n✗ Envolver a resposta em blocos de código (três crases). O sistema\n  descarta essas linhas.\n✗ Montar tabela sem as barras nas pontas de cada linha.\n✗ Repetir o número do documento, o assunto, a data ou a assinatura no\n  texto: o sistema já põe tudo isso.\n✗ Escrever \"Página 1 de 3\" ou inserir quebras de página manuais.\n✗ Deixar espaços reservados como [NOME DA EMPRESA] sem preencher, quando\n  a informação foi passada.\n\n════════════════════════════════════════════════════════════════════════\nFORMATO DA RESPOSTA\n════════════════════════════════════════════════════════════════════════\nResponda APENAS com o texto do documento, pronto para copiar e colar no\nsistema. Sem comentário antes, sem explicação depois, sem bloco de código\nem volta. Se faltar alguma informação essencial, pergunte antes de redigir.\n";
+var PDF_IA_ESQUELETO = { dec: "I. RELATÓRIO\n\n<Um parágrafo dizendo o que aconteceu: quem apresentou o quê, quando, e o que pede. Se houver mais de um fato relevante, use um parágrafo para cada — sempre uma linha por parágrafo.>\n\nII. ANÁLISE E FUNDAMENTAÇÃO\n\nDA TEMPESTIVIDADE\n\n<Parágrafo sobre prazo, com o dispositivo legal e o item do edital.>\n\nDO MÉRITO\n\n<Parágrafos analisando ponto a ponto. Cite a lei ou o edital com > e >>. Enumere as razões com incisos I –, II –. Use tabela quando comparar valores ou documentos.>\n\nIII. DECISÃO\n\n<Parágrafo de fecho amarrando a análise ao dispositivo.>\n\n!! <O dispositivo em uma frase: CONHEÇO / NÃO CONHEÇO, JULGO PROCEDENTE / IMPROCEDENTE, DECLARO HABILITADA / INABILITADA, e a providência determinada.>", dil: "I. DO OBJETO DA DILIGÊNCIA\n\n<Um parágrafo dizendo qual processo, qual item ou lote, e qual empresa está sendo diligenciada.>\n\nII. DO QUE SE SOLICITA\n\n<Parágrafo de abertura explicando o que precisa ser esclarecido ou comprovado.>\n\n<Enumere o que a empresa deve apresentar, um por alínea:>\na) <documento ou esclarecimento>;\nb) <documento ou esclarecimento>;\n\nIII. DO PRAZO E DA FORMA DE RESPOSTA\n\n<Parágrafo com o prazo e por onde responder.>\n\n!! Prazo para resposta: até <dia> de <mês> de <ano>, às <hora>, exclusivamente pelo chat do Portal de Compras Públicas.\n\n[LINK] <url do processo no portal> | Acessar o processo no Portal de Compras Públicas\n\n<Parágrafo final advertindo sobre a consequência de não responder no prazo.>" };
+var PDF_IA_EXTRA = { dec: "", dil: "\n12) BOTÃO DE LINK (só no Pedido de Diligência)\n       [LINK] https://www.portaldecompraspublicas.com.br/... | Acessar o processo no Portal\n\n    Vira um botão azul, centralizado e clicável dentro do PDF. A parte antes\n    da barra é o endereço; a parte depois é o texto que aparece no botão.\n" };
+
+function pdfInstrucoesIA(tipo){
+  var ehDil=(tipo==="dil"), px=ehDil?"dil":"dec";
+  function campo(id){ var e=document.getElementById(id); return e?String(e.value||"").trim():""; }
+  var num=campo(px+"Numero"), ano=campo(px+"Ano");
+  var n=parseInt(num,10)||0;
+  var numFmt=n?((n<100?("00"+n).slice(-3):String(n))+"/"+(ano||"")):"(o sistema numera sozinho)";
+  var assunto=campo(px+"Titulo")||"(preencha o campo Título / Assunto no formulário)";
+  var proc=(typeof procLer==="function"?procLer(px):"")||"(nenhum processo vinculado)";
+  var abrev=campo(px+"Agente");
+  var ag=(typeof asgAgentePorAbrev==="function")?asgAgentePorAbrev(abrev):null;
+  var pregoeiro=(ag&&ag.nomeCompleto)||abrev||"(escolha o pregoeiro no formulário)";
+  var data=campo(px+"Data");
+  var dados=[
+    "• Documento: "+(ehDil?"Pedido de Diligência":"Decisão do Pregoeiro")+" nº "+numFmt,
+    "• Assunto: "+assunto,
+    "• Processo: "+proc,
+    "• Pregoeiro(a): "+pregoeiro,
+    "• Data: "+(data?(typeof formatarData==="function"?formatarData(data):data):"(a definir)")
+  ].join("\n");
+
+  return PDF_IA_BASE
+    .replace(/\{\{DOCNOME\}\}/g, ehDil?"PEDIDO DE DILIGÊNCIA":"DECISÃO DO PREGOEIRO")
+    .replace(/\{\{DOCARTIGO\}\}/g, ehDil?"um Pedido de Diligência":"uma Decisão do Pregoeiro")
+    .replace(/\{\{CAMPO\}\}/g, ehDil?"Texto do Pedido de Diligência":"Texto da Decisão")
+    .replace(/\{\{TITULOAUTO\}\}/g, (ehDil?"Pedido de Diligência ":"Decisão do Pregoeiro ")+numFmt)
+    .replace(/\{\{DADOS\}\}/g, dados)
+    .replace(/\{\{EXTRA\}\}/g, PDF_IA_EXTRA[px]||"")
+    .replace(/\{\{ESQUELETO\}\}/g, PDF_IA_ESQUELETO[px]);
+}
+
+/* Arrastar para o Claude: o texto vai como text/plain (o chat transforma um
+   texto longo num bloco de notas anexado) e, para quem soltar na área de
+   trabalho, também como arquivo .md via DownloadURL. */
+function pdfIaDragStart(ev, tipo){
+  var txt=pdfInstrucoesIA(tipo);
+  var nome=(tipo==="dil"?"Instrucoes-Pedido-Diligencia.md":"Instrucoes-Decisao-Pregoeiro.md");
+  try{
+    ev.dataTransfer.effectAllowed="copy";
+    ev.dataTransfer.setData("text/plain", txt);
+    var url=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
+    ev.dataTransfer.setData("DownloadURL","text/markdown:"+nome+":"+url);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+  }catch(e){ console.error("drag instruções:",e); }
+}
+function pdfIaCopiar(tipo){
+  asgCopy(pdfInstrucoesIA(tipo));
+}
+
+/* ── Blocos → HTML ────────────────────────────────────────────────────────
+   Uma função só para os três lugares que mostram o texto na tela (prévia da
+   decisão, prévia da diligência e página de assinatura), para nenhum deles
+   divergir do que sai no PDF quando um bloco novo é criado. */
+function pdfBlocosHTML(blocos){
+  function inl(s){ return escHtml(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>"); }
+  var html="", emLista=false;
+  function fecharLista(){ if(emLista){ html+="</ul>"; emLista=false; } }
+  (blocos||[]).forEach(function(b){
+    if(b.t==="li"){ if(!emLista){ html+="<ul>"; emLista=true; } html+="<li>"+inl(b.x)+"</li>"; return; }
+    fecharLista();
+    if(b.t==="h1") html+="<h1>"+escHtml(b.x)+"</h1>";
+    else if(b.t==="h2") html+="<h2>"+escHtml(b.x)+"</h2>";
+    else if(b.t==="h3") html+="<h3>"+escHtml(b.x)+"</h3>";
+    else if(b.t==="q") html+="<blockquote>"+inl(b.x)+"</blockquote>";
+    else if(b.t==="fonte") html+='<div class="pv-fonte">'+escHtml(b.x)+'</div>';
+    else if(b.t==="destaque") html+='<div class="pv-destaque">'+inl(b.x)+'</div>';
+    else if(b.t==="hr") html+='<hr class="pv-hr">';
+    else if(b.t==="oli") html+='<div class="pv-oli"><span class="pv-oli-n">'+escHtml(b.n||"")+'</span><span>'+inl(b.x)+'</span></div>';
+    else if(b.t==="tabela"){
+      html+='<div class="pv-tab-wrap"><table class="pv-tab">';
+      (b.linhas||[]).forEach(function(r,ri){
+        var tag=(b.cab&&ri===0)?"th":"td";
+        html+="<tr>";
+        (r||[]).forEach(function(cel){ html+="<"+tag+">"+inl(cel)+"</"+tag+">"; });
+        html+="</tr>";
+      });
+      html+="</table></div>";
+    }
+    else if(b.t==="link") html+='<div style="text-align:center;margin:14px 0"><a href="'+escHtml(b.url)+'" target="_blank" rel="noopener" style="display:inline-block;background:#1A3A6B;color:#fff;text-decoration:none;font-weight:700;font-size:13px;border-radius:8px;padding:9px 18px">'+escHtml(b.x)+'</a></div>';
+    else html+="<p>"+inl(b.x)+"</p>";
+  });
+  fecharLista();
+  return html;
+}
 function decAtualizarPreview(){
   var el=document.getElementById("decPreview");
   var blocos=decParseBlocos(document.getElementById("decTexto").value);
   if(!blocos.length){ el.innerHTML='<i style="color:var(--muted)">Nada para pré-visualizar.</i>'; return; }
-  var html="", emLista=false;
-  function decInlineHTML(s){ return escHtml(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>"); }
-  blocos.forEach(function(b){
-    if(b.t==="li"){ if(!emLista){ html+="<ul>"; emLista=true; } html+="<li>"+decInlineHTML(b.x)+"</li>"; return; }
-    if(emLista){ html+="</ul>"; emLista=false; }
-    if(b.t==="h1") html+="<h1>"+escHtml(b.x)+"</h1>";
-    else if(b.t==="h2") html+="<h2>"+escHtml(b.x)+"</h2>";
-    else if(b.t==="h3") html+="<h3>"+escHtml(b.x)+"</h3>";
-    else if(b.t==="q") html+="<blockquote>"+decInlineHTML(b.x)+"</blockquote>";
-    else html+="<p>"+decInlineHTML(b.x)+"</p>";
-  });
-  if(emLista) html+="</ul>";
-  el.innerHTML=html;
+  el.innerHTML=pdfBlocosHTML(blocos);
 }
 (function(){
   var ta=document.getElementById("decTexto");
@@ -8410,21 +8574,104 @@ function decGerarPDF(dec){
     y+=PARA;
   }
 
-  function renderLiItem(raw){
+  /* Item de lista. Sem marcador é o traço de sempre; com marcador serve para
+     inciso ("I –"), item numerado ("1.") e alínea ("a)"), que ficam pendurados
+     à esquerda com o texto alinhado ao lado. */
+  function renderLiItem(raw, marcador){
     var ws=mkWords(mkSegs(raw||""));
     if(!ws.length) return;
-    var LII=10;
+    var marca=marcador||"\u2013";
+    fs(FS); ft("bold");
+    var LII=Math.max(10, doc.getTextWidth(marca)+5);
     var lines=buildLines(ws,CW-LII,0);
     var corte=planoDeQuebra(lines.length);
     if(corte===0) newPage();
     lines.forEach(function(line,li){
       if(corte>0&&li===corte) newPage();
       else if(y+LH>BOTTOM) newPage();
-      if(li===0){tc(cText);ft("normal");fs(FS);doc.text("\u2013",ML+3,y);}
+      if(li===0){tc(cText);ft(marcador?"bold":"normal");fs(FS);doc.text(marca,ML+3,y);}
       renderLine(line,li===lines.length-1,ML+LII,CW-LII);
       y+=LH;
     });
     y+=2.5;
+  }
+
+  /* Tabela: larguras proporcionais ao conteúdo (com teto, para a coluna de
+     texto longo não espremer as de número) e cabeçalho repetido a cada
+     página nova. */
+  function renderTabela(b){
+    var linhasT=b.linhas||[]; if(!linhasT.length) return;
+    var nCols=0, c;
+    linhasT.forEach(function(r){ if(r.length>nCols) nCols=r.length; });
+    if(!nCols) return;
+    /* Largura de cada coluna a partir da largura REAL do texto, não da
+       contagem de caracteres: contar caractere fazia "R$ 26,40" quebrar em
+       duas linhas só porque dividia espaço com uma coluna de texto longo. */
+    var ideal=[], somaIdeal=0;
+    for(c=0;c<nCols;c++){
+      var maior=0;
+      for(var r=0;r<linhasT.length;r++){
+        var ehCabR=(b.cab&&r===0);
+        ft(ehCabR?"bold":"normal"); fs(ehCabR?9:9.5);
+        var t=String((linhasT[r]&&linhasT[r][c])||"").replace(/\*\*(.+?)\*\*/g,"$1");
+        var tw=doc.getTextWidth(t);
+        if(tw>maior) maior=tw;
+      }
+      ideal.push(Math.min(maior+5, CW*0.45));
+      somaIdeal+=ideal[c];
+    }
+    var larg=[];
+    if(somaIdeal<=CW){
+      var sobra=(CW-somaIdeal)/nCols;
+      for(c=0;c<nCols;c++) larg.push(ideal[c]+sobra);
+    } else {
+      /* Não cabe: garante um mínimo a todas e reparte o resto conforme o
+         ideal, de modo que só as colunas largas encolham. */
+      var MINC=Math.min(16, CW/nCols), livre=CW-MINC*nCols, excedente=0;
+      for(c=0;c<nCols;c++) excedente+=Math.max(0, ideal[c]-MINC);
+      for(c=0;c<nCols;c++){
+        larg.push(MINC + (excedente>0 ? livre*Math.max(0, ideal[c]-MINC)/excedente : livre/nCols));
+      }
+    }
+    var LHT=4.6;
+    function medir(r, ehCab){
+      ft(ehCab?"bold":"normal"); fs(ehCab?9:9.5);
+      var cel=[], alt=1;
+      for(var c2=0;c2<nCols;c2++){
+        var txtc=String((r&&r[c2])||"").replace(/\*\*(.+?)\*\*/g,"$1");
+        var ls=txtc?doc.splitTextToSize(txtc, larg[c2]-5):[""];
+        cel.push(ls); if(ls.length>alt) alt=ls.length;
+      }
+      return {cel:cel, h:alt*LHT+4.4};
+    }
+    function pintar(med, ehCab, zebra){
+      if(ehCab){ fill(cNavy); doc.rect(ML,y,CW,med.h,"F"); }
+      else { fill(zebra?[247,249,253]:[255,255,255]); doc.rect(ML,y,CW,med.h,"F"); }
+      draw(cBorder); doc.setLineWidth(0.15); doc.line(ML,y+med.h,ML+CW,y+med.h);
+      ft(ehCab?"bold":"normal"); fs(ehCab?9:9.5);
+      tc(ehCab?[255,255,255]:cText);
+      var cx2=ML;
+      for(var c3=0;c3<nCols;c3++){
+        var ly=y+4.4;
+        for(var k=0;k<med.cel[c3].length;k++){ doc.text(med.cel[c3][k], cx2+2.5, ly); ly+=LHT; }
+        cx2+=larg[c3];
+      }
+      y+=med.h;
+    }
+    var inicio=b.cab?1:0;
+    var medCab=b.cab?medir(linhasT[0], true):null;
+    /* a tabela não começa no finalzinho da página: cabeçalho + 1ª linha juntos */
+    var minimo=(medCab?medCab.h:0)+medir(linhasT[inicio], false).h;
+    if(y+minimo+4>BOTTOM) newPage(); else y+=3;
+    if(medCab) pintar(medCab, true, false);
+    var zebra=0;
+    for(var rr=inicio; rr<linhasT.length; rr++){
+      var med=medir(linhasT[rr], false);
+      if(y+med.h>BOTTOM){ newPage(); if(medCab) pintar(medir(linhasT[0], true), true, false); }
+      pintar(med, false, zebra%2===0);
+      zebra++;
+    }
+    y+=6;
   }
 
   function newPage(){
@@ -8485,8 +8732,8 @@ function decGerarPDF(dec){
     if(!prox) return 0;
     var h=alturaTitulo(prox);
     if(h) return h+companhia(i+1);
-    if(prox.t==="p"||prox.t==="li"){
-      var ehLi=(prox.t==="li");
+    if(prox.t==="p"||prox.t==="li"||prox.t==="oli"){
+      var ehLi=(prox.t!=="p");
       var n=buildLines(mkWords(mkSegs(prox.x||"")), ehLi?CW-10:CW, ehLi?0:IND).length;
       return (n<=MIN_TOPO?n:MIN_PE)*LH;
     }
@@ -8542,6 +8789,36 @@ function decGerarPDF(dec){
         doc.text(ql[qi],ML+11,y); y+=LH;
       }
       y+=5;
+    } else if(b.t==="tabela"){
+      renderTabela(b);
+    } else if(b.t==="hr"){
+      if(y+9>BOTTOM) newPage(); else y+=4;
+      draw(cBorder); doc.setLineWidth(0.4); doc.line(ML+25,y,PW-MR-25,y);
+      y+=7;
+    } else if(b.t==="fonte"){
+      /* Referência da citação: pequena, em itálico, encostada à direita */
+      fs(8.5);ft("italic");tc(cMuted);
+      var fl=doc.splitTextToSize(b.x,CW-14);
+      for(var fi2=0;fi2<fl.length;fi2++){
+        if(y+4.6>BOTTOM) newPage();
+        doc.text(fl[fi2],ML+CW,y,{align:"right"}); y+=4.6;
+      }
+      y+=3;
+    } else if(b.t==="destaque"){
+      fs(FS);ft("bold");
+      var xl=doc.splitTextToSize(b.x.replace(/\*\*(.+?)\*\*/g,"$1"),CW-16);
+      var xH=xl.length*LH+11;
+      if(xH<(BOTTOM-28)&&y+xH>BOTTOM) newPage(); else y+=4;
+      fill([255,248,232]);draw(cGold);doc.setLineWidth(0.5);
+      doc.roundedRect(ML,y-5.5,CW,xl.length*LH+4,1.8,1.8,"FD");
+      fs(FS);ft("bold");tc([124,45,18]);
+      for(var xi=0;xi<xl.length;xi++){
+        if(y+LH>BOTTOM) newPage();
+        doc.text(xl[xi],ML+7,y); y+=LH;
+      }
+      y+=7;
+    } else if(b.t==="oli"){
+      renderLiItem(b.x, b.n);
     } else if(b.t==="li"){
       renderLiItem(b.x);
     } else {
@@ -8929,6 +9206,24 @@ function dilParseBlocos(texto){
     var m;
     m=l.match(/^\[LINK\]\s*(\S+)\s*\|\s*(.+)$/i);
     if(m){ blocos.push({t:"link", url:m[1], x:m[2].trim()}); continue; }
+    /* Tabela: linhas seguidas entre barras. Uma linha de traços (|---|---|)
+       logo abaixo da primeira marca aquela primeira como cabeçalho. */
+    if(/^\|.*\|$/.test(l)){
+      var tab=[], temCab=false;
+      while(i<linhas.length){
+        var lt=linhas[i].trim();
+        if(!/^\|.*\|$/.test(lt)) break;
+        if(/^\|[\s:|-]+\|$/.test(lt)){ if(tab.length===1) temCab=true; i++; continue; }
+        tab.push(lt.replace(/^\|/,"").replace(/\|$/,"").split("|").map(function(cel){ return dilLimparPara(cel.trim()); }));
+        i++;
+      }
+      i--;
+      if(tab.length) blocos.push({t:"tabela", linhas:tab, cab:temCab});
+      continue;
+    }
+    /* Linha divisória */
+    if(/^(-{3,}|\*{3,}|_{3,})$/.test(l)){ blocos.push({t:"hr"}); continue; }
+
     m=l.match(/^(#{1,6})\s+(.*)$/);
     if(m){
       var nivel=Math.min(m[1].length,3);
@@ -8937,15 +9232,35 @@ function dilParseBlocos(texto){
     }
     m=l.match(/^(\*\*|__)(.+?)(\*\*|__)\s*:?\s*$/);
     if(m){ blocos.push({t:"h2", x:dilLimparInline(m[2])}); continue; }
+    /* Fonte da citação (">> Lei nº ...") — tem de vir antes da citação */
+    if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:dilLimparInline(l.replace(/^>>\s?/,""))}); continue; }
     if(/^>\s?/.test(l)){ blocos.push({t:"q", x:dilLimparPara(l.replace(/^>\s?/,""))}); continue; }
-    if(/^[-*\u2022]\s+/.test(l)){ blocos.push({t:"li", x:dilLimparPara(l.replace(/^[-*\u2022]\s+/,""))}); continue; }
-    m=l.match(/^([IVXLC]+)\s*[\u2013\u2014.\-)]\s+(.+)$/);
-    if(m && dilEhMaiuscula(m[2])){ blocos.push({t:"h1", x:dilLimparInline(l)}); continue; }
-    m=l.match(/^(\d+(?:\.\d+)*)\s*[.)\u2013\u2014-]\s+(.+)$/);
-    if(m && dilEhMaiuscula(m[2])){
-      blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:dilLimparInline(l)});
+    /* Caixa de destaque — dispositivo, conclusão, o que não pode passar batido */
+    if(/^!!\s?/.test(l)){ blocos.push({t:"destaque", x:dilLimparPara(l.replace(/^!!\s?/,""))}); continue; }
+    if(/^[-*•]\s+/.test(l)){ blocos.push({t:"li", x:dilLimparPara(l.replace(/^[-*•]\s+/,""))}); continue; }
+    /* Algarismo romano: em MAIÚSCULAS é título de seção; em texto corrido é
+       inciso. O separador ponto fica de fora do inciso, senão "V. Exa." e
+       companhia virariam lista. */
+    m=l.match(/^([IVXLC]+)\s*([–—.\-)])\s+(.+)$/);
+    if(m){
+      if(dilEhMaiuscula(m[3])){ blocos.push({t:"h1", x:dilLimparInline(l)}); continue; }
+      if(m[2]!=="."){ blocos.push({t:"oli", n:m[1]+" –", x:dilLimparPara(m[3])}); continue; }
+    }
+    /* Item numerado. No máximo 3 dígitos por grupo, para "2021. O edital..."
+       continuar sendo parágrafo. */
+    m=l.match(/^(\d{1,3}(?:\.\d{1,3})*)\s*([.)–—-])\s+(.+)$/);
+    if(m){
+      if(dilEhMaiuscula(m[3])){
+        blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:dilLimparInline(l)});
+        continue;
+      }
+      blocos.push({t:"oli", n:m[1]+(m[2]===")"?")":"."), x:dilLimparPara(m[3])});
       continue;
     }
+    /* Alínea: a) b) c) */
+    m=l.match(/^([a-z])\)\s+(.+)$/);
+    if(m){ blocos.push({t:"oli", n:m[1]+")", x:dilLimparPara(m[2])}); continue; }
+
     if(dilEhMaiuscula(l) && l.length<=90 && !/[.;,]$/.test(l)){
       blocos.push({t:(dilEhSecaoPrincipal(l)?"h1":"h2"), x:dilLimparInline(l)});
       continue;
@@ -8966,20 +9281,7 @@ function dilAtualizarPreview(){
   var el=document.getElementById("dilPreview");
   var blocos=dilParseBlocos(document.getElementById("dilTexto").value);
   if(!blocos.length){ el.innerHTML='<i style="color:var(--muted)">Nada para pré-visualizar.</i>'; return; }
-  var html="", emLista=false;
-  function dilInlineHTML(s){ return escHtml(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>"); }
-  blocos.forEach(function(b){
-    if(b.t==="li"){ if(!emLista){ html+="<ul>"; emLista=true; } html+="<li>"+dilInlineHTML(b.x)+"</li>"; return; }
-    if(emLista){ html+="</ul>"; emLista=false; }
-    if(b.t==="h1") html+="<h1>"+escHtml(b.x)+"</h1>";
-    else if(b.t==="h2") html+="<h2>"+escHtml(b.x)+"</h2>";
-    else if(b.t==="h3") html+="<h3>"+escHtml(b.x)+"</h3>";
-    else if(b.t==="q") html+="<blockquote>"+dilInlineHTML(b.x)+"</blockquote>";
-    else if(b.t==="link") html+='<div style="text-align:center;margin:14px 0"><a href="'+escHtml(b.url)+'" target="_blank" rel="noopener" style="display:inline-block;background:#1A3A6B;color:#fff;text-decoration:none;font-weight:700;font-size:13px;border-radius:8px;padding:9px 18px">'+escHtml(b.x)+'</a></div>';
-    else html+="<p>"+dilInlineHTML(b.x)+"</p>";
-  });
-  if(emLista) html+="</ul>";
-  el.innerHTML=html;
+  el.innerHTML=pdfBlocosHTML(blocos);
 }
 (function(){
   var ta=document.getElementById("dilTexto");
@@ -9125,21 +9427,104 @@ function dilGerarPDF(dec){
     y+=PARA;
   }
 
-  function renderLiItem(raw){
+  /* Item de lista. Sem marcador é o traço de sempre; com marcador serve para
+     inciso ("I –"), item numerado ("1.") e alínea ("a)"), que ficam pendurados
+     à esquerda com o texto alinhado ao lado. */
+  function renderLiItem(raw, marcador){
     var ws=mkWords(mkSegs(raw||""));
     if(!ws.length) return;
-    var LII=10;
+    var marca=marcador||"\u2013";
+    fs(FS); ft("bold");
+    var LII=Math.max(10, doc.getTextWidth(marca)+5);
     var lines=buildLines(ws,CW-LII,0);
     var corte=planoDeQuebra(lines.length);
     if(corte===0) newPage();
     lines.forEach(function(line,li){
       if(corte>0&&li===corte) newPage();
       else if(y+LH>BOTTOM) newPage();
-      if(li===0){tc(cText);ft("normal");fs(FS);doc.text("\u2013",ML+3,y);}
+      if(li===0){tc(cText);ft(marcador?"bold":"normal");fs(FS);doc.text(marca,ML+3,y);}
       renderLine(line,li===lines.length-1,ML+LII,CW-LII);
       y+=LH;
     });
     y+=2.5;
+  }
+
+  /* Tabela: larguras proporcionais ao conteúdo (com teto, para a coluna de
+     texto longo não espremer as de número) e cabeçalho repetido a cada
+     página nova. */
+  function renderTabela(b){
+    var linhasT=b.linhas||[]; if(!linhasT.length) return;
+    var nCols=0, c;
+    linhasT.forEach(function(r){ if(r.length>nCols) nCols=r.length; });
+    if(!nCols) return;
+    /* Largura de cada coluna a partir da largura REAL do texto, não da
+       contagem de caracteres: contar caractere fazia "R$ 26,40" quebrar em
+       duas linhas só porque dividia espaço com uma coluna de texto longo. */
+    var ideal=[], somaIdeal=0;
+    for(c=0;c<nCols;c++){
+      var maior=0;
+      for(var r=0;r<linhasT.length;r++){
+        var ehCabR=(b.cab&&r===0);
+        ft(ehCabR?"bold":"normal"); fs(ehCabR?9:9.5);
+        var t=String((linhasT[r]&&linhasT[r][c])||"").replace(/\*\*(.+?)\*\*/g,"$1");
+        var tw=doc.getTextWidth(t);
+        if(tw>maior) maior=tw;
+      }
+      ideal.push(Math.min(maior+5, CW*0.45));
+      somaIdeal+=ideal[c];
+    }
+    var larg=[];
+    if(somaIdeal<=CW){
+      var sobra=(CW-somaIdeal)/nCols;
+      for(c=0;c<nCols;c++) larg.push(ideal[c]+sobra);
+    } else {
+      /* Não cabe: garante um mínimo a todas e reparte o resto conforme o
+         ideal, de modo que só as colunas largas encolham. */
+      var MINC=Math.min(16, CW/nCols), livre=CW-MINC*nCols, excedente=0;
+      for(c=0;c<nCols;c++) excedente+=Math.max(0, ideal[c]-MINC);
+      for(c=0;c<nCols;c++){
+        larg.push(MINC + (excedente>0 ? livre*Math.max(0, ideal[c]-MINC)/excedente : livre/nCols));
+      }
+    }
+    var LHT=4.6;
+    function medir(r, ehCab){
+      ft(ehCab?"bold":"normal"); fs(ehCab?9:9.5);
+      var cel=[], alt=1;
+      for(var c2=0;c2<nCols;c2++){
+        var txtc=String((r&&r[c2])||"").replace(/\*\*(.+?)\*\*/g,"$1");
+        var ls=txtc?doc.splitTextToSize(txtc, larg[c2]-5):[""];
+        cel.push(ls); if(ls.length>alt) alt=ls.length;
+      }
+      return {cel:cel, h:alt*LHT+4.4};
+    }
+    function pintar(med, ehCab, zebra){
+      if(ehCab){ fill(cNavy); doc.rect(ML,y,CW,med.h,"F"); }
+      else { fill(zebra?[247,249,253]:[255,255,255]); doc.rect(ML,y,CW,med.h,"F"); }
+      draw(cBorder); doc.setLineWidth(0.15); doc.line(ML,y+med.h,ML+CW,y+med.h);
+      ft(ehCab?"bold":"normal"); fs(ehCab?9:9.5);
+      tc(ehCab?[255,255,255]:cText);
+      var cx2=ML;
+      for(var c3=0;c3<nCols;c3++){
+        var ly=y+4.4;
+        for(var k=0;k<med.cel[c3].length;k++){ doc.text(med.cel[c3][k], cx2+2.5, ly); ly+=LHT; }
+        cx2+=larg[c3];
+      }
+      y+=med.h;
+    }
+    var inicio=b.cab?1:0;
+    var medCab=b.cab?medir(linhasT[0], true):null;
+    /* a tabela não começa no finalzinho da página: cabeçalho + 1ª linha juntos */
+    var minimo=(medCab?medCab.h:0)+medir(linhasT[inicio], false).h;
+    if(y+minimo+4>BOTTOM) newPage(); else y+=3;
+    if(medCab) pintar(medCab, true, false);
+    var zebra=0;
+    for(var rr=inicio; rr<linhasT.length; rr++){
+      var med=medir(linhasT[rr], false);
+      if(y+med.h>BOTTOM){ newPage(); if(medCab) pintar(medir(linhasT[0], true), true, false); }
+      pintar(med, false, zebra%2===0);
+      zebra++;
+    }
+    y+=6;
   }
 
   function newPage(){
@@ -9207,8 +9592,8 @@ function dilGerarPDF(dec){
     if(!prox) return 0;
     var h=alturaTitulo(prox);
     if(h) return h+companhia(i+1);
-    if(prox.t==="p"||prox.t==="li"){
-      var ehLi=(prox.t==="li");
+    if(prox.t==="p"||prox.t==="li"||prox.t==="oli"){
+      var ehLi=(prox.t!=="p");
       var n=buildLines(mkWords(mkSegs(prox.x||"")), ehLi?CW-10:CW, ehLi?0:IND).length;
       return (n<=MIN_TOPO?n:MIN_PE)*LH;
     }
@@ -9264,6 +9649,36 @@ function dilGerarPDF(dec){
         doc.text(ql[qi],ML+11,y); y+=LH;
       }
       y+=5;
+    } else if(b.t==="tabela"){
+      renderTabela(b);
+    } else if(b.t==="hr"){
+      if(y+9>BOTTOM) newPage(); else y+=4;
+      draw(cBorder); doc.setLineWidth(0.4); doc.line(ML+25,y,PW-MR-25,y);
+      y+=7;
+    } else if(b.t==="fonte"){
+      /* Referência da citação: pequena, em itálico, encostada à direita */
+      fs(8.5);ft("italic");tc(cMuted);
+      var fl=doc.splitTextToSize(b.x,CW-14);
+      for(var fi2=0;fi2<fl.length;fi2++){
+        if(y+4.6>BOTTOM) newPage();
+        doc.text(fl[fi2],ML+CW,y,{align:"right"}); y+=4.6;
+      }
+      y+=3;
+    } else if(b.t==="destaque"){
+      fs(FS);ft("bold");
+      var xl=doc.splitTextToSize(b.x.replace(/\*\*(.+?)\*\*/g,"$1"),CW-16);
+      var xH=xl.length*LH+11;
+      if(xH<(BOTTOM-28)&&y+xH>BOTTOM) newPage(); else y+=4;
+      fill([255,248,232]);draw(cGold);doc.setLineWidth(0.5);
+      doc.roundedRect(ML,y-5.5,CW,xl.length*LH+4,1.8,1.8,"FD");
+      fs(FS);ft("bold");tc([124,45,18]);
+      for(var xi=0;xi<xl.length;xi++){
+        if(y+LH>BOTTOM) newPage();
+        doc.text(xl[xi],ML+7,y); y+=LH;
+      }
+      y+=7;
+    } else if(b.t==="oli"){
+      renderLiItem(b.x, b.n);
     } else if(b.t==="li"){
       renderLiItem(b.x);
     } else if(b.t==="link"){
@@ -9587,19 +10002,7 @@ function asgAssinaturasPDF(doc, o){
 /* ── Página de assinatura (?assinar=ID) ── */
 function asgTextoHTML(texto){
   var blocos=(typeof decParseBlocos==="function")?decParseBlocos(texto||""):[];
-  function inl(s){ return escHtml(s).replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>"); }
-  var html="", emLista=false;
-  blocos.forEach(function(b){
-    if(b.t==="li"){ if(!emLista){html+="<ul>";emLista=true;} html+="<li>"+inl(b.x)+"</li>"; return; }
-    if(emLista){ html+="</ul>"; emLista=false; }
-    if(b.t==="h1") html+="<h1>"+escHtml(b.x)+"</h1>";
-    else if(b.t==="h2") html+="<h2>"+escHtml(b.x)+"</h2>";
-    else if(b.t==="h3") html+="<h3>"+escHtml(b.x)+"</h3>";
-    else if(b.t==="q") html+="<blockquote>"+inl(b.x)+"</blockquote>";
-    else html+="<p>"+inl(b.x)+"</p>";
-  });
-  if(emLista) html+="</ul>";
-  return html;
+  return pdfBlocosHTML(blocos);
 }
 function asgMaskCpfInput(el){
   var d=el.value.replace(/\D/g,"").slice(0,11);
