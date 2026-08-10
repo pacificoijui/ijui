@@ -346,6 +346,11 @@
   .ia-drag-txt { display: flex; flex-direction: column; line-height: 1.35; }
   .ia-drag-txt b { font-size: 13px; color: #4C1D95; font-weight: 800; }
   .ia-drag-txt small { font-size: 11px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 500; }
+  /* Versão compacta: na barra da lista, ao lado do botão "+ Nova/Novo" */
+  .ia-drag-sm { padding: 7px 13px; gap: 8px; }
+  .ia-drag-sm .ia-drag-grip { font-size: 13px; }
+  .ia-drag-sm .ia-drag-txt b { font-size: 12px; }
+  .ia-drag-sm .ia-drag-txt small { font-size: 10.5px; }
 
   /* ── Blocos novos (inciso, alínea, fonte, destaque, tabela, divisória) ──
      Mesmas classes na prévia dos modais e na página de assinatura. */
@@ -1497,7 +1502,14 @@
   <div class="panel-body">
     <div class="panel-body-inner">
       <div class="dec-section-body" id="decSectionBody">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="ia-drag ia-drag-sm" id="decIaDrag" draggable="true"
+             ondragstart="pdfIaDragStart(event,'dec')" onclick="pdfIaCopiar('dec')"
+             title="Arraste para a conversa do Claude (ou clique para copiar). Vai o formato que o sistema entende, pronto para a IA montar a decisão certinho.">
+          <span class="ia-drag-grip">&#8942;&#8942;</span>
+          <span class="ia-drag-txt"><b>&#129302; Instruções de formatação</b>
+            <small>arraste para o Claude &middot; ou clique para copiar</small></span>
+        </div>
         <button class="btn-primary" style="font-size:13px;padding:8px 18px" onclick="abrirModalDec()">&#43; Nova Decisão</button>
       </div>
       <div class="dec-filters">
@@ -1527,7 +1539,14 @@
   <div class="panel-body">
     <div class="panel-body-inner">
       <div class="dil-section-body" id="dilSectionBody">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+        <div class="ia-drag ia-drag-sm" id="dilIaDrag" draggable="true"
+             ondragstart="pdfIaDragStart(event,'dil')" onclick="pdfIaCopiar('dil')"
+             title="Arraste para a conversa do Claude (ou clique para copiar). Vai o formato que o sistema entende, pronto para a IA montar o pedido certinho.">
+          <span class="ia-drag-grip">&#8942;&#8942;</span>
+          <span class="ia-drag-txt"><b>&#129302; Instruções de formatação</b>
+            <small>arraste para o Claude &middot; ou clique para copiar</small></span>
+        </div>
         <button class="btn-primary" style="font-size:13px;padding:8px 18px" onclick="abrirModalDil()">&#43; Novo Pedido</button>
       </div>
       <div class="dil-filters">
@@ -1805,16 +1824,6 @@
         </div>
       </div>
       <div class="field">
-        <label>Escrever com IA</label>
-        <div class="ia-drag" id="decIaDrag" draggable="true"
-             ondragstart="pdfIaDragStart(event,'dec')" onclick="pdfIaCopiar('dec')"
-             title="Arraste para a conversa do Claude (ou clique para copiar). Vai junto o formato que o sistema entende e os dados já preenchidos aqui.">
-          <span class="ia-drag-grip">&#8942;&#8942;</span>
-          <span class="ia-drag-txt"><b>&#129302; Instruções de formatação</b>
-            <small>arraste para o Claude &middot; ou clique para copiar</small></span>
-        </div>
-      </div>
-      <div class="field">
         <label>Modelos Internos</label>
         <div class="dec-tpl-bar">
           <span>Inserir estrutura:</span>
@@ -1949,16 +1958,6 @@
             <option value="prejudicado">Prejudicado</option>
             <option value="outro">Outro</option>
           </select>
-        </div>
-      </div>
-      <div class="field">
-        <label>Escrever com IA</label>
-        <div class="ia-drag" id="dilIaDrag" draggable="true"
-             ondragstart="pdfIaDragStart(event,'dil')" onclick="pdfIaCopiar('dil')"
-             title="Arraste para a conversa do Claude (ou clique para copiar). Vai junto o formato que o sistema entende e os dados já preenchidos aqui.">
-          <span class="ia-drag-grip">&#8942;&#8942;</span>
-          <span class="ia-drag-txt"><b>&#129302; Instruções de formatação</b>
-            <small>arraste para o Claude &middot; ou clique para copiar</small></span>
         </div>
       </div>
       <div class="field">
