@@ -8378,14 +8378,15 @@ function pdfIaDragStart(ev, tipo){
   var nome=(tipo==="dil"?"Instrucoes-Pedido-Diligencia.md":"Instrucoes-Decisao-Pregoeiro.md");
   try{
     ev.dataTransfer.effectAllowed="copy";
-    /* O essencial é isto: um File de verdade em dataTransfer.items. Sem ele,
-       dataTransfer.files chega vazio no Claude (e em qualquer app que só
-       aceita anexo largando arquivo), e o app não tem o que anexar — text/plain
-       sozinho só serve para caixas de texto comuns, não vira bloco anexado. */
+    /* SEM text/plain de propósito: a maioria dos apps (Claude incluso) lê o
+       drag assim — "tem texto? cola como texto. senão, tem arquivo? anexa."
+       Um arquivo de verdade do sistema nunca vem acompanhado de text/plain,
+       então incluir os dois fazia o Claude tratar isto como texto solto e
+       ignorar o anexo. Só o File, então, para o app do outro lado só
+       enxergar a opção de anexar. */
     if(ev.dataTransfer.items && ev.dataTransfer.items.add){
       ev.dataTransfer.items.add(new File([txt], nome, {type:"text/markdown"}));
     }
-    ev.dataTransfer.setData("text/plain", txt);
     var url=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
     ev.dataTransfer.setData("DownloadURL","text/markdown:"+nome+":"+url);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
