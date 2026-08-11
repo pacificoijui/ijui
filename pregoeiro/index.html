@@ -3194,8 +3194,18 @@ function rotuloProcesso(p){
   var seq=numeroSeq(p.numero);
   return tipo?(tipo+" "+seq):(p.numero||"Sem número");
 }
+/* Ordem do status na tela = ordem dele no submenu Status (campo "ordem",
+   o mesmo que a seta pra cima/baixo do gerenciador grava no Firestore).
+   "Suspenso", por exemplo, sendo o 2º no submenu, empurra o card pra depois
+   de tudo que é "Em Andamento", não importa a data de abertura. */
+function statusOrdem(id){
+  var st=getStatusCfg(id);
+  return (st&&typeof st.ordem==="number") ? st.ordem : 999;
+}
 function sortedLista(lista){
   return lista.slice().sort(function(a,b){
+    var oa=statusOrdem(a.status), ob=statusOrdem(b.status);
+    if(oa!==ob) return oa-ob;
     if(!a.dataLicit&&!b.dataLicit)return 0;
     if(!a.dataLicit)return 1; if(!b.dataLicit)return -1;
     var cmp = a.dataLicit.localeCompare(b.dataLicit);
