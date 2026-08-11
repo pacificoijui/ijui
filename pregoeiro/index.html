@@ -2583,7 +2583,39 @@ document.addEventListener("click", function(e){
   if(action === "vencedores" && pid) abrirVencedores(pid);
   if(action === "habilitacao" && pid) abrirHabilitacao(pid);
   if(action === "obs-add" && pid){ abrirObsBox(pid); return; }
+  if(action === "nova-decisao" && pid){ abrirDecParaProcesso(pid); return; }
+  if(action === "nova-diligencia" && pid){ abrirDilParaProcesso(pid); return; }
 });
+
+/* Atalhos do card: abrem o painel de Decisões/Diligências já com uma nova
+   Decisão/Pedido em branco, mas com o processo vinculado e o pregoeiro do
+   processo pré-preenchidos — só falta escrever o assunto e o texto. */
+function abrirDecParaProcesso(pid){
+  var p=processos.find(function(x){ return x.id===pid; });
+  if(!p) return;
+  abrirPainelDec();
+  abrirModalDec();
+  if(p.numero) procEscrever("dec", p.numero);
+  var sel=document.getElementById("decAgente");
+  if(p.responsavel && sel && Array.prototype.some.call(sel.options,function(o){ return o.value===p.responsavel; })){
+    sel.value=p.responsavel;
+    asgEditInit("dec", null, p.responsavel);
+  }
+  var tit=document.getElementById("decTitulo"); if(tit) tit.focus();
+}
+function abrirDilParaProcesso(pid){
+  var p=processos.find(function(x){ return x.id===pid; });
+  if(!p) return;
+  abrirPainelDil();
+  abrirModalDil();
+  if(p.numero) procEscrever("dil", p.numero);
+  var sel=document.getElementById("dilAgente");
+  if(p.responsavel && sel && Array.prototype.some.call(sel.options,function(o){ return o.value===p.responsavel; })){
+    sel.value=p.responsavel;
+    asgEditInit("dil", null, p.responsavel);
+  }
+  var tit=document.getElementById("dilTitulo"); if(tit) tit.focus();
+}
 
 /* ── Botão 📂 PASTA: abre a pasta do processo no Windows (via Central) ─────────
    Dentro da Central do Pregoeiro, a página roda com um script injetado que
@@ -3658,6 +3690,10 @@ function renderizar(){
     html+='<button class="btn-sm" data-action="habilitacao" style="background:#1E5F3A;color:#fff;border-color:#1E5F3A">&#9989; Habilitação</button>';
     html+='<button class="btn-sm" data-action="vencedores" style="background:#e8a020;color:#fff;border-color:#e8a020">&#127942; Vencedores</button>';
     html+='<button class="card-cfg-btn" data-action="editar" title="Editar processo">&#9881;&#65039;</button>';
+    html+='</div>';
+    html+='<div class="card-footer" style="border-top:none;padding-top:0">';
+    html+='<button class="btn-sm" data-action="nova-decisao" style="background:#fff;color:#5b21b6;border-color:#ddd6fe" title="Nova Decisão do Pregoeiro para este processo — já abre com o processo e o pregoeiro preenchidos">&#9878;&#65039; Nova Decisão</button>';
+    html+='<button class="btn-sm" data-action="nova-diligencia" style="background:#fff;color:#1d4ed8;border-color:#bfdbfe" title="Novo Pedido de Diligência para este processo — já abre com o processo e o pregoeiro preenchidos">&#128269; Nova Diligência</button>';
     html+='</div>';
     var _descPend=cardDescPendentes(ex);
     if(_descPend>0){
