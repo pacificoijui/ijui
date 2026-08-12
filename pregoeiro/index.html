@@ -839,8 +839,10 @@
   .rks-item-meta span b{color:#1d4ed8;font-weight:800}
   .rks-selo-edital{background:#e7f6ec;color:#166534;border:1px solid #bfe3cb;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:7px;margin-left:8px;white-space:nowrap;vertical-align:1px}
   /* Aviso de itens do edital que ainda não têm proposta no ranking */
-  .rk-edital-faltantes{background:#fffbeb;border:1.5px solid #fde68a;color:#92400e;border-radius:11px;padding:11px 15px;margin:0 0 12px;font-size:13px;line-height:1.5}
+  .rk-edital-faltantes{background:#fffbeb;border:1.5px solid #fde68a;color:#92400e;border-radius:11px;padding:11px 15px;margin:0 0 12px;font-size:13px;line-height:1.5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
   .rk-edital-faltantes b{font-weight:800}
+  .rk-btn-declarar-frac{flex-shrink:0;background:#92400e;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:'Sora',system-ui,sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .rk-btn-declarar-frac:hover{background:#78350f}
   /* Fornecedor info */
   .rks-card-forn{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #eef0f3}
   .rks-forn-nome{display:block;font-weight:700;color:#1a1a1a;font-size:16px;margin-bottom:8px;line-height:1.3}
@@ -4270,6 +4272,34 @@ function rkEditalFaltantes(){
   return Object.keys(rkEdital).filter(function(n){ return !tem[n]; })
     .sort(function(a,b){ return String(a).localeCompare(String(b),'pt-BR',{numeric:true}); });
 }
+/* Item do edital que nunca apareceu no ranking do portal (ninguém licitou)
+   vira um item comum, com fornecedores:[] — o que o resto do sistema já
+   trata como fracassado sozinho (rkItemFracassado). Sem isso, esses itens
+   ficavam só no aviso amarelo, de fora dos selos, dos filtros e do Painel
+   por Empresa. Devolve quantos foram materializados. */
+function rkMaterializarFaltantes(){
+  var faltantes=rkEditalFaltantes();
+  faltantes.forEach(function(num){
+    var e=(rkEdital&&rkEdital[num])||{};
+    var novo={num:num, fornecedores:[]};
+    if(e.desc) novo.descEdital=e.desc;
+    if(e.qtde!==undefined) novo.qtde=e.qtde;
+    if(e.unidade) novo.unidade=e.unidade;
+    if(e.ref) novo.ref=e.ref;
+    rkItens.push(novo);
+  });
+  if(faltantes.length) rkItens.sort(function(a,b){ return String(a.num).localeCompare(String(b.num),'pt-BR',{numeric:true}); });
+  return faltantes.length;
+}
+/* Botão do aviso amarelo: declara na hora, salva e atualiza a tela. */
+function rkDeclararFaltantesFracassados(){
+  var n=rkMaterializarFaltantes();
+  if(!n){ toast('Nenhum item pendente para declarar.'); return; }
+  rkLogEvento('Declarado'+(n>1?'s':'')+' fracassado'+(n>1?'s':'')+' '+n+' '+(n>1?'itens':'item')+' do edital sem proposta no portal');
+  rkSalvarFirestore();
+  rkRenderProcesso();
+  toast(n>1 ? (n+' itens declarados fracassados (sem proposta no portal).') : ('1 item declarado fracassado (sem proposta no portal).'));
+}
 var rkPendConfirm = null; /* {key, st} aguardando confirmação */
 var rkPendDil = null; /* {num, key} aguardando confirmação do prazo da diligência */
 var rkDilUltimaHora = '17:00'; /* lembra o último horário usado no prazo da diligência */
@@ -4439,7 +4469,11 @@ function rkImportarPropostas(proc){
   });
   rkPendConfirm=null; rkPendDil=null;
   rkAplicarEdital();
-  rkLogEvento('Propostas importadas ('+rkItens.length+' itens)');
+  /* Item do edital que já se sabe não teve proposta (o edital chegou antes
+     e cobre um item que o portal simplesmente não trouxe) já nasce
+     fracassado — sem precisar do botão manual do aviso amarelo. */
+  var _matAoImportar=rkMaterializarFaltantes();
+  rkLogEvento('Propostas importadas ('+rkItens.length+' itens)'+(_matAoImportar?', '+_matAoImportar+' já declarados fracassados por falta de proposta':''));
   if(proc.motivos) rkMotivos=Object.assign({}, rkMotivos, proc.motivos);
   rkSalvarFirestore();
   document.getElementById('rkNoJson').style.display='none';
@@ -4455,15 +4489,15 @@ function rkImportarEdital(bruto){
   if(!mapa){ alert('JSON do edital inválido: esperava uma lista de itens com número e descrição.'); return; }
   rkEdital=mapa;
   rkAplicarEdital();
+  var _matAoImportar=rkMaterializarFaltantes();
   var n=rkEditalQtd();
-  rkLogEvento('Descrições do edital importadas ('+n+' itens)');
+  rkLogEvento('Descrições do edital importadas ('+n+' itens)'+(_matAoImportar?', '+_matAoImportar+' já declarados fracassados por falta de proposta':''));
   rkSalvarFirestore();
   if(rkItens.length){
     document.getElementById('rkNoJson').style.display='none';
     document.getElementById('rkConteudo').style.display='block';
     rkRenderProcesso();
-    var falt=rkEditalFaltantes().length;
-    toast('Edital importado: '+n+' itens.'+(falt?' '+falt+' ainda sem proposta.':''));
+    toast('Edital importado: '+n+' itens.'+(_matAoImportar?' '+_matAoImportar+' declarados fracassados por falta de proposta.':''));
   } else {
     rkApplySnapEditalVazio();
     toast('Edital importado: '+n+' itens. Agora importe as propostas do portal.');
@@ -7136,9 +7170,11 @@ function rkRenderRanking(){
   var faltantes=rkEditalFaltantes();
   if(faltantes.length && !temBuscaTexto && !rkFiltroAtivo){
     var amostra=faltantes.slice(0,25).map(escHtml).join(', ');
-    html+='<div class="rk-edital-faltantes">&#9888;&#65039; <b>'+faltantes.length+' '
+    html+='<div class="rk-edital-faltantes"><span>&#9888;&#65039; <b>'+faltantes.length+' '
       +(faltantes.length>1?'itens do edital ainda sem proposta':'item do edital ainda sem proposta')
-      +'</b> no ranking do portal: '+amostra+(faltantes.length>25?'…':'')+'</div>';
+      +'</b> no ranking do portal: '+amostra+(faltantes.length>25?'…':'')+'</span>'
+      +'<button type="button" class="rk-btn-declarar-frac" onclick="rkDeclararFaltantesFracassados()" title="Lança esses itens como fracassados (sem proposta), pra eles saírem deste aviso e entrarem nos selos, filtros e no Painel por Empresa">&#128308; Declarar fracassados</button>'
+      +'</div>';
   }
   /* Com filtro de texto/status ativo, os grupos abrem sozinhos — a lista já
      está reduzida, não faz sentido esconder de novo atrás de um clique. */
