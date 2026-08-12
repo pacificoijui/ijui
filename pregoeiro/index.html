@@ -1488,7 +1488,7 @@
       <button class="btn-ghost" onclick="window.location.href='/agenda/'">&#128197; Agenda</button>
       <button class="btn-ghost" onclick="abrirModalUsuarios()">&#128273; Usuários</button>
       <button class="btn-ghost" onclick="abrirModalEmail()">&#9993; E-mails</button>
-      <button class="btn-ghost" onclick="copiarLinkConsulta()" title="Copia um link de visualização — sem senha, sem edição — para compartilhar com colegas">&#128279; Link de Consulta</button>
+      <button class="btn-ghost" onclick="copiarLinkConsulta()" title="Copia um link de visualização — sem senha, sem edição — para compartilhar com colegas">&#128279;</button>
       <span class="auth-chip" id="authUserChip" style="display:none"></span>
       <button class="btn-ghost" onclick="authLogout()" title="Sair">Sair</button>
     </div>
@@ -10386,9 +10386,10 @@ function consultaListaFiltrada(){
   var busca=(fTipo!=="todos")||qNum||qObj;
   var _notas={};
   var lista=(processos||[]).filter(function(p){
-    /* só pendentes — mesmo com busca ativa, concluído/revogado não aparecem
-       aqui, diferente da tela interna (essa página é só "o que falta"). */
-    if(isArquivado(p.status)) return false;
+    /* Sem busca, só o que está pendente — a mesma lógica da tela interna:
+       concluído/revogado ficam de fora até alguém procurar por eles, e aí
+       aparecem normalmente (processo antigo às vezes precisa ser achado). */
+    if(!busca && isArquivado(p.status)) return false;
     if(!busca && p.dataLicit && p.dataLicit>hoje()) return false;
     if(fTipo!=="todos" && tipoLicitacao(p.numero)!==fTipo) return false;
     var _nota=0;
