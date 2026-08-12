@@ -189,6 +189,10 @@
   .link-btn-homolog:hover { background: var(--gold-light); }
   .link-btn-pasta { background: #4a5a75; color: #fff; border: none; cursor: pointer; font-family: inherit; }
   .link-btn-pasta:hover { background: #102040; }
+  .link-btn-doc { background: var(--navy); color: #fff; }
+  .link-btn-doc:hover { background: var(--navy-light); }
+  .link-btn-wa { background: #25a657; color: #fff; border: none; cursor: pointer; font-family: inherit; }
+  .link-btn-wa:hover { background: #1e8c49; }
 
   .card-footer { padding: 11px 19px; border-top: 1px solid var(--border); display: flex; gap: 8px; background: #f7f9fd; }
   .btn-sm { flex: 1; padding: 8px 8px; border-radius: 7px; border: 1.5px solid var(--border); background: #fff; font-family: 'Sora', system-ui, sans-serif; font-size: 12.5px; font-weight: 700; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s; }
@@ -1013,7 +1017,7 @@
   #consultaPanel{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;font-family:'Sora',system-ui,sans-serif;background:#f0f2f5;-webkit-text-size-adjust:100%}
   /* Cards da consulta reaproveitam .card/.grid do sistema, só que sem nenhum
      botão interativo além da PASTA — nada aqui grava no Firestore. */
-  #consultaGrid .card-footer{justify-content:flex-start}
+  #consultaGrid .card-footer{justify-content:flex-start;flex-wrap:wrap}
   #consultaGrid .card-footer .link-btn-pasta{flex:none}
   #asgSharedPanel{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;font-family:'Sora',system-ui,sans-serif;background:#eef1f6;-webkit-text-size-adjust:100%}
   .asgs-header{background:#1a3a6b;color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;gap:12px;flex-shrink:0}
@@ -10426,7 +10430,9 @@ function renderConsulta(){
     if(p.objeto) html+='<div class="card-obj">'+escHtml(p.objeto)+'</div>';
     html+='<div class="card-meta"><span class="status-tag" style="'+getStatusStyle(p.status)+'">'+escHtml(st.nome||st.label||p.status)+'</span></div>';
     html+='</div>';
-    html+='<div class="card-footer"><button class="link-btn link-btn-pasta" data-action="abrir-pasta" title="Abrir a pasta do processo (funciona dentro da Central do Pregoeiro)">&#128194; PASTA</button></div>';
+    html+='<div class="card-footer"><button class="link-btn link-btn-pasta" data-action="abrir-pasta" title="Abrir a pasta do processo (funciona dentro da Central do Pregoeiro)">&#128194; PASTA</button>';
+    if(p.link) html+='<a class="link-btn link-btn-doc" href="'+escHtml(p.link)+'" target="_blank" rel="noopener" title="Abrir a documentação no portal de compras">&#128279; DOCUMENTAÇÃO</a>';
+    html+='<button class="link-btn link-btn-wa" data-action="share-proc" title="Copiar texto para compartilhar no WhatsApp">&#128242; WHATSAPP</button></div>';
     html+='</div>';
   }
   grid.innerHTML=html;
