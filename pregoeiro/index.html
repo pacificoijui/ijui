@@ -1009,6 +1009,12 @@
 
   /* ── Página de assinatura (?assinar=ID) ── */
   body.asg-shared-mode>*:not(#asgSharedPanel){display:none!important}
+  body.consulta-mode>*:not(#consultaPanel){display:none!important}
+  #consultaPanel{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;font-family:'Sora',system-ui,sans-serif;background:#f0f2f5;-webkit-text-size-adjust:100%}
+  /* Cards da consulta reaproveitam .card/.grid do sistema, só que sem nenhum
+     botão interativo além da PASTA — nada aqui grava no Firestore. */
+  #consultaGrid .card-footer{justify-content:flex-start}
+  #consultaGrid .card-footer .link-btn-pasta{flex:none}
   #asgSharedPanel{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;font-family:'Sora',system-ui,sans-serif;background:#eef1f6;-webkit-text-size-adjust:100%}
   .asgs-header{background:#1a3a6b;color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;gap:12px;flex-shrink:0}
   .asgs-logo{height:30px;width:auto;flex-shrink:0;border-radius:4px}
@@ -1482,6 +1488,7 @@
       <button class="btn-ghost" onclick="window.location.href='/agenda/'">&#128197; Agenda</button>
       <button class="btn-ghost" onclick="abrirModalUsuarios()">&#128273; Usuários</button>
       <button class="btn-ghost" onclick="abrirModalEmail()">&#9993; E-mails</button>
+      <button class="btn-ghost" onclick="copiarLinkConsulta()" title="Copia um link de visualização — sem senha, sem edição — para compartilhar com colegas">&#128279; Link de Consulta</button>
       <span class="auth-chip" id="authUserChip" style="display:none"></span>
       <button class="btn-ghost" onclick="authLogout()" title="Sair">Sair</button>
     </div>
@@ -2186,6 +2193,40 @@
     <button class="vcs-share" id="vcsShare">&#128257; Compartilhar</button>
   </div>
 </div>
+<!-- PAINEL DE CONSULTA (link ?consulta=1) — só leitura, sem login, para colegas
+     acompanharem os processos pendentes sem acesso ao sistema interno. -->
+<div id="consultaPanel">
+  <div class="rks-header">
+    <img class="rks-logo" id="consultaLogo" src="" alt="Município de Ijuí">
+    <div class="rks-hdivider"></div>
+    <div class="rks-header-info">
+      <div class="rks-htitle">Consulta de Processos</div>
+      <div class="rks-hsub">Município de Ijuí — COPAM</div>
+      <div class="rks-hsub rks-hsub-copam">Somente para consulta — nenhuma alteração é feita por aqui</div>
+    </div>
+  </div>
+  <div class="rks-body">
+    <div class="filtros-wrap" style="margin-bottom:16px">
+      <div class="filtro-campo cf-tipo">
+        <span class="filtro-label">Tipo</span>
+        <select class="filtro-select" id="consultaFiltroTipo" onchange="renderConsulta()">
+          <option value="todos">Todos</option>
+          <option value="Pregão">Pregão</option>
+          <option value="Concorrência">Concorrência</option>
+        </select>
+      </div>
+      <div class="filtro-campo cf-num">
+        <span class="filtro-label">Número</span>
+        <input type="text" class="filtro-input" id="consultaFiltroNumero" placeholder="Ex: 75" oninput="renderConsulta()">
+      </div>
+      <div class="filtro-campo cf-obj">
+        <span class="filtro-label">Objeto</span>
+        <input type="text" class="filtro-input" id="consultaFiltroObjeto" placeholder="Buscar no objeto ou responsável..." oninput="renderConsulta()">
+      </div>
+    </div>
+    <div class="grid" id="consultaGrid"></div>
+  </div>
+</div>
 <div class="toast" id="toast">&#10003; <span id="toastMsg"></span></div>
 
 
@@ -2488,6 +2529,7 @@ colRef.onSnapshot(function(snap){
   processos = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
   document.getElementById("loadingOverlay").classList.add("hide");
   renderizar();
+  if(typeof consultaAtivo!=="undefined" && consultaAtivo) renderConsulta();
 }, function(err){
   document.getElementById("loadingOverlay").classList.add("hide");
   document.getElementById("grid").innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div><h3>Erro de conexão</h3><p>'+escHtml(err.message)+'</p></div>';
@@ -2557,6 +2599,7 @@ db.collection("status").onSnapshot(function(snap){
   renderListaStatus();
   /* Re-render cards so status colors apply (processos may have loaded first) */
   if(processos.length) renderizar();
+  if(typeof consultaAtivo!=="undefined" && consultaAtivo) renderConsulta();
 }, function(err){ console.error("Status:", err); statusList=STATUS_DEFAULT.slice(); statusListAll=STATUS_DEFAULT.slice(); renderSelectStatus(); });
 
 /* ── Delegação de eventos nos cards ──────────────────────────────────────────── */
@@ -10325,6 +10368,85 @@ function asgPadInit(canvas){
 
 
 /* ════════════════════════════════════════════════════════════════
+   CONSULTA SOMENTE LEITURA (link ?consulta=1)
+   Para colegas que não têm (nem precisam de) usuário no sistema: mostra os
+   processos pendentes com busca por tipo/número/objeto e o botão de abrir
+   a pasta — nada mais. Nenhum botão aqui grava no Firestore; os únicos que
+   aparecem no card (PASTA) já são de leitura no restante do sistema.
+   Reaproveita os mesmos dados (processos/statusList) que a tela normal já
+   carrega em segundo plano — só a renderização é própria, para não ter
+   risco de puxar junto algum botão de edição da tela interna.
+   ════════════════════════════════════════════════════════════════ */
+var consultaAtivo=false;
+function consultaListaFiltrada(){
+  var fTipo=(document.getElementById("consultaFiltroTipo")||{value:"todos"}).value;
+  var fNum=((document.getElementById("consultaFiltroNumero")||{value:""}).value||"").trim();
+  var fObj=((document.getElementById("consultaFiltroObjeto")||{value:""}).value||"").trim();
+  var qNum=buscaPreparar(fNum), qObj=buscaPreparar(fObj);
+  var busca=(fTipo!=="todos")||qNum||qObj;
+  var _notas={};
+  var lista=(processos||[]).filter(function(p){
+    /* só pendentes — mesmo com busca ativa, concluído/revogado não aparecem
+       aqui, diferente da tela interna (essa página é só "o que falta"). */
+    if(isArquivado(p.status)) return false;
+    if(!busca && p.dataLicit && p.dataLicit>hoje()) return false;
+    if(fTipo!=="todos" && tipoLicitacao(p.numero)!==fTipo) return false;
+    var _nota=0;
+    if(qNum){
+      var n=buscaPontuar(qNum,[{t:(p.numero||"")+" "+numeroSeq(p.numero)+" "+rotuloProcesso(p), peso:3}]);
+      if(!n) return false; _nota+=n;
+    }
+    if(qObj){
+      var o=buscaPontuar(qObj,[{t:p.objeto||"",peso:3},{t:rotuloProcesso(p),peso:2},{t:p.responsavel||"",peso:1}]);
+      if(!o) return false; _nota+=o;
+    }
+    _notas[p.id]=_nota;
+    return true;
+  });
+  if(qNum||qObj) lista.sort(function(a,b){ return (_notas[b.id]||0)-(_notas[a.id]||0); });
+  else lista=sortedLista(lista);
+  return lista;
+}
+function renderConsulta(){
+  if(!consultaAtivo) return;
+  var grid=document.getElementById("consultaGrid");
+  if(!grid) return;
+  var lista=consultaListaFiltrada();
+  if(!lista.length){
+    grid.innerHTML='<div class="empty"><div class="empty-icon">&#128194;</div><h3>Nenhum processo encontrado</h3><p>Ajuste a busca acima.</p></div>';
+    return;
+  }
+  var html="";
+  for(var i=0;i<lista.length;i++){
+    var p=lista[i];
+    var st=getStatusCfg(p.status);
+    html+='<div class="card" data-pid="'+escHtml(p.id)+'">';
+    html+='<div class="card-header"><div class="card-num">'+escHtml(rotuloProcesso(p))+(p.responsavel?' - '+escHtml(p.responsavel):'')+'</div>';
+    if(p.objeto) html+='<div class="card-obj">'+escHtml(p.objeto)+'</div>';
+    html+='<div class="card-meta"><span class="status-tag" style="'+getStatusStyle(p.status)+'">'+escHtml(st.nome||st.label||p.status)+'</span></div>';
+    html+='</div>';
+    html+='<div class="card-footer"><button class="link-btn link-btn-pasta" data-action="abrir-pasta" title="Abrir a pasta do processo (funciona dentro da Central do Pregoeiro)">&#128194; PASTA</button></div>';
+    html+='</div>';
+  }
+  grid.innerHTML=html;
+}
+/* Link para o pregoeiro compartilhar com os colegas — sem senha, sem edição. */
+function copiarLinkConsulta(){
+  asgCopy(window.location.origin+window.location.pathname+"?consulta=1");
+}
+(function(){
+  var params=new URLSearchParams(window.location.search);
+  if(!params.has("consulta")) return;
+  consultaAtivo=true;
+  document.body.classList.add("consulta-mode");
+  var panel=document.getElementById("consultaPanel");
+  if(panel) panel.style.display="flex";
+  try{ var lg=document.getElementById("consultaLogo"); if(lg && typeof LOGO_B64_PDF!=="undefined") lg.src=LOGO_B64_PDF; }catch(e){}
+  renderConsulta();
+})();
+
+
+/* ════════════════════════════════════════════════════════════════
    LOGIN / CONTROLE DE ACESSO
    Portão de acesso no cliente. Usuários ficam na coleção "usuarios"
    do Firestore (senha guardada apenas como hash SHA-256 + salt).
@@ -10707,7 +10829,8 @@ function usuariosExcluir(id, usuario, total){
    tela cheia), sempre chamando a MESMA função usada pelo botão ✕/Voltar de
    cada um, para o comportamento ficar idêntico ao de fechar clicando.
    Não mexe nas páginas de link compartilhado (?ranking=, ?hab=, ?assinar=,
-   ?assinatura=, ?venc=) nem na tela de login — não há "menu" ali para sair. */
+   ?assinatura=, ?venc=, ?consulta=) nem na tela de login — não há "menu"
+   ali para sair. */
 document.addEventListener("keydown", function(e){
   if(e.key!=="Escape") return;
 
@@ -10747,7 +10870,7 @@ document.addEventListener("keydown", function(e){
 /* Inicialização do portão de acesso */
 (function(){
   var params=new URLSearchParams(window.location.search);
-  if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("assinatura")||params.has("venc")){
+  if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("assinatura")||params.has("venc")||params.has("consulta")){
     var g0=document.getElementById("authGate"); if(g0) g0.style.display="none";
     return;
   }
