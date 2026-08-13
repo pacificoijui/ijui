@@ -8911,6 +8911,7 @@ function decGerarPDF(dec){
       doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
     } else if(b.t==="q"){
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
+      fs(FS-0.5);ft("italic");
       var ql=doc.splitTextToSize(qclean,CW-14);
       var qH=ql.length*LH+9;
       if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=3;
@@ -9771,6 +9772,7 @@ function dilGerarPDF(dec){
       doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
     } else if(b.t==="q"){
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
+      fs(FS-0.5);ft("italic");
       var ql=doc.splitTextToSize(qclean,CW-14);
       var qH=ql.length*LH+9;
       if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=3;
