@@ -3429,7 +3429,12 @@ function renderSelectStatus(){
 var procExtras={};
 
 function cardItemResolvido(it, estados){
-  if(!it.fornecedores||!it.fornecedores.length) return false;
+  /* Item sem nenhum fornecedor (deserto — importado sem proposta no portal) já
+     é fracassado sozinho, igual ao rkItemFracassado(). Antes retornava false
+     aqui, então um item deserto nunca contava como resolvido no cálculo do %
+     do card — o processo ficava preso abaixo de 100% pra sempre, mesmo depois
+     de todos os itens serem declarados fracassados. */
+  if(!it.fornecedores||!it.fornecedores.length) return true;
   var win=-1;
   for(var k=0;k<it.fornecedores.length;k++){
     if(((estados||{})[it.num+'-'+k]||'neutro')!=='reprovado'){ win=k; break; }
