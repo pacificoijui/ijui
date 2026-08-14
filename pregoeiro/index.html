@@ -2560,7 +2560,6 @@ agColRef.onSnapshot(function(snap){
   }
 }, function(err){ console.error("Agentes:", err); });
 
-var _seedRevogado=false;
 db.collection("status").onSnapshot(function(snap){
   if(snap.empty){
     /* First time: seed defaults into Firestore */
@@ -2592,12 +2591,6 @@ db.collection("status").onSnapshot(function(snap){
         var manter=canon||grupo[0];
         return s===manter;
       });
-    /* Semeia o status "Revogado" caso o banco tenha sido criado antes dele.
-       Roda uma única vez: assim que o doc existir, a condição deixa de valer. */
-    if(!_seedRevogado && !statusListAll.some(function(s){ return _normSt(s.id)==="revogado" || _normSt(s.nome||"")==="revogado"; })){
-      _seedRevogado=true;
-      db.collection("status").doc("revogado").set({nome:"Revogado",cor:"pink",ordem:4,createdAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(){});
-    }
   }
   renderSelectStatus();
   renderListaStatus();
