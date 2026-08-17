@@ -6520,6 +6520,29 @@ function rkAplicarAcao(num, act){
     setTimeout(function(){ var ta=document.querySelector('.rks-rp-confirm-motivo[data-key="'+key+'"]'); if(ta) ta.focus(); },70);
   }
 }
+/* Aprova de uma vez todos os itens PENDENTES em que a empresa "nome" é a
+   colocação atual — mesmo efeito de clicar "Aprovado" item a item, só que
+   numa gravação só (o botão do Painel por Empresa chama esta função). */
+function rkAprovarTodosGrupo(nome){
+  var alvos=rkItens.filter(function(it){
+    var idx=rkFornIdxAtual(it);
+    if(idx<0) return false;
+    var fn=it.fornecedores[idx]?it.fornecedores[idx].nome:'';
+    return fn===nome && rkStatusItem(it)==='pendente';
+  });
+  if(!alvos.length){ toast('Nenhum item pendente dessa empresa.'); return; }
+  if(!confirm('Aprovar de uma vez os '+alvos.length+' itens pendentes de "'+nome+'"?')) return;
+  alvos.forEach(function(it){
+    var idx=rkFornIdxAtual(it);
+    var key=String(it.num)+'-'+idx;
+    rkEstados[key]='aprovado'; delete rkMotivos[key];
+    rkLogEvento('Item '+it.num+' — proposta de '+nome+' aprovada (aprovação em lote)');
+  });
+  rkHasPending=false;
+  rkSalvarFirestore();
+  rkRenderProcesso();
+  toast(alvos.length+' itens de "'+nome+'" aprovados.');
+}
 function rkConfirmarReprovacao(key){
   var ta=document.querySelector('.rks-rp-confirm-motivo[data-key="'+key+'"]');
   var mv=ta?ta.value.trim():'';
@@ -7267,6 +7290,7 @@ function rkRenderRanking(){
     html+='<div class="rk-emp-grupo-head" data-rkgrp="'+escHtml(g.nome)+'" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;background:'+(isFrac?'#f8fafc':'#eaf1ff')+';border:1.5px solid '+(isFrac?'#e2e8f0':'#c7dafc')+';border-radius:11px;padding:11px 15px;margin:16px 0 8px;cursor:pointer;user-select:none">'
       +'<div style="font-size:14px;font-weight:800;color:'+(isFrac?'#475569':'#1e3a5f')+'">'+titulo+'</div>'
       +'<div style="display:flex;align-items:center;flex-wrap:wrap">'+badges
+      +(!isFrac&&g.pend?'<button class="rks-sbtn" style="margin-left:10px;background:#15803d;color:#fff;border-color:#15803d;padding:5px 12px;font-size:12px;font-weight:800;white-space:nowrap" data-rkgrp-aprovar="'+escHtml(g.nome)+'" title="Aprova de uma vez todos os '+g.pend+' itens pendentes desta empresa">&#9989; Aprovar '+g.pend+'</button>':'')
       +'<button class="rks-sbtn" style="margin-left:10px;background:'+(aberto?'#fff':'#1d4ed8')+';color:'+(aberto?'#1d4ed8':'#fff')+';border-color:#1d4ed8;padding:5px 12px;font-size:12px;font-weight:800" data-rkgrp-btn="'+escHtml(g.nome)+'">'+(aberto?'Fechar itens':'Abrir itens')+' '+(aberto?'&#9650;':'&#9660;')+'</button></div></div>';
     if(aberto){
       g.itens.forEach(function(it){ html+=rkCardHtml(it); });
@@ -7373,7 +7397,7 @@ function rkRenderRanking(){
   /* Recolher/expandir grupos de empresa */
   c.querySelectorAll('[data-rkgrp]').forEach(function(h){
     h.addEventListener('click',function(e){
-      if(e.target.closest('[data-rkgrp-btn]')) return;
+      if(e.target.closest('[data-rkgrp-btn]')||e.target.closest('[data-rkgrp-aprovar]')) return;
       var n=h.dataset.rkgrp;
       rkGruposAbertos[n]=!rkGruposAbertos[n];
       rkRenderRanking();
@@ -7385,6 +7409,12 @@ function rkRenderRanking(){
       var n=btn.dataset.rkgrpBtn;
       rkGruposAbertos[n]=!rkGruposAbertos[n];
       rkRenderRanking();
+    });
+  });
+  c.querySelectorAll('[data-rkgrp-aprovar]').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      rkAprovarTodosGrupo(btn.dataset.rkgrpAprovar);
     });
   });
 
