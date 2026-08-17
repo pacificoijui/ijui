@@ -1489,8 +1489,8 @@
     <div class="header-actions">
       <button class="btn-ghost" onclick="abrirModalAgentes()">&#128100; Agentes</button>
       <button class="btn-ghost" onclick="abrirModalStatus()">&#127381; Status</button>
-      <button class="btn-ghost" onclick="window.location.href='/agenda/'">&#128197; Agenda</button>
-      <button class="btn-ghost" onclick="abrirModalUsuarios()">&#128273; Usuários</button>
+      <button class="btn-ghost" onclick="window.location.href='/'">&#128197; Agenda</button>
+      <button class="btn-ghost" id="btnUsuarios" onclick="abrirModalUsuarios()" style="display:none">&#128273; Usuários</button>
       <button class="btn-ghost" onclick="abrirModalEmail()">&#9993; E-mails</button>
       <button class="btn-ghost" onclick="copiarLinkConsulta()" title="Copia um link de visualização — sem senha, sem edição — para compartilhar com colegas">&#128279;</button>
       <span class="auth-chip" id="authUserChip" style="display:none"></span>
@@ -10466,6 +10466,11 @@ var AUTH_SALT = "copam-ijui-v1";
 var AUTH_KEY  = "copam_auth";
 var authCurrentUser = null;
 var authMode = "login";
+/* Usuário de resgate: se, por qualquer motivo, ninguém estiver marcado como
+   administrador, este login (quando existir) é promovido automaticamente —
+   evita que o sistema fique sem ninguém capaz de cadastrar novos usuários. */
+var AUTH_BOOTSTRAP_ADMIN = "pacifico";
+function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
 
 /* SHA-256 compacto (funciona em https e file://, sem dependências) */
 function authUtf8(s){ try{ return unescape(encodeURIComponent(s)); }catch(e){ return s; } }
@@ -10542,10 +10547,34 @@ function authSetMode(m){
   if(cb) cb.style.display=(m==="create")?"block":"none";
   authErr("");
 }
+/* Garante que sempre exista pelo menos um administrador: se ningu\u00E9m estiver
+   marcado, promove o usu\u00E1rio de resgate (AUTH_BOOTSTRAP_ADMIN), caso exista.
+   Roda toda vez que o app abre; vira no-op assim que houver um admin.        */
+function authGarantirAdmin(){
+  usuariosColRef.get().then(function(snap){
+    var temAdmin=false, alvoId=null;
+    snap.docs.forEach(function(d){
+      var v=d.data();
+      if(v.isAdmin) temAdmin=true;
+      if(!alvoId && (v.usuario||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN) alvoId=d.id;
+    });
+    if(!temAdmin && alvoId){
+      usuariosColRef.doc(alvoId).update({isAdmin:true}).then(function(){
+        if(authCurrentUser && authCurrentUser.u===AUTH_BOOTSTRAP_ADMIN){
+          authCurrentUser.isAdmin=true; authSetSession(authCurrentUser);
+          var btn=document.getElementById("btnUsuarios"); if(btn) btn.style.display="";
+        }
+      }).catch(function(){});
+    }
+  }).catch(function(){});
+}
 function authShowApp(){
   var g=document.getElementById("authGate"); if(g) g.style.display="none";
   var chip=document.getElementById("authUserChip");
   if(chip && authCurrentUser){ chip.textContent="\uD83D\uDC64 "+(authCurrentUser.nome||authCurrentUser.u); chip.style.display="inline-flex"; }
+  var btn=document.getElementById("btnUsuarios");
+  if(btn) btn.style.display = authIsAdmin() ? "" : "none";
+  authGarantirAdmin();
 }
 function authStartGate(){
   var g=document.getElementById("authGate"); if(g) g.style.display="flex";
@@ -10572,7 +10601,7 @@ function authEntrar(){
     if(snap.empty) throw new Error("nf");
     var d=snap.docs[0].data();
     if(d.senhaHash!==hash) throw new Error("nf");
-    authCurrentUser={u:u, nome:d.nome||u};
+    authCurrentUser={u:u, nome:d.nome||u, isAdmin:!!d.isAdmin};
     authSetSession(authCurrentUser);
     authShowApp();
   }).catch(function(e){
@@ -10588,9 +10617,9 @@ function authCriarPrimeiro(){
   if(p.length<4){ authErr("A senha deve ter ao menos 4 caracteres."); return; }
   if(p!==p2){ authErr("As senhas não conferem."); return; }
   var btn=document.getElementById("authBtnCriar"); btn.disabled=true; btn.textContent="Criando...";
-  usuariosColRef.add({usuario:u, nome:nome, senhaHash:authHash(p,u), criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
+  usuariosColRef.add({usuario:u, nome:nome, senhaHash:authHash(p,u), isAdmin:true, criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){
-      authCurrentUser={u:u, nome:nome};
+      authCurrentUser={u:u, nome:nome, isAdmin:true};
       authSetSession(authCurrentUser);
       authShowApp();
       toast("Usuário criado. Bem-vindo, "+nome+"!");
@@ -10600,6 +10629,7 @@ function authCriarPrimeiro(){
 
 /* ── Gerenciamento de usuários (modal) ── */
 function abrirModalUsuarios(){
+  if(!authIsAdmin()){ alert("Só o administrador pode gerenciar usuários."); return; }
   document.getElementById("modalUsuarios").classList.add("open");
   usuariosLimparForm();
   usuariosListar();
@@ -10632,6 +10662,7 @@ function usuariosListar(){
   });
 }
 function usuariosSalvar(){
+  if(!authIsAdmin()){ alert("Só o administrador pode cadastrar usuários."); return; }
   var nome=(document.getElementById("usrNome").value||"").trim();
   var u=(document.getElementById("usrLogin").value||"").trim().toLowerCase();
   var p=document.getElementById("usrSenha").value||"";
@@ -10648,6 +10679,7 @@ function usuariosSalvar(){
   }).finally(function(){ btn.disabled=false; btn.textContent="Salvar Usuário"; });
 }
 function usuariosRedefinirSenha(id, usuario){
+  if(!authIsAdmin()){ alert("Só o administrador pode redefinir senhas."); return; }
   var p=prompt("Nova senha para \""+usuario+"\":");
   if(p===null) return;
   if(p.length<4){ alert("A senha deve ter ao menos 4 caracteres."); return; }
@@ -10656,6 +10688,7 @@ function usuariosRedefinirSenha(id, usuario){
     .catch(function(e){ alert("Erro: "+e.message); });
 }
 function usuariosExcluir(id, usuario, total){
+  if(!authIsAdmin()){ alert("Só o administrador pode excluir usuários."); return; }
   if(total<=1){ alert("Não é possível excluir o único usuário do sistema. Cadastre outro antes."); return; }
   if(!confirm("Excluir o usuário \""+usuario+"\"? Ele não conseguirá mais entrar.")) return;
   usuariosColRef.doc(id).delete().then(function(){
