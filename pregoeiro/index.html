@@ -1878,9 +1878,12 @@
     <div style="background:#f5f8ff;border-radius:16px;max-width:860px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden">
       <div style="background:#1d4ed8;color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px">
         <div style="font-size:17px;font-weight:800">&#127970; Diligências por Empresa</div>
-        <button onclick="rkFecharPainelEmpresas()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:15px;font-weight:700;border-radius:8px;padding:6px 14px;cursor:pointer">Fechar &#10005;</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button onclick="rkAbrirSessaoPublica()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:13.5px;font-weight:700;border-radius:8px;padding:6px 14px;cursor:pointer" title="Abre a sessão pública deste processo no Portal de Compras Públicas">&#127760; Sessão Pública</button>
+          <button onclick="rkFecharPainelEmpresas()" style="background:rgba(255,255,255,.18);border:none;color:#fff;font-size:15px;font-weight:700;border-radius:8px;padding:6px 14px;cursor:pointer">Fechar &#10005;</button>
+        </div>
       </div>
-      <div style="padding:14px 18px 6px;font-size:12.5px;color:#4a5a76;line-height:1.55">Cada card mostra os itens <b>em diligência</b> e <b>pendentes</b> em que a empresa é a colocação atual. Defina o prazo e use os botões: a mensagem já sai com a lista de itens, e o motivo de todos os itens é atualizado de uma vez.</div>
+      <div style="padding:14px 18px 6px;font-size:12.5px;color:#4a5a76;line-height:1.55">Cada card mostra os itens <b>em diligência</b> e <b>pendentes</b> em que a empresa é a colocação atual. Defina o prazo e use os botões: a mensagem já sai com a lista de itens, e o motivo de todos os itens é atualizado de uma vez. <b>Duplo clique</b> num número aprova só aquele item.</div>
       <div id="rkEmpLista" style="padding:10px 18px 20px"></div>
     </div>
   </div>
@@ -2251,6 +2254,7 @@
     <div class="rk-topbar-title"><span>&#128202;</span><span id="rkPanelTitle">Análise de Ranking</span></div>
     <div class="rk-topbar-actions">
       <button class="rk-btn rk-btn-import" onclick="rkCopiarLink()" title="Copiar link para preencher análise">&#128279; Compartilhar</button>
+      <button class="rk-btn rk-btn-import" onclick="rkAbrirSessaoPublica()" title="Abre a sessão pública deste processo no Portal de Compras Públicas">&#127760; Sessão Pública</button>
       <button class="rk-btn rk-btn-import" id="rkBtnOcultarRep" onclick="rkToggleOcultarReprovados()" title="Mostra só a empresa atualmente arrematante de cada item, ocultando as reprovadas">&#128683; Ocultar Reprovados</button>
       <label class="rk-btn rk-btn-import" style="cursor:pointer" title="JSON do ranking do Portal de Compras Públicas (empresas, valores, marcas)">
         &#128202; Propostas do portal
@@ -6541,7 +6545,24 @@ function rkAprovarTodosGrupo(nome){
   rkHasPending=false;
   rkSalvarFirestore();
   rkRenderProcesso();
+  rkRenderPainelEmpresas();
   toast(alvos.length+' itens de "'+nome+'" aprovados.');
+}
+/* Aprova um único item — usado no duplo clique do "quadradinho" do número,
+   no Painel por Empresa. */
+function rkAprovarItemChave(key){
+  var sep=String(key).lastIndexOf('-');
+  var nIt=String(key).slice(0,sep);
+  var it=rkItens.find(function(x){ return String(x.num)===nIt; }); if(!it) return;
+  var idx=rkFornIdxAtual(it); if(idx<0) return;
+  var fn=it.fornecedores[idx]?it.fornecedores[idx].nome:'';
+  rkEstados[key]='aprovado'; delete rkMotivos[key];
+  rkLogEvento('Item '+nIt+' — proposta de '+fn+' aprovada (duplo clique no Painel por Empresa)');
+  rkHasPending=false;
+  rkSalvarFirestore();
+  rkRenderProcesso();
+  rkRenderPainelEmpresas();
+  toast('Item '+nIt+' aprovado.');
 }
 function rkConfirmarReprovacao(key){
   var ta=document.querySelector('.rks-rp-confirm-motivo[data-key="'+key+'"]');
@@ -6702,7 +6723,7 @@ function rkFecharPainelEmpresas(){
 function rkEmpChipsItens(regs, cor, corBg, corBorda){
   if(!regs.length) return '<span style="font-size:12px;color:#9aa7bd;font-style:italic">nenhum</span>';
   return regs.map(function(r){
-    return '<span title="'+escHtml(r.desc||'')+'" style="display:inline-block;background:'+corBg+';color:'+cor+';border:1px solid '+corBorda+';border-radius:7px;padding:2px 8px;font-size:12px;font-weight:700;margin:2px 3px 2px 0;cursor:default">'+escHtml(r.num)+'</span>';
+    return '<span data-empchave="'+escHtml(r.key)+'" title="'+escHtml(r.desc||'')+' — duplo clique aprova só este item" style="display:inline-block;background:'+corBg+';color:'+cor+';border:1px solid '+corBorda+';border-radius:7px;padding:2px 8px;font-size:12px;font-weight:700;margin:2px 3px 2px 0;cursor:pointer">'+escHtml(r.num)+'</span>';
   }).join('');
 }
 function rkRenderPainelEmpresas(){
@@ -6742,6 +6763,7 @@ function rkRenderPainelEmpresas(){
     else if(temPend) lblPrincipal='&#128269; Diligenciar os '+emp.pend.length+' pendentes e copiar mensagem';
     else lblPrincipal='&#128203; Copiar mensagem de diligência ('+emp.dil.length+' '+(emp.dil.length>1?'itens':'item')+')';
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+    if(temPend) html+='<button class="rks-sbtn" style="background:#15803d;color:#fff;border-color:#15803d;padding:8px 14px;font-weight:800" data-empaprovar="'+escHtml(emp.nome)+'">&#9989; Aprovar os '+emp.pend.length+' pendentes</button>';
     html+='<button class="rks-sbtn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;padding:8px 14px;font-weight:800" data-empdil="'+escHtml(emp.nome)+'" data-emp="'+eid+'">'+lblPrincipal+'</button>';
     html+='<button class="rks-sbtn" style="background:#fff;color:#1e3a5f;border-color:#1e3a5f;padding:8px 14px;font-weight:700" data-emppedido="'+escHtml(emp.nome)+'" data-emp="'+eid+'">&#128438; Gerar Pedido de Diligência (PDF)</button>';
     if(temDil&&temPend) html+='<button class="rks-sbtn" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;padding:8px 14px" data-empmsg="'+escHtml(emp.nome)+'" data-emp="'+eid+'">&#128203; Copiar mensagem só dos '+emp.dil.length+' em diligência</button>';
@@ -6771,6 +6793,12 @@ function rkRenderPainelEmpresas(){
   });
   c.querySelectorAll('[data-empcopiar]').forEach(function(btn){
     btn.addEventListener('click',function(){ rkEmpCopiarDescricoes(btn.dataset.empcopiar); });
+  });
+  c.querySelectorAll('[data-empaprovar]').forEach(function(btn){
+    btn.addEventListener('click',function(){ rkAprovarTodosGrupo(btn.dataset.empaprovar); });
+  });
+  c.querySelectorAll('[data-empchave]').forEach(function(chip){
+    chip.addEventListener('dblclick',function(){ rkAprovarItemChave(chip.dataset.empchave); });
   });
 }
 function rkEmpPrazoLido(eid){
@@ -7475,6 +7503,16 @@ function rkCopiarLink(){
   } else {
     prompt('Copie o link abaixo:', link);
   }
+}
+/* Abre a sessão pública deste processo no Portal de Compras Públicas —
+   mesmo link usado no aviso de Desclassificações, agora também acessível
+   direto do topo do Ranking e do Painel por Empresa. */
+function rkAbrirSessaoPublica(){
+  if(!rkProcessoAtual){ toast('Abra um ranking primeiro.'); return; }
+  var proc=(typeof processos!=='undefined'?processos.find(function(p){ return p.id===rkProcessoAtual.id; }):null)||{};
+  var link=linkSessaoPublica(proc.link||rkProcessoAtual.link||'', proc.responsavel||'');
+  if(!link){ toast('Este processo não tem link do portal cadastrado.'); return; }
+  window.open(link, '_blank', 'noopener');
 }
 
 /* ── Modo Compartilhado (?ranking=ID) ───────────────────────────────────────── */
