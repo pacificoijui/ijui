@@ -6720,9 +6720,10 @@ function rkRenderPainelEmpresas(){
     /* cabeçalho */
     html+='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">'
       +'<div style="font-size:14.5px;font-weight:800;color:#1e293b">'+escHtml(emp.nome)+'</div>'
-      +'<div style="display:flex;gap:6px">'
+      +'<div style="display:flex;align-items:center;gap:6px">'
         +(temDil?'<span style="background:#dbeafe;color:#1d4ed8;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800">&#128269; '+emp.dil.length+' em diligência</span>':'')
         +(temPend?'<span style="background:#fef3c7;color:#92400e;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:800">&#9203; '+emp.pend.length+' pendente'+(emp.pend.length>1?'s':'')+'</span>':'')
+        +'<button class="rks-sbtn" style="background:#fff;color:#475569;border-color:#cbd5e1;padding:4px 9px;font-size:12px" data-empcopiar="'+escHtml(emp.nome)+'" title="Copia a descrição do edital de cada item desta empresa, pronta pra colar num relatório">&#128203;</button>'
       +'</div></div>';
     /* itens */
     if(temDil) html+='<div style="margin:4px 0"><span style="font-size:11.5px;font-weight:800;color:#1d4ed8;text-transform:uppercase;letter-spacing:.4px">Em diligência:</span><br>'+rkEmpChipsItens(emp.dil,'#1d4ed8','#eff6ff','#bfdbfe')+'</div>';
@@ -6767,6 +6768,9 @@ function rkRenderPainelEmpresas(){
   });
   c.querySelectorAll('[data-emppedido]').forEach(function(btn){
     btn.addEventListener('click',function(){ rkEmpGerarPedido(btn.dataset.emppedido, btn.dataset.emp); });
+  });
+  c.querySelectorAll('[data-empcopiar]').forEach(function(btn){
+    btn.addEventListener('click',function(){ rkEmpCopiarDescricoes(btn.dataset.empcopiar); });
   });
 }
 function rkEmpPrazoLido(eid){
@@ -6879,6 +6883,16 @@ function rkEmpDesclassificar(nomeEmp){
     .replace('{EMPRESA}', nomeEmp)
     .replace('{LISTA}', rkEmpListaTexto(emp.dil));
   copiarTextoClipboard(msg, 'Mensagem de desclassificação ('+emp.dil.length+' '+(emp.dil.length>1?'itens':'item')+') copiada — cole no chat do portal!');
+}
+/* Relatório simples com a descrição do edital de cada item em diligência ou
+   pendente desta empresa — pra colar num documento/e-mail à parte. */
+function rkEmpCopiarDescricoes(nomeEmp){
+  var emp=rkAgruparPorEmpresa().find(function(e){ return e.nome===nomeEmp; }); if(!emp) return;
+  var regs=emp.dil.concat(emp.pend);
+  if(!regs.length){ toast('Nenhum item desta empresa pra copiar.'); return; }
+  regs.sort(function(a,b){ var na=parseFloat(a.num),nb=parseFloat(b.num); if(!isNaN(na)&&!isNaN(nb)) return na-nb; return String(a.num).localeCompare(String(b.num)); });
+  var txt=nomeEmp+':\n\n'+regs.map(function(r){ return r.num+' - '+(r.desc||''); }).join('\n\n');
+  copiarTextoClipboard(txt, 'Descrição dos '+regs.length+' itens copiada!');
 }
 function rkNaoEnviouCatalogo(num){
   var it=rkItens.find(function(x){ return String(x.num)===String(num); }); if(!it) return;
