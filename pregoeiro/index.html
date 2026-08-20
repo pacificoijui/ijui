@@ -4364,20 +4364,20 @@ var rkFiltroPin = null; /* trava a lista visível sob um filtro de status até o
 var rkFiltroNum = '';
 var rkFiltroDesc = '';
 var rkFiltroForn = '';
-/* Textos padrão copiados automaticamente ao trabalhar diligência de catálogo/ficha técnica.
-   {EMPRESA} é substituído pelo nome do fornecedor no momento da cópia. */
-var RK_TXT_DILIGENCIA_CATALOGO =
-"Senhor licitante {EMPRESA},\n\n"+
-"Solicitamos, para {ITENS}, a apresentação de catálogo, ficha técnica, folder, prospecto ou documento equivalente que comprove as características do(s) produto(s) ofertado(s), a fim de verificar o atendimento às exigências do edital.\n\n"+
-"PRAZO PARA RESPOSTA: {PRAZO}.\n\n"+
-"Caso a documentação não seja enviada dentro do prazo, e não haja pedido de prorrogação antes do seu término, ficará caracterizado o desinteresse no atendimento da diligência e a proposta será DESCLASSIFICADA, por não ser possível comprovar o atendimento às exigências do edital.";
-/* Versões "em massa" usadas pelo Painel por Empresa — {LISTA} vira uma linha por item. */
+/* Texto padrão da diligência de catálogo/ficha técnica. É o MESMO tanto para
+   um item só (botão "Diligência" no card do item) quanto para vários de uma
+   vez (Painel por Empresa) — o que muda é só quantos itens entram em {LISTA}.
+   {EMPRESA} vira o nome do fornecedor e {LISTA} traz, para cada item, a
+   descrição do edital por extenso, que é justamente o que a empresa precisa
+   conferir ao montar o catálogo. */
 var RK_TXT_DILIGENCIA_LOTE =
 "Senhor licitante {EMPRESA},\n\n"+
-"Solicitamos, em diligência, o envio de catálogo, ficha técnica, folder, prospecto ou documento equivalente que comprove as características dos produtos ofertados nos seguintes itens:\n\n"+
+"Solicitamos, em diligência, o envio de catálogo, ficha técnica, folder, prospecto ou documento equivalente que comprove as características do(s) produto(s) ofertado(s) no(s) seguinte(s) item(ns), conforme a descrição exigida no edital:\n\n"+
 "{LISTA}\n\n"+
+"O documento apresentado deve permitir verificar que o produto ofertado atende integralmente à descrição acima transcrita, motivo pelo qual solicitamos especial atenção a cada característica e especificação nela exigida.\n\n"+
 "PRAZO PARA RESPOSTA: {PRAZO}.\n\n"+
-"Caso a documentação não seja enviada dentro do prazo, e não haja pedido de prorrogação antes do seu término, ficará caracterizado o desinteresse no atendimento da diligência e as propostas dos itens acima serão DESCLASSIFICADAS, por não ser possível comprovar o atendimento às exigências do edital.";
+"Caso a documentação não seja enviada dentro do prazo, e não haja pedido de prorrogação antes do seu término, ficará caracterizado o desinteresse no atendimento da diligência e a(s) proposta(s) do(s) item(ns) acima será(ão) DESCLASSIFICADA(S), por não ser possível comprovar o atendimento às exigências do edital.\n\n"+
+"Da mesma forma, caso o documento apresentado demonstre que o produto ofertado não atende à descrição do edital, a proposta será DESCLASSIFICADA.";
 var RK_TXT_DESCLASSIFICACAO_LOTE =
 "Senhor licitante {EMPRESA},\n\n"+
 "Considerando que a empresa foi devidamente diligenciada para apresentar catálogo, ficha técnica, folder, prospecto ou documento equivalente referente aos itens abaixo, verifica-se que não houve o envio da documentação solicitada, tampouco pedido formal e justificado de prorrogação dentro do prazo concedido:\n\n"+
@@ -6635,6 +6635,23 @@ function rkFrasePrazo(dateStr, timeStr){
   else if(dateStr===rkDataISO(1)) quando='amanhã, ';
   return 'até as '+rkFmtHora(timeStr)+' de '+quando+rkDiaSemana(dateStr)+', '+rkFmtDataBR(dateStr);
 }
+/* Lista "Item N — descrição do edital" para a mensagem de diligência.
+   Usa a descrição do edital POR EXTENSO (rkDesc já prefere descEdital sobre a
+   descrição curta que vem do portal) e não corta o texto: é exatamente contra
+   essa descrição que a empresa tem de conferir o catálogo, então abreviar aqui
+   atrapalharia o que se está pedindo. Linha em branco entre um item e outro
+   porque a descrição do edital costuma ser longa.                          */
+function rkListaItensEdital(nums){
+  return nums.slice().sort(function(a,b){
+    var na=parseFloat(a), nb=parseFloat(b);
+    if(!isNaN(na)&&!isNaN(nb)) return na-nb;
+    return String(a).localeCompare(String(b));
+  }).map(function(n){
+    var it=rkItens.find(function(x){ return String(x.num)===String(n); });
+    var d=it?String(rkDesc(it)||'').trim().replace(/\s+/g,' '):'';
+    return 'Item '+n+(d?' — '+d:'');
+  }).join('\n\n');
+}
 /* Monta "o item 31", "os itens 31 e 32" ou "os itens 31, 32 e 33" a partir de uma lista de números. */
 function rkFormatarListaItens(nums){
   nums=nums.slice().sort(function(a,b){
@@ -6678,9 +6695,9 @@ function rkConfirmarDiligencia(key){
   rkLogEvento('Item '+nIt+' — proposta de '+fn+' em diligência (prazo: '+rkFmtHora(horaStr)+' de '+rkFmtDataBR(dataStr)+')');
   rkPendDil=null;
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso();
-  var msg=RK_TXT_DILIGENCIA_CATALOGO
+  var msg=RK_TXT_DILIGENCIA_LOTE
     .replace('{EMPRESA}', fn)
-    .replace('{ITENS}', listaItens)
+    .replace('{LISTA}', rkListaItensEdital(itensGrupo))
     .replace('{PRAZO}', rkFrasePrazo(dataStr, horaStr));
   copiarTextoClipboard(msg, 'Mensagem de diligência (com prazo) copiada — cole no chat do portal!');
 }
@@ -6853,7 +6870,7 @@ function rkEmpDiligenciar(nomeEmp, eid, incluirPendentes){
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso(); rkRenderPainelEmpresas();
   var msg=RK_TXT_DILIGENCIA_LOTE
     .replace('{EMPRESA}', nomeEmp)
-    .replace('{LISTA}', rkEmpListaTexto(regs))
+    .replace('{LISTA}', rkListaItensEdital(nums))
     .replace('{PRAZO}', rkFrasePrazo(prazo.data, prazo.hora));
   copiarTextoClipboard(msg, 'Mensagem de diligência ('+regs.length+' '+(regs.length>1?'itens':'item')+') copiada — cole no chat do portal!');
 }
