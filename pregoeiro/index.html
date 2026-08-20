@@ -2293,7 +2293,7 @@
           <button onclick="rkAbrirDesclassificacoes()" id="rkBtnDescPainel" style="background:#B45309;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(180,83,9,.25)" title="Timeline das desclassificações e checklist do que já foi lançado no portal">&#128220; Desclassificações <span id="rkDescBadge" style="background:#fff;color:#B45309;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
           <button onclick="rkAbrirPainelEmpresas()" style="background:#1d4ed8;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(29,78,216,.25)">&#127970; Painel por Empresa <span id="rkEmpBadge" style="background:#fff;color:#1d4ed8;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
           <button onclick="rkGerarPDFFracassados()" id="rkBtnComFrac" style="display:none;background:#9F1239;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(159,18,57,.25)" title="Gera um PDF avisando a secretaria sobre os itens desertos/fracassados, para abrir um novo pedido de compra">&#128196; Comunicação em PDF <span id="rkComFracBadge" style="background:#fff;color:#9F1239;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
-          <button onclick="rkGerarPDFAcimaReferencia()" id="rkBtnComRef" style="display:none;background:#7C3AED;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(124,58,237,.25)" title="Gera um relatório em PDF com as propostas que ficaram acima do valor de referência do edital">&#128200; Acima da Referência <span id="rkComRefBadge" style="background:#fff;color:#7C3AED;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
+          <button onclick="rkGerarPDFAcimaReferencia()" id="rkBtnComRef" style="display:none;background:#7C3AED;color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:13.5px;font-weight:700;cursor:pointer;align-items:center;gap:8px;box-shadow:0 2px 8px rgba(124,58,237,.25)" title="Gera um relatório em PDF com os itens cuja empresa arrematante (colocação atual) ficou acima do valor de referência do edital">&#128200; Acima da Referência <span id="rkComRefBadge" style="background:#fff;color:#7C3AED;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:800">0</span></button>
         </div>
       </div>
       <p class="rk-hint">Cada item mostra os reprovados e a colocação atual. Clique em Reprovado / Aprovado / Diligência na colocação atual — o motivo é salvo sozinho ao digitar. &nbsp;|&nbsp; Use os filtros acima para filtrar.</p>
@@ -6172,17 +6172,26 @@ function rkItensDesertoOuFracassado(){
 }
 
 /* ── Propostas acima do valor de referência ───────────────────────────────
-   Uma linha por proposta (não por item): quando duas empresas do mesmo item
-   ficaram acima da referência, as duas entram, para não esconder nenhuma. */
+   Uma linha por ITEM, e só da COLOCAÇÃO ATUAL (a empresa que está arrematando
+   o item neste momento) — não de todas as propostas.
+
+   Antes entrava toda proposta acima da referência, inclusive de empresas que
+   estavam atrás na fila e nunca chegariam a contratar. Ex.: referência 100,
+   a 1ª colocada cotou 80 e a 2ª cotou 110 — o item NÃO tem problema de preço,
+   porque quem vai contratar é a de 80. A de 110 só passa a importar se a de
+   80 for desclassificada, e aí ela vira a colocação atual e o item entra aqui
+   sozinho. Item fracassado (todas reprovadas) não tem colocação atual e fica
+   de fora — ele é tratado no relatório de desertos/fracassados.            */
 function rkItensAcimaReferencia(){
   var lista=[];
   (rkItens||[]).forEach(function(it){
     if(!it.ref||!it.fornecedores||!it.fornecedores.length) return;
-    it.fornecedores.forEach(function(f){
-      var pct=rkCalcPct(f.valor,it.ref);
-      if(pct===null||pct<=0) return;
-      lista.push({num:String(it.num||'').trim(), desc:rkDesc(it)||'', ref:it.ref, nome:f.nome||'', valor:f.valor||'', pct:pct});
-    });
+    var idx=rkFornIdxAtual(it);
+    if(idx<0) return;                     /* fracassado: sem colocação atual */
+    var f=it.fornecedores[idx]; if(!f) return;
+    var pct=rkCalcPct(f.valor,it.ref);
+    if(pct===null||pct<=0) return;
+    lista.push({num:String(it.num||'').trim(), desc:rkDesc(it)||'', ref:it.ref, nome:f.nome||'', valor:f.valor||'', pct:pct});
   });
   lista.sort(function(a,b){
     return String(a.num).localeCompare(String(b.num),'pt-BR',{numeric:true}) || (b.pct-a.pct);
@@ -6242,8 +6251,10 @@ function rkGerarPDFAcimaReferencia(){
   draw(cBorder); doc.setLineWidth(0.3); doc.line(ML,y,PW-MR,y); y+=10;
 
   var objTxt=(proc.objeto||rkProcessoAtual.objeto||'').trim();
-  paragrafo('Relação das propostas do processo '+titulo+(objTxt?(', cujo objeto é "'+objTxt+'"'):'')+
-    ' que superam o valor de referência estimado no edital, para fins de análise e eventual diligência.');
+  paragrafo('Relação dos itens do processo '+titulo+(objTxt?(', cujo objeto é "'+objTxt+'"'):'')+
+    ' em que a proposta atualmente arrematante supera o valor de referência estimado no edital, '+
+    'para fins de análise e eventual diligência. Considera-se apenas a colocação atual de cada item, '+
+    'desconsiderando as propostas já desclassificadas e as que estão em colocação posterior.');
 
   y+=2;
   var colW=[12,58,32,34,34];
