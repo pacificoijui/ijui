@@ -6538,15 +6538,24 @@ function rkAplicarAcao(num, act){
 /* Aprova de uma vez todos os itens PENDENTES em que a empresa "nome" é a
    colocação atual — mesmo efeito de clicar "Aprovado" item a item, só que
    numa gravação só (o botão do Painel por Empresa chama esta função). */
-function rkAprovarTodosGrupo(nome){
+/* incluirDiligencia=false (padrão, usado no "Por empresa" da tela principal
+   do Ranking): só os pendentes. incluirDiligencia=true (usado no Painel por
+   Empresa): pendentes E em diligência — a empresa já demonstrou capacidade,
+   não precisa reabrir o grupo pra aprovar item por item. */
+function rkAprovarTodosGrupo(nome, incluirDiligencia){
   var alvos=rkItens.filter(function(it){
     var idx=rkFornIdxAtual(it);
     if(idx<0) return false;
     var fn=it.fornecedores[idx]?it.fornecedores[idx].nome:'';
-    return fn===nome && rkStatusItem(it)==='pendente';
+    if(fn!==nome) return false;
+    var st=rkStatusItem(it);
+    return incluirDiligencia ? (st==='pendente'||st==='diligencia') : st==='pendente';
   });
-  if(!alvos.length){ toast('Nenhum item pendente dessa empresa.'); return; }
-  if(!confirm('Aprovar de uma vez os '+alvos.length+' itens pendentes de "'+nome+'"?')) return;
+  if(!alvos.length){ toast('Nenhum item pra aprovar dessa empresa.'); return; }
+  var msg=incluirDiligencia
+    ? 'Aprovar de uma vez os '+alvos.length+' itens (pendentes e em diligência) de "'+nome+'"?'
+    : 'Aprovar de uma vez os '+alvos.length+' itens pendentes de "'+nome+'"?';
+  if(!confirm(msg)) return;
   alvos.forEach(function(it){
     var idx=rkFornIdxAtual(it);
     var key=String(it.num)+'-'+idx;
@@ -6774,7 +6783,7 @@ function rkRenderPainelEmpresas(){
     else if(temPend) lblPrincipal='&#128269; Diligenciar os '+emp.pend.length+' pendentes e copiar mensagem';
     else lblPrincipal='&#128203; Copiar mensagem de diligência ('+emp.dil.length+' '+(emp.dil.length>1?'itens':'item')+')';
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
-    if(temPend) html+='<button class="rks-sbtn" style="background:#15803d;color:#fff;border-color:#15803d;padding:8px 14px;font-weight:800" data-empaprovar="'+escHtml(emp.nome)+'">&#9989; Aprovar os '+emp.pend.length+' pendentes</button>';
+    if(temDil||temPend) html+='<button class="rks-sbtn" style="background:#15803d;color:#fff;border-color:#15803d;padding:8px 14px;font-weight:800" data-empaprovar="'+escHtml(emp.nome)+'" title="Aprova de uma vez todos os itens desta empresa, pendentes e em diligência">&#9989; Aprovar todos ('+(emp.dil.length+emp.pend.length)+')</button>';
     html+='<button class="rks-sbtn" style="background:#1d4ed8;color:#fff;border-color:#1d4ed8;padding:8px 14px;font-weight:800" data-empdil="'+escHtml(emp.nome)+'" data-emp="'+eid+'">'+lblPrincipal+'</button>';
     html+='<button class="rks-sbtn" style="background:#fff;color:#1e3a5f;border-color:#1e3a5f;padding:8px 14px;font-weight:700" data-emppedido="'+escHtml(emp.nome)+'" data-emp="'+eid+'">&#128438; Gerar Pedido de Diligência (PDF)</button>';
     if(temDil&&temPend) html+='<button class="rks-sbtn" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;padding:8px 14px" data-empmsg="'+escHtml(emp.nome)+'" data-emp="'+eid+'">&#128203; Copiar mensagem só dos '+emp.dil.length+' em diligência</button>';
@@ -6806,7 +6815,7 @@ function rkRenderPainelEmpresas(){
     btn.addEventListener('click',function(){ rkEmpCopiarDescricoes(btn.dataset.empcopiar); });
   });
   c.querySelectorAll('[data-empaprovar]').forEach(function(btn){
-    btn.addEventListener('click',function(){ rkAprovarTodosGrupo(btn.dataset.empaprovar); });
+    btn.addEventListener('click',function(){ rkAprovarTodosGrupo(btn.dataset.empaprovar, true); });
   });
   c.querySelectorAll('[data-empchave]').forEach(function(chip){
     chip.addEventListener('dblclick',function(){ rkAprovarItemChave(chip.dataset.empchave); });
