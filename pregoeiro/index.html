@@ -4370,14 +4370,17 @@ var rkFiltroForn = '';
    {EMPRESA} vira o nome do fornecedor e {LISTA} traz, para cada item, a
    descrição do edital por extenso, que é justamente o que a empresa precisa
    conferir ao montar o catálogo. */
+/* Os trechos entre chaves com barra são {singular|plural}: rkMsgDiligencia()
+   escolhe um dos dois conforme a quantidade de itens, para o texto sair com a
+   concordância certa em vez de "o(s) item(ns)". */
 var RK_TXT_DILIGENCIA_LOTE =
 "Senhor licitante {EMPRESA},\n\n"+
-"Solicitamos, em diligência, o envio de catálogo, ficha técnica, folder, prospecto ou documento equivalente que comprove as características do(s) produto(s) ofertado(s) no(s) seguinte(s) item(ns), conforme a descrição exigida no edital:\n\n"+
+"Solicitamos, em diligência, o envio de catálogo, ficha técnica, folder, prospecto ou documento equivalente que comprove as características {do produto ofertado no seguinte item|dos produtos ofertados nos seguintes itens}, conforme a descrição exigida no edital:\n\n"+
 "{LISTA}\n\n"+
-"O documento apresentado deve permitir verificar que o produto ofertado atende integralmente à descrição acima transcrita, motivo pelo qual solicitamos especial atenção a cada característica e especificação nela exigida.\n\n"+
+"O documento apresentado deve permitir verificar que {o produto ofertado atende|os produtos ofertados atendem} integralmente à descrição acima transcrita, motivo pelo qual solicitamos especial atenção a cada característica e especificação nela exigida.\n\n"+
 "PRAZO PARA RESPOSTA: {PRAZO}.\n\n"+
-"Caso a documentação não seja enviada dentro do prazo, e não haja pedido de prorrogação antes do seu término, ficará caracterizado o desinteresse no atendimento da diligência e a(s) proposta(s) do(s) item(ns) acima será(ão) DESCLASSIFICADA(S), por não ser possível comprovar o atendimento às exigências do edital.\n\n"+
-"Da mesma forma, caso o documento apresentado demonstre que o produto ofertado não atende à descrição do edital, a proposta será DESCLASSIFICADA.";
+"Caso a documentação não seja enviada dentro do prazo, e não haja pedido de prorrogação antes do seu término, ficará caracterizado o desinteresse no atendimento da diligência e {a proposta do item acima será DESCLASSIFICADA|as propostas dos itens acima serão DESCLASSIFICADAS}, por não ser possível comprovar o atendimento às exigências do edital.\n\n"+
+"Da mesma forma, caso o documento apresentado demonstre que {o produto ofertado não atende|algum dos produtos ofertados não atende} à descrição do edital, a {proposta|respectiva proposta} será DESCLASSIFICADA.";
 var RK_TXT_DESCLASSIFICACAO_LOTE =
 "Senhor licitante {EMPRESA},\n\n"+
 "Considerando que a empresa foi devidamente diligenciada para apresentar catálogo, ficha técnica, folder, prospecto ou documento equivalente referente aos itens abaixo, verifica-se que não houve o envio da documentação solicitada, tampouco pedido formal e justificado de prorrogação dentro do prazo concedido:\n\n"+
@@ -6652,6 +6655,17 @@ function rkListaItensEdital(nums){
     return 'Item '+n+(d?' — '+d:'');
   }).join('\n\n');
 }
+/* Monta a mensagem de diligência pronta pro chat do portal, resolvendo o
+   singular/plural conforme a quantidade de itens. Usada tanto pela diligência
+   de um item só quanto pela do Painel por Empresa — mesmo texto nos dois. */
+function rkMsgDiligencia(empresa, nums, prazoFrase){
+  var plural=nums.length>1;
+  return RK_TXT_DILIGENCIA_LOTE
+    .replace(/\{([^{}|]*)\|([^{}|]*)\}/g, function(_,sing,plur){ return plural?plur:sing; })
+    .replace('{EMPRESA}', function(){ return empresa; })
+    .replace('{LISTA}', function(){ return rkListaItensEdital(nums); })
+    .replace('{PRAZO}', function(){ return prazoFrase; });
+}
 /* Monta "o item 31", "os itens 31 e 32" ou "os itens 31, 32 e 33" a partir de uma lista de números. */
 function rkFormatarListaItens(nums){
   nums=nums.slice().sort(function(a,b){
@@ -6695,10 +6709,7 @@ function rkConfirmarDiligencia(key){
   rkLogEvento('Item '+nIt+' — proposta de '+fn+' em diligência (prazo: '+rkFmtHora(horaStr)+' de '+rkFmtDataBR(dataStr)+')');
   rkPendDil=null;
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso();
-  var msg=RK_TXT_DILIGENCIA_LOTE
-    .replace('{EMPRESA}', fn)
-    .replace('{LISTA}', rkListaItensEdital(itensGrupo))
-    .replace('{PRAZO}', rkFrasePrazo(dataStr, horaStr));
+  var msg=rkMsgDiligencia(fn, itensGrupo, rkFrasePrazo(dataStr, horaStr));
   copiarTextoClipboard(msg, 'Mensagem de diligência (com prazo) copiada — cole no chat do portal!');
 }
 /* ── PAINEL POR EMPRESA ─────────────────────────────────────────────────────
@@ -6868,10 +6879,7 @@ function rkEmpDiligenciar(nomeEmp, eid, incluirPendentes){
   var nums=regs.map(function(r){ return r.num; });
   rkLogEvento('Diligência em lote — '+nomeEmp+' ('+rkFormatarListaItens(nums)+'; prazo: '+rkFmtHora(prazo.hora)+' de '+rkFmtDataBR(prazo.data)+')');
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso(); rkRenderPainelEmpresas();
-  var msg=RK_TXT_DILIGENCIA_LOTE
-    .replace('{EMPRESA}', nomeEmp)
-    .replace('{LISTA}', rkListaItensEdital(nums))
-    .replace('{PRAZO}', rkFrasePrazo(prazo.data, prazo.hora));
+  var msg=rkMsgDiligencia(nomeEmp, nums, rkFrasePrazo(prazo.data, prazo.hora));
   copiarTextoClipboard(msg, 'Mensagem de diligência ('+regs.length+' '+(regs.length>1?'itens':'item')+') copiada — cole no chat do portal!');
 }
 /* Gera um Pedido de Diligência formal no módulo do sistema (numeração sequencial
