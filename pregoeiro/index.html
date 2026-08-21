@@ -853,6 +853,9 @@
   .rks-forn-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
   .rks-forn-tag{background:#eef2f8;color:#445;font-size:13px;padding:5px 12px;border-radius:8px;white-space:nowrap;font-weight:500}
   .rks-forn-tag b{color:#1a3a6b;font-weight:700}
+  .rks-forn-tag-edit{cursor:pointer;user-select:none}
+  .rks-forn-tag-edit:hover{background:#e2e9f5}
+  .rks-forn-tag-input{font-size:13px;font-weight:600;color:#1a3a6b;border:1.5px solid #1a3a6b;border-radius:6px;padding:3px 7px;font-family:inherit;width:150px;max-width:60vw}
   /* Botões de status — compactos com ícone inline */
   .rks-card-btns{display:flex;gap:10px}
   .rks-sbtn{
@@ -7427,8 +7430,8 @@ function rkRenderRanking(){
           +'<span class="rks-forn-nome">'+escHtml(cf.nome)+'</span>'
           +'<div class="rks-forn-tags">'
           +'<span class="rks-forn-tag"><b>Valor</b> '+escHtml(cf.valor||'—')+(pv?' <span class="'+pc+'">'+escHtml(pv)+'</span>':'')+'</span>'
-          +'<span class="rks-forn-tag"><b>Modelo</b> '+escHtml(cf.modelo||'—')+'</span>'
-          +'<span class="rks-forn-tag"><b>Marca</b> '+escHtml(cf.marca||'—')+'</span>'
+          +'<span class="rks-forn-tag rks-forn-tag-edit" data-editforn="'+escHtml(nIt+'-'+ci)+'|modelo" title="Duplo clique para corrigir">&#9998; <b>Modelo</b> '+escHtml(cf.modelo||'—')+'</span>'
+          +'<span class="rks-forn-tag rks-forn-tag-edit" data-editforn="'+escHtml(nIt+'-'+ci)+'|marca" title="Duplo clique para corrigir">&#9998; <b>Marca</b> '+escHtml(cf.marca||'—')+'</span>'
           +'</div></div>';
         break;
       }
@@ -7537,8 +7540,56 @@ function rkRenderRanking(){
     ta.addEventListener('input',function(){ rkSetMotivo(ta.dataset.key, ta.value); rkAutoResize(ta); });
     rkAutoResize(ta);
   });
+  /* Duplo clique em Modelo/Marca da colocação atual: edita o valor lançado
+     no card, sem precisar reimportar o JSON do portal. */
+  c.querySelectorAll('[data-editforn]').forEach(function(span){
+    span.addEventListener('dblclick',function(){ rkIniciarEdicaoForn(span); });
+  });
 
   if(body) body.scrollTop=savedScroll;
+}
+/* Duplo clique em "Modelo"/"Marca" da colocação atual (rkCardHtml) — corrige
+   o valor lançado, sem precisar reimportar o JSON do portal por causa de um
+   erro de digitação ou de uma marca que a empresa emendou depois. */
+function rkIniciarEdicaoForn(span){
+  var partes=(span.dataset.editforn||'').split('|');
+  var chave=partes[0]||'', campo=partes[1]||'';
+  var sep=chave.lastIndexOf('-');
+  if(sep<0) return;
+  var nIt=chave.slice(0,sep), idx=Number(chave.slice(sep+1));
+  var it=rkItens.find(function(x){ return String(x.num)===nIt; }); if(!it) return;
+  var cf=it.fornecedores[idx]; if(!cf) return;
+  var atual=cf[campo]||'';
+  var input=document.createElement('input');
+  input.type='text'; input.className='rks-forn-tag-input'; input.value=atual; input.maxLength=120;
+  span.replaceWith(input);
+  input.focus(); input.select();
+  var feito=false;
+  function commit(){
+    if(feito) return; feito=true;
+    var novo=input.value.trim();
+    if(novo!==atual) rkSalvarCampoForn(nIt, idx, campo, novo);
+    else rkRenderProcesso();
+  }
+  function cancelar(){ if(feito) return; feito=true; rkRenderProcesso(); }
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', function(e){
+    /* stopPropagation: sem isso o Esc também aciona o listener global que
+       fecha o painel do Ranking inteiro (document.addEventListener no fim
+       do arquivo) — aqui o Esc deve cancelar só a edição deste campo. */
+    if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); input.blur(); }
+    else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); cancelar(); }
+  });
+}
+function rkSalvarCampoForn(nIt, idx, campo, valor){
+  var it=rkItens.find(function(x){ return String(x.num)===nIt; }); if(!it) return;
+  var cf=it.fornecedores[idx]; if(!cf) return;
+  var antigo=cf[campo]||'(vazio)';
+  cf[campo]=valor;
+  rkLogEvento('Item '+nIt+' — '+(campo==='modelo'?'Modelo':'Marca')+' de '+(cf.nome||'')+' corrigido de "'+antigo+'" para "'+(valor||'(vazio)')+'"');
+  rkSalvarFirestore();
+  rkRenderProcesso();
+  toast((campo==='modelo'?'Modelo':'Marca')+' atualizado.');
 }
 function rkCopiarLink(){
   if(!rkProcessoAtual){ toast('Abra um ranking primeiro.'); return; }
