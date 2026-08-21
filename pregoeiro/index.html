@@ -9184,17 +9184,24 @@ function decGerarPDF(dec){
 
   /* O fecho não se parte: ou a data e as assinaturas cabem juntas nesta
      página, ou descem juntas. Separá-las deixava a data perdida no pé de uma
-     página e a assinatura sozinha na seguinte. */
+     página e a assinatura sozinha na seguinte.
+
+     Antes o bloco reservava sempre a altura folgada e, faltando poucos
+     milímetros, descia inteiro — deixava o pé da página vazio e a assinatura
+     sozinha na página seguinte. Agora ele encolhe primeiro (respiro da data,
+     espaço acima da linha e o vão entre fileiras) e só desce se nem apertado
+     couber. */
   var assinantes=asgSignersDoc(dec,nomeAssina);
-  var altFecho=18+Math.ceil(Math.min(assinantes.length,6)/2)*46;
-  if(y+altFecho>BOTTOM) newPage();
-  y+=10;
+  var fecho=asgFechoEncaixe(y,BOTTOM,assinantes.length);
+  if(!fecho.cabe) newPage();
+  y+=fecho.respiro;
   fs(FS);ft("normal");tc(cText);
   doc.text(asgDataExtenso(dec.dataDecisao||hoje()),PW/2,y,{align:"center"}); y+=8;
   y=asgAssinaturasPDF(doc,{
     signers:assinantes,
     PW:PW,ML:ML,MR:MR,CW:CW,BOTTOM:BOTTOM,LH:LH,
     cNavy:cNavy,cMuted:cMuted,cText:cText,cBorder:cBorder,
+    above:fecho.above, rowGap:fecho.rowGap,
     y:y,
     requestPage:function(){ newPage(); return y; }
   });
@@ -10056,15 +10063,18 @@ function dilGerarPDF(dec){
      página, ou descem juntas. Separá-las deixava a data perdida no pé de uma
      página e a assinatura sozinha na seguinte. */
   var assinantes=asgSignersDoc(dec,nomeAssina);
-  var altFecho=18+Math.ceil(Math.min(assinantes.length,6)/2)*46;
-  if(y+altFecho>BOTTOM) newPage();
-  y+=10;
+  /* Mesmo encaixe elástico da Decisão: o fecho encolhe antes de descer de
+     página, para a assinatura não ficar sozinha na folha seguinte. */
+  var fecho=asgFechoEncaixe(y,BOTTOM,assinantes.length);
+  if(!fecho.cabe) newPage();
+  y+=fecho.respiro;
   fs(FS);ft("normal");tc(cText);
   doc.text(asgDataExtenso(dec.dataDecisao||hoje()),PW/2,y,{align:"center"}); y+=8;
   y=asgAssinaturasPDF(doc,{
     signers:assinantes,
     PW:PW,ML:ML,MR:MR,CW:CW,BOTTOM:BOTTOM,LH:LH,
     cNavy:cNavy,cMuted:cMuted,cText:cText,cBorder:cBorder,
+    above:fecho.above, rowGap:fecho.rowGap,
     y:y, semPendente:true,
     requestPage:function(){ newPage(); return y; }
   });
@@ -10294,18 +10304,46 @@ function asgSignersDoc(dec, nomeAssina){
   if(dec && dec.assinantes && dec.assinantes.length) return dec.assinantes;
   return [{ nome:nomeAssina||"", cargo:"Pregoeiro(a) - Municipio de Ijui", cpf:"", email:"", img:"", assinadoEm:"" }];
 }
+/* Altura de uma fileira de assinaturas: o espaço acima da linha (onde entra a
+   imagem da assinatura) mais o que vem abaixo dela (nome, cargo, data).
+   Os dois são elásticos — ver asgFechoEncaixe. */
+function asgAlturaFileira(above, rowGap){
+  return (typeof above==="number"?above:20)+(typeof rowGap==="number"?rowGap:24);
+}
+/* Escolhe o quanto o fecho (data + assinaturas) pode encolher para ainda caber
+   na página atual, em vez de descer inteiro e deixar o pé da página vazio.
+   Devolve {respiro, above, rowGap, cabe} — do mais folgado ao mais apertado. */
+function asgFechoEncaixe(y, BOTTOM, nSigners){
+  var linhas=Math.ceil(Math.min(nSigners||1,6)/2);
+  var op=[
+    {respiro:10, above:20, rowGap:24},   /* folgado, como sempre foi */
+    {respiro:7,  above:17, rowGap:22},
+    {respiro:4,  above:14, rowGap:20},
+    {respiro:2,  above:12, rowGap:19}    /* mínimo: abaixo disso o nome e o
+                                            cargo não caberiam sob a linha */
+  ];
+  for(var i=0;i<op.length;i++){
+    var alt=op[i].respiro+8+linhas*asgAlturaFileira(op[i].above,op[i].rowGap);
+    if(y+alt<=BOTTOM) return {respiro:op[i].respiro, above:op[i].above, rowGap:op[i].rowGap, cabe:true};
+  }
+  return {respiro:op[0].respiro, above:op[0].above, rowGap:op[0].rowGap, cabe:false};
+}
 function asgAssinaturasPDF(doc, o){
   var signers=(o.signers||[]).slice(0,6);
   if(!signers.length) return o.y;
   var cy=o.y;
-  var ABOVE=20;
+  var ABOVE=(typeof o.above==="number")?o.above:20;
+  var ROWGAP=(typeof o.rowGap==="number")?o.rowGap:24;
   function ensure(h){ if(cy+h>o.BOTTOM) cy=o.requestPage(); }
   function navy(){ doc.setDrawColor(o.cNavy[0],o.cNavy[1],o.cNavy[2]); }
   var rows=[];
   for(var i=0;i<signers.length;i+=2) rows.push(signers.slice(i,i+2));
   for(var r=0;r<rows.length;r++){
     var cells=rows[r];
-    ensure(46);
+    /* Exatamente a mesma conta de asgFechoEncaixe — pedir um milímetro a mais
+       aqui faria a fileira descer de página depois da data já ter sido
+       escrita, separando as duas coisas. */
+    ensure(asgAlturaFileira(ABOVE,ROWGAP));
     var lineY=cy+ABOVE;
     for(var c=0;c<cells.length;c++){
       var sg=cells[c];
@@ -10316,7 +10354,10 @@ function asgAssinaturasPDF(doc, o){
         try{
           /* Respeita a proporção da imagem: a assinatura feita no celular pode
              vir num quadro alto, e esticá-la num retângulo fixo a deformaria. */
-          var maxW=solo?60:50, maxH=solo?20:18, iw=maxW, ih=maxH;
+          /* A imagem nunca passa do espaço acima da linha: com o fecho
+             comprimido (ABOVE menor), ela encolhe junto em vez de subir por
+             cima do texto anterior. */
+          var maxW=solo?60:50, maxH=Math.min(solo?20:18, ABOVE-2), iw=maxW, ih=maxH;
           try{
             var ip=doc.getImageProperties(sg.img);
             if(ip && ip.width && ip.height){
@@ -10347,7 +10388,7 @@ function asgAssinaturasPDF(doc, o){
         doc.text("(assinatura pendente)",cx,ty,{align:"center"});
       }
     }
-    cy=lineY+24;
+    cy=lineY+ROWGAP;
   }
   return cy;
 }
