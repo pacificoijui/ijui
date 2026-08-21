@@ -8504,6 +8504,52 @@ function decEhMaiuscula(s){
 function decEhSecaoPrincipal(s){
   return /(RELAT|FUNDAMENT|AN[ÁA]LISE|DECIS|DISPOSITIVO|CONCLUS|EMENTA|RESPOSTA|VOTO)/i.test(s);
 }
+
+/* ── Reconhecimento automático de citação de lei ──────────────────────────
+   As marcações ">" (citação) e ">>" (fonte) continuam valendo, mas quase
+   nunca aparecem no texto que vem pronto da IA: ela transcreve o artigo
+   como um parágrafo comum e põe a referência ("Lei nº 14.133/2021, art.
+   59") numa linha solta logo abaixo. Sem reconhecer isso, o dispositivo
+   saía no PDF como parágrafo justificado, indistinguível do texto do
+   pregoeiro — que é justamente o que não pode acontecer num parecer.
+
+   Duas detecções, as duas conservadoras de propósito:
+     1) a linha COMEÇA transcrevendo um dispositivo ("Art. 5º", "§ 2º",
+        "Parágrafo único") — sozinha já basta para virar citação;
+     2) a linha é só uma referência de norma/fonte ("Lei nº ...", "TCU,
+        Acórdão nº ...", "Edital, item 9.4") — vira a fonte, e o bloco
+        logo acima, se for parágrafo, é promovido a citação: é o texto
+        que aquela referência está creditando.                          */
+var PDF_RX_DISPOSITIVO = /^(?:art(?:igo)?\.?\s*\d|§\s*\d|par[áa]grafo\s+(?:[úu]nico|\d))/i;
+/* Como uma linha de referência começa. Sem isso, qualquer frase curta sem
+   ponto final viraria fonte. */
+var PDF_RX_FONTE_INICIO = new RegExp(
+  "^(?:lei|lei\\s+complementar|lei\\s+municipal|lei\\s+federal|lei\\s+estadual"
+  +"|decreto|decreto-lei|medida\\s+provis[óo]ria|emenda\\s+constitucional"
+  +"|instru[çc][ãa]o\\s+normativa|in\\b|portaria|resolu[çc][ãa]o|orienta[çc][ãa]o\\s+normativa"
+  +"|s[úu]mula|ac[óo]rd[ãa]o|enunciado|parecer|nota\\s+t[ée]cnica"
+  +"|constitui[çc][ãa]o|clt|cf\\b|c[óo]digo"
+  +"|tribunal\\s+de\\s+contas|tcu\\b|tce\\b|stf\\b|stj\\b|agu\\b"
+  +"|edital|termo\\s+de\\s+refer[êe]ncia|anexo|minuta|ata\\b|contrato"
+  +"|conven[çc][ãa]o\\s+coletiva|cct\\b|acordo\\s+coletivo"
+  +")\\b", "i");
+/* E precisa carregar algum localizador — número da norma ou o dispositivo. */
+var PDF_RX_FONTE_CORPO = /(n[ºo°.]|nº|\bart\b|artigo|§|inciso|al[íi]nea|item|cl[áa]usula|s[úu]mula|ac[óo]rd[ãa]o|\d{2,})/i;
+/* Transcrição de dispositivo: "Art. 64. ...", "§ 2º ...", "Parágrafo único. ..." */
+function pdfEhDispositivoLegal(l){
+  return PDF_RX_DISPOSITIVO.test(String(l||"").replace(/^[*_\s]+/,""));
+}
+/* Linha que é só a referência da norma, sem argumentação em volta. */
+function pdfEhFonteLegal(l){
+  var s=String(l||"").replace(/[*_]/g,"").trim();
+  if(!s || s.length>140) return false;
+  if(/[.;:!?]$/.test(s)) return false;      /* frase fechada é parágrafo, não crédito */
+  if(!PDF_RX_FONTE_INICIO.test(s)) return false;
+  if(!PDF_RX_FONTE_CORPO.test(s)) return false;
+  /* Verbo conjugado no meio denuncia frase de verdade ("Lei nº X prevê que...") */
+  if(/\b(é|são|foi|foram|ser[áa]|dever[áa]|prev[êe]|estabelece|disp[õo]e|determina|autoriza|exige|veda|permite|aplica|conduz|assegura)\b/i.test(s)) return false;
+  return true;
+}
 function decParseBlocos(texto){
   var blocos=[];
   var linhas=String(texto||"").replace(/\r\n?/g,"\n").replace(/```[a-z]*\n?/gi,"").split("\n");
@@ -8571,6 +8617,14 @@ function decParseBlocos(texto){
       blocos.push({t:(decEhSecaoPrincipal(l)?"h1":"h2"), x:decLimparInline(l)});
       continue;
     }
+    /* Citação de lei sem marcação — ver pdfEhDispositivoLegal/pdfEhFonteLegal */
+    if(pdfEhFonteLegal(l)){
+      var antDec=blocos[blocos.length-1];
+      if(antDec && antDec.t==="p") antDec.t="q";   /* o texto que a fonte credita */
+      blocos.push({t:"fonte", x:decLimparInline(l)});
+      continue;
+    }
+    if(pdfEhDispositivoLegal(l)){ blocos.push({t:"q", x:decLimparPara(l)}); continue; }
     blocos.push({t:"p", x:decLimparPara(l)});
   }
   return blocos;
@@ -9527,6 +9581,14 @@ function dilParseBlocos(texto){
       blocos.push({t:(dilEhSecaoPrincipal(l)?"h1":"h2"), x:dilLimparInline(l)});
       continue;
     }
+    /* Citação de lei sem marcação — ver pdfEhDispositivoLegal/pdfEhFonteLegal */
+    if(pdfEhFonteLegal(l)){
+      var antDil=blocos[blocos.length-1];
+      if(antDil && antDil.t==="p") antDil.t="q";   /* o texto que a fonte credita */
+      blocos.push({t:"fonte", x:dilLimparInline(l)});
+      continue;
+    }
+    if(pdfEhDispositivoLegal(l)){ blocos.push({t:"q", x:dilLimparPara(l)}); continue; }
     blocos.push({t:"p", x:dilLimparPara(l)});
   }
   return blocos;
