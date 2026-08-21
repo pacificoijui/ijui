@@ -332,13 +332,13 @@
   .dec-tpl-btn { padding: 5px 10px; border-radius: 7px; border: 1.5px dashed var(--border); background: #f8fafd; font-family: 'Sora', system-ui, sans-serif; font-size: 11.5px; font-weight: 700; color: var(--navy); cursor: pointer; transition: all 0.15s; }
   .dec-tpl-btn:hover { background: var(--blue-bg); border-color: var(--navy-light); }
   .dec-preview { border: 1.5px solid var(--border); border-radius: 10px; background: #fff; padding: 18px 20px; max-height: 340px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--text); }
-  .dec-preview h1 { font-size: 14.5px; color: var(--navy); text-transform: uppercase; border-bottom: 2px solid var(--gold); padding-bottom: 4px; margin: 14px 0 8px; }
-  .dec-preview h2 { font-size: 13.5px; color: var(--navy); margin: 12px 0 6px; }
-  .dec-preview h3 { font-size: 13px; color: var(--text); margin: 10px 0 5px; }
+  .dec-preview h1 { font-size: 14.5px; color: #000; text-transform: uppercase; margin: 16px 0 8px; }
+  .dec-preview h2 { font-size: 13.5px; color: #000; text-transform: uppercase; margin: 13px 0 6px; }
+  .dec-preview h3 { font-size: 13px; color: #000; margin: 10px 0 5px; }
   .dec-preview p { margin: 0 0 8px; text-align: justify; }
   .dec-preview ul { margin: 0 0 8px; padding-left: 22px; }
   .dec-preview li { margin: 0 0 4px; }
-  .dec-preview blockquote { margin: 8px 0 8px 12px; padding: 6px 12px; border-left: 3px solid var(--border); color: #555; font-style: italic; background: #f8fafd; }
+  .dec-preview blockquote { margin: 8px 0 8px 34px; padding: 0; border: none; background: none; color: #000; font-size: 12px; }
 
   /* ── Bloco arrastável com as instruções de formatação para a IA ──────── */
   .ia-drag { display: inline-flex; align-items: center; gap: 11px; cursor: grab; user-select: none;
@@ -360,9 +360,11 @@
      Mesmas classes na prévia dos modais e na página de assinatura. */
   .pv-oli { display: flex; gap: 8px; margin: 0 0 5px; text-align: justify; }
   .pv-oli-n { flex: 0 0 auto; font-weight: 700; color: var(--navy); min-width: 22px; }
-  .pv-fonte { text-align: right; font-size: 11.5px; font-style: italic; color: var(--muted); margin: -4px 0 10px; }
-  .pv-destaque { background: #fff8e8; border: 1px solid var(--gold, #F26B21); border-radius: 7px; padding: 9px 13px; margin: 10px 0; font-weight: 700; color: #7c2d12; }
-  .pv-hr { border: none; border-top: 1px solid var(--border); margin: 14px 40px; }
+  .pv-fonte { text-align: right; font-size: 11.5px; font-style: italic; color: #000; margin: -4px 0 10px; }
+  /* A tarja âmbar saiu: o dispositivo virou parágrafo em negrito, como num
+     parecer. A classe fica só para os documentos antigos salvos com "!!". */
+  .pv-destaque { margin: 0 0 8px; text-align: justify; font-weight: 700; color: #000; }
+  .pv-hr { border: none; border-top: 1px solid #999; margin: 14px 40px; }
   .pv-tab-wrap { overflow-x: auto; margin: 10px 0; }
   .pv-tab { border-collapse: collapse; width: 100%; font-size: 12px; }
   .pv-tab th { background: var(--navy); color: #fff; text-align: left; padding: 6px 9px; font-weight: 700; }
@@ -426,13 +428,13 @@
   .dil-tpl-btn { padding: 5px 10px; border-radius: 7px; border: 1.5px dashed var(--border); background: #f8fafd; font-family: 'Sora', system-ui, sans-serif; font-size: 11.5px; font-weight: 700; color: var(--navy); cursor: pointer; transition: all 0.15s; }
   .dil-tpl-btn:hover { background: var(--blue-bg); border-color: var(--navy-light); }
   .dil-preview { border: 1.5px solid var(--border); border-radius: 10px; background: #fff; padding: 18px 20px; max-height: 340px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--text); }
-  .dil-preview h1 { font-size: 14.5px; color: var(--navy); text-transform: uppercase; border-bottom: 2px solid var(--gold); padding-bottom: 4px; margin: 14px 0 8px; }
-  .dil-preview h2 { font-size: 13.5px; color: var(--navy); margin: 12px 0 6px; }
-  .dil-preview h3 { font-size: 13px; color: var(--text); margin: 10px 0 5px; }
+  .dil-preview h1 { font-size: 14.5px; color: #000; text-transform: uppercase; margin: 16px 0 8px; }
+  .dil-preview h2 { font-size: 13.5px; color: #000; text-transform: uppercase; margin: 13px 0 6px; }
+  .dil-preview h3 { font-size: 13px; color: #000; margin: 10px 0 5px; }
   .dil-preview p { margin: 0 0 8px; text-align: justify; }
   .dil-preview ul { margin: 0 0 8px; padding-left: 22px; }
   .dil-preview li { margin: 0 0 4px; }
-  .dil-preview blockquote { margin: 8px 0 8px 12px; padding: 6px 12px; border-left: 3px solid var(--border); color: #555; font-style: italic; background: #f8fafd; }
+  .dil-preview blockquote { margin: 8px 0 8px 34px; padding: 0; border: none; background: none; color: #000; font-size: 12px; }
 
   /* ── RANKING PANEL ──────────────────────────────────────────────────────── */
   #rankingPanel{position:fixed;inset:0;background:#f0f2f5;z-index:500;display:none;flex-direction:column;overflow:hidden}
@@ -1318,7 +1320,6 @@
   .hbs-header,.rks-header,.asgs-header{background:linear-gradient(120deg,var(--noite),var(--marinho))}
   .hbs-pct,.rks-progress-pct,.rk-stat .n,.imp-badge,.dec-card-num,.dil-card-num{font-family:'Space Grotesk',monospace}
   .dec-card,.dil-card{border-left-color:var(--real);border-radius:12px}
-  .dec-preview h1,.dil-preview h1{border-bottom:2px solid var(--amarelo)}
 
   /* ── Filtro de desclassificação (revisão cruzada com o portal) ── */
   .rk-stat.sdesc .n{color:#B45309}
@@ -8633,8 +8634,12 @@ function decParseBlocos(texto){
       blocos.push({t:"h"+nivel, x:decLimparInline(m[2])});
       continue;
     }
+    /* Linha inteira em **negrito** é subtítulo — mas só se for curta. Um
+       parágrafo inteiro em negrito (o dispositivo da decisão, o prazo da
+       diligência) é texto, não título: virando h2 ele sairia todo em
+       MAIÚSCULAS. */
     m=l.match(/^(\*\*|__)(.+?)(\*\*|__)\s*:?\s*$/);
-    if(m){ blocos.push({t:"h2", x:decLimparInline(m[2])}); continue; }
+    if(m && m[2].length<=90){ blocos.push({t:"h2", x:decLimparInline(m[2])}); continue; }
     /* Fonte da citação (">> Lei nº ...") — tem de vir antes da citação */
     if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:decLimparInline(l.replace(/^>>\s?/,""))}); continue; }
     if(/^>\s?/.test(l)){ blocos.push({t:"q", x:decLimparPara(l.replace(/^>\s?/,""))}); continue; }
@@ -8695,9 +8700,9 @@ function decTogglePreview(){
    entendem — se um bloco novo for criado no parser, precisa ser descrito
    aqui também, senão a IA nunca vai usá-lo.
    ══════════════════════════════════════════════════════════════════════════ */
-var PDF_IA_BASE = "INSTRUÇÕES DE FORMATAÇÃO — {{DOCNOME}}\nSistema de Gestão de Processos Licitatórios · Município de Ijuí · COPAM\n\nVocê vai redigir o TEXTO de {{DOCARTIGO}}. Esse texto será colado no campo\n\"{{CAMPO}}\" do sistema, que monta sozinho o PDF oficial — com brasão,\ncabeçalho, rodapé, numeração de páginas e bloco de assinatura. Escreva\nsomente o corpo do documento, usando exatamente as marcações abaixo.\n\nDADOS DESTE DOCUMENTO\n{{DADOS}}\n\n════════════════════════════════════════════════════════════════════════\nREGRA DE OURO: UM PARÁGRAFO = UMA LINHA\n════════════════════════════════════════════════════════════════════════\nO sistema lê o texto LINHA A LINHA. Toda quebra de linha começa um bloco\nnovo. Portanto, um parágrafo inteiro — por mais longo que seja — precisa\nficar numa única linha, sem quebras no meio. Se você quebrar um parágrafo\nem várias linhas \"para caber na tela\", ele vira vários parágrafos soltos\nno PDF, cada um com seu próprio recuo.\n\nLinhas em branco entre os blocos são opcionais: o sistema as ignora. Use-as\nà vontade para deixar o rascunho legível.\n\n════════════════════════════════════════════════════════════════════════\nTOM: OBJETIVO, DIRETO, SEM LINGUIÇA\n════════════════════════════════════════════════════════════════════════\nCada frase carrega um fato, uma norma ou uma conclusão. Nada de reafirmar o\nmesmo ponto com outras palavras, nem de alongar um parágrafo só para o\nparecer parecer mais robusto. Se uma frase pode sair sem mudar o\nentendimento do leitor, ela sai. Prefira um parágrafo curto e preciso a\ntrês genéricos. Vá direto: contexto mínimo, análise, conclusão — sem\nintroduções floreadas nem fechos repetindo o que já foi dito.\n\n════════════════════════════════════════════════════════════════════════\nFUNDAMENTAÇÃO: LEI Nº 14.133/2021 E JURISPRUDÊNCIA DO TCU\n════════════════════════════════════════════════════════════════════════\nToda conclusão de mérito se apoia numa norma. Cite o artigo da Lei nº\n14.133/2021 (ou o item do edital) junto do ponto que ele sustenta — logo\nali no parágrafo, não isolado no fim. Quando existir entendimento do TCU\naplicável ao caso (acórdão ou súmula), cite-o também, sempre pela\nreferência real — número do acórdão, e o relator quando isso importar ao\ncaso.\n\nNunca invente número de acórdão, súmula ou trecho de ementa. Se não tiver\ncerteza da referência exata, diga isso ao pregoeiro em vez de citar às\ncegas — uma citação errada é pior que nenhuma citação.\n\nUse a marcação de citação (item 8, abaixo) para reproduzir o texto de lei\nou de acórdão; no corpo do parágrafo, basta mencionar o dispositivo.\n\n════════════════════════════════════════════════════════════════════════\nO QUE O SISTEMA JÁ PÕE SOZINHO — NÃO ESCREVA\n════════════════════════════════════════════════════════════════════════\n• Brasão, cabeçalho e rodapé do Município, em todas as páginas\n• O título \"{{TITULOAUTO}}\", centralizado no alto\n• O assunto, entre dois fios, logo abaixo do título\n• A data por extenso (\"Ijuí/RS, 6 de agosto de 2026\") no fecho\n• O bloco de assinatura do pregoeiro e dos demais assinantes\n• A numeração das páginas e as quebras de página\n\nNão repita nada disso no texto. Comece direto na primeira seção.\n\n════════════════════════════════════════════════════════════════════════\nMARCAÇÕES DISPONÍVEIS\n════════════════════════════════════════════════════════════════════════\n\n1) TÍTULO DE SEÇÃO\n   Uma linha em MAIÚSCULAS, sozinha, sem ponto final:\n\n       I. RELATÓRIO\n       II. ANÁLISE E FUNDAMENTAÇÃO\n       III. DECISÃO\n\n   Sai grande, em azul-marinho, com um traço laranja embaixo.\n   Também funciona com cerquilha:  # RELATÓRIO\n\n2) SUBTÍTULO\n   MAIÚSCULAS numeradas com ponto, ou duas cerquilhas:\n\n       DA TEMPESTIVIDADE\n       2.1. DO MÉRITO\n       ## Da regularidade fiscal\n\n   Sai menor, em azul-marinho, sublinhado.\n   Para um terceiro nível, use três cerquilhas:  ### Do atestado técnico\n\n3) PARÁGRAFO\n   Escreva a linha inteira, sem marcação nenhuma. Sai justificado, com recuo\n   na primeira linha. Use **negrito** para destacar trechos dentro dele.\n\n4) LISTA SIMPLES\n       - certidão negativa de débitos municipais\n       - certidão de regularidade do FGTS\n\n5) INCISO (algarismo romano)\n       I – o preço proposto mostrou-se inexequível;\n       II – a licitante não apresentou o atestado exigido no item 9.4;\n\n   Use travessão (–), hífen (-) ou parêntese, NUNCA ponto: com ponto e em\n   maiúsculas, a linha vira título de seção.\n\n6) ITEM NUMERADO\n       1. Trata-se de impugnação apresentada tempestivamente.\n       2. A impugnante alega violação ao princípio da isonomia.\n\n7) ALÍNEA\n       a) contrato social consolidado;\n       b) certidão de falência e concordata;\n\n8) CITAÇÃO DE LEI, EDITAL OU JURISPRUDÊNCIA\n       > Art. 64. Após a entrega dos documentos de habilitação, verificado o descumprimento, a licitante será inabilitada.\n       >> Lei nº 14.133/2021, art. 64\n\n   A linha iniciada por \">\" vira uma caixa recuada, em itálico, com barra\n   azul à esquerda. A linha iniciada por \">>\" logo abaixo vira a fonte da\n   citação: pequena, em itálico, alinhada à direita.\n\n9) CAIXA DE DESTAQUE\n       !! DECIDO pela INABILITAÇÃO da licitante, determinando a convocação da segunda colocada.\n\n   Sai numa tarja âmbar, em negrito. Reserve para o dispositivo, a conclusão\n   do parecer, o prazo que a empresa não pode perder. No máximo duas por\n   documento — usada demais, deixa de destacar.\n\n10) TABELA / QUADRO COMPARATIVO\n       | Item | Empresa | Valor do edital | Proposta | % acima |\n       |---|---|---|---|---|\n       | 1 | ALFA LTDA | R$ 2,50 | R$ 3,00 | +20,0% |\n       | 2 | BETA ME | R$ 22,00 | R$ 26,40 | +20,0% |\n\n    Toda linha começa e termina com barra vertical. A segunda linha, só com\n    traços, é o que marca a primeira como cabeçalho — sem ela, a primeira\n    linha vira uma linha comum. As colunas se ajustam sozinhas ao conteúdo, e\n    o cabeçalho se repete quando a tabela vira a página.\n\n11) LINHA DIVISÓRIA\n       ---\n{{EXTRA}}\n════════════════════════════════════════════════════════════════════════\nESQUELETO SUGERIDO\n════════════════════════════════════════════════════════════════════════\n{{ESQUELETO}}\n════════════════════════════════════════════════════════════════════════\nERROS COMUNS — NÃO FAÇA\n════════════════════════════════════════════════════════════════════════\n✗ Quebrar um parágrafo em várias linhas. Vira vários parágrafos.\n✗ Escrever UMA FRASE INTEIRA EM MAIÚSCULAS no meio do texto: ela vira\n  título. Para dar ênfase, use **negrito** ou a caixa de destaque !!\n✗ Terminar um título com ponto final: ele deixa de ser reconhecido.\n✗ Envolver a resposta em blocos de código (três crases). O sistema\n  descarta essas linhas.\n✗ Montar tabela sem as barras nas pontas de cada linha.\n✗ Repetir o número do documento, o assunto, a data ou a assinatura no\n  texto: o sistema já põe tudo isso.\n✗ Escrever \"Página 1 de 3\" ou inserir quebras de página manuais.\n✗ Deixar espaços reservados como [NOME DA EMPRESA] sem preencher, quando\n  a informação foi passada.\n✗ Citar número de acórdão do TCU, súmula ou artigo de lei sem ter certeza\n  — se não souber a referência exata, avise em vez de inventar.\n✗ Parágrafo que só repete, com outras palavras, o que o anterior já disse.\n\n════════════════════════════════════════════════════════════════════════\nFORMATO DA RESPOSTA\n════════════════════════════════════════════════════════════════════════\nResponda APENAS com o texto do documento, pronto para copiar e colar no\nsistema. Sem comentário antes, sem explicação depois, sem bloco de código\nem volta. Se faltar alguma informação essencial, pergunte antes de redigir.\n";
-var PDF_IA_ESQUELETO = { dec: "I. RELATÓRIO\n\n<Um parágrafo dizendo o que aconteceu: quem apresentou o quê, quando, e o que pede. Se houver mais de um fato relevante, use um parágrafo para cada — sempre uma linha por parágrafo.>\n\nII. ANÁLISE E FUNDAMENTAÇÃO\n\nDA TEMPESTIVIDADE\n\n<Parágrafo sobre prazo, com o dispositivo legal e o item do edital.>\n\nDO MÉRITO\n\n<Parágrafos analisando ponto a ponto. Cite a lei ou o edital com > e >>. Enumere as razões com incisos I –, II –. Use tabela quando comparar valores ou documentos.>\n\nIII. DECISÃO\n\n<Parágrafo de fecho amarrando a análise ao dispositivo.>\n\n!! <O dispositivo em uma frase: CONHEÇO / NÃO CONHEÇO, JULGO PROCEDENTE / IMPROCEDENTE, DECLARO HABILITADA / INABILITADA, e a providência determinada.>", dil: "I. DO OBJETO DA DILIGÊNCIA\n\n<Um parágrafo dizendo qual processo, qual item ou lote, e qual empresa está sendo diligenciada.>\n\nII. DO QUE SE SOLICITA\n\n<Parágrafo de abertura explicando o que precisa ser esclarecido ou comprovado.>\n\n<Enumere o que a empresa deve apresentar, um por alínea:>\na) <documento ou esclarecimento>;\nb) <documento ou esclarecimento>;\n\nIII. DO PRAZO E DA FORMA DE RESPOSTA\n\n<Parágrafo com o prazo e por onde responder.>\n\n!! Prazo para resposta: até <dia> de <mês> de <ano>, às <hora>, exclusivamente pelo chat do Portal de Compras Públicas.\n\n[LINK] <url do processo no portal> | Acessar o processo no Portal de Compras Públicas\n\n<Parágrafo final advertindo sobre a consequência de não responder no prazo.>" };
-var PDF_IA_EXTRA = { dec: "", dil: "\n12) BOTÃO DE LINK (só no Pedido de Diligência)\n       [LINK] https://www.portaldecompraspublicas.com.br/... | Acessar o processo no Portal\n\n    Vira um botão azul, centralizado e clicável dentro do PDF. A parte antes\n    da barra é o endereço; a parte depois é o texto que aparece no botão.\n" };
+var PDF_IA_BASE = "INSTRUÇÕES DE FORMATAÇÃO — {{DOCNOME}}\nSistema de Gestão de Processos Licitatórios · Município de Ijuí · COPAM\n\nVocê vai redigir o TEXTO de {{DOCARTIGO}}. Esse texto será colado no campo\n\"{{CAMPO}}\" do sistema, que monta sozinho o PDF oficial — com brasão,\ncabeçalho, rodapé, numeração de páginas e bloco de assinatura. Escreva\nsomente o corpo do documento, usando exatamente as marcações abaixo.\n\nDADOS DESTE DOCUMENTO\n{{DADOS}}\n\n════════════════════════════════════════════════════════════════════════\nREGRA DE OURO: UM PARÁGRAFO = UMA LINHA\n════════════════════════════════════════════════════════════════════════\nO sistema lê o texto LINHA A LINHA. Toda quebra de linha começa um bloco\nnovo. Portanto, um parágrafo inteiro — por mais longo que seja — precisa\nficar numa única linha, sem quebras no meio. Se você quebrar um parágrafo\nem várias linhas \"para caber na tela\", ele vira vários parágrafos soltos\nno PDF, cada um com seu próprio recuo.\n\nLinhas em branco entre os blocos são opcionais: o sistema as ignora. Use-as\nà vontade para deixar o rascunho legível.\n\n════════════════════════════════════════════════════════════════════════\nTOM: OBJETIVO, DIRETO, SEM LINGUIÇA\n════════════════════════════════════════════════════════════════════════\nCada frase carrega um fato, uma norma ou uma conclusão. Nada de reafirmar o\nmesmo ponto com outras palavras, nem de alongar um parágrafo só para o\nparecer parecer mais robusto. Se uma frase pode sair sem mudar o\nentendimento do leitor, ela sai. Prefira um parágrafo curto e preciso a\ntrês genéricos. Vá direto: contexto mínimo, análise, conclusão — sem\nintroduções floreadas nem fechos repetindo o que já foi dito.\n\n════════════════════════════════════════════════════════════════════════\nFUNDAMENTAÇÃO: LEI Nº 14.133/2021 E JURISPRUDÊNCIA DO TCU\n════════════════════════════════════════════════════════════════════════\nToda conclusão de mérito se apoia numa norma. Cite o artigo da Lei nº\n14.133/2021 (ou o item do edital) junto do ponto que ele sustenta — logo\nali no parágrafo, não isolado no fim. Quando existir entendimento do TCU\naplicável ao caso (acórdão ou súmula), cite-o também, sempre pela\nreferência real — número do acórdão, e o relator quando isso importar ao\ncaso.\n\nNunca invente número de acórdão, súmula ou trecho de ementa. Se não tiver\ncerteza da referência exata, diga isso ao pregoeiro em vez de citar às\ncegas — uma citação errada é pior que nenhuma citação.\n\nUse a marcação de citação (item 8, abaixo) para reproduzir o texto de lei\nou de acórdão; no corpo do parágrafo, basta mencionar o dispositivo.\n\n════════════════════════════════════════════════════════════════════════\nO QUE O SISTEMA JÁ PÕE SOZINHO — NÃO ESCREVA\n════════════════════════════════════════════════════════════════════════\n• Brasão, cabeçalho e rodapé do Município, em todas as páginas\n• O título \"{{TITULOAUTO}}\", centralizado no alto\n• O assunto, logo abaixo do título\n• A data por extenso (\"Ijuí/RS, 6 de agosto de 2026\") no fecho\n• O bloco de assinatura do pregoeiro e dos demais assinantes\n• A numeração das páginas e as quebras de página\n\nNão repita nada disso no texto. Comece direto na primeira seção.\n\n════════════════════════════════════════════════════════════════════════\nMARCAÇÕES DISPONÍVEIS\n════════════════════════════════════════════════════════════════════════\n\n1) TÍTULO DE SEÇÃO\n   Uma linha em MAIÚSCULAS, sozinha, sem ponto final:\n\n       I. RELATÓRIO\n       II. ANÁLISE E FUNDAMENTAÇÃO\n       III. DECISÃO\n\n   Sai em maiúsculas, em negrito, destacado do corpo do texto.\n   Também funciona com cerquilha:  # RELATÓRIO\n\n2) SUBTÍTULO\n   MAIÚSCULAS numeradas com ponto, ou duas cerquilhas:\n\n       DA TEMPESTIVIDADE\n       2.1. DO MÉRITO\n       ## Da regularidade fiscal\n\n   Sai menor, também em maiúsculas e negrito.\n   Para um terceiro nível, use três cerquilhas:  ### Do atestado técnico\n\n3) PARÁGRAFO\n   Escreva a linha inteira, sem marcação nenhuma. Sai justificado, com recuo\n   na primeira linha. Use **negrito** para destacar trechos dentro dele.\n\n4) LISTA SIMPLES\n       - certidão negativa de débitos municipais\n       - certidão de regularidade do FGTS\n\n5) INCISO (algarismo romano)\n       I – o preço proposto mostrou-se inexequível;\n       II – a licitante não apresentou o atestado exigido no item 9.4;\n\n   Use travessão (–), hífen (-) ou parêntese, NUNCA ponto: com ponto e em\n   maiúsculas, a linha vira título de seção.\n\n6) ITEM NUMERADO\n       1. Trata-se de impugnação apresentada tempestivamente.\n       2. A impugnante alega violação ao princípio da isonomia.\n\n7) ALÍNEA\n       a) contrato social consolidado;\n       b) certidão de falência e concordata;\n\n8) CITAÇÃO DE LEI, EDITAL OU JURISPRUDÊNCIA\n       > Art. 64. Após a entrega dos documentos de habilitação, verificado o descumprimento, a licitante será inabilitada.\n       >> Lei nº 14.133/2021, art. 64\n\n   A linha iniciada por \">\" vira um bloco recuado, em corpo menor, no formato\n   clássico de transcrição em parecer. A linha iniciada por \">>\" logo abaixo\n   vira a fonte da citação: pequena, em itálico, alinhada à direita.\n\n   O sistema também reconhece a citação SEM a marcação: uma linha que começa\n   transcrevendo o dispositivo (\"Art. 64. ...\", \"§ 2º ...\") já sai como\n   citação, e uma linha solta logo abaixo contendo só a referência (\"Lei nº\n   14.133/2021, art. 64\") já sai como fonte.\n\n9) TABELA / QUADRO COMPARATIVO\n       | Item | Empresa | Valor do edital | Proposta | % acima |\n       |---|---|---|---|---|\n       | 1 | ALFA LTDA | R$ 2,50 | R$ 3,00 | +20,0% |\n       | 2 | BETA ME | R$ 22,00 | R$ 26,40 | +20,0% |\n\n    Toda linha começa e termina com barra vertical. A segunda linha, só com\n    traços, é o que marca a primeira como cabeçalho — sem ela, a primeira\n    linha vira uma linha comum. As colunas se ajustam sozinhas ao conteúdo, e\n    o cabeçalho se repete quando a tabela vira a página.\n\n10) LINHA DIVISÓRIA\n       ---\n{{EXTRA}}\n════════════════════════════════════════════════════════════════════════\nESQUELETO SUGERIDO\n════════════════════════════════════════════════════════════════════════\n{{ESQUELETO}}\n════════════════════════════════════════════════════════════════════════\nERROS COMUNS — NÃO FAÇA\n════════════════════════════════════════════════════════════════════════\n✗ Quebrar um parágrafo em várias linhas. Vira vários parágrafos.\n✗ Escrever UMA FRASE INTEIRA EM MAIÚSCULAS no meio do texto: ela vira\n  título. Para dar ênfase, use **negrito**.\n✗ Terminar um título com ponto final: ele deixa de ser reconhecido.\n✗ Envolver a resposta em blocos de código (três crases). O sistema\n  descarta essas linhas.\n✗ Montar tabela sem as barras nas pontas de cada linha.\n✗ Repetir o número do documento, o assunto, a data ou a assinatura no\n  texto: o sistema já põe tudo isso.\n✗ Escrever \"Página 1 de 3\" ou inserir quebras de página manuais.\n✗ Deixar espaços reservados como [NOME DA EMPRESA] sem preencher, quando\n  a informação foi passada.\n✗ Citar número de acórdão do TCU, súmula ou artigo de lei sem ter certeza\n  — se não souber a referência exata, avise em vez de inventar.\n✗ Parágrafo que só repete, com outras palavras, o que o anterior já disse.\n\n════════════════════════════════════════════════════════════════════════\nFORMATO DA RESPOSTA\n════════════════════════════════════════════════════════════════════════\nResponda APENAS com o texto do documento, pronto para copiar e colar no\nsistema. Sem comentário antes, sem explicação depois, sem bloco de código\nem volta. Se faltar alguma informação essencial, pergunte antes de redigir.\n";
+var PDF_IA_ESQUELETO = { dec: "I. RELATÓRIO\n\n<Um parágrafo dizendo o que aconteceu: quem apresentou o quê, quando, e o que pede. Se houver mais de um fato relevante, use um parágrafo para cada — sempre uma linha por parágrafo.>\n\nII. ANÁLISE E FUNDAMENTAÇÃO\n\nDA TEMPESTIVIDADE\n\n<Parágrafo sobre prazo, com o dispositivo legal e o item do edital.>\n\nDO MÉRITO\n\n<Parágrafos analisando ponto a ponto. Cite a lei ou o edital com > e >>. Enumere as razões com incisos I –, II –. Use tabela quando comparar valores ou documentos.>\n\nIII. DECISÃO\n\n<Parágrafo de fecho amarrando a análise ao dispositivo.>\n\n<O dispositivo em uma frase, com **negrito** nos verbos decisórios: **CONHEÇO** / **NÃO CONHEÇO**, **JULGO PROCEDENTE** / **IMPROCEDENTE**, **DECLARO HABILITADA** / **INABILITADA**, e a providência determinada.>", dil: "I. DO OBJETO DA DILIGÊNCIA\n\n<Um parágrafo dizendo qual processo, qual item ou lote, e qual empresa está sendo diligenciada.>\n\nII. DO QUE SE SOLICITA\n\n<Parágrafo de abertura explicando o que precisa ser esclarecido ou comprovado.>\n\n<Enumere o que a empresa deve apresentar, um por alínea:>\na) <documento ou esclarecimento>;\nb) <documento ou esclarecimento>;\n\nIII. DO PRAZO E DA FORMA DE RESPOSTA\n\n<Parágrafo com o prazo e por onde responder.>\n\n**Prazo para resposta: até <dia> de <mês> de <ano>, às <hora>, exclusivamente pelo chat do Portal de Compras Públicas.**\n\n[LINK] <url do processo no portal> | Acessar o processo no Portal de Compras Públicas\n\n<Parágrafo final advertindo sobre a consequência de não responder no prazo.>" };
+var PDF_IA_EXTRA = { dec: "", dil: "\n11) LINK PARA O PORTAL (só no Pedido de Diligência)\n       [LINK] https://www.portaldecompraspublicas.com.br/... | Acessar o processo no Portal\n\n    Vira uma linha centralizada, sublinhada e clicável dentro do PDF. A parte\n    antes da barra é o endereço; a parte depois é o texto que aparece.\n" };
 
 function pdfInstrucoesIA(tipo){
   var ehDil=(tipo==="dil"), px=ehDil?"dil":"dec";
@@ -8784,7 +8789,7 @@ function pdfBlocosHTML(blocos){
       });
       html+="</table></div>";
     }
-    else if(b.t==="link") html+='<div style="text-align:center;margin:14px 0"><a href="'+escHtml(b.url)+'" target="_blank" rel="noopener" style="display:inline-block;background:#1A3A6B;color:#fff;text-decoration:none;font-weight:700;font-size:13px;border-radius:8px;padding:9px 18px">'+escHtml(b.x)+'</a></div>';
+    else if(b.t==="link") html+='<div style="text-align:center;margin:14px 0"><a href="'+escHtml(b.url)+'" target="_blank" rel="noopener" style="color:#000;font-weight:700;font-size:13px">'+escHtml(b.x)+'</a></div>';
     else html+="<p>"+inl(b.x)+"</p>";
   });
   fecharLista();
@@ -8813,10 +8818,12 @@ function decGerarPDF(dec){
   var PW=210,PH=297,ML=25,MR=25,CW=PW-ML-MR;
   var FS=11.5,LH=6.8,PARA=5.5,IND=10;
   var BOTTOM=PH-25;
-  var cNavy=[8,28,82],cNavy2=[18,48,107],cGold=[242,107,33],cAmber=[255,194,14];
-  var cText=[25,25,25],cMuted=[110,120,150],cBorder=[210,218,235];
-  var faixaSegs=[[227,36,43,14],[242,107,33,14],[255,194,14,14],[140,198,63,16],[30,122,52,14],[11,110,127,14],[20,64,168,14]];
-  function drawFaixa(x0,y0,w,h){var acc=0;for(var fi=0;fi<faixaSegs.length;fi++){var sg=faixaSegs[fi];var sw=w*(sg[3]/100);doc.setFillColor(sg[0],sg[1],sg[2]);doc.rect(x0+acc,y0,sw+0.25,h,'F');acc+=sw;}}
+  /* Documento monocromático: parecer oficial não usa cor de enfeite — a
+     hierarquia vem do corpo da fonte, do negrito e do recuo. Os nomes antigos
+     (cNavy/cGold/...) ficam para não reescrever cada chamada, mas todos
+     apontam para preto; só o rodapé usa um cinza mais claro. */
+  var cNavy=[0,0,0],cNavy2=[0,0,0],cGold=[0,0,0],cAmber=[0,0,0];
+  var cText=[0,0,0],cMuted=[90,90,90],cBorder=[150,150,150];
   var numFmt=decFmtNum(dec);
   var y=0;
   var ag=(typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===dec.agente;});
@@ -9042,32 +9049,27 @@ function decGerarPDF(dec){
 
   function newPage(){
     doc.addPage();
-    drawFaixa(0,0,PW,1.6);
     var lw=22,lhh=7.1;
-    try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-lw)/2,7,lw,lhh);}catch(e){}
-    draw(cBorder); doc.setLineWidth(0.3); doc.line(ML,19.5,PW-MR,19.5);
+    try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-lw)/2,9,lw,lhh);}catch(e){}
     y=27;
   }
 
   fill([255,255,255]); doc.rect(0,0,PW,PH,"F");
-  drawFaixa(0,0,PW,2.2);
-  try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-52)/2,11,52,16.8);}catch(e){}
-  draw(cNavy); doc.setLineWidth(0.6); doc.line(ML,35,PW-MR,35);
-  y=46;
+  try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-52)/2,13,52,16.8);}catch(e){}
+  y=42;
 
   fs(15);ft("bold");tc(cNavy);
   doc.text("Decisão do Pregoeiro "+numFmt,PW/2,y,{align:"center"}); y+=9;
-  y+=6;
+  y+=4;
 
-  /* Entre os fios fica só o assunto. O número do processo, a data e o nome do
-     pregoeiro já aparecem no corpo e no fecho do documento. */
-  draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=8;
+  /* Só o assunto, centralizado sob o título. O número do processo, a data e o
+     nome do pregoeiro já aparecem no corpo e no fecho do documento. */
   if(dec.titulo){
-    fs(FS);ft("bold");tc(cNavy);
-    var asL=doc.splitTextToSize(dec.titulo,CW);
-    doc.text(asL,ML,y); y+=asL.length*LH+4;
+    fs(FS);ft("bold");tc(cText);
+    var asL=doc.splitTextToSize(dec.titulo,CW-20);
+    doc.text(asL,PW/2,y,{align:"center"}); y+=asL.length*LH;
   }
-  draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;
+  y+=7;
 
   var blocos=decParseBlocos(dec.texto||"");
   /* Altura mínima de um título: o texto mais o menor respiro de baixo. */
@@ -9117,7 +9119,6 @@ function decGerarPDF(dec){
       if(!e1){ newPage(); e1=[0,9]; } else y+=e1[0];
       tc(cNavy);
       doc.text(h1l,ML,y); y+=h1l.length*7.5;
-      draw(cGold);doc.setLineWidth(0.9);doc.line(ML,y,ML+30,y);
       y+=e1[1];
     } else if(b.t==="h2"){
       var comp2=companhia(bi);
@@ -9128,8 +9129,6 @@ function decGerarPDF(dec){
       if(!e2){ newPage(); e2=[0,8]; } else y+=e2[0];
       tc(cNavy);
       doc.text(h2l,ML,y);
-      draw(cNavy);doc.setLineWidth(0.3);
-      doc.line(ML,y+2,ML+Math.min(doc.getTextWidth(h2u)+2,CW),y+2);
       y+=h2l.length*LH+e2[1];
     } else if(b.t==="h3"){
       var comp3=companhia(bi);
@@ -9140,22 +9139,20 @@ function decGerarPDF(dec){
       tc(cText);
       doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
     } else if(b.t==="q"){
+      /* Transcrição de norma/edital no formato clássico de parecer: recuo à
+         esquerda e corpo menor, sem caixa nem barra colorida. */
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
-      fs(FS-0.5);ft("italic");
-      var ql=doc.splitTextToSize(qclean,CW-14);
-      var qH=ql.length*LH+9;
-      if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=3;
-      fill([245,247,252]);draw([215,222,238]);doc.setLineWidth(0.3);
-      doc.roundedRect(ML+4,y-5,CW-4,ql.length*LH+2,1,1,"FD");
-      draw(cNavy);doc.setLineWidth(1.2);
-      doc.line(ML+4,y-5,ML+4,y-5+ql.length*LH+2);
-      doc.setLineWidth(0.3);
-      fs(FS-0.5);ft("italic");tc([75,80,105]);
+      var qRec=18, qLH=LH-1.2;
+      fs(FS-1.5);ft("normal");
+      var ql=doc.splitTextToSize(qclean,CW-qRec);
+      var qH=ql.length*qLH+7;
+      if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=4;
+      fs(FS-1.5);ft("normal");tc(cText);
       for(var qi=0;qi<ql.length;qi++){
-        if(y+LH>BOTTOM) newPage();
-        doc.text(ql[qi],ML+11,y); y+=LH;
+        if(y+qLH>BOTTOM) newPage();
+        doc.text(ql[qi],ML+qRec,y); y+=qLH;
       }
-      y+=5;
+      y+=3;
     } else if(b.t==="tabela"){
       renderTabela(b);
     } else if(b.t==="hr"){
@@ -9164,7 +9161,7 @@ function decGerarPDF(dec){
       y+=7;
     } else if(b.t==="fonte"){
       /* Referência da citação: pequena, em itálico, encostada à direita */
-      fs(8.5);ft("italic");tc(cMuted);
+      fs(8.5);ft("italic");tc(cText);
       var fl=doc.splitTextToSize(b.x,CW-14);
       for(var fi2=0;fi2<fl.length;fi2++){
         if(y+4.6>BOTTOM) newPage();
@@ -9172,18 +9169,10 @@ function decGerarPDF(dec){
       }
       y+=3;
     } else if(b.t==="destaque"){
-      fs(FS);ft("bold");
-      var xl=doc.splitTextToSize(b.x.replace(/\*\*(.+?)\*\*/g,"$1"),CW-16);
-      var xH=xl.length*LH+11;
-      if(xH<(BOTTOM-28)&&y+xH>BOTTOM) newPage(); else y+=4;
-      fill([255,248,232]);draw(cGold);doc.setLineWidth(0.5);
-      doc.roundedRect(ML,y-5.5,CW,xl.length*LH+4,1.8,1.8,"FD");
-      fs(FS);ft("bold");tc([124,45,18]);
-      for(var xi=0;xi<xl.length;xi++){
-        if(y+LH>BOTTOM) newPage();
-        doc.text(xl[xi],ML+7,y); y+=LH;
-      }
-      y+=7;
+      /* A tarja âmbar saiu do documento: o dispositivo agora é um parágrafo
+         em negrito, como num parecer. O bloco continua existindo só para os
+         documentos antigos que já foram salvos com "!!" no texto. */
+      renderPara("**"+b.x.replace(/\*\*(.+?)\*\*/g,"$1")+"**",IND);
     } else if(b.t==="oli"){
       renderLiItem(b.x, b.n);
     } else if(b.t==="li"){
@@ -9213,7 +9202,7 @@ function decGerarPDF(dec){
   var total=doc.internal.getNumberOfPages();
   for(var pg=1;pg<=total;pg++){
     doc.setPage(pg);
-    drawFaixa(ML,PH-16.8,CW,1.4);
+    draw(cBorder); doc.setLineWidth(0.2); doc.line(ML,PH-16,PW-MR,PH-16);
     fs(7.5);ft("normal");tc(cMuted);
     doc.text("Município de Ijuí  \u00b7  Capital Mundial das Etnias  \u00b7  Gestão de Processos Licitatórios",ML,PH-11.5);
     doc.text("Página "+pg+" de "+total,PW-MR,PH-11.5,{align:"right"});
@@ -9597,8 +9586,12 @@ function dilParseBlocos(texto){
       blocos.push({t:"h"+nivel, x:dilLimparInline(m[2])});
       continue;
     }
+    /* Linha inteira em **negrito** é subtítulo — mas só se for curta. Um
+       parágrafo inteiro em negrito (o dispositivo da decisão, o prazo da
+       diligência) é texto, não título: virando h2 ele sairia todo em
+       MAIÚSCULAS. */
     m=l.match(/^(\*\*|__)(.+?)(\*\*|__)\s*:?\s*$/);
-    if(m){ blocos.push({t:"h2", x:dilLimparInline(m[2])}); continue; }
+    if(m && m[2].length<=90){ blocos.push({t:"h2", x:dilLimparInline(m[2])}); continue; }
     /* Fonte da citação (">> Lei nº ...") — tem de vir antes da citação */
     if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:dilLimparInline(l.replace(/^>>\s?/,""))}); continue; }
     if(/^>\s?/.test(l)){ blocos.push({t:"q", x:dilLimparPara(l.replace(/^>\s?/,""))}); continue; }
@@ -9675,10 +9668,12 @@ function dilGerarPDF(dec){
   var PW=210,PH=297,ML=25,MR=25,CW=PW-ML-MR;
   var FS=11.5,LH=6.8,PARA=5.5,IND=10;
   var BOTTOM=PH-25;
-  var cNavy=[8,28,82],cNavy2=[18,48,107],cGold=[242,107,33],cAmber=[255,194,14];
-  var cText=[25,25,25],cMuted=[110,120,150],cBorder=[210,218,235];
-  var faixaSegs=[[227,36,43,14],[242,107,33,14],[255,194,14,14],[140,198,63,16],[30,122,52,14],[11,110,127,14],[20,64,168,14]];
-  function drawFaixa(x0,y0,w,h){var acc=0;for(var fi=0;fi<faixaSegs.length;fi++){var sg=faixaSegs[fi];var sw=w*(sg[3]/100);doc.setFillColor(sg[0],sg[1],sg[2]);doc.rect(x0+acc,y0,sw+0.25,h,'F');acc+=sw;}}
+  /* Documento monocromático: parecer oficial não usa cor de enfeite — a
+     hierarquia vem do corpo da fonte, do negrito e do recuo. Os nomes antigos
+     (cNavy/cGold/...) ficam para não reescrever cada chamada, mas todos
+     apontam para preto; só o rodapé usa um cinza mais claro. */
+  var cNavy=[0,0,0],cNavy2=[0,0,0],cGold=[0,0,0],cAmber=[0,0,0];
+  var cText=[0,0,0],cMuted=[90,90,90],cBorder=[150,150,150];
   var numFmt=dilFmtNum(dec);
   var y=0;
   var ag=(typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===dec.agente;});
@@ -9904,18 +9899,14 @@ function dilGerarPDF(dec){
 
   function newPage(){
     doc.addPage();
-    drawFaixa(0,0,PW,1.6);
     var lw=22,lhh=7.1;
-    try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-lw)/2,7,lw,lhh);}catch(e){}
-    draw(cBorder); doc.setLineWidth(0.3); doc.line(ML,19.5,PW-MR,19.5);
+    try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-lw)/2,9,lw,lhh);}catch(e){}
     y=27;
   }
 
   fill([255,255,255]); doc.rect(0,0,PW,PH,"F");
-  drawFaixa(0,0,PW,2.2);
-  try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-52)/2,11,52,16.8);}catch(e){}
-  draw(cNavy); doc.setLineWidth(0.6); doc.line(ML,35,PW-MR,35);
-  y=46;
+  try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-52)/2,13,52,16.8);}catch(e){}
+  y=42;
 
   fs(15);ft("bold");tc(cNavy);
   doc.text("Pedido de Diligência "+numFmt,PW/2,y,{align:"center"}); y+=9;
@@ -9929,14 +9920,13 @@ function dilGerarPDF(dec){
   if(infoLn){fs(9.5);ft("normal");tc(cMuted);doc.text(infoLn,PW/2,y,{align:"center"});y+=6;}
   y+=6;
 
-  draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=8;
   if(dec.titulo){
-    fs(FS);ft("bold");tc(cNavy);doc.text("ASSUNTO:",ML,y);
+    fs(FS);ft("bold");tc(cText);doc.text("ASSUNTO:",ML,y);
     ft("normal");tc(cText);
     var asL=doc.splitTextToSize(dec.titulo,CW-27);fs(FS);
-    doc.text(asL,ML+27,y); y+=asL.length*LH+4;
+    doc.text(asL,ML+27,y); y+=asL.length*LH;
   }
-  draw(cBorder);doc.setLineWidth(0.3);doc.line(ML,y,PW-MR,y);y+=12;
+  y+=8;
 
   var blocos=dilParseBlocos(dec.texto||"");
   /* Altura mínima de um título: o texto mais o menor respiro de baixo. */
@@ -9986,7 +9976,6 @@ function dilGerarPDF(dec){
       if(!e1){ newPage(); e1=[0,9]; } else y+=e1[0];
       tc(cNavy);
       doc.text(h1l,ML,y); y+=h1l.length*7.5;
-      draw(cGold);doc.setLineWidth(0.9);doc.line(ML,y,ML+30,y);
       y+=e1[1];
     } else if(b.t==="h2"){
       var comp2=companhia(bi);
@@ -9997,8 +9986,6 @@ function dilGerarPDF(dec){
       if(!e2){ newPage(); e2=[0,8]; } else y+=e2[0];
       tc(cNavy);
       doc.text(h2l,ML,y);
-      draw(cNavy);doc.setLineWidth(0.3);
-      doc.line(ML,y+2,ML+Math.min(doc.getTextWidth(h2u)+2,CW),y+2);
       y+=h2l.length*LH+e2[1];
     } else if(b.t==="h3"){
       var comp3=companhia(bi);
@@ -10009,22 +9996,20 @@ function dilGerarPDF(dec){
       tc(cText);
       doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
     } else if(b.t==="q"){
+      /* Transcrição de norma/edital no formato clássico de parecer: recuo à
+         esquerda e corpo menor, sem caixa nem barra colorida. */
       var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1");
-      fs(FS-0.5);ft("italic");
-      var ql=doc.splitTextToSize(qclean,CW-14);
-      var qH=ql.length*LH+9;
-      if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=3;
-      fill([245,247,252]);draw([215,222,238]);doc.setLineWidth(0.3);
-      doc.roundedRect(ML+4,y-5,CW-4,ql.length*LH+2,1,1,"FD");
-      draw(cNavy);doc.setLineWidth(1.2);
-      doc.line(ML+4,y-5,ML+4,y-5+ql.length*LH+2);
-      doc.setLineWidth(0.3);
-      fs(FS-0.5);ft("italic");tc([75,80,105]);
+      var qRec=18, qLH=LH-1.2;
+      fs(FS-1.5);ft("normal");
+      var ql=doc.splitTextToSize(qclean,CW-qRec);
+      var qH=ql.length*qLH+7;
+      if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=4;
+      fs(FS-1.5);ft("normal");tc(cText);
       for(var qi=0;qi<ql.length;qi++){
-        if(y+LH>BOTTOM) newPage();
-        doc.text(ql[qi],ML+11,y); y+=LH;
+        if(y+qLH>BOTTOM) newPage();
+        doc.text(ql[qi],ML+qRec,y); y+=qLH;
       }
-      y+=5;
+      y+=3;
     } else if(b.t==="tabela"){
       renderTabela(b);
     } else if(b.t==="hr"){
@@ -10033,7 +10018,7 @@ function dilGerarPDF(dec){
       y+=7;
     } else if(b.t==="fonte"){
       /* Referência da citação: pequena, em itálico, encostada à direita */
-      fs(8.5);ft("italic");tc(cMuted);
+      fs(8.5);ft("italic");tc(cText);
       var fl=doc.splitTextToSize(b.x,CW-14);
       for(var fi2=0;fi2<fl.length;fi2++){
         if(y+4.6>BOTTOM) newPage();
@@ -10041,35 +10026,27 @@ function dilGerarPDF(dec){
       }
       y+=3;
     } else if(b.t==="destaque"){
-      fs(FS);ft("bold");
-      var xl=doc.splitTextToSize(b.x.replace(/\*\*(.+?)\*\*/g,"$1"),CW-16);
-      var xH=xl.length*LH+11;
-      if(xH<(BOTTOM-28)&&y+xH>BOTTOM) newPage(); else y+=4;
-      fill([255,248,232]);draw(cGold);doc.setLineWidth(0.5);
-      doc.roundedRect(ML,y-5.5,CW,xl.length*LH+4,1.8,1.8,"FD");
-      fs(FS);ft("bold");tc([124,45,18]);
-      for(var xi=0;xi<xl.length;xi++){
-        if(y+LH>BOTTOM) newPage();
-        doc.text(xl[xi],ML+7,y); y+=LH;
-      }
-      y+=7;
+      /* A tarja âmbar saiu do documento: o dispositivo agora é um parágrafo
+         em negrito, como num parecer. O bloco continua existindo só para os
+         documentos antigos que já foram salvos com "!!" no texto. */
+      renderPara("**"+b.x.replace(/\*\*(.+?)\*\*/g,"$1")+"**",IND);
     } else if(b.t==="oli"){
       renderLiItem(b.x, b.n);
     } else if(b.t==="li"){
       renderLiItem(b.x);
     } else if(b.t==="link"){
-      /* Botão azul clicável centralizado (link para o portal) */
+      /* Link para o portal: texto centralizado e sublinhado, clicável. Era um
+         botão azul chapado — destoava do documento monocromático. */
       fs(10.5);ft("bold");
-      var lkTxt=b.x, lkPad=7;
-      var lkW=Math.min(doc.getTextWidth(lkTxt)+lkPad*2, CW), lkH=11;
-      if(y+lkH+8>BOTTOM) newPage(); else y+=3;
-      var lkX=ML+(CW-lkW)/2, lkY=y-2;
-      fill(cNavy); draw(cNavy); doc.setLineWidth(0.3);
-      doc.roundedRect(lkX,lkY,lkW,lkH,2.2,2.2,"FD");
-      tc([255,255,255]);
-      doc.text(lkTxt,ML+CW/2,lkY+lkH/2+1.6,{align:"center"});
-      doc.link(lkX,lkY,lkW,lkH,{url:b.url});
-      y=lkY+lkH+9;
+      var lkTxt=b.x;
+      var lkW=Math.min(doc.getTextWidth(lkTxt), CW), lkH=9;
+      if(y+lkH+8>BOTTOM) newPage(); else y+=5;
+      var lkX=ML+(CW-lkW)/2, lkY=y;
+      tc(cText);
+      doc.text(lkTxt,ML+CW/2,lkY,{align:"center"});
+      draw(cText); doc.setLineWidth(0.3); doc.line(lkX,lkY+1.4,lkX+lkW,lkY+1.4);
+      doc.link(lkX,lkY-5,lkW,lkH,{url:b.url});
+      y=lkY+10;
     } else {
       renderPara(b.x,IND);
     }
@@ -10095,7 +10072,7 @@ function dilGerarPDF(dec){
   var total=doc.internal.getNumberOfPages();
   for(var pg=1;pg<=total;pg++){
     doc.setPage(pg);
-    drawFaixa(ML,PH-16.8,CW,1.4);
+    draw(cBorder); doc.setLineWidth(0.2); doc.line(ML,PH-16,PW-MR,PH-16);
     fs(7.5);ft("normal");tc(cMuted);
     doc.text("Município de Ijuí  \u00b7  Capital Mundial das Etnias  \u00b7  Gestão de Processos Licitatórios",ML,PH-11.5);
     doc.text("Página "+pg+" de "+total,PW-MR,PH-11.5,{align:"right"});
