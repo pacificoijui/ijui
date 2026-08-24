@@ -3667,6 +3667,17 @@ function renderizar(){
   /* processos fixados sobem para o topo (mantendo a ordem entre eles) */
   lista.sort(function(a,b){ return (b.fixado?1:0)-(a.fixado?1:0); });
   var grid=document.getElementById("grid");
+  /* preserva a posição de leitura: qual card está no topo da tela antes de
+     reconstruir a grade. Sem isso, qualquer gravação em qualquer processo
+     (troca de status, autosave da observação, fixar/desafixar...) reordena
+     ou filtra a lista e o scroll pula para outro lugar — mesmo que o usuário
+     já tenha saído do card que originou a gravação. */
+  var _anchor=null;
+  var _cardsAntes=grid.querySelectorAll(".card[data-pid]");
+  for(var _ci=0;_ci<_cardsAntes.length;_ci++){
+    var _rAntes=_cardsAntes[_ci].getBoundingClientRect();
+    if(_rAntes.bottom>0){ _anchor={pid:_cardsAntes[_ci].getAttribute("data-pid"), top:_rAntes.top}; break; }
+  }
   if(!lista.length){
     grid.innerHTML='<div class="empty"><div class="empty-icon">&#128194;</div><h3>Nenhum processo encontrado</h3><p>Ajuste os filtros ou cadastre um novo processo.</p></div>';
     atualizarStats(); return;
@@ -3772,6 +3783,17 @@ function renderizar(){
   grid.querySelectorAll(".card-obs-input").forEach(function(el){
     el.style.height="auto"; el.style.height=el.scrollHeight+"px";
   });
+  /* restaura o scroll: reencontra o mesmo card e corrige a posição para que
+     ele volte a ficar exatamente onde estava na tela, mesmo que outros cards
+     tenham mudado de lugar ou sumido (arquivados) por causa da gravação. */
+  if(_anchor){
+    var _novo=grid.querySelector('.card[data-pid="'+_anchor.pid.replace(/"/g,'\\"')+'"]');
+    if(_novo){
+      var _rNovo=_novo.getBoundingClientRect();
+      var _delta=_rNovo.top-_anchor.top;
+      if(_delta) window.scrollBy(0, _delta);
+    }
+  }
   /* restaura foco/cursor */
   if(_focoId){
     var _re=document.getElementById(_focoId);
