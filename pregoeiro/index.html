@@ -9148,16 +9148,22 @@ function docEdPDF(){
 })();
 
 /* ── Onde o botão abre ───────────────────────────────────────────────────────
-   Dentro da Central do Pregoeiro o sistema mora no painel estreito da
-   esquerda, apertado demais para uma folha A4. Lá o botão pede à Central que
-   abra o documento numa GUIA inteira (mesma ponte do 📂 PASTA, via console).
-   Fora da Central, abre o painel aqui mesmo.                                */
+   Dentro da Central do Pregoeiro o sistema mora no painel FIXO da esquerda,
+   estreito demais para uma folha A4. A Central já resolve isso sozinha: link
+   aberto de dentro do site fixo vira uma GUIA inteira, com a mesma sessão
+   (openPinnedLinkAsTab) — e, se a mesma URL já estiver aberta, ela só ativa a
+   guia existente em vez de duplicar. Por isso aqui basta um window.open com o
+   endereço do documento; nada precisou ser alterado no app da Central.
+   Fora da Central (navegador comum), abre o painel aqui mesmo.              */
 function abrirDocumentoEditor(tipo, id){
   if(window.__cctx){
     var url=window.location.origin+window.location.pathname+"?doc="+encodeURIComponent(tipo+":"+id);
-    var d=(tipo==="dil"?diligenciasList:decisoes).find(function(x){return x.id===id;});
-    var nome=d ? (tipo==="dil"?"Diligência "+dilFmtNum(d):"Decisão "+decFmtNum(d)) : "Documento";
-    console.log("__CENTRAL_DOCVIEW__"+JSON.stringify({url:url, titulo:nome}));
+    var g=null;
+    try{ g=window.open(url,"_blank"); }catch(e){}
+    /* a Central responde ao window.open negando a janela e abrindo a guia, e
+       aí o retorno vem nulo — o que é sucesso, não falha. Só quando nem isso
+       acontece é que vale abrir aqui mesmo, apertado, em vez de nada. */
+    if(g===undefined) docEdAbrir(tipo, id);
     return;
   }
   docEdAbrir(tipo, id);
