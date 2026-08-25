@@ -8799,13 +8799,20 @@ function pdfInstrucoesIA(tipo){
     .replace(/\{\{ESQUELETO\}\}/g, PDF_IA_ESQUELETO[px]);
 }
 
-/* Arrastar para o Claude: o texto vai como text/plain (o chat transforma um
-   texto longo num bloco de notas anexado) e, para quem soltar na área de
-   trabalho, também como arquivo .md via DownloadURL. */
+/* Arrastar para o Claude: vai só como ARQUIVO .md (File + DownloadURL), nunca
+   como texto — assim o chat sempre anexa em vez de despejar 9 mil caracteres
+   no meio da conversa. */
 function pdfIaDragStart(ev, tipo){
-  var txt=pdfInstrucoesIA(tipo);
   var nome=(tipo==="dil"?"Instrucoes-Pedido-Diligencia.md":"Instrucoes-Decisao-Pregoeiro.md");
   try{
+    /* Montar o texto DENTRO do try é o que garante o anexo. Ficando de fora,
+       qualquer erro aqui (um campo do formulário que não é input, uma data
+       fora do padrão em formatarData...) escapava do catch, o navegador caía
+       no arrasto PADRÃO do elemento e mandava o RÓTULO do botão como texto
+       solto — era isso que sujava a conversa em vez de anexar. Como a
+       Decisão e o Pedido de Diligência leem campos diferentes, dava para um
+       falhar com o outro funcionando. */
+    var txt=pdfInstrucoesIA(tipo);
     ev.dataTransfer.effectAllowed="copy";
     /* SEM text/plain de propósito: a maioria dos apps (Claude incluso) lê o
        drag assim — "tem texto? cola como texto. senão, tem arquivo? anexa."
@@ -8813,13 +8820,20 @@ function pdfIaDragStart(ev, tipo){
        então incluir os dois fazia o Claude tratar isto como texto solto e
        ignorar o anexo. Só o File, então, para o app do outro lado só
        enxergar a opção de anexar. */
+    var url=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
+    /* DownloadURL antes do File: se items.add falhar, o arquivo ainda é
+       oferecido como anexo em vez de o arrasto ficar sem nada. */
+    ev.dataTransfer.setData("DownloadURL","text/markdown:"+nome+":"+url);
     if(ev.dataTransfer.items && ev.dataTransfer.items.add){
       ev.dataTransfer.items.add(new File([txt], nome, {type:"text/markdown"}));
     }
-    var url=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
-    ev.dataTransfer.setData("DownloadURL","text/markdown:"+nome+":"+url);
     setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
-  }catch(e){ console.error("drag instruções:",e); }
+  }catch(e){
+    console.error("drag instruções:",e);
+    /* Melhor não arrastar nada do que arrastar o rótulo do botão. */
+    try{ ev.preventDefault(); }catch(e2){}
+    if(typeof toast==="function") toast("Não consegui montar as instruções — use o clique para copiar.");
+  }
 }
 function pdfIaCopiar(tipo){
   asgCopy(pdfInstrucoesIA(tipo));
