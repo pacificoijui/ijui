@@ -361,6 +361,53 @@
   .pv-oli { display: flex; gap: 8px; margin: 0 0 5px; text-align: justify; }
   .pv-oli-n { flex: 0 0 auto; font-weight: 700; color: var(--navy); min-width: 22px; }
   .pv-fonte { text-align: right; font-size: 11.5px; font-style: italic; color: #000; margin: -4px 0 10px; }
+
+  /* ── Editor do documento (folha A4 fiel ao PDF) ──────────────────────────
+     As medidas acompanham o gerador do PDF: margens de 25mm, corpo 11.5pt,
+     entrelinha 6.8mm, recuo de 10mm na primeira linha. Não tenta reproduzir
+     a quebra de página (quem manda nisso é o jsPDF) — reproduz o CONTEÚDO,
+     que é o que se edita aqui. */
+  .de-topbar { background:#102040; padding:0 16px; display:flex; align-items:center; gap:10px; height:56px; flex-shrink:0; flex-wrap:wrap; }
+  .de-topbar h3 { color:#fff; font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:9px; margin-right:auto; }
+  .de-tool { background:rgba(255,255,255,.12); color:#fff; border:none; border-radius:7px; padding:8px 13px; font-family:'Sora',system-ui,sans-serif; font-size:13px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .de-tool:hover { background:rgba(255,255,255,.26); }
+  .de-tool.marca { background:#fff082; color:#3a3000; }
+  .de-tool.marca:hover { background:#ffe95c; }
+  .de-status { color:#cfe0ff; font-size:12px; font-weight:600; min-width:92px; text-align:right; }
+  .de-status.salvando { color:#ffd479; }
+  .de-status.erro { color:#ff9a9a; }
+  .de-corpo { flex:1; overflow-y:auto; background:#5b6577; padding:26px 16px 60px; }
+  .de-folha {
+    width:210mm; min-height:297mm; margin:0 auto; background:#fff; color:#000;
+    box-shadow:0 6px 26px rgba(0,0,0,.35);
+    padding:25mm; box-sizing:border-box;
+    font-family:Helvetica,Arial,sans-serif; font-size:11.5pt; line-height:6.8mm;
+    outline:none;
+  }
+  .de-folha > * { margin:0 0 5.5mm; }
+  .de-p { text-align:justify; text-indent:10mm; }
+  .de-h1 { font-size:12pt; font-weight:700; text-transform:uppercase; margin:7mm 0 5mm; }
+  .de-h2 { font-size:11.5pt; font-weight:700; text-transform:uppercase; margin:6mm 0 4mm; }
+  .de-h3 { font-size:11.5pt; font-weight:700; margin:5mm 0 3mm; }
+  .de-q { margin-left:18mm; font-size:10pt; line-height:5.6mm; text-align:justify; }
+  .de-fonte { text-align:right; font-size:9.5pt; font-style:italic; margin-top:-3mm; }
+  .de-li, .de-oli { display:flex; gap:3mm; text-align:justify; }
+  .de-oli-n { font-weight:700; flex-shrink:0; min-width:9mm; }
+  .de-li::before { content:"\2013"; flex-shrink:0; }
+  .de-oli-x { flex:1; }
+  .de-hr { border-top:1px solid #999; height:0; margin:6mm 0; }
+  .de-folha mark { background:#fff082; color:inherit; }
+  .de-tab { width:100%; border-collapse:collapse; font-size:9.5pt; line-height:4.6mm; margin:4mm 0 6mm; }
+  .de-tab th { background:#000; color:#fff; font-weight:700; text-align:left; padding:1.6mm 2.5mm; font-size:9pt; }
+  .de-tab td { padding:1.6mm 2.5mm; border-bottom:.4px solid #999; }
+  .de-tab tr:nth-child(odd) td { background:#f7f9fd; }
+  .de-vazio { color:#8a94a6; font-style:italic; text-align:center; padding:40px 10px; }
+  @media (max-width:900px){
+    .de-corpo { padding:10px 0 40px; }
+    .de-folha { width:100%; min-height:0; padding:12mm 8mm; box-shadow:none; }
+    .de-topbar { height:auto; padding:8px 10px; }
+    .de-topbar h3 { font-size:13px; width:100%; margin-right:0; }
+  }
   /* marca-texto do ==destaque==: mesmo amarelo que o PDF pinta */
   .dec-preview mark, .dil-preview mark, .pv-tab mark, .asgs-texto mark { background: #fff082; color: inherit; padding: 0 1px; border-radius: 2px; }
   /* A tarja âmbar saiu: o dispositivo virou parágrafo em negrito, como num
@@ -2240,6 +2287,21 @@
     <div class="grid" id="consultaGrid"></div>
   </div>
 </div>
+<!-- EDITOR DO DOCUMENTO (folha A4, salva sozinho) -->
+<div class="panel-overlay" id="painelDocEd">
+  <div class="de-topbar">
+    <button class="panel-back-btn" onclick="docEdFechar()">&#8592; Voltar</button>
+    <h3 id="docEdTitulo">Documento</h3>
+    <button class="de-tool" onclick="docEdNegrito()" title="Negrito (Ctrl+B)"><b>N</b></button>
+    <button class="de-tool marca" onclick="docEdMarcar()" title="Marca-texto amarelo (Ctrl+M)">&#128396; Destacar</button>
+    <button class="de-tool" onclick="docEdPDF()" title="Gerar o PDF com o texto atual">&#128438; PDF</button>
+    <span class="de-status" id="docEdStatus"></span>
+  </div>
+  <div class="de-corpo">
+    <div class="de-folha" id="docEdFolha" contenteditable="true" spellcheck="true"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast">&#10003; <span id="toastMsg"></span></div>
 
 
@@ -8321,6 +8383,7 @@ function decRender(){
     if(d.agente) html+='<div style="font-size:11.5px;color:var(--muted)">Pregoeiro(a): <b style="color:var(--navy)">'+escHtml(d.agente)+'</b></div>';
     html+='<div class="dec-card-footer">';
     html+='<button class="imp-btn" onclick="editarDec(\''+escHtml(d.id)+'\')">&#9998; Editar</button>';
+    html+='<button class="imp-btn" onclick="abrirDocumentoEditor(\'dec\',\''+escHtml(d.id)+'\')" title="Abrir o documento numa folha A4 para escrever, destacar e revisar — salva sozinho">&#128221; Documento</button>';
     html+='<button class="imp-btn pdf-view" onclick="decGerarPDFById(\''+escHtml(d.id)+'\')">&#128438; PDF</button>';
     html+='</div></div>';
   }
@@ -8841,6 +8904,280 @@ function pdfIaDragStart(ev, tipo){
 function pdfIaCopiar(tipo){
   asgCopy(pdfInstrucoesIA(tipo));
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EDITOR DO DOCUMENTO — folha A4, escreve direto, salva sozinho
+   A folha reproduz o CONTEÚDO do PDF (tipografia, margens, recuos, tabelas),
+   não a paginação: quem decide quebra de página é o jsPDF, e tentar imitar
+   isso na tela só criaria uma segunda verdade para desencontrar da primeira.
+   O que se edita aqui é o mesmo campo "texto" que o PDF lê, então tudo o que
+   aparece na folha volta para o documento oficial.
+   ══════════════════════════════════════════════════════════════════════════ */
+var docEdTipo=null, docEdId=null, docEdTimer=null, docEdUltimo=null;
+
+function docEdRef(){ return docEdTipo==="dil" ? dilColRef : decColRef; }
+function docEdDoc(){
+  var lista=(docEdTipo==="dil") ? diligenciasList : decisoes;
+  return (lista||[]).find(function(x){ return x.id===docEdId; });
+}
+
+/* ── Blocos → folha editável ─────────────────────────────────────────────── */
+function docEdInline(s){
+  return escHtml(String(s==null?"":s))
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>")
+    .replace(/==(.+?)==/g,"<mark>$1</mark>");
+}
+function docEdBlocosParaHTML(blocos){
+  var h="";
+  (blocos||[]).forEach(function(b){
+    if(b.t==="tabela"){
+      h+='<table class="de-tab" data-t="tabela"><tbody>';
+      (b.linhas||[]).forEach(function(r,ri){
+        var tag=(b.cab&&ri===0)?"th":"td";
+        h+="<tr>"+r.map(function(c){ return "<"+tag+">"+docEdInline(c)+"</"+tag+">"; }).join("")+"</tr>";
+      });
+      h+="</tbody></table>";
+      return;
+    }
+    if(b.t==="hr"){ h+='<div class="de-hr" data-t="hr"><br></div>'; return; }
+    if(b.t==="oli"){
+      h+='<div class="de-oli" data-t="oli" data-n="'+escHtml(b.n||"-")+'">'
+        +'<span class="de-oli-n" contenteditable="false">'+escHtml(b.n||"")+'</span>'
+        +'<span class="de-oli-x">'+docEdInline(b.x)+'</span></div>';
+      return;
+    }
+    if(b.t==="li"){ h+='<div class="de-li" data-t="li"><span class="de-oli-x">'+docEdInline(b.x)+'</span></div>'; return; }
+    /* o bloco "!!" antigo era um parágrafo em negrito — vira isso mesmo */
+    if(b.t==="destaque"){ h+='<div class="de-p" data-t="p"><strong>'+docEdInline(b.x)+'</strong></div>'; return; }
+    var cls={h1:"de-h1",h2:"de-h2",h3:"de-h3",q:"de-q",fonte:"de-fonte"}[b.t]||"de-p";
+    h+='<div class="'+cls+'" data-t="'+(b.t||"p")+'">'+docEdInline(b.x)+"</div>";
+  });
+  return h || '<div class="de-p" data-t="p"><br></div>';
+}
+
+/* ── Folha editável → texto do documento ─────────────────────────────────── */
+function docEdTextoDe(el){
+  var out="";
+  (function anda(n){
+    for(var i=0;i<n.childNodes.length;i++){
+      var c=n.childNodes[i];
+      if(c.nodeType===3){ out+=c.nodeValue.replace(/ /g," "); continue; }
+      if(c.nodeType!==1) continue;
+      if(c.tagName==="BR"){ out+=" "; continue; }
+      if(c.classList && c.classList.contains("de-oli-n")) continue;  /* o marcador entra pelo data-n */
+      if(c.tagName==="B"||c.tagName==="STRONG"){ out+="**"; anda(c); out+="**"; continue; }
+      if(c.tagName==="MARK"){ out+="=="; anda(c); out+="=="; continue; }
+      anda(c);
+    }
+  })(el);
+  return out.replace(/\*\*\s*\*\*/g,"").replace(/==\s*==/g,"").replace(/\s+/g," ").trim();
+}
+function docEdSerializar(){
+  var folha=document.getElementById("docEdFolha");
+  var blocos=[];
+  for(var i=0;i<folha.children.length;i++){
+    var el=folha.children[i], t=el.getAttribute("data-t")||"p";
+    if(t==="tabela"){
+      var trs=el.querySelectorAll("tr"), saida=[];
+      for(var r=0;r<trs.length;r++){
+        var cels=trs[r].querySelectorAll("th,td"), linha=[];
+        for(var c=0;c<cels.length;c++) linha.push(docEdTextoDe(cels[c]).replace(/\|/g,"/"));
+        if(!linha.length) continue;
+        saida.push("| "+linha.join(" | ")+" |");
+        /* a linha de traços logo depois do cabeçalho é o que marca o cabeçalho */
+        if(r===0 && trs[r].querySelector("th")) saida.push("|"+linha.map(function(){return "---";}).join("|")+"|");
+      }
+      if(saida.length) blocos.push(saida.join("\n"));
+      continue;
+    }
+    if(t==="hr"){ blocos.push("---"); continue; }
+    var txt=docEdTextoDe(el);
+    if(!txt) continue;
+    if(t==="h1") blocos.push("# "+txt);
+    else if(t==="h2") blocos.push("## "+txt);
+    else if(t==="h3") blocos.push("### "+txt);
+    else if(t==="q") blocos.push("> "+txt);
+    else if(t==="fonte") blocos.push(">> "+txt);
+    else if(t==="li") blocos.push("- "+txt);
+    else if(t==="oli") blocos.push((el.getAttribute("data-n")||"-")+" "+txt);
+    else blocos.push(txt);
+  }
+  return blocos.join("\n\n");
+}
+
+/* ── Abrir / fechar ──────────────────────────────────────────────────────── */
+function docEdAbrir(tipo, id){
+  docEdTipo=tipo; docEdId=id;
+  var d=docEdDoc();
+  var folha=document.getElementById("docEdFolha");
+  var tit=document.getElementById("docEdTitulo");
+  if(!d){
+    tit.textContent="Documento";
+    folha.innerHTML='<div class="de-vazio">Documento não encontrado. Talvez ele tenha sido excluído.</div>';
+  } else {
+    var nome=(tipo==="dil"?"Pedido de Diligência nº "+dilFmtNum(d):"Decisão do Pregoeiro nº "+decFmtNum(d));
+    tit.textContent=nome+(d.titulo?" — "+d.titulo:"");
+    var blocos=(tipo==="dil"?dilParseBlocos:decParseBlocos)(d.texto||"");
+    folha.innerHTML=docEdBlocosParaHTML(blocos);
+    docEdUltimo=docEdSerializar();
+  }
+  docEdStatus("");
+  document.getElementById("painelDocEd").classList.add("open");
+  if(d) setTimeout(function(){ folha.focus(); },60);
+}
+function docEdFechar(){
+  if(docEdTimer){ clearTimeout(docEdTimer); docEdTimer=null; docEdSalvar(); }
+  document.getElementById("painelDocEd").classList.remove("open");
+  docEdTipo=null; docEdId=null; docEdUltimo=null;
+}
+
+/* ── Salvamento automático ───────────────────────────────────────────────── */
+function docEdStatus(txt, cls){
+  var el=document.getElementById("docEdStatus");
+  if(!el) return;
+  el.textContent=txt||"";
+  el.className="de-status"+(cls?" "+cls:"");
+}
+function docEdAgendarSalvar(){
+  if(!docEdId) return;
+  docEdStatus("salvando…","salvando");
+  clearTimeout(docEdTimer);
+  docEdTimer=setTimeout(function(){ docEdTimer=null; docEdSalvar(); }, 1200);
+}
+function docEdSalvar(){
+  if(!docEdId) return;
+  var texto=docEdSerializar();
+  if(texto===docEdUltimo){ docEdStatus("✓ salvo"); return; }
+  var ref=docEdRef(), id=docEdId;
+  docEdUltimo=texto;
+  ref.doc(id).update({texto:texto, updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){ if(docEdId===id) docEdStatus("✓ salvo"); })
+    .catch(function(e){
+      if(docEdId===id){ docEdStatus("erro ao salvar","erro"); docEdUltimo=null; }
+      console.error("docEd salvar:",e);
+    });
+}
+
+/* ── Barra de formatação ─────────────────────────────────────────────────── */
+function docEdNegrito(){
+  document.getElementById("docEdFolha").focus();
+  try{ document.execCommand("bold"); }catch(e){}
+  docEdAgendarSalvar();
+}
+function docEdAncestral(no, tag){
+  while(no && no!==document.getElementById("docEdFolha")){
+    if(no.nodeType===1 && no.tagName===tag) return no;
+    no=no.parentNode;
+  }
+  return null;
+}
+function docEdMarcar(){
+  var folha=document.getElementById("docEdFolha");
+  folha.focus();
+  var sel=window.getSelection();
+  if(!sel || !sel.rangeCount) return;
+  var r=sel.getRangeAt(0);
+  /* já está dentro de um destaque? então tira o destaque */
+  var m=docEdAncestral(r.commonAncestorContainer, "MARK");
+  if(m){
+    var pai=m.parentNode;
+    while(m.firstChild) pai.insertBefore(m.firstChild, m);
+    pai.removeChild(m); pai.normalize();
+    docEdAgendarSalvar(); return;
+  }
+  if(r.collapsed) return;
+  try{
+    var mk=document.createElement("mark");
+    mk.appendChild(r.extractContents());
+    r.insertNode(mk);
+    sel.removeAllRanges();
+    var nr=document.createRange(); nr.selectNodeContents(mk); sel.addRange(nr);
+  }catch(e){ console.error("destacar:",e); }
+  docEdAgendarSalvar();
+}
+function docEdPDF(){
+  if(docEdTimer){ clearTimeout(docEdTimer); docEdTimer=null; }
+  docEdSalvar();
+  var d=docEdDoc(); if(!d) return;
+  /* usa o texto que está na tela agora, não o que o listener ainda vai trazer */
+  var copia=Object.assign({}, d, {texto:docEdSerializar()});
+  if(docEdTipo==="dil") dilGerarPDF(copia); else decGerarPDF(copia);
+}
+
+/* ── Comportamento da folha ──────────────────────────────────────────────── */
+(function(){
+  var folha=document.getElementById("docEdFolha");
+  if(!folha) return;
+  /* todo bloco solto vira parágrafo: é o que o Enter cria e o que a colagem
+     deixa para trás */
+  function normalizar(){
+    for(var i=0;i<folha.children.length;i++){
+      var el=folha.children[i];
+      if(!el.getAttribute("data-t")){
+        if(el.tagName==="TABLE"){ el.setAttribute("data-t","tabela"); el.classList.add("de-tab"); }
+        else { el.setAttribute("data-t","p"); el.className="de-p"; }
+      }
+    }
+  }
+  folha.addEventListener("input", function(){ normalizar(); docEdAgendarSalvar(); });
+  /* Enter depois de um título abre PARÁGRAFO, não outro título */
+  folha.addEventListener("keydown", function(e){
+    if(e.key==="Enter" && !e.shiftKey){
+      setTimeout(function(){
+        var sel=window.getSelection(); if(!sel.rangeCount) return;
+        var no=sel.getRangeAt(0).startContainer;
+        while(no && no.parentNode!==folha) no=no.parentNode;
+        if(!no || no.nodeType!==1) return;
+        var t=no.getAttribute("data-t");
+        if((t==="h1"||t==="h2"||t==="h3"||t==="fonte") && !docEdTextoDe(no)){
+          no.setAttribute("data-t","p"); no.className="de-p"; no.innerHTML="<br>";
+        }
+      },0);
+      return;
+    }
+    if((e.ctrlKey||e.metaKey) && (e.key==="m"||e.key==="M")){ e.preventDefault(); docEdMarcar(); return; }
+    if((e.ctrlKey||e.metaKey) && (e.key==="b"||e.key==="B")){ setTimeout(docEdAgendarSalvar,0); return; }
+    if(e.key==="Escape"){ e.stopPropagation(); docEdFechar(); return; }
+  });
+  /* colar sempre como texto: HTML de fora traz estilo que o PDF não entende */
+  folha.addEventListener("paste", function(e){
+    e.preventDefault();
+    var txt=(e.clipboardData||window.clipboardData).getData("text/plain")||"";
+    try{ document.execCommand("insertText", false, txt); }catch(err){}
+  });
+})();
+
+/* ── Onde o botão abre ───────────────────────────────────────────────────────
+   Dentro da Central do Pregoeiro o sistema mora no painel estreito da
+   esquerda, apertado demais para uma folha A4. Lá o botão pede à Central que
+   abra o documento numa GUIA inteira (mesma ponte do 📂 PASTA, via console).
+   Fora da Central, abre o painel aqui mesmo.                                */
+function abrirDocumentoEditor(tipo, id){
+  if(window.__cctx){
+    var url=window.location.origin+window.location.pathname+"?doc="+encodeURIComponent(tipo+":"+id);
+    var d=(tipo==="dil"?diligenciasList:decisoes).find(function(x){return x.id===id;});
+    var nome=d ? (tipo==="dil"?"Diligência "+dilFmtNum(d):"Decisão "+decFmtNum(d)) : "Documento";
+    console.log("__CENTRAL_DOCVIEW__"+JSON.stringify({url:url, titulo:nome}));
+    return;
+  }
+  docEdAbrir(tipo, id);
+}
+/* Abertura direta por link (?doc=dec:ID) — é assim que a guia da Central entra */
+function docEdDaURL(){
+  var q=new URLSearchParams(window.location.search).get("doc");
+  if(!q) return;
+  var partes=String(q).split(":");
+  if(partes.length<2) return;
+  var tipo=(partes[0]==="dil")?"dil":"dec", id=partes.slice(1).join(":");
+  var tentar=function(n){
+    if(!document.getElementById("painelDocEd")) return;
+    if((tipo==="dil"?diligenciasList:decisoes).find(function(x){return x.id===id;})){ docEdAbrir(tipo,id); return; }
+    if(n>0) setTimeout(function(){ tentar(n-1); }, 400);
+    else docEdAbrir(tipo,id);   /* mostra o aviso de "não encontrado" */
+  };
+  tentar(15);
+}
+
 
 /* ── Blocos → HTML ────────────────────────────────────────────────────────
    Uma função só para os três lugares que mostram o texto na tela (prévia da
@@ -9482,6 +9819,7 @@ function dilRender(){
     if(d.agente) html+='<div style="font-size:11.5px;color:var(--muted)">Pregoeiro(a): <b style="color:var(--navy)">'+escHtml(d.agente)+'</b></div>';
     html+='<div class="dil-card-footer">';
     html+='<button class="imp-btn" onclick="editarDil(\''+escHtml(d.id)+'\')">&#9998; Editar</button>';
+    html+='<button class="imp-btn" onclick="abrirDocumentoEditor(\'dil\',\''+escHtml(d.id)+'\')" title="Abrir o documento numa folha A4 para escrever, destacar e revisar — salva sozinho">&#128221; Documento</button>';
     html+='<button class="imp-btn pdf-view" onclick="dilGerarPDFById(\''+escHtml(d.id)+'\')">&#128438; PDF</button>';
     html+='</div></div>';
   }
@@ -10713,6 +11051,10 @@ function asgPadInit(canvas){
   }
 })();
 
+/* Abre o editor direto quando a página vem por link (?doc=dec:ID). É por
+   aqui que entra a guia aberta pela Central do Pregoeiro. */
+(function(){ try{ docEdDaURL(); }catch(e){ console.error("doc URL:",e); } })();
+
 /* ── Cadastro da assinatura padrão (?assinatura=AGENTE_ID) ──────────────
    O pregoeiro abre este link no celular, assina uma vez com o dedo, e a
    assinatura passa a vir pronta em toda decisão/diligência nova dele.   */
@@ -11305,6 +11647,7 @@ document.addEventListener("keydown", function(e){
     ["habPanel", fecharHabilitacao],
     ["vencPanel", fecharVencedores],
     ["rankingPanel", fecharRanking],
+    ["painelDocEd", docEdFechar],
     ["painelDec", fecharPainelDec],
     ["painelDil", fecharPainelDil]
   ];
