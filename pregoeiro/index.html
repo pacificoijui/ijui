@@ -7346,6 +7346,28 @@ document.addEventListener("paste", function(e){
 });
 function rkAutoResize(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
 function rkParseBRL(s){ if(!s) return 0; return parseFloat(s.replace(/[R$\s]/g,'').replace(/\./g,'').replace(',','.')) || 0; }
+/* Aceita o que a pessoa digitar (1200, 1200,50, 1.200,50, R$ 1.200,50) e
+   devolve o número — ou null se não der pra entender como um valor válido.
+   Usado ao corrigir o Valor de uma colocação depois de uma renegociação. */
+function rkNormalizarValorTxt(txt){
+  var limpo=String(txt||'').replace(/[R$\s]/g,'').trim();
+  if(!limpo) return null;
+  var normalizado=limpo;
+  if(limpo.indexOf(',')>=0){
+    normalizado=limpo.replace(/\./g,'').replace(',','.');
+  } else if(limpo.indexOf('.')>=0){
+    /* um só ponto com até 2 casas é decimal ("1200.5"); o resto é milhar */
+    var partes=limpo.split('.');
+    if(!(partes.length===2 && partes[1].length<=2)) normalizado=limpo.replace(/\./g,'');
+  }
+  var num=parseFloat(normalizado);
+  return (isFinite(num) && num>0) ? num : null;
+}
+/* Mesmo formato "1.234,56" que vem do JSON importado do portal — pra um
+   valor corrigido à mão não destoar dos que vieram prontos. */
+function rkFormatarValorBRL(num){
+  return num.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
 function rkCalcPct(v,r){ var vv=rkParseBRL(v),rr=rkParseBRL(r); if(!rr) return null; return (vv-rr)/rr*100; }
 function rkFmtPct(p){ if(p===null) return ''; return (p>0?'+':'')+p.toFixed(1).replace('.',',')+'%'; }
 
@@ -7516,7 +7538,7 @@ function rkRenderRanking(){
           +'<div class="rks-coloc-atual-pos">'+rkOrdinalF(ci+1)+' colocada'+((ci>0&&status!=='aprovado')?' \u00B7 a próxima para avaliar':'')+'</div>'
           +'<span class="rks-forn-nome">'+escHtml(cf.nome)+'</span>'
           +'<div class="rks-forn-tags">'
-          +'<span class="rks-forn-tag"><b>Valor</b> '+escHtml(cf.valor||'—')+(pv?' <span class="'+pc+'">'+escHtml(pv)+'</span>':'')+'</span>'
+          +'<span class="rks-forn-tag rks-forn-tag-edit" data-editforn="'+escHtml(nIt+'-'+ci)+'|valor" title="Duplo clique para corrigir — empresa renegociou o valor">&#9998; <b>Valor</b> '+escHtml(cf.valor||'—')+(pv?' <span class="'+pc+'">'+escHtml(pv)+'</span>':'')+'</span>'
           +'<span class="rks-forn-tag rks-forn-tag-edit" data-editforn="'+escHtml(nIt+'-'+ci)+'|modelo" title="Duplo clique para corrigir">&#9998; <b>Modelo</b> '+escHtml(cf.modelo||'—')+'</span>'
           +'<span class="rks-forn-tag rks-forn-tag-edit" data-editforn="'+escHtml(nIt+'-'+ci)+'|marca" title="Duplo clique para corrigir">&#9998; <b>Marca</b> '+escHtml(cf.marca||'—')+'</span>'
           +'</div></div>';
@@ -7653,8 +7675,14 @@ function rkIniciarEdicaoForn(span){
   input.focus(); input.select();
   var feito=false;
   function commit(){
-    if(feito) return; feito=true;
+    if(feito) return;
     var novo=input.value.trim();
+    if(campo==='valor'){
+      var num=rkNormalizarValorTxt(novo);
+      if(num===null){ alert('Valor inválido. Digite um número, por exemplo 1.200,00.'); input.focus(); input.select(); return; }
+      novo=rkFormatarValorBRL(num);
+    }
+    feito=true;
     if(novo!==atual) rkSalvarCampoForn(nIt, idx, campo, novo);
     else rkRenderProcesso();
   }
@@ -7672,11 +7700,12 @@ function rkSalvarCampoForn(nIt, idx, campo, valor){
   var it=rkItens.find(function(x){ return String(x.num)===nIt; }); if(!it) return;
   var cf=it.fornecedores[idx]; if(!cf) return;
   var antigo=cf[campo]||'(vazio)';
+  var rotulo=campo==='modelo'?'Modelo':(campo==='marca'?'Marca':'Valor');
   cf[campo]=valor;
-  rkLogEvento('Item '+nIt+' — '+(campo==='modelo'?'Modelo':'Marca')+' de '+(cf.nome||'')+' corrigido de "'+antigo+'" para "'+(valor||'(vazio)')+'"');
+  rkLogEvento('Item '+nIt+' — '+rotulo+' de '+(cf.nome||'')+' corrigido de "'+antigo+'" para "'+(valor||'(vazio)')+'"');
   rkSalvarFirestore();
   rkRenderProcesso();
-  toast((campo==='modelo'?'Modelo':'Marca')+' atualizado.');
+  toast(rotulo+' atualizado.');
 }
 function rkCopiarLink(){
   if(!rkProcessoAtual){ toast('Abra um ranking primeiro.'); return; }
