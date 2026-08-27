@@ -1829,7 +1829,7 @@
             <textarea id="stAtTexto" rows="3" placeholder="Ex: Prezados, vamos abrir a fase de negociação..."></textarea>
           </div>
           <div style="display:flex;justify-content:flex-end">
-            <button type="button" class="btn-sm" onclick="adicionarAtalhoStatusTemp()">+ Adicionar botão</button>
+            <button type="button" class="btn-sm" id="btnAddAtalho" onclick="adicionarAtalhoStatusTemp()">+ Adicionar botão</button>
           </div>
           <div id="stAtalhosLista" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
@@ -2489,6 +2489,7 @@ const LOGO_B64_PDF = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUN
 var processos=[], agentes=[], statusList=[], statusListAll=[], filtroAgentes=[], filtroAno="todos", ordemSort="desc";
 var editandoId=null, updateId=null, editandoAgId=null, editandoStId=null;
 var stAtalhosTemp=[];
+var editandoAtalhoIdx=-1;   /* índice do atalho em edição na lista temporária, ou -1 */
 /* Todas as chaves mapeadas para a paleta Mosaico das Etnias.
    Chaves legadas (purple/pink/brown/cyan) continuam válidas para dados antigos
    do Firestore, mas renderizam em tons da paleta — nada quebra, tudo padroniza. */
@@ -4053,6 +4054,7 @@ function abrirModalStatus(){ document.getElementById("modalStatus").classList.ad
 function fecharModalStatus(){ document.getElementById("modalStatus").classList.remove("open"); limparFormStatus(); }
 function limparFormStatus(){
   editandoStId=null;
+  editandoAtalhoIdx=-1;
   document.getElementById("stNome").value="";
   document.getElementById("stCor").value="amber";
   document.getElementById("stAtLabel").value="";
@@ -4065,13 +4067,40 @@ function adicionarAtalhoStatusTemp(){
   var label=document.getElementById("stAtLabel").value.trim();
   var texto=document.getElementById("stAtTexto").value.trim();
   if(!label||!texto){alert("Preencha o nome do botão e a mensagem.");return;}
-  stAtalhosTemp.push({label:label,texto:texto});
+  if(editandoAtalhoIdx>=0){
+    stAtalhosTemp[editandoAtalhoIdx]={label:label,texto:texto};
+    editandoAtalhoIdx=-1;
+  } else {
+    stAtalhosTemp.push({label:label,texto:texto});
+  }
   document.getElementById("stAtLabel").value="";
   document.getElementById("stAtTexto").value="";
+  document.getElementById("btnAddAtalho").textContent="+ Adicionar botão";
+  renderAtalhosStatusTemp();
+}
+/* Duplo propósito: clicar em "Editar" carrega o botão nos campos acima pra
+   corrigir; clicar de novo no mesmo (ou em "Cancelar") solta sem salvar. */
+function editarAtalhoStatusTemp(idx){
+  var a=stAtalhosTemp[idx]; if(!a) return;
+  document.getElementById("stAtLabel").value=a.label;
+  document.getElementById("stAtTexto").value=a.texto;
+  editandoAtalhoIdx=idx;
+  document.getElementById("btnAddAtalho").textContent="Salvar alteração";
+  renderAtalhosStatusTemp();
+  document.getElementById("stAtLabel").focus();
+}
+function cancelarEdicaoAtalhoStatusTemp(){
+  editandoAtalhoIdx=-1;
+  document.getElementById("stAtLabel").value="";
+  document.getElementById("stAtTexto").value="";
+  document.getElementById("btnAddAtalho").textContent="+ Adicionar botão";
   renderAtalhosStatusTemp();
 }
 function removerAtalhoStatusTemp(idx){
   stAtalhosTemp.splice(idx,1);
+  /* remover o que estava sendo editado (ou um antes dele) fecha/realinha o modo edição */
+  if(idx===editandoAtalhoIdx) cancelarEdicaoAtalhoStatusTemp();
+  else if(idx<editandoAtalhoIdx) editandoAtalhoIdx--;
   renderAtalhosStatusTemp();
 }
 function renderAtalhosStatusTemp(){
@@ -4080,9 +4109,15 @@ function renderAtalhosStatusTemp(){
   var html="";
   for(var i=0;i<stAtalhosTemp.length;i++){
     var a=stAtalhosTemp[i];
-    html+='<div style="display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px">';
+    var emEdicao=(i===editandoAtalhoIdx);
+    html+='<div style="display:flex;align-items:center;gap:8px;background:'+(emEdicao?"#eef4ff":"#fff")+';border:1.5px solid '+(emEdicao?"var(--navy-light)":"var(--border)")+';border-radius:8px;padding:7px 10px">';
     html+='<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:var(--navy)">'+escHtml(a.label)+'</div>';
     html+='<div style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(a.texto)+'</div></div>';
+    if(emEdicao){
+      html+='<button type="button" class="btn-sm" style="flex:none;padding:4px 9px;font-size:11.5px" onclick="cancelarEdicaoAtalhoStatusTemp()">Cancelar</button>';
+    } else {
+      html+='<button type="button" class="btn-sm" style="flex:none;padding:4px 9px;font-size:11.5px" onclick="editarAtalhoStatusTemp('+i+')">Editar</button>';
+    }
     html+='<button type="button" class="btn-sm danger" style="flex:none;padding:4px 9px;font-size:11.5px" onclick="removerAtalhoStatusTemp('+i+')">Remover</button>';
     html+='</div>';
   }
@@ -4091,8 +4126,12 @@ function renderAtalhosStatusTemp(){
 function editarStatus(id){
   var st=statusList.find(function(s){return s.id===id;}); if(!st)return;
   editandoStId=id;
+  editandoAtalhoIdx=-1;
   document.getElementById("stNome").value=st.nome||st.label||"";
   document.getElementById("stCor").value=st.cor||"amber";
+  document.getElementById("stAtLabel").value="";
+  document.getElementById("stAtTexto").value="";
+  document.getElementById("btnAddAtalho").textContent="+ Adicionar botão";
   stAtalhosTemp=(st.atalhos||[]).map(function(a){return {label:a.label,texto:a.texto};});
   renderAtalhosStatusTemp();
   document.getElementById("btnSalvarStatus").textContent="Atualizar";
