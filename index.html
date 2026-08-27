@@ -216,7 +216,10 @@
   .up-daychip { background: var(--navy); color: #fff; border-radius: 8px; padding: 4px 10px; font-size: 11.5px; font-weight: 800; }
   .up-card.is-today .up-daychip { background: var(--gold); }
   .up-num { font-size: 16px; font-weight: 800; color: var(--navy); }
-  .up-obj { font-size: 12.5px; color: var(--text); line-height: 1.45; margin: 5px 0 9px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* Objeto inteiro, sem corte: nos Próximos Processos o que importa é bater
+     o olho e saber do que se trata, e o corte em 2 linhas escondia justamente
+     o fim da descrição ("...para atender à Secretaria de..."). */
+  .up-obj { font-size: 12.5px; color: var(--text); line-height: 1.45; margin: 5px 0 9px; overflow-wrap: anywhere; }
   .up-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .up-tag { font-size: 10.5px; font-weight: 800; padding: 3px 9px; border-radius: 6px; }
   .up-resp { background: #ede8fb; color: #5b3fb3; }
