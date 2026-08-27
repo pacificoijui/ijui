@@ -166,6 +166,10 @@
   @media (max-width: 768px) {
     main { padding: 14px 12px 50px; gap: 16px; }
     .view-toggle button { padding: 8px 18px; font-size: 13px; }
+    /* Objeto inteiro na Lista do celular — mesmo raciocínio dos Próximos
+       Processos: aqui a lista já é vertical, um card por vez, então não há
+       "muitos itens lado a lado" para justificar cortar em 2 linhas. */
+    .list-card-obj { -webkit-line-clamp: unset; overflow: visible; overflow-wrap: anywhere; }
     .list-items { padding-left: 20px; }
     .list-dayhdr { padding: 14px 16px 6px; }
     .list-items { padding-right: 16px; padding-left: 16px; }
@@ -410,6 +414,10 @@
   .busca-topo-btn { display:none; flex-shrink:0; height:34px; padding:0 12px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--navy); font-family:inherit; font-size:12.5px; font-weight:800; cursor:pointer; transition:all .14s; align-items:center; gap:5px; white-space:nowrap; }
   .busca-topo-btn:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
   @media (max-width: 1000px){ .busca-topo-btn { display:inline-flex; } }
+  /* No celular só existe a visão em Lista — o alternador Calendário/Lista
+     não tem mais função ali (o JS já força "list" nessa largura) e só
+     ocupava espaço na barra do topo. */
+  @media (max-width: 768px){ .side-brand .view-toggle { display:none; } }
   .gear-corner-btn { flex-shrink:0; width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--muted); font-size:15px; cursor:pointer; transition:all .14s; display:flex; align-items:center; justify-content:center; }
   .gear-corner-btn:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
 
@@ -2093,12 +2101,19 @@ function renderLista(){
 }
 document.addEventListener("DOMContentLoaded",function(){
   /* padrão: lista no celular, calendário no desktop */
-  var ehMobile = window.matchMedia("(max-width: 768px)").matches;
-  _viewAtual = ehMobile ? "list" : "month";
+  var mmMobile = window.matchMedia("(max-width: 768px)");
+  _viewAtual = mmMobile.matches ? "list" : "month";
   aplicarView(_viewAtual);
 
   document.querySelectorAll(".view-btn").forEach(function(btn){
     btn.addEventListener("click",function(){ aplicarView(this.dataset.view); });
+  });
+
+  /* No celular não existe o botão pra voltar do Calendário; se a janela
+     encolher pra largura de celular enquanto estiver nele (girar o aparelho,
+     redimensionar), força a volta pra Lista. */
+  mmMobile.addEventListener("change", function(e){
+    if(e.matches && _viewAtual==="month") aplicarView("list");
   });
 });
 function aplicarView(view){
