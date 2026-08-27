@@ -265,6 +265,34 @@
   .status-pop-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
   .status-pop-opt .status-pop-check { margin-left: auto; color: var(--navy-light); font-weight: 900; }
 
+  /* ── Modal de busca (processos + itens) ─────────────────────────────────── */
+  .modal-busca { max-width: 720px; display: flex; flex-direction: column; }
+  .bsc-abas { display: flex; gap: 4px; padding: 0 22px; border-bottom: 1.5px solid var(--border); flex-shrink: 0; }
+  .bsc-aba { background: none; border: none; border-bottom: 3px solid transparent; padding: 11px 14px; font-family: inherit; font-size: 13.5px; font-weight: 800; color: var(--muted); cursor: pointer; margin-bottom: -1.5px; }
+  .bsc-aba:hover { color: var(--navy); }
+  .bsc-aba.ativa { color: var(--navy); border-bottom-color: var(--navy); }
+  .bsc-painel { overflow-y: auto; }
+  .bsc-check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 10px 2px 0; cursor: pointer; }
+  .bsc-check input { width: 15px; height: 15px; cursor: pointer; }
+  /* cartão de um item encontrado */
+  .it-card { border: 1px solid var(--border); border-left: 4px solid var(--navy-light); border-radius: 11px; padding: 11px 13px; margin-top: 9px; cursor: pointer; transition: box-shadow .14s, transform .14s; background: #fff; }
+  .it-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .it-card.venc { border-left-color: #1E7A34; }
+  .it-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .it-num { background: var(--navy); color: #fff; border-radius: 6px; padding: 2px 8px; font-size: 11.5px; font-weight: 800; }
+  .it-proc { font-size: 12.5px; font-weight: 800; color: var(--navy); }
+  .it-data { margin-left: auto; font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .it-desc { font-size: 12.5px; color: var(--text); margin-top: 6px; line-height: 1.45; }
+  .it-venc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .it-emp { font-size: 12px; font-weight: 800; color: #1E7A34; }
+  .it-valor { font-size: 12.5px; font-weight: 900; color: var(--navy); background: #eef3ff; border-radius: 6px; padding: 2px 9px; }
+  .it-pend { font-size: 11.5px; font-weight: 700; color: var(--muted); background: #f1f4fa; border-radius: 99px; padding: 2px 9px; }
+  .it-marca { font-size: 11.5px; color: var(--muted); }
+  @media (max-width: 768px) {
+    .modal-busca { max-width: 100%; }
+    .bsc-abas { padding: 0 12px; }
+  }
+
   /* ── Modal (detalhe + cadastro) ─────────────────────────────────────────── */
   .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); padding: 20px; }
   .overlay.open { display: flex; }
@@ -429,10 +457,9 @@
     .list-body { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; }
   }
 
-  /* ── Mobile/tablet: controles (logo, toggle, busca, próximos) acima da agenda ── */
+  /* ── Mobile/tablet: controles (logo, próximos) acima da agenda ── */
   @media (max-width: 1000px){
     .ag-side { order:-1; }
-    #buscaSection { order:-1; }
     .side-brand { order:0; }
     #proximosSection { order:1; }
   }
@@ -490,7 +517,6 @@
   /* ── Seções laterais ── */
   .section-head::before{content:"";width:5px;height:22px;border-radius:99px;background:var(--cor-secao,var(--real));flex-shrink:0}
   #proximosSection{--cor-secao:var(--real)}
-  #buscaSection{--cor-secao:var(--petroleo)}
   .section-head .count{font-family:'Space Grotesk',monospace}
   .side-brand{position:relative;overflow:hidden}
   .side-brand::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:var(--faixa)}
@@ -665,6 +691,7 @@
       </div>
       <div class="cal-nav">
         <button class="btn-primary cal-novo" onclick="abrirCadastro()">&#43; Novo Processo</button>
+        <button class="hoje-btn busca-abrir-btn" onclick="abrirBusca()" title="Buscar processos e itens já licitados">&#128269; Buscar</button>
         <button class="hoje-btn" onclick="irHoje()">Hoje</button>
         <button onclick="mudarMes(-1)" title="Mês anterior">&#8249;</button>
         <button onclick="mudarMes(1)" title="Próximo mês">&#8250;</button>
@@ -685,6 +712,7 @@
       </div>
       <div class="list-nav">
         <button class="btn-primary cal-novo" onclick="abrirCadastro()" style="height:36px;padding:0 14px">&#43; Novo</button>
+        <button class="hoje-btn busca-abrir-btn" onclick="abrirBusca()" title="Buscar processos e itens já licitados">&#128269; Buscar</button>
         <button class="hoje-btn" onclick="irHojeList()">Hoje</button>
         <button onclick="mudarMesList(-1)" title="Mês anterior">&#8249;</button>
         <button onclick="mudarMesList(1)" title="Próximo mês">&#8250;</button>
@@ -708,43 +736,6 @@
     <button class="auth-sair-btn" onclick="authLogout()" title="Sair">Sair</button>
   </section>
 
-  <!-- Busca de processos -->
-  <section class="section" id="buscaSection">
-    <div class="section-head">
-      <span class="ico">&#128269;</span>
-      <h3>Buscar Processo</h3>
-    </div>
-    <div class="section-body">
-      <div class="ag-filtros">
-        <div class="ag-filtro-campo">
-          <span class="ag-filtro-label">Tipo</span>
-          <select class="ag-filtro-select" id="bfTipo" onchange="renderBusca()">
-            <option value="todos">Todos</option>
-            <option value="Pregão">Pregão</option>
-            <option value="Concorrência">Concorrência</option>
-          </select>
-        </div>
-        <div class="ag-filtro-campo">
-          <span class="ag-filtro-label">Ano</span>
-          <select class="ag-filtro-select" id="bfAno" onchange="renderBusca()">
-            <option value="todos">Todos</option>
-          </select>
-        </div>
-        <div class="ag-filtro-campo cf-full">
-          <span class="ag-filtro-label">Número</span>
-          <input type="text" class="ag-filtro-input" id="bfNumero" placeholder="Ex: 75" oninput="renderBusca()" autocomplete="off">
-        </div>
-        <div class="ag-filtro-campo cf-full">
-          <span class="ag-filtro-label">Objeto</span>
-          <input type="text" class="ag-filtro-input" id="bfObjeto" placeholder="Buscar no objeto ou responsável..." oninput="renderBusca()" autocomplete="off">
-        </div>
-        <button class="btn-limpar-filtros" onclick="limparBusca()">&times; Limpar filtros</button>
-      </div>
-      <div class="search-results" id="buscaResultados"></div>
-      <div class="search-hint" id="buscaHint">Use os filtros acima para localizar um processo cadastrado.</div>
-    </div>
-  </section>
-
   <!-- Próximos processos (hoje + próximos 5) -->
   <section class="section" id="proximosSection">
     <div class="section-head">
@@ -761,6 +752,62 @@
   </aside>
   </div>
 </main>
+
+<!-- Modal BUSCA (processos + itens já licitados) -->
+<div class="overlay" id="modalBusca">
+  <div class="modal modal-busca">
+    <div class="modal-header">
+      <h2>&#128269; Buscar</h2>
+      <button class="modal-close" onclick="fecharBusca()">&times;</button>
+    </div>
+    <div class="bsc-abas">
+      <button class="bsc-aba ativa" id="abaProc" onclick="buscaAba('proc')">Processos</button>
+      <button class="bsc-aba" id="abaItens" onclick="buscaAba('itens')">Itens licitados</button>
+    </div>
+
+    <!-- ABA: PROCESSOS -->
+    <div class="modal-body bsc-painel" id="painelBuscaProc">
+      <div class="ag-filtros">
+        <div class="ag-filtro-campo">
+          <span class="ag-filtro-label">Tipo</span>
+          <select class="ag-filtro-select" id="bfTipo" onchange="renderBusca()">
+            <option value="todos">Todos</option>
+            <option value="Preg&atilde;o">Preg&atilde;o</option>
+            <option value="Concorr&ecirc;ncia">Concorr&ecirc;ncia</option>
+          </select>
+        </div>
+        <div class="ag-filtro-campo">
+          <span class="ag-filtro-label">Ano</span>
+          <select class="ag-filtro-select" id="bfAno" onchange="renderBusca()">
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+        <div class="ag-filtro-campo cf-full">
+          <span class="ag-filtro-label">N&uacute;mero</span>
+          <input type="text" class="ag-filtro-input" id="bfNumero" placeholder="Ex: 75" oninput="renderBusca()" autocomplete="off">
+        </div>
+        <div class="ag-filtro-campo cf-full">
+          <span class="ag-filtro-label">Objeto</span>
+          <input type="text" class="ag-filtro-input" id="bfObjeto" placeholder="Buscar no objeto ou respons&aacute;vel..." oninput="renderBusca()" autocomplete="off">
+        </div>
+        <button class="btn-limpar-filtros" onclick="limparBusca()">&times; Limpar filtros</button>
+      </div>
+      <div class="search-results" id="buscaResultados"></div>
+      <div class="search-hint" id="buscaHint">Use os filtros acima para localizar um processo cadastrado.</div>
+    </div>
+
+    <!-- ABA: ITENS LICITADOS -->
+    <div class="modal-body bsc-painel" id="painelBuscaItens" style="display:none">
+      <div class="ag-filtro-campo cf-full">
+        <span class="ag-filtro-label">Item</span>
+        <input type="text" class="ag-filtro-input" id="biTexto" placeholder="Ex: arroz, caneta, pneu..." oninput="renderBuscaItens()" autocomplete="off">
+      </div>
+      <label class="bsc-check"><input type="checkbox" id="biSoVencedor" onchange="renderBuscaItens()"> Mostrar s&oacute; itens j&aacute; com vencedor</label>
+      <div class="search-results" id="itensResultados"></div>
+      <div class="search-hint" id="itensHint">Digite o nome de um item para ver em quais licita&ccedil;&otilde;es ele j&aacute; foi comprado, quem venceu e por quanto.</div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal detalhe -->
 <div class="overlay" id="modalDetalhe">
@@ -1670,6 +1717,155 @@ function buscaCasa(consulta, texto){
   if(!q) return true;
   return buscaPontuar(q, [{t:texto, peso:1}])>0;
 }
+/* ══════════════════════════════════════════════════════════════════════════
+   BUSCA (modal) — processos e itens já licitados
+   A busca saiu do painel lateral (que agora mostra só os Próximos Processos)
+   e virou um botão na barra da agenda. Além de procurar o processo, dá para
+   procurar por ITEM: digitar "arroz" e ver em quais licitações ele já foi
+   comprado, quem venceu e por quanto — que é a pergunta que mais aparece na
+   hora de montar um preço de referência.
+   ══════════════════════════════════════════════════════════════════════════ */
+function abrirBusca(){
+  document.getElementById("modalBusca").classList.add("open");
+  var alvo=(_buscaAbaAtual==="itens")?"biTexto":"bfObjeto";
+  setTimeout(function(){ var el=document.getElementById(alvo); if(el) el.focus(); },60);
+  if(_buscaAbaAtual==="itens") itensGarantirCarga();
+}
+function fecharBusca(){ document.getElementById("modalBusca").classList.remove("open"); }
+(function(){
+  var ov=document.getElementById("modalBusca");
+  if(!ov) return;
+  ov.addEventListener("click", function(e){ if(e.target===ov) fecharBusca(); });
+  document.addEventListener("keydown", function(e){
+    if(e.key==="Escape" && ov.classList.contains("open")) fecharBusca();
+  });
+})();
+var _buscaAbaAtual="proc";
+function buscaAba(qual){
+  _buscaAbaAtual=qual;
+  var ehItens=(qual==="itens");
+  document.getElementById("painelBuscaProc").style.display=ehItens?"none":"block";
+  document.getElementById("painelBuscaItens").style.display=ehItens?"block":"none";
+  document.getElementById("abaProc").classList.toggle("ativa",!ehItens);
+  document.getElementById("abaItens").classList.toggle("ativa",ehItens);
+  var el=document.getElementById(ehItens?"biTexto":"bfObjeto");
+  if(el) el.focus();
+  if(ehItens) itensGarantirCarga();
+}
+
+/* ── Itens licitados ────────────────────────────────────────────────────────
+   Os itens moram na coleção "rankings" (um documento por processo), gravada
+   pelo sistema do pregoeiro. A agenda é um calendário: carregar isso na
+   abertura seria peso morto para quem só quer ver a semana. Por isso a carga
+   é sob demanda, uma vez só, na primeira vez que a aba é aberta.            */
+var rkAgColRef=null;
+try{ rkAgColRef=db.collection("rankings"); }catch(e){ rkAgColRef=null; }
+var _itensCache=null, _itensCarregando=false, _itensErro=false;
+
+function itensGarantirCarga(){
+  if(_itensCache||_itensCarregando||!rkAgColRef) return;
+  _itensCarregando=true; _itensErro=false;
+  renderBuscaItens();
+  rkAgColRef.get().then(function(snap){
+    var lista=[];
+    snap.forEach(function(doc){
+      var d=doc.data()||{};
+      var estados=d.estados||{};
+      (d.itens||[]).forEach(function(it){
+        var forns=it.fornecedores||[];
+        /* vencedor = a proposta marcada como aprovada pelo pregoeiro */
+        var iv=-1;
+        for(var i=0;i<forns.length;i++){ if(estados[it.num+"-"+i]==="aprovado"){ iv=i; break; } }
+        /* sem vencedor ainda: mostra quem está na vez (a 1ª não reprovada) */
+        var ia=-1;
+        for(var k=0;k<forns.length;k++){ if((estados[it.num+"-"+k]||"neutro")!=="reprovado"){ ia=k; break; } }
+        lista.push({
+          procId: doc.id,
+          procNumero: d.numero||"",
+          num: String(it.num==null?"":it.num),
+          desc: it.descEdital||it.desc||"",
+          vencedor: iv>=0?(forns[iv]||null):null,
+          atual: (iv<0&&ia>=0)?(forns[ia]||null):null,
+          semProposta: forns.length===0
+        });
+      });
+    });
+    _itensCache=lista; _itensCarregando=false;
+    renderBuscaItens();
+  }).catch(function(e){
+    console.error("itens licitados:",e);
+    _itensCarregando=false; _itensErro=true;
+    renderBuscaItens();
+  });
+}
+
+function renderBuscaItens(){
+  var box=document.getElementById("itensResultados");
+  var hint=document.getElementById("itensHint");
+  if(!box) return;
+  var termo=((document.getElementById("biTexto")||{value:""}).value||"").trim();
+  var soVenc=!!(document.getElementById("biSoVencedor")||{}).checked;
+
+  function aviso(txt){ box.innerHTML=""; if(hint){ hint.style.display="block"; hint.textContent=txt; } }
+
+  if(_itensErro){ aviso("Não consegui carregar os itens. Verifique a conexão e tente de novo."); return; }
+  if(_itensCarregando){ aviso("Carregando os itens já licitados…"); return; }
+  if(!termo){ aviso("Digite o nome de um item para ver em quais licitações ele já foi comprado, quem venceu e por quanto."); return; }
+  if(!_itensCache){ aviso("Carregando os itens já licitados…"); return; }
+
+  var q=buscaPreparar(termo);
+  var achados=[];
+  _itensCache.forEach(function(it){
+    if(soVenc && !it.vencedor) return;
+    var nota=buscaPontuar(q,[{t:it.desc,peso:3}]);
+    if(!nota) return;
+    achados.push({it:it, nota:nota});
+  });
+  /* mais parecido primeiro; empate desempata pelo processo mais recente */
+  achados.sort(function(a,b){
+    if(b.nota!==a.nota) return b.nota-a.nota;
+    return numeroSeqInt(b.it.procNumero)-numeroSeqInt(a.it.procNumero);
+  });
+
+  if(hint){
+    hint.style.display="block";
+    hint.textContent=achados.length
+      ? (achados.length+" item(ns) encontrado(s)"+(soVenc?" com vencedor":""))
+      : ("Nenhum item parecido com “"+termo+"”"+(soVenc?" (com vencedor)":"")+".");
+  }
+
+  var LIM=80;
+  var html="";
+  achados.slice(0,LIM).forEach(function(a){
+    var it=a.it;
+    var proc=processos.find(function(p){ return p.id===it.procId; });
+    var tituloProc=proc ? (tipoLicitacao(proc.numero)?(tipoLicitacao(proc.numero)+" "+numeroSeq(proc.numero)):(proc.numero||"")) : (it.procNumero||"Processo");
+    var data=proc&&proc.dataLicit?fmtData(proc.dataLicit):"";
+    html+='<div class="it-card'+(it.vencedor?" venc":"")+'"'
+      +(proc?' onclick="fecharBusca();abrirDetalhe(\''+escHtml(it.procId)+'\')" title="Abrir o processo"':'')+'>';
+    html+='<div class="it-top"><span class="it-num">Item '+escHtml(it.num)+'</span>'
+      +'<span class="it-proc">'+escHtml(tituloProc)+'</span>'
+      +(data?'<span class="it-data">'+escHtml(data)+'</span>':'')+'</div>';
+    if(it.desc) html+='<div class="it-desc">'+escHtml(it.desc)+'</div>';
+    html+='<div class="it-venc">';
+    if(it.vencedor){
+      html+='<span class="it-emp">&#127942; '+escHtml(it.vencedor.nome||"—")+'</span>';
+      if(it.vencedor.valor) html+='<span class="it-valor">R$ '+escHtml(it.vencedor.valor)+'</span>';
+      if(it.vencedor.marca) html+='<span class="it-marca">Marca: '+escHtml(it.vencedor.marca)+'</span>';
+    } else if(it.semProposta){
+      html+='<span class="it-pend">Sem proposta</span>';
+    } else if(it.atual){
+      html+='<span class="it-pend">Ainda em julgamento</span>'
+        +'<span class="it-marca">na vez: '+escHtml(it.atual.nome||"—")+(it.atual.valor?" &middot; R$ "+escHtml(it.atual.valor):"")+'</span>';
+    } else {
+      html+='<span class="it-pend">Fracassado</span>';
+    }
+    html+='</div></div>';
+  });
+  if(achados.length>LIM) html+='<div class="search-hint" style="display:block;margin-top:10px">Mostrando os '+LIM+' mais parecidos de '+achados.length+'. Refine a busca para ver menos.</div>';
+  box.innerHTML=html;
+}
+
 function renderBusca(){
   var box=document.getElementById("buscaResultados");
   var hint=document.getElementById("buscaHint");
