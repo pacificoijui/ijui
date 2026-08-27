@@ -402,6 +402,11 @@
 
   /* ── Camada: aniversários ────────────────────────────────────────────────── */
   .cal-ev-aniv   { background:#fce4ec; color:#c2185b; border-color:#ec407a; }
+  /* Busca no topo: só no celular/tablet. No desktop o botão da barra da
+     agenda dá conta — aqui em cima ele evitaria rolar a coluna inteira. */
+  .busca-topo-btn { display:none; flex-shrink:0; height:34px; padding:0 12px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--navy); font-family:inherit; font-size:12.5px; font-weight:800; cursor:pointer; transition:all .14s; align-items:center; gap:5px; white-space:nowrap; }
+  .busca-topo-btn:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
+  @media (max-width: 1000px){ .busca-topo-btn { display:inline-flex; } }
   .gear-corner-btn { flex-shrink:0; width:34px; height:34px; border-radius:9px; border:1px solid var(--border); background:#fff; color:var(--muted); font-size:15px; cursor:pointer; transition:all .14s; display:flex; align-items:center; justify-content:center; }
   .gear-corner-btn:hover { background:var(--navy); color:#fff; border-color:var(--navy); }
 
@@ -730,6 +735,7 @@
       <button class="view-btn" data-view="month">📅 Calendário</button>
       <button class="view-btn active" data-view="list">📋 Lista</button>
     </div>
+    <button class="busca-topo-btn" onclick="abrirBusca()" title="Buscar processos e itens já licitados">&#128269; Buscar</button>
     <button class="gear-corner-btn" onclick="abrirPainel()" title="Painel interno (cadastros)">&#9881;</button>
     <a class="auth-admin-link" id="authAdminLink" href="/pregoeiro/" title="Gerenciar usuários (Pregões)" style="display:none">&#128273;</a>
     <span class="auth-chip" id="authUserChip" style="display:none"></span>
