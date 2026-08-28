@@ -669,12 +669,14 @@
   .hab-card{background:#fff;border-radius:14px;padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 5px rgba(26,58,107,.07);border-left:5px solid #e2e6ec;transition:border-color .2s}
   .hab-card.habil{border-left-color:#1E5F3A;background:#fbfffd}
   .hab-card.inabil{border-left-color:#A32D2D;background:#fffbfb}
+  .hab-card.naoenviou{border-left-color:#374151;background:#fafafb}
   .hab-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
   .hab-nome{font-size:15px;font-weight:700;color:#1a1a1a;line-height:1.3}
   .hab-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap;flex-shrink:0}
   .hab-badge.habil{background:#d4edda;color:#1E5F3A}
   .hab-badge.inabil{background:#f8d7da;color:#A32D2D}
   .hab-badge.pend{background:#f0f0f0;color:#888}
+  .hab-badge.naoenviou{background:#374151;color:#fff}
   /* Painel Vencedores */
   .venc-card{background:#fff;border-radius:10px;margin-bottom:14px;box-shadow:0 1px 5px rgba(26,58,107,.07);overflow:hidden;border:1px solid #ddd}
   .venc-head{background:#102040;padding:10px 14px}
@@ -759,6 +761,10 @@
   .hab-declare-btn.undo:hover{background:#f4f4f4;transform:none}
   .hab-declare-btn.inab{background:#A32D2D}
   .hab-declare-btn.inab:hover{background:#832222}
+  .hab-declare-btn.naoenviou{background:#374151;margin-top:8px}
+  .hab-declare-btn.naoenviou:hover{background:#1f2937}
+  .hab-declare-btn.copydil{background:#374151;margin-top:8px}
+  .hab-declare-btn.copydil:hover{background:#1f2937}
   .hab-declare-row{display:flex;gap:8px;margin-top:10px}
   .hab-declare-row .hab-declare-btn{margin-top:0}
   /* Modal qualificação técnica */
@@ -4829,7 +4835,7 @@ function fecharRanking(){
 /* 9.16 Jurídica: documentos ALTERNATIVOS — basta 1 aprovado (um substitui o outro). */
 var habProcessoAtual=null, habEmpresas=[], habEstados={}, habMotivos={};
 var habDocs={}, habDocMotivos={}, habConfig={tecnicaExige:false,tecnicaItens:[]}, habExpand={};
-var habDeclarados={}, habDeclaradosInab={}, habEventos=[];
+var habDeclarados={}, habDeclaradosInab={}, habDeclaradosNaoEnviou={}, habEventos=[];
 var HAB_MOTIVO_INABILITACAO='Empresa inabilitada do certame.';
 /* Registra um evento no histórico da habilitação (alimenta o feed do card) */
 function habLogEvento(msg){
@@ -4874,7 +4880,7 @@ function habTecDocsFrom(config){
 /* d = { docId: 'aprovado'|'recusado'|'na' } (ausente = não enviado) */
 /* declarado = true quando a empresa foi declarada habilitada manualmente (botão verde); */
 /* precedência: doc recusado > declaração manual > cálculo automático */
-function habCalcDocsStatus(d, tecDocs, legacyEstado, declarado, declaradoInab){
+function habCalcDocsStatus(d, tecDocs, legacyEstado, declarado, declaradoInab, declaradoNaoEnviou){
   d=d||{};
   var recusados=[], pendentes=[], done=0, total=1; /* jurídica conta como 1 exigência */
   var juridOk=HAB_DOCS_JUR.some(function(x){ return d[x.id]==='aprovado'; });
@@ -4900,13 +4906,17 @@ function habCalcDocsStatus(d, tecDocs, legacyEstado, declarado, declaradoInab){
   if(!recusados.length&&declarado) status='habilitado';
   /* Fallback legado: empresa sem nenhum doc julgado mas com status manual antigo */
   if(!Object.keys(d).length&&!declarado&&legacyEstado) status=legacyEstado;
+  /* "Não enviou os documentos" (2ª solicitação): estado intermediário antes
+     da inabilitação — sinaliza que o prazo já foi reaberto uma vez, sem
+     ainda fechar a questão. */
+  if(declaradoNaoEnviou) status='nao-enviou';
   /* Declaração forçada de inabilitação (botão vermelho): tem precedência sobre tudo acima,
      inclusive sobre docs pendentes ou já aprovados — é uma decisão explícita do pregoeiro */
   if(declaradoInab) status='inabilitado';
-  return {status:status, done:done, total:total, recusados:recusados, pendentes:pendentes, juridOk:juridOk, declarado:!!declarado, declaradoInab:!!declaradoInab};
+  return {status:status, done:done, total:total, recusados:recusados, pendentes:pendentes, juridOk:juridOk, declarado:!!declarado, declaradoInab:!!declaradoInab, declaradoNaoEnviou:!!declaradoNaoEnviou};
 }
 function habCalcInfo(k){
-  return habCalcDocsStatus(habDocs[k]||{}, habTecDocsFrom(habConfig), habEstados[k]||'', habDeclarados[k], habDeclaradosInab[k]);
+  return habCalcDocsStatus(habDocs[k]||{}, habTecDocsFrom(habConfig), habEstados[k]||'', habDeclarados[k], habDeclaradosInab[k], habDeclaradosNaoEnviou[k]);
 }
 
 /* Deriva a lista de empresas vencedoras a partir dos itens/estados do ranking */
@@ -4972,7 +4982,7 @@ function abrirHabilitacao(pid){
   habProcessoAtual=p;
   habDocId=pid;
   habEmpresas=[]; habEstados={}; habMotivos={}; habDocs={}; habDocMotivos={}; habExpand={};
-  habDeclarados={}; habDeclaradosInab={}; habEventos=[];
+  habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[];
   habConfig={tecnicaExige:false,tecnicaItens:[]};
   habRkItens=[]; habRkEstados={}; habLegacyEmpresas=[];
   document.getElementById('habPanelTitle').textContent='Habilitação — '+p.numero+(function(){var n=primeiroNomeAgente(p.responsavel);return n?' — '+n:'';})();
@@ -4996,11 +5006,11 @@ function abrirHabilitacao(pid){
       var d=doc.data();
       habEstados=d.estados||{}; habMotivos=d.motivos||{};
       habDocs=d.docs||{}; habDocMotivos=d.docMotivos||{};
-      habDeclarados=d.declarados||{}; habDeclaradosInab=d.declaradosInab||{}; habEventos=d.eventos||[];
+      habDeclarados=d.declarados||{}; habDeclaradosInab=d.declaradosInab||{}; habDeclaradosNaoEnviou=d.declaradosNaoEnviou||{}; habEventos=d.eventos||[];
       habConfig=d.config||{tecnicaExige:false,tecnicaItens:[]};
       habLegacyEmpresas=d.empresas||[];
       habMigrarChaves();
-    } else { habEstados={}; habMotivos={}; habDocs={}; habDocMotivos={}; habDeclarados={}; habDeclaradosInab={}; habEventos=[]; habConfig={tecnicaExige:false,tecnicaItens:[]}; habLegacyEmpresas=[]; }
+    } else { habEstados={}; habMotivos={}; habDocs={}; habDocMotivos={}; habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[]; habConfig={tecnicaExige:false,tecnicaItens:[]}; habLegacyEmpresas=[]; }
     habAtualizarEmpresas();
   }, function(err){ console.error('Hab snapshot error:', err); });
 }
@@ -5025,7 +5035,7 @@ function habSalvarFirestore(){
     habColRef.doc(habDocId).set({
       empresas:habEmpresas, estados:estadosDerivados, motivos:habMotivos,
       docs:habDocs, docMotivos:habDocMotivos, config:habConfig,
-      declarados:habDeclarados, declaradosInab:habDeclaradosInab, eventos:habEventos,
+      declarados:habDeclarados, declaradosInab:habDeclaradosInab, declaradosNaoEnviou:habDeclaradosNaoEnviou, eventos:habEventos,
       numero:habProcessoAtual?habProcessoAtual.numero:'',
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){ setTimeout(function(){ habOwn=false; },2500); })
@@ -5064,6 +5074,7 @@ function habDeclarar(empKey){
   var nomeEmp=(habEmpresas.find(function(e){ return habKeyEmpresa(e.nome)===empKey; })||{}).nome||empKey;
   habDeclarados[empKey]=true;
   delete habDeclaradosInab[empKey];
+  delete habDeclaradosNaoEnviou[empKey];
   delete habEstados[empKey];
   habLogEvento(nomeEmp+' declarada habilitada');
   habSalvarFirestore(); habRenderLista();
@@ -5086,6 +5097,7 @@ function habInabilitar(empKey){
   if(!confirm('Declarar "'+nomeEmp+'" INABILITADA?\n\nTodas as propostas ativas dessa empresa no ranking serão desclassificadas automaticamente, com a justificativa "Empresa inabilitada do certame."'))return;
   habDeclaradosInab[empKey]=true;
   delete habDeclarados[empKey];
+  delete habDeclaradosNaoEnviou[empKey];
   habLogEvento(nomeEmp+' declarada inabilitada');
   habDesclassificarNoRanking(empKey, nomeEmp);
   habSalvarFirestore(); habRenderLista();
@@ -5095,6 +5107,33 @@ function habDesfazerInabilitacao(empKey){
   delete habDeclaradosInab[empKey];
   habLogEvento('Declaração de inabilitação de '+nomeEmp+' desfeita');
   habSalvarFirestore(); habRenderLista();
+}
+/* Botão cinza: marca que a empresa foi cobrada uma 2ª vez pelos documentos,
+   sem ainda fechar a questão (nem habilitada, nem inabilitada) — e libera
+   o botão de copiar o texto de diligência avisando disso pra empresa. */
+function habMarcarNaoEnviou(empKey){
+  var nomeEmp=(habEmpresas.find(function(e){ return habKeyEmpresa(e.nome)===empKey; })||{}).nome||empKey;
+  habDeclaradosNaoEnviou[empKey]=true;
+  delete habDeclarados[empKey];
+  delete habDeclaradosInab[empKey];
+  habLogEvento(nomeEmp+' marcada como "não enviou os documentos" (2ª solicitação)');
+  habSalvarFirestore(); habRenderLista();
+}
+function habDesfazerNaoEnviou(empKey){
+  var nomeEmp=(habEmpresas.find(function(e){ return habKeyEmpresa(e.nome)===empKey; })||{}).nome||empKey;
+  delete habDeclaradosNaoEnviou[empKey];
+  habLogEvento('Marcação de "não enviou os documentos" de '+nomeEmp+' desfeita');
+  habSalvarFirestore(); habRenderLista();
+}
+/* Mesmo texto para toda empresa nessa situação — só troca o nome. Copia
+   pronto pra colar no chat do Portal de Compras Públicas. */
+function habTextoNaoEnviouDiligencia(nomeEmp){
+  return 'Solicitamos, pela segunda vez, que a empresa '+nomeEmp+' envie os documentos de habilitação, conforme edital. '
+    +'Caso a empresa não envie novamente, a mesma será INABILITADA de todo o certame.';
+}
+function habCopiarTextoNaoEnviou(empKey){
+  var nomeEmp=(habEmpresas.find(function(e){ return habKeyEmpresa(e.nome)===empKey; })||{}).nome||empKey;
+  copiarParaClipboard(habTextoNaoEnviouDiligencia(nomeEmp));
 }
 /* Grava direto no documento de rankings (rkColRef) a desclassificação de todas
    as propostas da empresa. Usa a cópia local habRkItens/habRkEstados, mantida
@@ -5220,14 +5259,14 @@ function habRenderLista(){
   var exibir=habEmpresas.map(function(e){ var k=habKeyEmpresa(e.nome); return {e:e,k:k,info:habCalcInfo(k)}; });
   if(habFiltroAtivo==='habilitado') exibir=exibir.filter(function(x){ return x.info.status==='habilitado'; });
   else if(habFiltroAtivo==='inabilitado') exibir=exibir.filter(function(x){ return x.info.status==='inabilitado'; });
-  else if(habFiltroAtivo==='pendente') exibir=exibir.filter(function(x){ return !x.info.status; });
+  else if(habFiltroAtivo==='pendente') exibir=exibir.filter(function(x){ return !x.info.status||x.info.status==='nao-enviou'; });
   var html='';
   exibir.forEach(function(item){
     var e=item.e, k=item.k, info=item.info, s=info.status;
     var mv=habMotivos[k]||'';
-    var bdgCls=s==='habilitado'?'habil':s==='inabilitado'?'inabil':'pend';
-    var bdgTxt=s==='habilitado'?'Habilitado':s==='inabilitado'?'Inabilitado':'Pendente';
-    var cardCls=s==='habilitado'?'habil':s==='inabilitado'?'inabil':'';
+    var bdgCls=s==='habilitado'?'habil':s==='inabilitado'?'inabil':s==='nao-enviou'?'naoenviou':'pend';
+    var bdgTxt=s==='habilitado'?'Habilitado':s==='inabilitado'?'Inabilitado':s==='nao-enviou'?'Não enviou os docs.':'Pendente';
+    var cardCls=s==='habilitado'?'habil':s==='inabilitado'?'inabil':s==='nao-enviou'?'naoenviou':'';
     var nItens=(e.itens&&e.itens.length)||0;
     var progCls=s==='habilitado'?'ok':(info.recusados.length?'bad':'');
     var aberto=!!habExpand[k];
@@ -5245,10 +5284,14 @@ function habRenderLista(){
           ?'<button class="hab-declare-btn undo" data-undeclare="'+escHtml(k)+'">&#8617; Desfazer declaração de habilitada</button>'
           :info.declaradoInab
             ?'<button class="hab-declare-btn undo" data-uninab="'+escHtml(k)+'">&#8617; Desfazer declaração de inabilitada</button>'
-            :'<div class="hab-declare-row">'
-              +(s!=='habilitado'?'<button class="hab-declare-btn" data-declare="'+escHtml(k)+'">&#10003; Declarar empresa HABILITADA</button>':'')
-              +(s!=='inabilitado'?'<button class="hab-declare-btn inab" data-inab="'+escHtml(k)+'">&#10007; Declarar empresa INABILITADA</button>':'')
-            +'</div>')
+            :info.declaradoNaoEnviou
+              ?'<button class="hab-declare-btn undo" data-undonaoenv="'+escHtml(k)+'">&#8617; Desfazer "não enviou os documentos"</button>'
+                +'<button class="hab-declare-btn copydil" data-copynaoenv="'+escHtml(k)+'">&#128203; Copiar texto de diligência</button>'
+              :'<div class="hab-declare-row">'
+                +(s!=='habilitado'?'<button class="hab-declare-btn" data-declare="'+escHtml(k)+'">&#10003; Declarar empresa HABILITADA</button>':'')
+                +(s!=='inabilitado'?'<button class="hab-declare-btn inab" data-inab="'+escHtml(k)+'">&#10007; Declarar empresa INABILITADA</button>':'')
+              +'</div>'
+              +'<button class="hab-declare-btn naoenviou" data-naoenviou="'+escHtml(k)+'">&#128196; Não enviou os documentos</button>')
       +(s==='inabilitado'&&info.recusados.length?'<div class="hab-recusa-resumo"><b>Documentos recusados:</b> '+info.recusados.map(escHtml).join('; ')+'</div>':'')
       +'<div class="hab-motivo-wrap"'+(s==='inabilitado'?'':' style="display:none"')+'><textarea class="hab-motivo" placeholder="Justificativa complementar de inabilitação (opcional)..." data-key="'+escHtml(k)+'">'+escHtml(mv)+'</textarea></div>'
       +'</div>';
@@ -5268,6 +5311,15 @@ function habRenderLista(){
   });
   lista.querySelectorAll('[data-undeclare]').forEach(function(btn){
     btn.addEventListener('click',function(){ habDesfazerDeclaracao(btn.dataset.undeclare); });
+  });
+  lista.querySelectorAll('[data-naoenviou]').forEach(function(btn){
+    btn.addEventListener('click',function(){ habMarcarNaoEnviou(btn.dataset.naoenviou); });
+  });
+  lista.querySelectorAll('[data-undonaoenv]').forEach(function(btn){
+    btn.addEventListener('click',function(){ habDesfazerNaoEnviou(btn.dataset.undonaoenv); });
+  });
+  lista.querySelectorAll('[data-copynaoenv]').forEach(function(btn){
+    btn.addEventListener('click',function(){ habCopiarTextoNaoEnviou(btn.dataset.copynaoenv); });
   });
   lista.querySelectorAll('.hab-dbtn').forEach(function(btn){
     btn.addEventListener('click',function(){
@@ -5495,7 +5547,7 @@ function habGerarPDF(){
   var lista=habEmpresas.map(function(e){ var k=habKeyEmpresa(e.nome); var info=habCalcInfo(k); return {e:e,k:k,info:info,s:info.status}; });
   if(habFiltroAtivo==='habilitado') lista=lista.filter(function(x){ return x.s==='habilitado'; });
   else if(habFiltroAtivo==='inabilitado') lista=lista.filter(function(x){ return x.s==='inabilitado'; });
-  else if(habFiltroAtivo==='pendente') lista=lista.filter(function(x){ return !x.s; });
+  else if(habFiltroAtivo==='pendente') lista=lista.filter(function(x){ return !x.s||x.s==='nao-enviou'; });
   var tecDocs=habTecDocsFrom(habConfig);
   drawHeader();
   lista.forEach(function(item, idx){
@@ -5505,7 +5557,7 @@ function habGerarPDF(){
     var mv=habMotivos[k]||'';
     var nItens=(e.itens&&e.itens.length)||0;
     /* Sem status fechado no sistema → sai como folha de conferência (checklist) */
-    var chkMode=!s;
+    var chkMode=(!s||s==='nao-enviou');
     /* Bloco cabeçalho da empresa — altura calculada, não fixa.
        Nome de empresa longo (comum em razão social) quebra em 2-3 linhas; a
        caixa e a linha de CNPJ/cidade abaixo dele precisam empurrar para
@@ -5535,7 +5587,7 @@ function habGerarPDF(){
       doc.text(nomeLinesEmp, ML+6, y+6);
       doc.setFontSize(9); doc.setFont('helvetica','normal'); txt(C_MUTED);
       if(linha2.length) doc.text(linha2.join('   '), ML+6, y+linha2Y);
-      var bdgLabelC='PARA CONFERÊNCIA';
+      var bdgLabelC=s==='nao-enviou'?'NÃO ENVIOU (2ª SOLICITAÇÃO)':'PARA CONFERÊNCIA';
       doc.setFontSize(9.5); doc.setFont('helvetica','bold');
       var bdgWc=doc.getTextWidth(bdgLabelC)+8;
       fill([255,255,255]); draw(C_NAVY); doc.setLineWidth(0.55);
