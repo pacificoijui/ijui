@@ -701,6 +701,10 @@
   .hab-motivo-wrap{margin-top:10px}
   .hab-motivo{width:100%;padding:9px 12px;border:1.5px solid #fca5a5;border-radius:9px;font-size:12px;font-family:'Sora',system-ui,sans-serif;resize:none;min-height:58px;outline:none;background:#fffafa;color:#333;line-height:1.5}
   .hab-motivo:focus{border-color:#A32D2D}
+  .hab-obs-wrap{margin-top:10px}
+  .hab-obs-input{width:100%;padding:9px 12px;border:1.5px solid #d8dee8;border-radius:9px;font-size:12px;font-family:'Sora',system-ui,sans-serif;resize:none;min-height:44px;outline:none;background:#fbfbfd;color:#333;line-height:1.5}
+  .hab-obs-input:focus{border-color:#1a3a6b}
+  .hab-obs-input::placeholder{color:#9aa4b5}
   /* ── Checklist de documentos de habilitação ── */
   .hab-prog{display:inline-flex;align-items:center;gap:6px;background:#eef2f8;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;color:#1a3a6b}
   .hab-prog.ok{background:#d4edda;color:#1E5F3A}
@@ -2816,7 +2820,7 @@ function mudarStatusRapido(pid, statusId){
   var eraConcluido=isConcluido(p.status), viraConcluido=isConcluido(statusId);
   var eraRevogado=isRevogado(p.status),   viraRevogado=isRevogado(statusId);
   var upd={status:statusId, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
-  if(viraConcluido && !eraConcluido) upd.dataConclusao=p.dataConclusao||hojeISO();
+  if(viraConcluido && !eraConcluido){ upd.dataConclusao=p.dataConclusao||hojeISO(); upd.observacao=""; }
   if(viraRevogado && !eraRevogado) upd.dataRevogacao=p.dataRevogacao||hojeISO();
   colRef.doc(pid).update(upd)
     .then(function(){
@@ -4021,7 +4025,9 @@ function salvarProcesso(){
   var existing=processos.find(function(x){return x.id===editandoId;});
   var eraConcluido=isConcluido(existing.status), viraConcluido=isConcluido(status);
   var eraRevogado=isRevogado(existing.status),   viraRevogado=isRevogado(status);
-  var payload={numero:numero,objeto:objeto,responsavel:resp,status:status,dataLicit:dataLicit,link:link,contato:contato,fixado:existing.fixado||false,observacao:existing.observacao||"",updatedAt:ts};
+  /* Observação some ao concluir: já cumpriu o papel de lembrete durante o
+     andamento, e processo concluído não precisa de pendência anotada. */
+  var payload={numero:numero,objeto:objeto,responsavel:resp,status:status,dataLicit:dataLicit,link:link,contato:contato,fixado:existing.fixado||false,observacao:(viraConcluido&&!eraConcluido)?"":(existing.observacao||""),updatedAt:ts};
   if(viraConcluido && !eraConcluido) payload.dataConclusao=existing.dataConclusao||hojeISO();
   if(viraRevogado && !eraRevogado) payload.dataRevogacao=existing.dataRevogacao||hojeISO();
   var op=colRef.doc(editandoId).set(payload,{merge:true});
@@ -4833,7 +4839,7 @@ function fecharRanking(){
 /*  - qualquer doc recusado → Inabilitado */
 /*  - faltando algo → Pendente */
 /* 9.16 Jurídica: documentos ALTERNATIVOS — basta 1 aprovado (um substitui o outro). */
-var habProcessoAtual=null, habEmpresas=[], habEstados={}, habMotivos={};
+var habProcessoAtual=null, habEmpresas=[], habEstados={}, habMotivos={}, habObs={};
 var habDocs={}, habDocMotivos={}, habConfig={tecnicaExige:false,tecnicaItens:[]}, habExpand={};
 var habDeclarados={}, habDeclaradosInab={}, habDeclaradosNaoEnviou={}, habEventos=[];
 var HAB_MOTIVO_INABILITACAO='Empresa inabilitada do certame.';
@@ -4982,7 +4988,7 @@ function abrirHabilitacao(pid){
   habProcessoAtual=p;
   habDocId=pid;
   habEmpresas=[]; habEstados={}; habMotivos={}; habDocs={}; habDocMotivos={}; habExpand={};
-  habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[];
+  habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[]; habObs={};
   habConfig={tecnicaExige:false,tecnicaItens:[]};
   habRkItens=[]; habRkEstados={}; habLegacyEmpresas=[];
   document.getElementById('habPanelTitle').textContent='Habilitação — '+p.numero+(function(){var n=primeiroNomeAgente(p.responsavel);return n?' — '+n:'';})();
@@ -5004,13 +5010,13 @@ function abrirHabilitacao(pid){
     if(habOwn) return; /* ignora eco da própria gravação (evita perder foco/scroll) */
     if(doc.exists){
       var d=doc.data();
-      habEstados=d.estados||{}; habMotivos=d.motivos||{};
+      habEstados=d.estados||{}; habMotivos=d.motivos||{}; habObs=d.obs||{};
       habDocs=d.docs||{}; habDocMotivos=d.docMotivos||{};
       habDeclarados=d.declarados||{}; habDeclaradosInab=d.declaradosInab||{}; habDeclaradosNaoEnviou=d.declaradosNaoEnviou||{}; habEventos=d.eventos||[];
       habConfig=d.config||{tecnicaExige:false,tecnicaItens:[]};
       habLegacyEmpresas=d.empresas||[];
       habMigrarChaves();
-    } else { habEstados={}; habMotivos={}; habDocs={}; habDocMotivos={}; habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[]; habConfig={tecnicaExige:false,tecnicaItens:[]}; habLegacyEmpresas=[]; }
+    } else { habEstados={}; habMotivos={}; habObs={}; habDocs={}; habDocMotivos={}; habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[]; habConfig={tecnicaExige:false,tecnicaItens:[]}; habLegacyEmpresas=[]; }
     habAtualizarEmpresas();
   }, function(err){ console.error('Hab snapshot error:', err); });
 }
@@ -5033,7 +5039,7 @@ function habSalvarFirestore(){
       if(st) estadosDerivados[k]=st;
     });
     habColRef.doc(habDocId).set({
-      empresas:habEmpresas, estados:estadosDerivados, motivos:habMotivos,
+      empresas:habEmpresas, estados:estadosDerivados, motivos:habMotivos, obs:habObs,
       docs:habDocs, docMotivos:habDocMotivos, config:habConfig,
       declarados:habDeclarados, declaradosInab:habDeclaradosInab, declaradosNaoEnviou:habDeclaradosNaoEnviou, eventos:habEventos,
       numero:habProcessoAtual?habProcessoAtual.numero:'',
@@ -5066,6 +5072,9 @@ function habSetDoc(empKey, docId, st){
     else if(depois==='inabilitado'){ habLogEvento(nomeEmp+' inabilitada — documento recusado'); habDesclassificarNoRanking(empKey, nomeEmp); }
     else if(antes==='habilitado'||antes==='inabilitado') habLogEvento('Julgamento de '+nomeEmp+' reaberto');
   }
+  /* Observação some assim que o julgamento fecha — habilitada ou inabilitada
+     não precisa mais da anotação que guiava a análise ("falta tal doc..."). */
+  if(depois==='habilitado'||depois==='inabilitado') delete habObs[empKey];
   habSalvarFirestore(); habRenderLista();
 }
 
@@ -5076,6 +5085,7 @@ function habDeclarar(empKey){
   delete habDeclaradosInab[empKey];
   delete habDeclaradosNaoEnviou[empKey];
   delete habEstados[empKey];
+  delete habObs[empKey];
   habLogEvento(nomeEmp+' declarada habilitada');
   habSalvarFirestore(); habRenderLista();
 }
@@ -5098,6 +5108,7 @@ function habInabilitar(empKey){
   habDeclaradosInab[empKey]=true;
   delete habDeclarados[empKey];
   delete habDeclaradosNaoEnviou[empKey];
+  delete habObs[empKey];
   habLogEvento(nomeEmp+' declarada inabilitada');
   habDesclassificarNoRanking(empKey, nomeEmp);
   habSalvarFirestore(); habRenderLista();
@@ -5264,6 +5275,7 @@ function habRenderLista(){
   exibir.forEach(function(item){
     var e=item.e, k=item.k, info=item.info, s=info.status;
     var mv=habMotivos[k]||'';
+    var ov=habObs[k]||'';
     var bdgCls=s==='habilitado'?'habil':s==='inabilitado'?'inabil':s==='nao-enviou'?'naoenviou':'pend';
     var bdgTxt=s==='habilitado'?'Habilitado':s==='inabilitado'?'Inabilitado':s==='nao-enviou'?'Não enviou os docs.':'Pendente';
     var cardCls=s==='habilitado'?'habil':s==='inabilitado'?'inabil':s==='nao-enviou'?'naoenviou':'';
@@ -5280,6 +5292,7 @@ function habRenderLista(){
       +'</div>'
       +'<button class="hab-chk-toggle" data-expand="'+escHtml(k)+'">'+(aberto?'&#9650; Recolher checklist':'&#9660; Abrir checklist de documentos')+'</button>'
       +(aberto?habChecklistHTML(k, info):'')
+      +'<div class="hab-obs-wrap"><textarea class="hab-obs-input" placeholder="Anotação — ex: falta alvará sanitário" data-obskey="'+escHtml(k)+'">'+escHtml(ov)+'</textarea></div>'
       +(info.declarado
           ?'<button class="hab-declare-btn undo" data-undeclare="'+escHtml(k)+'">&#8617; Desfazer declaração de habilitada</button>'
           :info.declaradoInab
@@ -5337,6 +5350,15 @@ function habRenderLista(){
     ta.addEventListener('input',function(){
       var key=ta.dataset.key;
       if(ta.value.trim()) habMotivos[key]=ta.value; else delete habMotivos[key];
+      habSalvarFirestore();
+    });
+  });
+  lista.querySelectorAll('.hab-obs-input').forEach(function(ta){
+    rkAutoResize(ta);
+    ta.addEventListener('input',function(){
+      rkAutoResize(ta);
+      var key=ta.dataset.obskey;
+      if(ta.value.trim()) habObs[key]=ta.value; else delete habObs[key];
       habSalvarFirestore();
     });
   });
