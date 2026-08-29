@@ -1,0 +1,36 @@
+name: Backup diário do Firestore
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 em Brasília, quando ninguém está mexendo no sistema.
+    - cron: "0 6 * * *"
+  # Permite rodar na hora, pelo botão "Run workflow" na aba Actions.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Baixar todas as coleções
+        run: node .github/scripts/backup-firestore.mjs backup
+
+      - name: Nome do backup
+        id: nome
+        run: echo "dia=$(TZ=America/Sao_Paulo date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Guardar o backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-firestore-${{ steps.nome.outputs.dia }}
+          path: backup/
+          retention-days: 90
+          if-no-files-found: error
