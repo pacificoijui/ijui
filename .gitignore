@@ -1,0 +1,4 @@
+# Dumps do Firestore gerados por .github/scripts/backup-firestore.mjs.
+# Este repositório é público e vira o site ijui.net: um backup commitado aqui
+# publicaria o banco inteiro (inclusive a coleção usuarios) numa URL fixa.
+backup/
