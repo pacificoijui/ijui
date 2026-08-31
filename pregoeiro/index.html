@@ -3533,12 +3533,12 @@ function cardProgresso(ex){
   var emps=habDerivarEmpresas(itens, estados);
   if(!emps.length&&(hb.empresas||[]).length) emps=hb.empresas;
   var docs=hb.docs||{}, cfg=hb.config||{tecnicaExige:false,tecnicaItens:[]};
-  var decl=hb.declarados||{}, legE=hb.estados||{}, declInab=hb.declaradosInab||{};
+  var decl=hb.declarados||{}, legE=hb.estados||{}, declInab=hb.declaradosInab||{}, declNaoEnv=hb.declaradosNaoEnviou||{};
   var tec=habTecDocsFrom(cfg);
   var julg=0;
   emps.forEach(function(e){
     var k=habKeyEmpresa(e.nome);
-    var st=habCalcDocsStatus(docs[k]||{}, tec, legE[k]||'', decl[k], declInab[k]).status;
+    var st=habCalcDocsStatus(docs[k]||{}, tec, legE[k]||'', decl[k], declInab[k], declNaoEnv[k]).status;
     if(st) julg++;
   });
   var total=itens.length+emps.length;
@@ -5069,7 +5069,11 @@ function habSetDoc(empKey, docId, st){
   var nomeEmp=(habEmpresas.find(function(e){ return habKeyEmpresa(e.nome)===empKey; })||{}).nome||empKey;
   if(depois!==antes){
     if(depois==='habilitado') habLogEvento(nomeEmp+' declarada habilitada (documentação completa)');
-    else if(depois==='inabilitado'){ habLogEvento(nomeEmp+' inabilitada — documento recusado'); habDesclassificarNoRanking(empKey, nomeEmp); }
+    /* Um documento recusado já pinta o selo de "Inabilitado" (alerta pro
+       pregoeiro), mas NÃO desclassifica nada no Ranking sozinho — só o botão
+       vermelho "Declarar empresa INABILITADA" faz isso, porque é uma decisão,
+       não um efeito colateral de marcar um checkbox durante a conferência. */
+    else if(depois==='inabilitado') habLogEvento(nomeEmp+' com documento recusado — pendente de declaração de inabilitação');
     else if(antes==='habilitado'||antes==='inabilitado') habLogEvento('Julgamento de '+nomeEmp+' reaberto');
   }
   /* Observação some assim que o julgamento fecha — habilitada ou inabilitada
@@ -5302,7 +5306,11 @@ function habRenderLista(){
                 +'<button class="hab-declare-btn copydil" data-copynaoenv="'+escHtml(k)+'">&#128203; Copiar texto de diligência</button>'
               :'<div class="hab-declare-row">'
                 +(s!=='habilitado'?'<button class="hab-declare-btn" data-declare="'+escHtml(k)+'">&#10003; Declarar empresa HABILITADA</button>':'')
-                +(s!=='inabilitado'?'<button class="hab-declare-btn inab" data-inab="'+escHtml(k)+'">&#10007; Declarar empresa INABILITADA</button>':'')
+                /* Sempre visível aqui (não checa "s"): um documento recusado já
+                   pinta o selo como "Inabilitado" sozinho, mas sem declaração
+                   explícita nada é desclassificado no Ranking — o botão precisa
+                   continuar disponível pra essa declaração poder ser feita. */
+                +'<button class="hab-declare-btn inab" data-inab="'+escHtml(k)+'">&#10007; Declarar empresa INABILITADA</button>'
               +'</div>'
               +'<button class="hab-declare-btn naoenviou" data-naoenviou="'+escHtml(k)+'">&#128196; Não enviou os documentos</button>')
       +(s==='inabilitado'&&info.recusados.length?'<div class="hab-recusa-resumo"><b>Documentos recusados:</b> '+info.recusados.map(escHtml).join('; ')+'</div>':'')
@@ -8233,11 +8241,16 @@ function rkAbrirSessaoPublica(){
 
   var sharedEmpresas=[], sharedEstados={}, sharedMotivos={}, sharedNumero='';
   var sharedDocs={}, sharedDocMotivos={}, sharedConfig={tecnicaExige:false,tecnicaItens:[]};
-  var sharedDeclarados={}, sharedEvtsH=[];
+  var sharedDeclarados={}, sharedEvtsH=[], sharedObs={};
   /* Inabilitação declarada pelo pregoeiro (botão vermelho). A secretaria não
      mexe nisso, mas PRECISA carregar e regravar: a gravação daqui é um set()
      inteiro e, sem este campo, a inabilitação seria apagada do documento.   */
   var sharedDeclaradosInab={};
+  /* "Não enviou os documentos" (2ª solicitação) também é decisão da COPAM, não
+     da secretaria — mas precisa ser carregada e regravada pelo mesmo motivo
+     do sharedDeclaradosInab acima: o save() daqui é um set() do documento
+     inteiro, e sem isso a marcação seria apagada. */
+  var sharedDeclaradosNaoEnviou={};
   var sharedRkItens=[], sharedRkEstados={}, sharedLegacy=[];
   var sharedExpand={};
   var saveTimer=null, sharedOwn=false;
@@ -8255,7 +8268,7 @@ function rkAbrirSessaoPublica(){
     else { d.className='hbs-dot'; t.textContent='Aguardando alterações'; }
   }
   function sharedCalc(k){
-    return habCalcDocsStatus(sharedDocs[k]||{}, habTecDocsFrom(sharedConfig), sharedEstados[k]||'', sharedDeclarados[k], sharedDeclaradosInab[k]);
+    return habCalcDocsStatus(sharedDocs[k]||{}, habTecDocsFrom(sharedConfig), sharedEstados[k]||'', sharedDeclarados[k], sharedDeclaradosInab[k], sharedDeclaradosNaoEnviou[k]);
   }
   /* Status SÓ da qualificação técnica (visão da secretaria) */
   function tecStatus(k){
@@ -8282,7 +8295,7 @@ function rkAbrirSessaoPublica(){
     habColRef.doc(habId).set({
       empresas:sharedEmpresas, estados:estadosDerivados, motivos:sharedMotivos,
       docs:sharedDocs, docMotivos:sharedDocMotivos, config:sharedConfig,
-      declarados:sharedDeclarados, declaradosInab:sharedDeclaradosInab, eventos:sharedEvtsH,
+      declarados:sharedDeclarados, declaradosInab:sharedDeclaradosInab, declaradosNaoEnviou:sharedDeclaradosNaoEnviou, eventos:sharedEvtsH, obs:sharedObs,
       numero:sharedNumero,
       updatedAt:firebase.firestore.FieldValue.serverTimestamp()
     }).then(function(){ setDot('saved'); setTimeout(function(){ sharedOwn=false; },3000); })
@@ -8427,11 +8440,13 @@ function rkAbrirSessaoPublica(){
       sharedDocs=d.docs||{}; sharedDocMotivos=d.docMotivos||{};
       sharedDeclarados=d.declarados||{}; sharedEvtsH=d.eventos||[];
       sharedDeclaradosInab=d.declaradosInab||{};
+      sharedDeclaradosNaoEnviou=d.declaradosNaoEnviou||{};
+      sharedObs=d.obs||{};
       sharedConfig=d.config||{tecnicaExige:false,tecnicaItens:[]};
       sharedLegacy=d.empresas||[];
       if(d.numero) sharedNumero=d.numero;
       hbsMigrar();
-    } else { sharedEstados={}; sharedMotivos={}; sharedDocs={}; sharedDocMotivos={}; sharedDeclarados={}; sharedDeclaradosInab={}; sharedEvtsH=[]; sharedConfig={tecnicaExige:false,tecnicaItens:[]}; sharedLegacy=[]; }
+    } else { sharedEstados={}; sharedMotivos={}; sharedDocs={}; sharedDocMotivos={}; sharedDeclarados={}; sharedDeclaradosInab={}; sharedDeclaradosNaoEnviou={}; sharedObs={}; sharedEvtsH=[]; sharedConfig={tecnicaExige:false,tecnicaItens:[]}; sharedLegacy=[]; }
     hbsAtualizar();
   }, function(err){
     var b=document.getElementById('hbsBody');
