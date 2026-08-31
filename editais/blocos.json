@@ -1,0 +1,390 @@
+{
+ "modelo": "modelo-edital.odt",
+ "paragrafos": 1978,
+ "campos": [
+  "@@PREGAO@@",
+  "@@PROCESSO@@",
+  "@@OBJETO@@",
+  "@@DATA_EXTENSO@@",
+  "@@DATA_CURTA@@",
+  "@@DIA_SEMANA@@",
+  "@@HORARIO@@",
+  "@@DATA_EDITAL@@"
+ ],
+ "blocos": [
+  {
+   "id": "sum_14_ata",
+   "titulo": "Sumário: 14. Ata de Registro de Preços",
+   "ini": 105,
+   "fim": 105,
+   "impressao": "14. ATA DE REGISTRO DE PREÇOS E CONTRATAÇÃO17",
+   "campo": "instrumento",
+   "valores": [
+    "ata"
+   ]
+  },
+  {
+   "id": "sum_14_empenho",
+   "titulo": "Sumário: 14. Substituição do Termo",
+   "ini": 106,
+   "fim": 106,
+   "impressao": "14. SUBSTITUIÇÃO DO TERMO DE CONTRATO17",
+   "campo": "instrumento",
+   "valores": [
+    "empenho"
+   ]
+  },
+  {
+   "id": "sum_14_contrato",
+   "titulo": "Sumário: 14. Contrato",
+   "ini": 107,
+   "fim": 107,
+   "impressao": "14. CONTRATO18",
+   "campo": "instrumento",
+   "valores": [
+    "contrato"
+   ]
+  },
+  {
+   "id": "sum_anexo2_ata",
+   "titulo": "Sumário: Anexo II — Minuta da Ata",
+   "ini": 112,
+   "fim": 112,
+   "impressao": "ANEXO II – MINUTA DA ATA DE REGISTRO DE PREÇOS23",
+   "campo": "instrumento",
+   "valores": [
+    "ata"
+   ]
+  },
+  {
+   "id": "sum_anexo2_contrato",
+   "titulo": "Sumário: Anexo II — Minuta do Contrato",
+   "ini": 113,
+   "fim": 113,
+   "impressao": "ANEXO II – MINUTA DO CONTRATO29",
+   "campo": "instrumento",
+   "valores": [
+    "contrato"
+   ]
+  },
+  {
+   "id": "item_1_6_amostra",
+   "titulo": "Item 1.6 — exigência de amostra",
+   "ini": 143,
+   "fim": 152,
+   "impressao": "1.6 O licitante classificado em primeiro lugar que deverá ap",
+   "campo": "amostra",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "item_4_12_exclusivo",
+   "titulo": "Item 4.12 — itens exclusivos ME/EPP",
+   "ini": 316,
+   "fim": 317,
+   "impressao": "4.12 Os itens com o valor total de até 80 (oitenta) mil reai",
+   "campo": "itensExclusivosMeEpp",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "item_4_12_favorecido",
+   "titulo": "Item 4.12 — tratamento favorecido",
+   "ini": 318,
+   "fim": 319,
+   "impressao": "4.12 Será concedido tratamento favorecido para as microempre",
+   "campo": "itensExclusivosMeEpp",
+   "valores": [
+    false
+   ]
+  },
+  {
+   "id": "item_8_5_2",
+   "titulo": "Item 8.5.2 — catálogo/marca do produto",
+   "ini": 442,
+   "fim": 443,
+   "impressao": "8.5.2 Dentre os documentos passíveis de solicitação pelo Pre",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "sec_14_ata",
+   "titulo": "Seção 14 — Ata de Registro de Preços",
+   "ini": 666,
+   "fim": 681,
+   "impressao": "14. ATA DE REGISTRO DE PREÇOS E CONTRATAÇÃO",
+   "campo": "instrumento",
+   "valores": [
+    "ata"
+   ]
+  },
+  {
+   "id": "sec_14_empenho",
+   "titulo": "Seção 14 — Substituição do Termo de Contrato",
+   "ini": 682,
+   "fim": 693,
+   "impressao": "14. SUBSTITUIÇÃO DO TERMO DE CONTRATO",
+   "campo": "instrumento",
+   "valores": [
+    "empenho"
+   ]
+  },
+  {
+   "id": "sec_14_emp_aquis",
+   "titulo": "  └ variante AQUISIÇÃO",
+   "ini": 684,
+   "fim": 688,
+   "impressao": "AQUISIÇÃO",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "sec_14_emp_contrat",
+   "titulo": "  └ variante CONTRATAÇÃO",
+   "ini": 689,
+   "fim": 693,
+   "impressao": "CONTRATAÇÃO",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "sec_14_contrato",
+   "titulo": "Seção 14 — Contrato",
+   "ini": 694,
+   "fim": 711,
+   "impressao": "14. CONTRATO",
+   "campo": "instrumento",
+   "valores": [
+    "contrato"
+   ]
+  },
+  {
+   "id": "item_14_1_docs",
+   "titulo": "  └ 14.1 com documentos antes da assinatura",
+   "ini": 696,
+   "fim": 697,
+   "impressao": "14.1 Após a homologação do certame, a empresa vencedora será",
+   "campo": "docsAntesAssinatura",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "item_14_1_simples",
+   "titulo": "  └ 14.1 convocação direta",
+   "ini": 698,
+   "fim": 703,
+   "impressao": "14.1 Homologado o procedimento licitatório, o Município conv",
+   "campo": "docsAntesAssinatura",
+   "valores": [
+    false
+   ]
+  },
+  {
+   "id": "item_14_4_garantia",
+   "titulo": "  └ 14.4 garantia contratual",
+   "ini": 708,
+   "fim": 711,
+   "impressao": "14.4 Para retirar e assinar o contrato, a empresa adjudicatá",
+   "campo": "garantiaContratual",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "item_16_servicos",
+   "titulo": "Item 16.1 — pagamento (serviços)",
+   "ini": 756,
+   "fim": 757,
+   "impressao": "SERVIÇOS: 16.1 Após a execução do objeto contratado ou parce",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "item_16_aquisicao",
+   "titulo": "Item 16.1 — pagamento (aquisição)",
+   "ini": 758,
+   "fim": 759,
+   "impressao": "AQUISIÇÃO: 16.1 Após o recebimento do objeto, o pagamento do",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "item_17_12_dotacao",
+   "titulo": "Item 17.12 — dotação orçamentária",
+   "ini": 803,
+   "fim": 836,
+   "impressao": "17.12 As despesas decorrentes do objeto deste Pregão correrã",
+   "campo": "regime",
+   "valores": [
+    "contratacao"
+   ]
+  },
+  {
+   "id": "anexo_lista_ata",
+   "titulo": "Lista de anexos: Minuta da Ata",
+   "ini": 840,
+   "fim": 840,
+   "impressao": "Anexo II - Minuta da Ata de Registro de Preços",
+   "campo": "instrumento",
+   "valores": [
+    "ata"
+   ]
+  },
+  {
+   "id": "anexo_lista_contrato",
+   "titulo": "Lista de anexos: Minuta do Contrato",
+   "ini": 841,
+   "fim": 841,
+   "impressao": "Anexo II – Minuta do Contrato",
+   "campo": "instrumento",
+   "valores": [
+    "contrato"
+   ]
+  },
+  {
+   "id": "anexo2_ata",
+   "titulo": "ANEXO II — Minuta da Ata de Registro de Preços",
+   "ini": 1148,
+   "fim": 1385,
+   "impressao": "ANEXO II – MINUTA DA ATA DE REGISTRO DE PREÇOS",
+   "campo": "instrumento",
+   "valores": [
+    "ata"
+   ]
+  },
+  {
+   "id": "ata_cl3_servicos",
+   "titulo": "  └ Cláusula 3ª — Execução dos serviços",
+   "ini": 1169,
+   "fim": 1178,
+   "impressao": "CLÁUSULA TERCEIRA – EXECUÇÃO DOS SERVIÇOS",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "ata_cl3_entrega",
+   "titulo": "  └ Cláusula 3ª — Entrega do objeto",
+   "ini": 1179,
+   "fim": 1189,
+   "impressao": "CLÁUSULA TERCEIRA – ENTREGA DO OBJETO",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "anexo2_contrato",
+   "titulo": "ANEXO II — Minuta do Contrato",
+   "ini": 1386,
+   "fim": 1659,
+   "impressao": "ANEXO II – MINUTA DO CONTRATO",
+   "campo": "instrumento",
+   "valores": [
+    "contrato"
+   ]
+  },
+  {
+   "id": "ct_par2_entrega",
+   "titulo": "  └ Par. 2º — prazo de entrega",
+   "ini": 1444,
+   "fim": 1445,
+   "impressao": "PARÁGRAFO SEGUNDO: O prazo máximo de entrega do objeto não s",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "ct_par2_execucao",
+   "titulo": "  └ Par. 2º — prazo de execução",
+   "ini": 1446,
+   "fim": 1447,
+   "impressao": "PARÁGRAFO SEGUNDO: O prazo máximo para o início da execução ",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "ct_garantia",
+   "titulo": "  └ Par. 4º a 6º — garantia de execução",
+   "ini": 1450,
+   "fim": 1455,
+   "impressao": "PARÁGRAFO QUARTO: A CONTRATADA presta a garantia de execução",
+   "campo": "garantiaContratual",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "ct_pag_servicos",
+   "titulo": "  └ Cláusula 7ª — pagamento (serviços)",
+   "ini": 1504,
+   "fim": 1505,
+   "impressao": "SERVIÇOS: Após a execução do objeto contratado ou parcela de",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "ct_pag_aquisicao",
+   "titulo": "  └ Cláusula 7ª — pagamento (aquisição)",
+   "ini": 1506,
+   "fim": 1507,
+   "impressao": "AQUISIÇÃO: Após o recebimento do objeto, o pagamento do obje",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "ct_cl9_subcontrat",
+   "titulo": "  └ Cláusula 9ª — subcontratação",
+   "ini": 1590,
+   "fim": 1603,
+   "impressao": "CLÁUSULA NONA – SUBCONTRATAÇÃO",
+   "campo": "subcontratacao",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "tr_4_recebimento",
+   "titulo": "TR item 4 — Recebimento do objeto",
+   "ini": 1937,
+   "fim": 1964,
+   "impressao": "4. RECEBIMENTO DO OBJETO",
+   "campo": "natureza",
+   "valores": [
+    "aquisicao"
+   ]
+  },
+  {
+   "id": "tr_4_execucao",
+   "titulo": "TR item 4 — Execução dos serviços",
+   "ini": 1965,
+   "fim": 1972,
+   "impressao": "4. EXECUÇÃO DOS SERVIÇOS",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  }
+ ]
+}
