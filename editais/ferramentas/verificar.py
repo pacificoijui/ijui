@@ -213,5 +213,49 @@ for arq, esperado in CENARIOS.items():
                  'EXCLUIR BALANÇO', 'b.5 somente para serviços']:
         checa(f'sem a instrução "{lixo}" no corpo', lixo not in texto)
 
+# ── Cenário dos itens: as duas tabelas remontadas a partir de uma colagem ──
+print(f'\n{"="*72}\nsaida-itens.odt (tabelas de itens)')
+try:
+    zf = zipfile.ZipFile('saida-itens.odt')
+    r = ET.fromstring(zf.read('content.xml').decode('utf-8'))
+    TBL2 = TBL
+
+    def linhas_de(nome):
+        for t in r.iter(TBL2 + 'table'):
+            if t.get(TBL2 + 'name') == nome:
+                return [[' '.join(''.join(p.itertext()).strip()
+                                  for p in c.iter(T + 'p')).strip()
+                         for c in ln.findall(TBL2 + 'table-cell')]
+                        for ln in t.iter(TBL2 + 'table-row')]
+        return []
+
+    tr = linhas_de('Tabela1')     # Termo de Referência
+    an = linhas_de('Tabela18')    # modelo de proposta do Anexo I
+
+    checa('TR: cabeçalho + 4 itens', len(tr) == 5, f'{len(tr)} linhas')
+    checa('Anexo I: cabeçalho + 4 itens', len(an) == 5, f'{len(an)} linhas')
+    checa('TR manteve o cabeçalho original', tr and tr[0][0] == 'Lote', tr[0] if tr else None)
+    checa('descrição colada chegou inteira',
+          tr[1][3] == 'Arroz branco tipo 1, pacote de 5kg', tr[1][3] if len(tr) > 1 else None)
+    checa('valor total ausente foi calculado (7,25 x 150 = 1.087,50)',
+          len(tr) > 3 and tr[3][8] == '1.087,50', tr[3][8] if len(tr) > 3 else None)
+    checa('Anexo I sai sem valor unitário (é o formulário da empresa)',
+          len(an) > 1 and an[1][5] == '', repr(an[1][5]) if len(an) > 1 else None)
+    checa('Anexo I sai sem valor total',
+          len(an) > 1 and an[1][8] == '', repr(an[1][8]) if len(an) > 1 else None)
+    checa('Anexo I mantém quantidade e unidade',
+          len(an) > 1 and an[1][6] == '100' and an[1][7] == 'PCT', an[1] if len(an) > 1 else None)
+
+    texto = texto_do(zf, 'content.xml')
+    checa('valor estimado saiu somado dos itens (7.157,50)', '7.157,50' in texto)
+    checa('nenhum item do edital de exemplo sobrou',
+          'Esteria Profissional' not in texto and 'Bicicleta ergométrica' not in texto)
+    checa('nenhum marcador @@…@@ restante', not re.findall(r'@@\w+@@', texto))
+    sobrando = tabelas_vazias(zf) - VAZIAS_NO_MODELO
+    checa('nenhuma tabela ficou vazia', not sobrando, f'ficaram: {sorted(sobrando)}')
+except FileNotFoundError:
+    print('   (saida-itens.odt não gerado — rode t-itens.js antes)')
+
+
 print(f'\n{"="*72}\n{ok} conferências passaram, {falhas} falharam.')
 sys.exit(1 if falhas else 0)
