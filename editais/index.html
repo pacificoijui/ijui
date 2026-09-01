@@ -366,6 +366,17 @@
     </div>
 
     <div class="cartao">
+      <h2>Itens</h2>
+      <p class="dica">Cole direto da planilha (Calc ou Excel) — uma linha por item, colunas separadas por tabulação. Preenche a tabela do Termo de Referência <b>e</b> a do modelo de proposta do Anexo I de uma vez.</p>
+      <div class="campo">
+        <label for="fItens">Lote · Item · Código · Descrição · Complemento · Valor unitário · Qtd · Un</label>
+        <textarea id="fItens" style="min-height:120px;font-family:ui-monospace,Menlo,monospace;font-size:12px"
+          placeholder="1	1	55546	Esteira profissional, conforme Termo de Referência		11.331,00	2	UN"></textarea>
+        <span class="obs" id="obsItens">Deixando em branco, a tabela do modelo continua como está — dá para preencher no LibreOffice depois.</span>
+      </div>
+    </div>
+
+    <div class="cartao">
       <h2>Gerar</h2>
       <p class="dica">Sai um <b>.odt</b>, que abre no LibreOffice já com a formatação, o brasão e o cabeçalho do modelo — é o próprio edital de vocês, só sem os trechos que não se aplicam.</p>
       <div style="display:flex;gap:9px;flex-wrap:wrap">
@@ -512,6 +523,7 @@ function lerFormulario(){
     gestor:     txt('fGestor'),
     fiscalTec:  txt('fFiscalTec'),
     fiscalAdm:  txt('fFiscalAdm'),
+    itens:      document.getElementById('fItens').value,
     /* marcações que decidem os blocos */
     regime:      radio('regime'),
     instrumento: radio('instrumento'),
@@ -535,7 +547,7 @@ var CAMPOS_TEXTO={
   fModoDisputa:'modoDisputa', fSecretaria:'secretaria', fValor:'valor',
   fEndAmostra:'endAmostra', fServAmostra:'servAmostra', fVigencia:'vigencia',
   fPrazoEntrega:'prazoEntrega', fPrazoExecucao:'prazoExecucao',
-  fGestor:'gestor', fFiscalTec:'fiscalTec', fFiscalAdm:'fiscalAdm'
+  fGestor:'gestor', fFiscalTec:'fiscalTec', fFiscalAdm:'fiscalAdm', fItens:'itens'
 };
 var CAMPOS_FLAG={
   fItemUnico:'itemUnico', fAmostra:'amostra', fHabTecnica:'habTecnica',
@@ -616,6 +628,16 @@ async function atualizarPrevia(){
   };
   document.getElementById('obsMeEpp').textContent = expl[d.meEpp]||'';
 
+  var its=parsearItens(d.itens), obsIt=document.getElementById('obsItens');
+  if(its.length){
+    var soma=somaItens(its);
+    obsIt.textContent = its.length+(its.length>1?' itens lidos':' item lido')
+      + (soma!=null ? ' · total R$ '+fmtBR(soma) : ' · sem valores para somar')
+      + (d.valor ? '' : ' (vai para o valor estimado)');
+  } else {
+    obsIt.textContent='Deixando em branco, a tabela do modelo continua como está — dá para preencher no LibreOffice depois.';
+  }
+
   var alvo=document.getElementById('previa');
   var mapa;
   try{ mapa=await carregarMapa(); }
@@ -676,6 +698,110 @@ function listarParagrafos(doc){
     }
   })(corpo);
   return saida;
+}
+
+/* ── Itens do edital ─────────────────────────────────────────────────
+   As mesmas linhas alimentam a tabela do Termo de Referência e a do modelo
+   de proposta (Anexo I). No Anexo I os valores saem em branco: aquela tabela
+   é o formulário que a empresa preenche, não o preço de referência. */
+
+/* "11.331,00" → 11331.00. Aceita também "11331.00" e "R$ 1.200". */
+function numBR(s){
+  s=String(s==null?'':s).replace(/[R$\s]/g,'');
+  if(!s) return null;
+  if(s.indexOf(',')>=0) s=s.replace(/\./g,'').replace(',','.');
+  var n=parseFloat(s);
+  return isNaN(n)?null:n;
+}
+function fmtBR(n){
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+const COLS_ITENS=['lote','item','codigo','descricao','complemento','valor','qtd','un','total'];
+
+/* Aceita o que sai de um Ctrl+C no Calc/Excel (colunas por tabulação) e também
+   colunas separadas por " | ", que é como as pessoas colam de outros lugares. */
+function parsearItens(texto){
+  var linhas=String(texto||'').split(/\r?\n/).map(function(l){ return l.replace(/\s+$/,''); })
+                              .filter(function(l){ return l.trim()!==''; });
+  var itens=[];
+  linhas.forEach(function(linha){
+    var partes = linha.indexOf('\t')>=0 ? linha.split('\t') : linha.split(/\s*\|\s*/);
+    partes=partes.map(function(p){ return p.trim(); });
+    /* pula a linha de cabeçalho, se vier colada junto */
+    if(/^lote$/i.test(partes[0]||'') || /^item$/i.test(partes[0]||'')) return;
+    var it={};
+    COLS_ITENS.forEach(function(c,i){ it[c]=partes[i]||''; });
+    /* Valor total é conta, não digitação: se não veio, calcula. */
+    var vu=numBR(it.valor), q=numBR(it.qtd);
+    if(!it.total && vu!=null && q!=null) it.total=fmtBR(vu*q);
+    itens.push(it);
+  });
+  return itens;
+}
+function somaItens(itens){
+  var s=0, achou=false;
+  itens.forEach(function(it){
+    var t=numBR(it.total);
+    if(t==null){ var vu=numBR(it.valor), q=numBR(it.qtd); if(vu!=null&&q!=null) t=vu*q; }
+    if(t!=null){ s+=t; achou=true; }
+  });
+  return achou?s:null;
+}
+
+function acharTabela(doc, nome){
+  var ts=doc.getElementsByTagNameNS(NS_TABLE,'table');
+  for(var i=0;i<ts.length;i++) if(ts[i].getAttributeNS(NS_TABLE,'name')===nome) return ts[i];
+  return null;
+}
+
+/* Escreve um texto numa célula preservando o estilo do parágrafo: sobra só o
+   primeiro <text:p>, com o texto trocado. Mexer no estilo aqui desalinharia a
+   coluna, que é centralizada numas e justificada noutras. */
+function textoNaCelula(cel, valor){
+  var ps=cel.getElementsByTagNameNS(NS_TEXT,'p');
+  while(ps.length>1) ps[ps.length-1].parentNode.removeChild(ps[ps.length-1]);
+  var p=ps[0];
+  if(!p){
+    p=cel.ownerDocument.createElementNS(NS_TEXT,'text:p');
+    cel.appendChild(p);
+  }
+  p.textContent=String(valor==null?'':valor);
+}
+
+/* Reconstrói o corpo da tabela clonando a PRIMEIRA linha de dados do modelo —
+   é ela que carrega bordas, sombreado e alinhamento de cada coluna. Sem o
+   clone, seria preciso reinventar estilo célula a célula. */
+function montarTabelaItens(doc, nomeTabela, itens, ocultarValores){
+  var tab=acharTabela(doc, nomeTabela);
+  if(!tab || !itens.length) return 0;
+
+  var linhas=[];
+  (function rec(el){
+    for(var i=0;i<el.children.length;i++){
+      var c=el.children[i];
+      if(c.namespaceURI===NS_TABLE && c.localName==='table-row') linhas.push(c);
+      else rec(c); /* table-header-rows envolve as linhas de cabeçalho */
+    }
+  })(tab);
+  if(linhas.length<2) return 0;
+
+  var modelo=linhas[1].cloneNode(true);
+  for(var i=1;i<linhas.length;i++) linhas[i].parentNode.removeChild(linhas[i]);
+  var onde=linhas[0].parentNode;
+
+  itens.forEach(function(it){
+    var ln=modelo.cloneNode(true);
+    var cels=ln.getElementsByTagNameNS(NS_TABLE,'table-cell');
+    COLS_ITENS.forEach(function(col, idx){
+      if(idx>=cels.length) return;
+      var v=it[col]||'';
+      if(ocultarValores && (col==='valor'||col==='total')) v='';
+      textoNaCelula(cels[idx], v);
+    });
+    onde.appendChild(ln);
+  });
+  return itens.length;
 }
 
 /* Boa parte dos títulos do edital mora dentro de uma tabela de uma célula só,
@@ -764,6 +890,12 @@ async function montarODT(dados){
   });
   removerTabelasVazias(mapaTabelas, apagar);
 
+  /* Só depois da remoção: montar as tabelas muda a quantidade de parágrafos,
+     e os índices do mapa deixariam de valer. */
+  var itens=parsearItens(dados.itens);
+  montarTabelaItens(doc, 'Tabela1',  itens, false);  /* Termo de Referência */
+  montarTabelaItens(doc, 'Tabela18', itens, true);   /* modelo de proposta  */
+
   contentTxt=new XMLSerializer().serializeToString(doc);
 
   /* 2. Troca os marcadores pelos valores digitados */
@@ -792,7 +924,8 @@ async function montarODT(dados){
     '@@FISCAL_TECNICO@@':     dados.fiscalTec || '_________________',
     '@@FISCAL_ADM@@':         dados.fiscalAdm || '_________________',
     '@@SECRETARIA@@':         dados.secretaria || 'Todas as Secretarias do Município de Ijuí RS.',
-    '@@VALOR_ESTIMADO@@':     dados.valor || ''
+    /* Se o valor não foi digitado, sai a soma dos itens colados. */
+    '@@VALOR_ESTIMADO@@':     dados.valor || (somaItens(itens)!=null ? fmtBR(somaItens(itens)) : '')
   };
   Object.keys(valores).forEach(function(tok){
     var v=escXml(valores[tok]);
@@ -973,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', function(){
   iniciarFirebase();
   ouvirLista();
 
-  Object.keys(CAMPOS_TEXTO).concat(Object.keys(CAMPOS_FLAG))
+  Object.keys(CAMPOS_TEXTO).concat(Object.keys(CAMPOS_FLAG)).concat(['fItens'])
     .forEach(function(id){
       var el=document.getElementById(id);
       if(!el) return;
