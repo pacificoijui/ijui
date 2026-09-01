@@ -117,6 +117,28 @@ CENARIOS = {
 }
 
 
+TBL = '{urn:oasis:names:tc:opendocument:xmlns:table:1.0}'
+
+
+def tabelas_vazias(zf):
+    """Nomes das tabelas sem nenhum texto dentro.
+
+    Muitos títulos do edital moram numa tabela de uma célula só, usada como
+    faixa. Se o trecho sai e a moldura fica, o edital ganha uma caixa com
+    borda e nada dentro — foi exatamente o que acontecia antes."""
+    r = ET.fromstring(zf.read('content.xml').decode('utf-8'))
+    vazias = set()
+    for t in r.iter(TBL + 'table'):
+        texto = ''.join(''.join(p.itertext()) for p in t.iter(T + 'p'))
+        if not texto.strip():
+            vazias.add(t.get(TBL + 'name'))
+    return vazias
+
+
+with zipfile.ZipFile('/home/user/ijui/editais/modelo-edital.odt') as _z:
+    VAZIAS_NO_MODELO = tabelas_vazias(_z)
+
+
 def texto_do(zf, arquivo):
     r = ET.fromstring(zf.read(arquivo).decode('utf-8'))
     partes = []
@@ -177,6 +199,11 @@ for arq, esperado in CENARIOS.items():
         checa(f'MANTIDO: {p[:56]}', p in texto)
     for a in esperado['ausentes']:
         checa(f'REMOVIDO: {a[:56]}', a not in texto)
+
+    # ── nenhuma moldura de tabela sobrando sem conteúdo ──────────────
+    sobrando = tabelas_vazias(zf) - VAZIAS_NO_MODELO
+    checa('nenhuma tabela ficou vazia por causa da remoção',
+          not sobrando, f'ficaram: {sorted(sobrando)}')
 
     # ── nada de comentário de redação sobrando ───────────────────────
     checa('sem comentários de redação (office:annotation)',
