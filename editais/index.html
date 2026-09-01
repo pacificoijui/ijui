@@ -658,6 +658,7 @@ async function atualizarPrevia(){
 /* ── Geração do .odt ─────────────────────────────────────────────────── */
 const NS_TEXT='urn:oasis:names:tc:opendocument:xmlns:text:1.0';
 const NS_OFFICE='urn:oasis:names:tc:opendocument:xmlns:office:1.0';
+const NS_TABLE='urn:oasis:names:tc:opendocument:xmlns:table:1.0';
 
 /* Percorre os parágrafos na MESMA ordem do script que gerou o mapa
    (pré-ordem, documento inteiro). Se a ordem divergir, os índices apontam
@@ -675,6 +676,44 @@ function listarParagrafos(doc){
     }
   })(corpo);
   return saida;
+}
+
+/* Boa parte dos títulos do edital mora dentro de uma tabela de uma célula só,
+   usada como faixa/moldura. Apagar os parágrafos deixaria a moldura vazia no
+   documento — uma caixa com borda e nada dentro. Este mapa diz quais
+   parágrafos vivem dentro de cada tabela, para que a tabela que perdeu TODO o
+   conteúdo saia junto.
+
+   Um parágrafo conta para todas as tabelas que o contêm, não só a mais
+   interna: sem isso, uma tabela externa cujo conteúdo todo está em tabelas
+   aninhadas nunca seria considerada vazia. */
+function mapearTabelas(paragrafos){
+  var mapa=new Map();
+  paragrafos.forEach(function(p, i){
+    var no=p.parentNode;
+    while(no && no.nodeType===1){
+      if(no.namespaceURI===NS_TABLE && no.localName==='table'){
+        if(!mapa.has(no)) mapa.set(no, []);
+        mapa.get(no).push(i);
+      }
+      no=no.parentNode;
+    }
+  });
+  return mapa;
+}
+
+/* Tabela cujos parágrafos foram TODOS apagados sai inteira. A que já era vazia
+   no modelo (espaçador de layout) não tem parágrafo nenhum e por isso não
+   entra no mapa — fica onde está, que é o certo. */
+function removerTabelasVazias(mapaTabelas, apagados){
+  var n=0;
+  mapaTabelas.forEach(function(indices, tabela){
+    if(!indices.length) return;
+    var sumiuTudo=indices.every(function(i){ return apagados.has(i); });
+    /* pode já ter sido removida junto com uma tabela que a continha */
+    if(sumiuTudo && tabela.parentNode){ tabela.parentNode.removeChild(tabela); n++; }
+  });
+  return n;
 }
 
 function validarModelo(paragrafos, mapa){
@@ -716,10 +755,14 @@ async function montarODT(dados){
     if(blocoEntra(b,dados)) return;
     for(var i=b.ini;i<=b.fim;i++) apagar.add(i);
   });
+  /* o mapa das tabelas tem de ser montado ANTES de apagar: depois os
+     parágrafos já saíram da árvore e não dá mais para saber onde moravam */
+  var mapaTabelas=mapearTabelas(paragrafos);
   apagar.forEach(function(i){
     var p=paragrafos[i];
     if(p && p.parentNode) p.parentNode.removeChild(p);
   });
+  removerTabelasVazias(mapaTabelas, apagar);
 
   contentTxt=new XMLSerializer().serializeToString(doc);
 
