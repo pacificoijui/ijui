@@ -56,6 +56,7 @@ CENARIOS = {
         'valores': ['131/2026', '642/2026', '14 de setembro de 2026',
                     'Segunda-Feira', '09:30', '31 de agosto de 2026',
                     'Aquisição de equipamentos de musculação & acessórios <teste>'],
+        'artigo_certo': True,   # objeto começa com "Aquisição" → "a"
     },
     'saida-contratacao-contrato-servicos.odt': {
         'presentes': ['14. CONTRATO',
@@ -91,6 +92,7 @@ CENARIOS = {
                      '2.1 Os quantitativos estimados'],
         'valores': ['77/2026', '900/2026', '5 de outubro de 2026',
                     'Segunda-Feira', '14:00', '20 de setembro de 2026'],
+        'artigo_certo': True,   # objeto começa com "Contratação" → "a"
     },
     'saida-contratacao-empenho-aquisicao.odt': {
         'presentes': ['14. SUBSTITUIÇÃO DO TERMO DE CONTRATO',
@@ -113,6 +115,7 @@ CENARIOS = {
                      '9.19 HABILITAÇÃO TÉCNICA'],
         'valores': ['12/2026', '55/2026', '3 de novembro de 2026',
                     'Terça-Feira', '08:30', '15 de outubro de 2026'],
+        'artigo_certo': True,   # objeto começa com "Aquisição" → "a"
     },
 }
 
@@ -199,6 +202,11 @@ for arq, esperado in CENARIOS.items():
         checa(f'MANTIDO: {p[:56]}', p in texto)
     for a in esperado['ausentes']:
         checa(f'REMOVIDO: {a[:56]}', a not in texto)
+
+    # ── artigo "a/o" na frente do objeto foi resolvido, não deixado cru ──
+    if esperado.get('artigo_certo'):
+        checa('nenhum "a/o"/"o/a"/"o / a" cru sobrando na frente do objeto',
+              not re.search(r'\b[ao]\s*/\s*[ao]\s+' + re.escape(esperado['valores'][-1][:12]), texto))
 
     # ── nenhuma moldura de tabela sobrando sem conteúdo ──────────────
     sobrando = tabelas_vazias(zf) - VAZIAS_NO_MODELO
