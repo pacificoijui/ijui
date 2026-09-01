@@ -31,15 +31,28 @@ CENARIOS = {
                       'ANEXO II – MINUTA DA ATA DE REGISTRO DE PREÇOS',
                       'CLÁUSULA TERCEIRA – ENTREGA DO OBJETO',
                       '4. RECEBIMENTO DO OBJETO',
-                      '8.5.2 Dentre os documentos'],
+                      '8.5.2 Dentre os documentos',
+                      '1.5 Os itens com o valor total de até 80',      # ME/EPP exclusivo
+                      '4.12 Os itens com o valor total de até 80',
+                      '4.1 Poderão participar desta licitação, pessoas jurídicas',  # seção 4 padrão
+                      '2.1 Os quantitativos estimados',                # TR registro de preços
+                      '3.1 Os itens 1,2,3',                           # TR itens exclusivos
+                      'MENOR PREÇO POR ITEM',
+                      'facultando-se ao licitante'],                  # não é item único
         'ausentes': ['14. SUBSTITUIÇÃO DO TERMO DE CONTRATO',
                      '14. CONTRATO',
                      'ANEXO II – MINUTA DO CONTRATO',
                      'CLÁUSULA TERCEIRA – EXECUÇÃO DOS SERVIÇOS',
                      '4. EXECUÇÃO DOS SERVIÇOS',
-                     '17.12 As despesas decorrentes',          # sai no registro de preços
+                     '17.12 As despesas decorrentes',                 # sai no registro de preços
                      '1.6 O licitante classificado em primeiro lugar que deverá apresentar amostra',
-                     'CLÁUSULA NONA – SUBCONTRATAÇÃO'],
+                     'CLÁUSULA NONA – SUBCONTRATAÇÃO',
+                     'COMPRA MAIS',
+                     'b) Deverão apresentar balanço patrimonial',      # sem balanço
+                     '(Obras Acima de R$ 439.200)',
+                     '(Serviços acima de R$ 732.000)',
+                     '9.19 HABILITAÇÃO TÉCNICA',
+                     'd) Fornecer catálogo do produto ofertado'],
         'valores': ['131/2026', '642/2026', '14 de setembro de 2026',
                     'Segunda-Feira', '09:30', '31 de agosto de 2026',
                     'Aquisição de equipamentos de musculação & acessórios <teste>'],
@@ -53,15 +66,29 @@ CENARIOS = {
                       '1.6 O licitante classificado em primeiro lugar que deverá apresentar amostra',
                       '14.4 Para retirar e assinar o contrato',
                       'PARÁGRAFO QUARTO: A CONTRATADA presta a garantia',
-                      '14.1 Após a homologação do certame',      # docs antes da assinatura
-                      'SERVIÇOS: 16.1'],
+                      '14.1 Após a homologação do certame',
+                      'SERVIÇOS: 16.1',
+                      'COMPRA MAIS',                                  # preâmbulo Compra + Ijuí
+                      '1.5 A aplicação da Lei Municipal nº 7.724/2025',
+                      'b) Deverão apresentar balanço patrimonial',
+                      '(Serviços acima de R$ 732.000)',
+                      'b.5) No caso de a licitante não atender',
+                      '9.19 HABILITAÇÃO TÉCNICA',
+                      'd) Fornecer catálogo do produto ofertado',
+                      'PARÁGRAFO SÉTIMO: Da repactuação',
+                      'Apresentar ao fiscal técnico/administrativo do contrato o pertinente PCMSO',
+                      'por ITEM ÚNICO'],
         'ausentes': ['14. ATA DE REGISTRO DE PREÇOS E CONTRATAÇÃO',
                      '14. SUBSTITUIÇÃO DO TERMO DE CONTRATO',
                      'ANEXO II – MINUTA DA ATA DE REGISTRO DE PREÇOS',
                      '4. RECEBIMENTO DO OBJETO',
                      '8.5.2 Dentre os documentos',
                      '14.1 Homologado o procedimento licitatório',
-                     'AQUISIÇÃO: 16.1'],
+                     'AQUISIÇÃO: 16.1',
+                     '(Obras Acima de R$ 439.200)',
+                     'PARÁGRAFO SÉTIMO Do reajuste',
+                     'facultando-se ao licitante',
+                     '2.1 Os quantitativos estimados'],
         'valores': ['77/2026', '900/2026', '5 de outubro de 2026',
                     'Segunda-Feira', '14:00', '20 de setembro de 2026'],
     },
@@ -69,13 +96,21 @@ CENARIOS = {
         'presentes': ['14. SUBSTITUIÇÃO DO TERMO DE CONTRATO',
                       '4. RECEBIMENTO DO OBJETO',
                       '17.12 As despesas decorrentes',
-                      'AQUISIÇÃO: 16.1'],
+                      'AQUISIÇÃO: 16.1',
+                      '4.12 Será concedido tratamento favorecido',      # sem cota
+                      '1.5 Não foi destinada cota/item',
+                      'b) Deverão apresentar balanço patrimonial',
+                      '(Obras Acima de R$ 439.200)'],
         'ausentes': ['14. ATA DE REGISTRO DE PREÇOS E CONTRATAÇÃO',
                      '14. CONTRATO',
                      'ANEXO II – MINUTA DA ATA DE REGISTRO DE PREÇOS',
                      'ANEXO II – MINUTA DO CONTRATO',
                      '4. EXECUÇÃO DOS SERVIÇOS',
-                     'CLÁUSULA NONA – SUBCONTRATAÇÃO'],
+                     'CLÁUSULA NONA – SUBCONTRATAÇÃO',
+                     'COMPRA MAIS',
+                     '(Serviços acima de R$ 732.000)',
+                     '3.1 Os itens 1,2,3',
+                     '9.19 HABILITAÇÃO TÉCNICA'],
         'valores': ['12/2026', '55/2026', '3 de novembro de 2026',
                     'Terça-Feira', '08:30', '15 de outubro de 2026'],
     },
@@ -147,7 +182,8 @@ for arq, esperado in CENARIOS.items():
     checa('sem comentários de redação (office:annotation)',
           b'office:annotation' not in zf.read('content.xml'))
     for lixo in ['SOMENTE QUANDO', 'EXCLUIR ITEM', 'ATUALIZAR O SUMÁRIO',
-                 'EM AMARELO', 'EM LARANJA', 'COLAR A PARTE']:
+                 'EM AMARELO', 'EM LARANJA', 'COLAR A PARTE',
+                 'EXCLUIR BALANÇO', 'b.5 somente para serviços']:
         checa(f'sem a instrução "{lixo}" no corpo', lixo not in texto)
 
 print(f'\n{"="*72}\n{ok} conferências passaram, {falhas} falharam.')

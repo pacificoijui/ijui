@@ -9,9 +9,209 @@
   "@@DATA_CURTA@@",
   "@@DIA_SEMANA@@",
   "@@HORARIO@@",
-  "@@DATA_EDITAL@@"
+  "@@DATA_EDITAL@@",
+  "@@FORMA_DISPUTA@@",
+  "@@MODO_DISPUTA@@",
+  "@@CRITERIO_JULGAMENTO@@",
+  "@@ENDERECO_AMOSTRA@@",
+  "@@SERVIDOR_AMOSTRA@@",
+  "@@VIGENCIA@@",
+  "@@PRAZO_ENTREGA@@",
+  "@@PRAZO_EXECUCAO@@",
+  "@@GESTOR@@",
+  "@@FISCAL_TECNICO@@",
+  "@@FISCAL_ADM@@",
+  "@@SECRETARIA@@",
+  "@@VALOR_ESTIMADO@@"
  ],
  "blocos": [
+  {
+   "id": "preamb_normal",
+   "titulo": "Preâmbulo padrão",
+   "ini": 120,
+   "fim": 121,
+   "impressao": "O Município de Ijuí, através da Coordenadoria-Geral de Compr",
+   "campo": "meEpp",
+   "valores": [
+    "exclusivo",
+    "semCota"
+   ]
+  },
+  {
+   "id": "preamb_compramais",
+   "titulo": "Preâmbulo COMPRA MAIS (Lei 7.724/2025)",
+   "ini": 122,
+   "fim": 123,
+   "impressao": "COMPRA MAIS:O Município de Ijuí, através da Coordenadoria-Ge",
+   "campo": "meEpp",
+   "valores": [
+    "compraMais"
+   ]
+  },
+  {
+   "id": "item_1_5_exclusivo",
+   "titulo": "Item 1.5 — itens até 80 mil exclusivos ME/EPP",
+   "ini": 135,
+   "fim": 136,
+   "impressao": "1.5 Os itens com o valor total de até 80 (oitenta) mil reais",
+   "campo": "meEpp",
+   "valores": [
+    "exclusivo"
+   ]
+  },
+  {
+   "id": "item_1_5_sem_cota",
+   "titulo": "Item 1.5 — sem cota para ME/EPP",
+   "ini": 137,
+   "fim": 138,
+   "impressao": "1.5 Não foi destinada cota/item para participação exclusiva ",
+   "campo": "meEpp",
+   "valores": [
+    "semCota"
+   ]
+  },
+  {
+   "id": "item_1_5_compramais",
+   "titulo": "Item 1.5 — exclusividade local/regional",
+   "ini": 139,
+   "fim": 140,
+   "impressao": "1.5 A aplicação da Lei Municipal nº 7.724/2025 (Compra + Iju",
+   "campo": "meEpp",
+   "valores": [
+    "compraMais"
+   ]
+  },
+  {
+   "id": "sec4_compramais",
+   "titulo": "Seção 4 — versão COMPRA MAIS",
+   "ini": 193,
+   "fim": 255,
+   "impressao": "COMPRA MAIS:",
+   "campo": "meEpp",
+   "valores": [
+    "compraMais"
+   ]
+  },
+  {
+   "id": "sec4_normal",
+   "titulo": "Seção 4 — versão padrão",
+   "ini": 256,
+   "fim": 319,
+   "impressao": "4.1 Poderão participar desta licitação, pessoas jurídicas qu",
+   "campo": "meEpp",
+   "valores": [
+    "exclusivo",
+    "semCota"
+   ]
+  },
+  {
+   "id": "balanco",
+   "titulo": "Item 9.18 b) — balanço patrimonial",
+   "ini": 553,
+   "fim": 562,
+   "impressao": "b) Deverão apresentar balanço patrimonial, demonstração de r",
+   "campo": "balanco",
+   "valores": [
+    "obras",
+    "servicos"
+   ]
+  },
+  {
+   "id": "indices_obras",
+   "titulo": "  └ índices para obras",
+   "ini": 563,
+   "fim": 567,
+   "impressao": "(Obras Acima de R$ 439.200)",
+   "campo": "balanco",
+   "valores": [
+    "obras"
+   ]
+  },
+  {
+   "id": "nota_balanco_rp",
+   "titulo": "  └ (instrução de redação — sempre sai)",
+   "ini": 568,
+   "fim": 569,
+   "impressao": "QUANDO FOR REGISTRO DE PREÇOS EXCLUIR BALANÇO",
+   "campo": "_nunca",
+   "valores": []
+  },
+  {
+   "id": "indices_servicos",
+   "titulo": "  └ índices para serviços",
+   "ini": 570,
+   "fim": 574,
+   "impressao": "(Serviços acima de R$ 732.000)",
+   "campo": "balanco",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "legenda_indices",
+   "titulo": "  └ legenda dos índices",
+   "ini": 575,
+   "fim": 578,
+   "impressao": "AC = Ativo circulante;PC = Passivo Circulante;PC = Passivo C",
+   "campo": "balanco",
+   "valores": [
+    "obras",
+    "servicos"
+   ]
+  },
+  {
+   "id": "nota_b5",
+   "titulo": "  └ (instrução de redação — sempre sai)",
+   "ini": 579,
+   "fim": 579,
+   "impressao": "b.5 somente para serviços",
+   "campo": "_nunca",
+   "valores": []
+  },
+  {
+   "id": "item_b5",
+   "titulo": "  └ b.5) capital mínimo (serviços)",
+   "ini": 580,
+   "fim": 581,
+   "impressao": "b.5) No caso de a licitante não atender aos índices acima, a",
+   "campo": "balanco",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
+   "id": "hab_tecnica",
+   "titulo": "Item 9.19 — habilitação técnica",
+   "ini": 582,
+   "fim": 585,
+   "impressao": "9.19 HABILITAÇÃO TÉCNICA:",
+   "campo": "habTecnica",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "item_10_catalogo",
+   "titulo": "Item 10.1 d) — catálogo do produto",
+   "ini": 602,
+   "fim": 603,
+   "impressao": "d) Fornecer catálogo do produto ofertado, onde possam ser co",
+   "campo": "catalogo",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "sum_9_19",
+   "titulo": "Sumário: 9.19 Habilitação técnica",
+   "ini": 100,
+   "fim": 100,
+   "impressao": "9.19 HABILITAÇÃO TÉCNICA:15",
+   "campo": "habTecnica",
+   "valores": [
+    true
+   ]
+  },
   {
    "id": "sum_14_ata",
    "titulo": "Sumário: 14. Ata de Registro de Preços",
@@ -71,7 +271,7 @@
    "id": "item_1_6_amostra",
    "titulo": "Item 1.6 — exigência de amostra",
    "ini": 143,
-   "fim": 152,
+   "fim": 154,
    "impressao": "1.6 O licitante classificado em primeiro lugar que deverá ap",
    "campo": "amostra",
    "valores": [
@@ -80,24 +280,24 @@
   },
   {
    "id": "item_4_12_exclusivo",
-   "titulo": "Item 4.12 — itens exclusivos ME/EPP",
+   "titulo": "  └ 4.12 itens exclusivos ME/EPP",
    "ini": 316,
    "fim": 317,
    "impressao": "4.12 Os itens com o valor total de até 80 (oitenta) mil reai",
-   "campo": "itensExclusivosMeEpp",
+   "campo": "meEpp",
    "valores": [
-    true
+    "exclusivo"
    ]
   },
   {
    "id": "item_4_12_favorecido",
-   "titulo": "Item 4.12 — tratamento favorecido",
+   "titulo": "  └ 4.12 tratamento favorecido",
    "ini": 318,
    "fim": 319,
    "impressao": "4.12 Será concedido tratamento favorecido para as microempre",
-   "campo": "itensExclusivosMeEpp",
+   "campo": "meEpp",
    "valores": [
-    false
+    "semCota"
    ]
   },
   {
@@ -321,12 +521,45 @@
    ]
   },
   {
+   "id": "ct_par3_prorrog",
+   "titulo": "  └ Par. 3º — prorrogação sucessiva",
+   "ini": 1448,
+   "fim": 1449,
+   "impressao": "PARÁGRAFO TERCEIRO: O presente contrato poderá ser prorrogad",
+   "campo": "natureza",
+   "valores": [
+    "servicos"
+   ]
+  },
+  {
    "id": "ct_garantia",
    "titulo": "  └ Par. 4º a 6º — garantia de execução",
    "ini": 1450,
    "fim": 1455,
    "impressao": "PARÁGRAFO QUARTO: A CONTRATADA presta a garantia de execução",
    "campo": "garantiaContratual",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "ct_reajuste",
+   "titulo": "  └ Par. 7º — reajuste",
+   "ini": 1456,
+   "fim": 1461,
+   "impressao": "PARÁGRAFO SÉTIMO Do reajuste:",
+   "campo": "maoDeObra",
+   "valores": [
+    false
+   ]
+  },
+  {
+   "id": "ct_repactuacao",
+   "titulo": "  └ Par. 7º — repactuação (mão de obra)",
+   "ini": 1462,
+   "fim": 1495,
+   "impressao": "PARÁGRAFO SÉTIMO: Da repactuação:",
+   "campo": "maoDeObra",
    "valores": [
     true
    ]
@@ -354,6 +587,28 @@
    ]
   },
   {
+   "id": "ct_pag_maoobra",
+   "titulo": "  └ Cláusula 7ª — retenções e documentos de mão de obra",
+   "ini": 1523,
+   "fim": 1555,
+   "impressao": "PARÁGRAFO SEXTO: A CONTRATANTE reterá um índice do valor bru",
+   "campo": "maoDeObra",
+   "valores": [
+    true
+   ]
+  },
+  {
+   "id": "ct_obrig_epi",
+   "titulo": "  └ Obrigações h) e i) — EPI, PCMSO e PPRA",
+   "ini": 1586,
+   "fim": 1589,
+   "impressao": "h) Apresentar ao fiscal técnico/administrativo do contrato a",
+   "campo": "maoDeObra",
+   "valores": [
+    true
+   ]
+  },
+  {
    "id": "ct_cl9_subcontrat",
    "titulo": "  └ Cláusula 9ª — subcontratação",
    "ini": 1590,
@@ -362,6 +617,40 @@
    "campo": "subcontratacao",
    "valores": [
     true
+   ]
+  },
+  {
+   "id": "tr_2_1_registro",
+   "titulo": "TR 2.1 — quantitativos estimados (registro)",
+   "ini": 1673,
+   "fim": 1674,
+   "impressao": "2.1 Os quantitativos estimados foram calculados para 2 (dois",
+   "campo": "regime",
+   "valores": [
+    "registro"
+   ]
+  },
+  {
+   "id": "tr_2_2_registro",
+   "titulo": "TR 2.2 — ata não obriga a contratar",
+   "ini": 1675,
+   "fim": 1676,
+   "impressao": "2.2 A Ata de Registro de Preços que for decorrente da licita",
+   "campo": "regime",
+   "valores": [
+    "registro"
+   ]
+  },
+  {
+   "id": "tr_3_1_meepp",
+   "titulo": "TR 3.1 — itens exclusivos ME/EPP",
+   "ini": 1679,
+   "fim": 1680,
+   "impressao": "3.1 Os itens 1,2,3…... na tabela abaixo, serão EXCLUSIVOS pa",
+   "campo": "meEpp",
+   "valores": [
+    "exclusivo",
+    "compraMais"
    ]
   },
   {

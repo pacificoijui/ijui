@@ -14,8 +14,38 @@ from pathlib import Path
 
 # (id, título legível, início, fim inclusive, condição)
 # condição = (campo, [valores que MANTÊM o bloco])
+# valores == [] → o bloco nunca fica (instrução de redação solta no corpo)
 BLOCOS = [
+    # ── Preâmbulo: normal x Compra + Ijuí (Lei Municipal 7.724/2025) ───
+    ('preamb_normal',     'Preâmbulo padrão',                     120, 121, ('meEpp', ['exclusivo', 'semCota'])),
+    ('preamb_compramais', 'Preâmbulo COMPRA MAIS (Lei 7.724/2025)', 122, 123, ('meEpp', ['compraMais'])),
+
+    # ── Item 1.3 / 1.5: participação de ME/EPP ─────────────────────────
+    ('item_1_5_exclusivo',  'Item 1.5 — itens até 80 mil exclusivos ME/EPP', 135, 136, ('meEpp', ['exclusivo'])),
+    ('item_1_5_sem_cota',   'Item 1.5 — sem cota para ME/EPP',              137, 138, ('meEpp', ['semCota'])),
+    ('item_1_5_compramais', 'Item 1.5 — exclusividade local/regional',       139, 140, ('meEpp', ['compraMais'])),
+
+    # ── Seção 4 inteira: existe em duas versões no modelo ──────────────
+    ('sec4_compramais', 'Seção 4 — versão COMPRA MAIS',  193, 255, ('meEpp', ['compraMais'])),
+    ('sec4_normal',     'Seção 4 — versão padrão',       256, 319, ('meEpp', ['exclusivo', 'semCota'])),
+
+    # ── 9.18 Balanço e índices contábeis ───────────────────────────────
+    ('balanco',          'Item 9.18 b) — balanço patrimonial',        553, 562, ('balanco', ['obras', 'servicos'])),
+    ('indices_obras',    '  └ índices para obras',                    563, 567, ('balanco', ['obras'])),
+    ('nota_balanco_rp',  '  └ (instrução de redação — sempre sai)',   568, 569, ('_nunca', [])),
+    ('indices_servicos', '  └ índices para serviços',                 570, 574, ('balanco', ['servicos'])),
+    ('legenda_indices',  '  └ legenda dos índices',                   575, 578, ('balanco', ['obras', 'servicos'])),
+    ('nota_b5',          '  └ (instrução de redação — sempre sai)',   579, 579, ('_nunca', [])),
+    ('item_b5',          '  └ b.5) capital mínimo (serviços)',        580, 581, ('balanco', ['servicos'])),
+
+    # ── 9.19 Qualificação técnica ──────────────────────────────────────
+    ('hab_tecnica', 'Item 9.19 — habilitação técnica', 582, 585, ('habTecnica', [True])),
+
+    # ── 10.1 d) catálogo do produto ────────────────────────────────────
+    ('item_10_catalogo', 'Item 10.1 d) — catálogo do produto', 602, 603, ('catalogo', [True])),
+
     # ── Sumário (é manual no modelo; some junto com a seção que indexa) ──
+    ('sum_9_19',        'Sumário: 9.19 Habilitação técnica',        100, 100, ('habTecnica', [True])),
     ('sum_14_ata',      'Sumário: 14. Ata de Registro de Preços',   105, 105, ('instrumento', ['ata'])),
     ('sum_14_empenho',  'Sumário: 14. Substituição do Termo',       106, 106, ('instrumento', ['empenho'])),
     ('sum_14_contrato', 'Sumário: 14. Contrato',                    107, 107, ('instrumento', ['contrato'])),
@@ -23,10 +53,10 @@ BLOCOS = [
     ('sum_anexo2_contrato', 'Sumário: Anexo II — Minuta do Contrato', 113, 113, ('instrumento', ['contrato'])),
 
     # ── Corpo do edital ────────────────────────────────────────────────
-    ('item_1_6_amostra', 'Item 1.6 — exigência de amostra',         143, 152, ('amostra', [True])),
+    ('item_1_6_amostra', 'Item 1.6 — exigência de amostra',         143, 154, ('amostra', [True])),
 
-    ('item_4_12_exclusivo',  'Item 4.12 — itens exclusivos ME/EPP',  316, 317, ('itensExclusivosMeEpp', [True])),
-    ('item_4_12_favorecido', 'Item 4.12 — tratamento favorecido',    318, 319, ('itensExclusivosMeEpp', [False])),
+    ('item_4_12_exclusivo',  '  └ 4.12 itens exclusivos ME/EPP',     316, 317, ('meEpp', ['exclusivo'])),
+    ('item_4_12_favorecido', '  └ 4.12 tratamento favorecido',       318, 319, ('meEpp', ['semCota'])),
 
     ('item_8_5_2', 'Item 8.5.2 — catálogo/marca do produto',         442, 443, ('natureza', ['aquisicao'])),
 
@@ -56,12 +86,20 @@ BLOCOS = [
     ('anexo2_contrato', 'ANEXO II — Minuta do Contrato',            1386, 1659, ('instrumento', ['contrato'])),
     ('ct_par2_entrega',  '  └ Par. 2º — prazo de entrega',          1444, 1445, ('natureza', ['aquisicao'])),
     ('ct_par2_execucao', '  └ Par. 2º — prazo de execução',         1446, 1447, ('natureza', ['servicos'])),
+    ('ct_par3_prorrog',  '  └ Par. 3º — prorrogação sucessiva',     1448, 1449, ('natureza', ['servicos'])),
     ('ct_garantia',      '  └ Par. 4º a 6º — garantia de execução', 1450, 1455, ('garantiaContratual', [True])),
+    ('ct_reajuste',      '  └ Par. 7º — reajuste',                  1456, 1461, ('maoDeObra', [False])),
+    ('ct_repactuacao',   '  └ Par. 7º — repactuação (mão de obra)', 1462, 1495, ('maoDeObra', [True])),
     ('ct_pag_servicos',  '  └ Cláusula 7ª — pagamento (serviços)',  1504, 1505, ('natureza', ['servicos'])),
     ('ct_pag_aquisicao', '  └ Cláusula 7ª — pagamento (aquisição)', 1506, 1507, ('natureza', ['aquisicao'])),
+    ('ct_pag_maoobra',   '  └ Cláusula 7ª — retenções e documentos de mão de obra', 1523, 1555, ('maoDeObra', [True])),
+    ('ct_obrig_epi',     '  └ Obrigações h) e i) — EPI, PCMSO e PPRA', 1586, 1589, ('maoDeObra', [True])),
     ('ct_cl9_subcontrat', '  └ Cláusula 9ª — subcontratação',       1590, 1603, ('subcontratacao', [True])),
 
     # ── Anexo III — Termo de Referência ────────────────────────────────
+    ('tr_2_1_registro',  'TR 2.1 — quantitativos estimados (registro)', 1673, 1674, ('regime', ['registro'])),
+    ('tr_2_2_registro',  'TR 2.2 — ata não obriga a contratar',         1675, 1676, ('regime', ['registro'])),
+    ('tr_3_1_meepp',     'TR 3.1 — itens exclusivos ME/EPP',            1679, 1680, ('meEpp', ['exclusivo', 'compraMais'])),
     ('tr_4_recebimento', 'TR item 4 — Recebimento do objeto',       1937, 1964, ('natureza', ['aquisicao'])),
     ('tr_4_execucao',    'TR item 4 — Execução dos serviços',       1965, 1972, ('natureza', ['servicos'])),
 ]
@@ -97,7 +135,12 @@ def main():
         'modelo': 'modelo-edital.odt',
         'paragrafos': total + 1,
         'campos': ['@@PREGAO@@', '@@PROCESSO@@', '@@OBJETO@@', '@@DATA_EXTENSO@@',
-                   '@@DATA_CURTA@@', '@@DIA_SEMANA@@', '@@HORARIO@@', '@@DATA_EDITAL@@'],
+                   '@@DATA_CURTA@@', '@@DIA_SEMANA@@', '@@HORARIO@@', '@@DATA_EDITAL@@',
+                   '@@FORMA_DISPUTA@@', '@@MODO_DISPUTA@@', '@@CRITERIO_JULGAMENTO@@',
+                   '@@ENDERECO_AMOSTRA@@', '@@SERVIDOR_AMOSTRA@@', '@@VIGENCIA@@',
+                   '@@PRAZO_ENTREGA@@', '@@PRAZO_EXECUCAO@@', '@@GESTOR@@',
+                   '@@FISCAL_TECNICO@@', '@@FISCAL_ADM@@', '@@SECRETARIA@@',
+                   '@@VALOR_ESTIMADO@@'],
         'blocos': saida,
     }
     Path('blocos.json').write_text(json.dumps(mapa, ensure_ascii=False, indent=1), encoding='utf-8')

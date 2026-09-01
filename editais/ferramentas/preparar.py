@@ -72,6 +72,29 @@ CAMPOS = [
     ('31 de agosto de 2026',  '@@DATA_EDITAL@@'),
 ]
 
+# Trocas presas a UM parágrafo. Necessário quando o texto procurado aparece em
+# vários lugares com sentidos diferentes: "xx (xxx)" está no prazo de entrega E
+# no de execução; "___" aparece 174 vezes no documento. Trocar global aí seria
+# estragar o edital em silêncio.
+CAMPOS_POR_PARAGRAFO = {
+    131: [('por ITENS, facultando-se ao licitante a participação em quantos itens '
+           'forem de seu interesse,', '@@FORMA_DISPUTA@@'),
+          ('ABERTO E FECHADO', '@@MODO_DISPUTA@@')],
+    133: [('MENOR PREÇO POR ITEM/LOTE/GLOBAL', '@@CRITERIO_JULGAMENTO@@')],
+    147: [('(inserir endereço aqui)', '@@ENDERECO_AMOSTRA@@'),
+          ('(nome do servidor)', '@@SERVIDOR_AMOSTRA@@')],
+    1442: [('365 (trezentos e sessenta e cinco dias)', '@@VIGENCIA@@')],
+    1444: [('xx (xxx)', '@@PRAZO_ENTREGA@@')],
+    1446: [('xx (xxx)', '@@PRAZO_EXECUCAO@@')],
+    1620: [('_________________', '@@GESTOR@@')],
+    1622: [('xxxxx.', '@@FISCAL_TECNICO@@.')],
+    1624: [('xxxxxx.', '@@FISCAL_ADM@@.')],
+    1663: [('Todas as Secretarias do Município de Ijuí RS.', '@@SECRETARIA@@')],
+    1665: [('163.972,78', '@@VALOR_ESTIMADO@@')],
+    1939: [('10 (dez) dias úteis', '@@PRAZO_ENTREGA@@ dias úteis')],
+    1967: [('5 (cinco) dias corridos', '@@PRAZO_EXECUCAO@@ dias corridos')],
+}
+
 
 def paragrafos(raiz):
     """Todos os parágrafos e títulos, em ordem de documento.
@@ -162,11 +185,19 @@ def trocar_no_paragrafo(el, alvo, token):
 
 def tokenizar(raiz):
     total = {}
-    for el in paragrafos(raiz):
+    lista = paragrafos(raiz)
+    for i, el in enumerate(lista):
         for alvo, token in CAMPOS:
             n = trocar_no_paragrafo(el, alvo, token)
             if n:
                 total[token] = total.get(token, 0) + n
+        for alvo, token in CAMPOS_POR_PARAGRAFO.get(i, []):
+            n = trocar_no_paragrafo(el, alvo, token)
+            if n:
+                total[token] = total.get(token, 0) + n
+            else:
+                print(f'  AVISO: no parágrafo {i} não achei {alvo[:45]!r} '
+                      f'para virar {token}')
     return total
 
 
