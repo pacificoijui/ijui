@@ -121,6 +121,21 @@
   .item-acoes{display:flex;gap:6px;flex-wrap:wrap}
   .vazio{text-align:center;color:var(--suave);font-size:13px;font-style:italic;padding:26px 10px}
 
+  /* Campos que só aparecem quando a marcação os torna relevantes — o
+     formulário encolhe para o que importa naquele edital. */
+  .sofse{display:none}
+  .sofse.on{display:flex}
+  .grade>.sofse.on{display:flex}
+  .subgrupo{border-left:3px solid #dde5f2;padding-left:12px;margin:10px 0 4px}
+  .subgrupo>.rot{display:block;font-size:11.5px;font-weight:700;color:var(--suave);
+                 text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+  .secao-tit{font-size:11.5px;font-weight:800;color:var(--suave);text-transform:uppercase;
+             letter-spacing:.5px;margin:16px 0 8px;padding-top:14px;border-top:1px solid var(--linha)}
+  .secao-tit:first-child{margin-top:0;padding-top:0;border-top:none}
+  .previa-grupo{font-size:11px;font-weight:800;color:var(--suave);text-transform:uppercase;
+                letter-spacing:.4px;margin:12px 0 5px;padding-top:9px;border-top:1px solid #eef1f6}
+  .previa-grupo:first-child{margin-top:0;padding-top:0;border-top:none}
+
   /* ── Avisos ──────────────────────────────────────────────────────── */
   .aviso{border-radius:10px;padding:11px 14px;font-size:12.5px;line-height:1.5;margin-bottom:14px}
   .aviso-amb{background:#fff8e6;border:1.5px solid #f5d98a;color:#7a5200}
@@ -185,6 +200,36 @@
           <input id="fDataEdital" type="date">
           <span class="obs">Assinatura do aviso e do edital.</span>
         </div>
+
+        <div class="secao-tit" style="grid-column:1/-1">Julgamento</div>
+        <div class="campo">
+          <label for="fCriterio">Critério de julgamento</label>
+          <input id="fCriterio" value="MENOR PREÇO POR ITEM" list="lCriterio" autocomplete="off">
+          <datalist id="lCriterio">
+            <option value="MENOR PREÇO POR ITEM"></option>
+            <option value="MENOR PREÇO POR LOTE"></option>
+            <option value="MENOR PREÇO GLOBAL"></option>
+            <option value="MAIOR DESCONTO"></option>
+          </datalist>
+        </div>
+        <div class="campo">
+          <label for="fModoDisputa">Modo de disputa</label>
+          <input id="fModoDisputa" value="ABERTO E FECHADO" list="lModo" autocomplete="off">
+          <datalist id="lModo">
+            <option value="ABERTO E FECHADO"></option>
+            <option value="ABERTO"></option>
+          </datalist>
+        </div>
+
+        <div class="secao-tit" style="grid-column:1/-1">Termo de Referência</div>
+        <div class="campo">
+          <label for="fSecretaria">Secretaria requisitante</label>
+          <input id="fSecretaria" placeholder="Todas as Secretarias do Município de Ijuí RS." autocomplete="off">
+        </div>
+        <div class="campo">
+          <label for="fValor">Valor total estimado (R$)</label>
+          <input id="fValor" placeholder="163.972,78" autocomplete="off">
+        </div>
       </div>
     </div>
 
@@ -225,18 +270,97 @@
       </div>
 
       <div class="escolha">
+        <span class="rot">Participação de ME/EPP</span>
+        <div class="opcoes">
+          <label class="opcao"><input type="radio" name="meEpp" value="exclusivo" checked>
+            <span>Itens exclusivos<small>até R$ 80 mil</small></span></label>
+          <label class="opcao"><input type="radio" name="meEpp" value="semCota">
+            <span>Sem cota<small>ampla concorrência</small></span></label>
+          <label class="opcao"><input type="radio" name="meEpp" value="compraMais">
+            <span>Compra + Ijuí<small>local/regional</small></span></label>
+        </div>
+        <span class="obs" style="display:block;margin-top:6px;font-size:11.5px;color:var(--suave)"
+              id="obsMeEpp"></span>
+      </div>
+
+      <div class="escolha">
+        <span class="rot">Balanço patrimonial (item 9.18)</span>
+        <div class="opcoes">
+          <label class="opcao"><input type="radio" name="balanco" value="nao" checked>
+            <span>Não exige<small>registro de preços</small></span></label>
+          <label class="opcao"><input type="radio" name="balanco" value="obras">
+            <span>Índices de obras<small>acima de R$ 439.200</small></span></label>
+          <label class="opcao"><input type="radio" name="balanco" value="servicos">
+            <span>Índices de serviços<small>acima de R$ 732.000</small></span></label>
+        </div>
+      </div>
+
+      <div class="escolha">
         <span class="rot">Exigências do certame</span>
         <div class="flags">
+          <label class="flag"><input type="checkbox" id="fItemUnico">
+            <span><b>Item único</b><small>tira o "facultando-se" do item 1.3</small></span></label>
           <label class="flag"><input type="checkbox" id="fAmostra">
             <span><b>Exige amostra</b><small>mantém o item 1.6 e as alíneas de entrega</small></span></label>
-          <label class="flag"><input type="checkbox" id="fMeEpp">
-            <span><b>Itens exclusivos ME/EPP</b><small>troca a redação do item 4.12</small></span></label>
+          <label class="flag"><input type="checkbox" id="fHabTecnica">
+            <span><b>Habilitação técnica</b><small>mantém o item 9.19</small></span></label>
+          <label class="flag"><input type="checkbox" id="fCatalogo">
+            <span><b>Exige catálogo</b><small>item 10.1 d), produtos mais complexos</small></span></label>
           <label class="flag"><input type="checkbox" id="fDocsAntes">
             <span><b>Documentos antes da assinatura</b><small>usa a versão longa do item 14.1</small></span></label>
           <label class="flag"><input type="checkbox" id="fGarantia">
             <span><b>Garantia contratual</b><small>item 14.4 e parágrafos 4º a 6º do contrato</small></span></label>
           <label class="flag"><input type="checkbox" id="fSubcontrat">
             <span><b>Permite subcontratação</b><small>mantém a Cláusula Nona do contrato</small></span></label>
+          <label class="flag"><input type="checkbox" id="fMaoObra">
+            <span><b>Serviços com mão de obra</b><small>repactuação, retenções e EPI no lugar do reajuste</small></span></label>
+        </div>
+      </div>
+
+      <!-- Campos que só existem quando a marcação acima os torna necessários -->
+      <div class="subgrupo sofse" id="grpAmostra">
+        <span class="rot">Entrega da amostra</span>
+        <div class="grade">
+          <div class="campo largo">
+            <label for="fEndAmostra">Endereço de entrega</label>
+            <input id="fEndAmostra" placeholder="Rua do Comércio, 921, Centro, Ijuí/RS" autocomplete="off">
+          </div>
+          <div class="campo largo">
+            <label for="fServAmostra">Servidor responsável pelo recebimento</label>
+            <input id="fServAmostra" placeholder="Nome do servidor" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <div class="subgrupo sofse" id="grpContrato">
+        <span class="rot">Prazos e fiscalização do contrato</span>
+        <div class="grade">
+          <div class="campo">
+            <label for="fVigencia">Vigência</label>
+            <input id="fVigencia" placeholder="365 (trezentos e sessenta e cinco dias)" autocomplete="off">
+          </div>
+          <div class="campo sofse" id="cpPrazoEntrega">
+            <label for="fPrazoEntrega">Prazo de entrega</label>
+            <input id="fPrazoEntrega" placeholder="10 (dez)" autocomplete="off">
+            <span class="obs">Sai como "10 (dez) DIAS ÚTEIS".</span>
+          </div>
+          <div class="campo sofse" id="cpPrazoExec">
+            <label for="fPrazoExecucao">Prazo de início da execução</label>
+            <input id="fPrazoExecucao" placeholder="5 (cinco)" autocomplete="off">
+            <span class="obs">Sai como "5 (cinco) DIAS ÚTEIS".</span>
+          </div>
+          <div class="campo largo">
+            <label for="fGestor">Secretaria do gestor do contrato</label>
+            <input id="fGestor" placeholder="DA FAZENDA" autocomplete="off">
+          </div>
+          <div class="campo">
+            <label for="fFiscalTec">Fiscal técnico</label>
+            <input id="fFiscalTec" placeholder="Nome do servidor" autocomplete="off">
+          </div>
+          <div class="campo">
+            <label for="fFiscalAdm">Fiscal administrativo</label>
+            <input id="fFiscalAdm" placeholder="Nome do servidor" autocomplete="off">
+          </div>
         </div>
       </div>
     </div>
@@ -364,53 +488,83 @@ function radio(nome){
   var el=document.querySelector('input[name="'+nome+'"]:checked');
   return el?el.value:'';
 }
+function txt(id){ var e=document.getElementById(id); return e?e.value.trim():''; }
+function chk(id){ var e=document.getElementById(id); return !!(e&&e.checked); }
+
 function lerFormulario(){
   return {
-    pregao:      document.getElementById('fPregao').value.trim(),
-    processo:    document.getElementById('fProcesso').value.trim(),
-    objeto:      document.getElementById('fObjeto').value.trim(),
-    data:        document.getElementById('fData').value,
-    hora:        document.getElementById('fHora').value,
-    dataEdital:  document.getElementById('fDataEdital').value,
+    /* campos de texto */
+    pregao:     txt('fPregao'),
+    processo:   txt('fProcesso'),
+    objeto:     txt('fObjeto'),
+    data:       document.getElementById('fData').value,
+    hora:       document.getElementById('fHora').value,
+    dataEdital: document.getElementById('fDataEdital').value,
+    criterio:   txt('fCriterio'),
+    modoDisputa: txt('fModoDisputa'),
+    secretaria: txt('fSecretaria'),
+    valor:      txt('fValor'),
+    endAmostra:  txt('fEndAmostra'),
+    servAmostra: txt('fServAmostra'),
+    vigencia:      txt('fVigencia'),
+    prazoEntrega:  txt('fPrazoEntrega'),
+    prazoExecucao: txt('fPrazoExecucao'),
+    gestor:     txt('fGestor'),
+    fiscalTec:  txt('fFiscalTec'),
+    fiscalAdm:  txt('fFiscalAdm'),
+    /* marcações que decidem os blocos */
     regime:      radio('regime'),
     instrumento: radio('instrumento'),
     natureza:    radio('natureza'),
-    amostra:              document.getElementById('fAmostra').checked,
-    itensExclusivosMeEpp: document.getElementById('fMeEpp').checked,
-    docsAntesAssinatura:  document.getElementById('fDocsAntes').checked,
-    garantiaContratual:   document.getElementById('fGarantia').checked,
-    subcontratacao:       document.getElementById('fSubcontrat').checked
+    meEpp:       radio('meEpp'),
+    balanco:     radio('balanco'),
+    itemUnico:           chk('fItemUnico'),
+    amostra:             chk('fAmostra'),
+    habTecnica:          chk('fHabTecnica'),
+    catalogo:            chk('fCatalogo'),
+    docsAntesAssinatura: chk('fDocsAntes'),
+    garantiaContratual:  chk('fGarantia'),
+    subcontratacao:      chk('fSubcontrat'),
+    maoDeObra:           chk('fMaoObra')
   };
 }
+/* id do campo → chave gravada no cadastro */
+var CAMPOS_TEXTO={
+  fPregao:'pregao', fProcesso:'processo', fObjeto:'objeto', fData:'data',
+  fHora:'hora', fDataEdital:'dataEdital', fCriterio:'criterio',
+  fModoDisputa:'modoDisputa', fSecretaria:'secretaria', fValor:'valor',
+  fEndAmostra:'endAmostra', fServAmostra:'servAmostra', fVigencia:'vigencia',
+  fPrazoEntrega:'prazoEntrega', fPrazoExecucao:'prazoExecucao',
+  fGestor:'gestor', fFiscalTec:'fiscalTec', fFiscalAdm:'fiscalAdm'
+};
+var CAMPOS_FLAG={
+  fItemUnico:'itemUnico', fAmostra:'amostra', fHabTecnica:'habTecnica',
+  fCatalogo:'catalogo', fDocsAntes:'docsAntesAssinatura',
+  fGarantia:'garantiaContratual', fSubcontrat:'subcontratacao', fMaoObra:'maoDeObra'
+};
+var PADRAO={hora:'09:30', criterio:'MENOR PREÇO POR ITEM', modoDisputa:'ABERTO E FECHADO'};
+var PADRAO_RADIO={regime:'contratacao', instrumento:'contrato',
+                  natureza:'aquisicao', meEpp:'exclusivo', balanco:'nao'};
+
 function preencherFormulario(d){
-  document.getElementById('fPregao').value=d.pregao||'';
-  document.getElementById('fProcesso').value=d.processo||'';
-  document.getElementById('fObjeto').value=d.objeto||'';
-  document.getElementById('fData').value=d.data||'';
-  document.getElementById('fHora').value=d.hora||'09:30';
-  document.getElementById('fDataEdital').value=d.dataEdital||'';
-  ['regime','instrumento','natureza'].forEach(function(n){
-    var el=document.querySelector('input[name="'+n+'"][value="'+(d[n]||'')+'"]');
+  Object.keys(CAMPOS_TEXTO).forEach(function(id){
+    var k=CAMPOS_TEXTO[id], el=document.getElementById(id);
+    if(el) el.value = d[k]!=null && d[k]!=='' ? d[k] : (PADRAO[k]||'');
+  });
+  Object.keys(CAMPOS_FLAG).forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.checked=!!d[CAMPOS_FLAG[id]];
+  });
+  Object.keys(PADRAO_RADIO).forEach(function(n){
+    var v=d[n]||PADRAO_RADIO[n];
+    var el=document.querySelector('input[name="'+n+'"][value="'+v+'"]');
     if(el) el.checked=true;
   });
-  document.getElementById('fAmostra').checked=!!d.amostra;
-  document.getElementById('fMeEpp').checked=!!d.itensExclusivosMeEpp;
-  document.getElementById('fDocsAntes').checked=!!d.docsAntesAssinatura;
-  document.getElementById('fGarantia').checked=!!d.garantiaContratual;
-  document.getElementById('fSubcontrat').checked=!!d.subcontratacao;
   atualizarPrevia();
 }
 function limparFormulario(){
-  document.querySelectorAll('#fPregao,#fProcesso,#fObjeto,#fData,#fDataEdital')
-    .forEach(function(e){ e.value=''; });
-  document.getElementById('fHora').value='09:30';
-  document.querySelector('input[name="regime"][value="contratacao"]').checked=true;
-  document.querySelector('input[name="instrumento"][value="contrato"]').checked=true;
-  document.querySelector('input[name="natureza"][value="aquisicao"]').checked=true;
-  ['fAmostra','fMeEpp','fDocsAntes','fGarantia','fSubcontrat']
-    .forEach(function(id){ document.getElementById(id).checked=false; });
+  preencherFormulario({});
   editandoId=null;
-  atualizarPrevia();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -444,6 +598,24 @@ async function atualizarPrevia(){
     f.classList.toggle('ativa', i && i.checked);
   });
 
+  /* Campos só aparecem quando a marcação os torna necessários — sem isso o
+     formulário pediria fiscal de contrato num edital que sai por empenho. */
+  function mostrar(id, cond){
+    var el=document.getElementById(id);
+    if(el) el.classList.toggle('on', !!cond);
+  }
+  mostrar('grpAmostra', d.amostra);
+  mostrar('grpContrato', d.instrumento==='contrato');
+  mostrar('cpPrazoEntrega', d.natureza==='aquisicao');
+  mostrar('cpPrazoExec', d.natureza==='servicos');
+
+  var expl={
+    exclusivo:'Itens de até R$ 80 mil ficam reservados a ME/EPP (art. 48, I, LC 123/2006).',
+    semCota:'Nenhum item reservado — justificado pela complexidade do objeto.',
+    compraMais:'Preferência local/regional da Lei Municipal 7.724/2025. Troca o preâmbulo e a seção 4 inteira.'
+  };
+  document.getElementById('obsMeEpp').textContent = expl[d.meEpp]||'';
+
   var alvo=document.getElementById('previa');
   var mapa;
   try{ mapa=await carregarMapa(); }
@@ -452,11 +624,23 @@ async function atualizarPrevia(){
     return;
   }
 
-  var html='', entram=0, saem=0, paragsFora=0;
-  mapa.blocos.forEach(function(b){
+  /* Agrupa a prévia pela parte do edital, senão vira uma lista de 58 linhas
+     em que ninguém acha o que procura. */
+  function parte(b){
+    if(b.ini<105+10) return 'Preâmbulo e sumário';
+    if(b.ini<660)  return 'Corpo do edital';
+    if(b.ini<850)  return 'Seção 14 a 17';
+    if(b.ini<1386) return 'Anexo II — Ata';
+    if(b.ini<1660) return 'Anexo II — Contrato';
+    return 'Anexo III — Termo de Referência';
+  }
+  var html='', entram=0, saem=0, paragsFora=0, grupoAtual='';
+  mapa.blocos.slice().sort(function(a,b){ return a.ini-b.ini; }).forEach(function(b){
     var fica=blocoEntra(b,d);
     var qt=b.fim-b.ini+1;
     if(fica) entram++; else { saem++; paragsFora+=qt; }
+    var g=parte(b);
+    if(g!==grupoAtual){ grupoAtual=g; html+='<div class="previa-grupo">'+escHtml(g)+'</div>'; }
     var filho=b.titulo.indexOf('└')>=0;
     html+='<div class="bloco '+(fica?'entra':'sai')+(filho?' filho':'')+'">'
         + '<span class="ic">'+(fica?'✓':'✕')+'</span>'
@@ -548,7 +732,24 @@ async function montarODT(dados){
     '@@DATA_CURTA@@':   dataCurta(dados.data),
     '@@DIA_SEMANA@@':   diaDaSemana(dados.data),
     '@@HORARIO@@':      dados.hora,
-    '@@DATA_EDITAL@@':  porExtenso(dados.dataEdital)
+    '@@DATA_EDITAL@@':  porExtenso(dados.dataEdital),
+    /* Item 1.3: com um item só, o "facultando-se a participação em quantos
+       itens" perde o sentido — é a instrução que estava anotada no modelo. */
+    '@@FORMA_DISPUTA@@': dados.itemUnico
+        ? 'por ITEM ÚNICO'
+        : 'por ITENS, facultando-se ao licitante a participação em quantos itens forem de seu interesse,',
+    '@@MODO_DISPUTA@@':       dados.modoDisputa,
+    '@@CRITERIO_JULGAMENTO@@': dados.criterio,
+    '@@ENDERECO_AMOSTRA@@':   dados.endAmostra  || '(inserir endereço aqui)',
+    '@@SERVIDOR_AMOSTRA@@':   dados.servAmostra || '(nome do servidor)',
+    '@@VIGENCIA@@':           dados.vigencia      || '365 (trezentos e sessenta e cinco dias)',
+    '@@PRAZO_ENTREGA@@':      dados.prazoEntrega  || 'xx (xxx)',
+    '@@PRAZO_EXECUCAO@@':     dados.prazoExecucao || 'xx (xxx)',
+    '@@GESTOR@@':             dados.gestor    || '_________________',
+    '@@FISCAL_TECNICO@@':     dados.fiscalTec || '_________________',
+    '@@FISCAL_ADM@@':         dados.fiscalAdm || '_________________',
+    '@@SECRETARIA@@':         dados.secretaria || 'Todas as Secretarias do Município de Ijuí RS.',
+    '@@VALOR_ESTIMADO@@':     dados.valor || ''
   };
   Object.keys(valores).forEach(function(tok){
     var v=escXml(valores[tok]);
@@ -685,7 +886,8 @@ function abrirEdital(id){
 const ROTULOS={
   contratacao:'Contratação', registro:'Registro de Preços',
   contrato:'Contrato', ata:'Ata', empenho:'Empenho',
-  aquisicao:'Aquisição', servicos:'Serviços'
+  aquisicao:'Aquisição', servicos:'Serviços',
+  exclusivo:'ME/EPP exclusivo', semCota:'Sem cota ME/EPP', compraMais:'Compra + Ijuí'
 };
 function renderLista(lista){
   var alvo=document.getElementById('listaEditais');
@@ -695,7 +897,7 @@ function renderLista(lista){
   }
   lista.sort(function(a,b){ return (b.atualizadoEm||'').localeCompare(a.atualizadoEm||''); });
   alvo.innerHTML=lista.map(function(d){
-    var tags=[d.regime,d.instrumento,d.natureza]
+    var tags=[d.regime,d.instrumento,d.natureza,d.meEpp]
       .filter(Boolean).map(function(k){ return '<span class="tag">'+escHtml(ROTULOS[k]||k)+'</span>'; }).join('');
     return '<div class="item">'
       + '<div class="item-topo"><span class="item-num">PE '+escHtml(d.pregao||'—')+'</span>'
@@ -728,10 +930,10 @@ document.addEventListener('DOMContentLoaded', function(){
   iniciarFirebase();
   ouvirLista();
 
-  ['fPregao','fProcesso','fObjeto','fData','fHora','fDataEdital',
-   'fAmostra','fMeEpp','fDocsAntes','fGarantia','fSubcontrat']
+  Object.keys(CAMPOS_TEXTO).concat(Object.keys(CAMPOS_FLAG))
     .forEach(function(id){
       var el=document.getElementById(id);
+      if(!el) return;
       el.addEventListener('input', atualizarPrevia);
       el.addEventListener('change', atualizarPrevia);
     });
