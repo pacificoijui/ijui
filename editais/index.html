@@ -377,6 +377,23 @@
     </div>
 
     <div class="cartao">
+      <h2>Dotação orçamentária</h2>
+      <p class="dica">Aparece duas vezes no documento (item 17.12 do edital e Cláusula Quarta do contrato) com os mesmos dados — preenche uma vez, entra nas duas. Cole o bloco de um edital anterior ou do sistema de empenho: uma linha por rubrica, o rótulo não precisa vir igualzinho.</p>
+      <div class="campo">
+        <label for="fDotacao">Órgão · Unidade · Função · Subfunção · Programa · Projeto/Atividade · Despesa · Categoria Econômica</label>
+        <textarea id="fDotacao" style="min-height:150px;font-family:ui-monospace,Menlo,monospace;font-size:12px" placeholder="ÓRGÃO	23	SEC. MUN. DE ESPORTE E LAZER
+UNIDADE	2303	Coordenadoria de Esporte e Lazer
+FUNÇÃO	27	Desporto e Lazer
+SUBFUNÇÃO	812	Desporto Comunitário
+PROGRAMA	116	Cidadania pela Cultura, Esporte e Turismo
+PROJETO/ATIVIDADE	358	EP 2026... - Aquisição de Equipamentos
+DESPESA	20937	1706	Transferência Especial da União
+CATEGORIA ECONÔMICA	449052100000	APARELHOS E EQUIPAMENTOS..."></textarea>
+        <span class="obs" id="obsDotacao">Rubrica não encontrada na colagem mantém o exemplo do modelo — revise antes de usar.</span>
+      </div>
+    </div>
+
+    <div class="cartao">
       <h2>Gerar</h2>
       <p class="dica">Sai um <b>.odt</b>, que abre no LibreOffice já com a formatação, o brasão e o cabeçalho do modelo — é o próprio edital de vocês, só sem os trechos que não se aplicam.</p>
       <div style="display:flex;gap:9px;flex-wrap:wrap">
@@ -524,6 +541,7 @@ function lerFormulario(){
     fiscalTec:  txt('fFiscalTec'),
     fiscalAdm:  txt('fFiscalAdm'),
     itens:      document.getElementById('fItens').value,
+    dotacao:    document.getElementById('fDotacao').value,
     /* marcações que decidem os blocos */
     regime:      radio('regime'),
     instrumento: radio('instrumento'),
@@ -547,7 +565,7 @@ var CAMPOS_TEXTO={
   fModoDisputa:'modoDisputa', fSecretaria:'secretaria', fValor:'valor',
   fEndAmostra:'endAmostra', fServAmostra:'servAmostra', fVigencia:'vigencia',
   fPrazoEntrega:'prazoEntrega', fPrazoExecucao:'prazoExecucao',
-  fGestor:'gestor', fFiscalTec:'fiscalTec', fFiscalAdm:'fiscalAdm', fItens:'itens'
+  fGestor:'gestor', fFiscalTec:'fiscalTec', fFiscalAdm:'fiscalAdm', fItens:'itens', fDotacao:'dotacao'
 };
 var CAMPOS_FLAG={
   fItemUnico:'itemUnico', fAmostra:'amostra', fHabTecnica:'habTecnica',
@@ -636,6 +654,18 @@ async function atualizarPrevia(){
       + (d.valor ? '' : ' (vai para o valor estimado)');
   } else {
     obsIt.textContent='Deixando em branco, a tabela do modelo continua como está — dá para preencher no LibreOffice depois.';
+  }
+
+  var dotAchada=parsearDotacao(d.dotacao), obsDot=document.getElementById('obsDotacao');
+  var qtdDot=Object.keys(dotAchada).length;
+  if(qtdDot){
+    obsDot.textContent = qtdDot+' de '+RUBRICAS_DOTACAO.length+' rubricas reconhecidas'
+      + (qtdDot<RUBRICAS_DOTACAO.length
+          ? ' — faltando: '+RUBRICAS_DOTACAO.filter(function(r){ return !dotAchada[r.chave]; })
+              .map(function(r){ return r.rotulo; }).join(', ')
+          : '');
+  } else {
+    obsDot.textContent='Rubrica não encontrada na colagem mantém o exemplo do modelo — revise antes de usar.';
   }
 
   var alvo=document.getElementById('previa');
@@ -804,6 +834,79 @@ function montarTabelaItens(doc, nomeTabela, itens, ocultarValores){
   return itens.length;
 }
 
+/* ── Dotação orçamentária ────────────────────────────────────────────
+   Aparece DUAS vezes no documento com os mesmos 8 dados — no item 17.12 do
+   edital e na Cláusula Quarta do contrato — porque são o mesmo empenho
+   descrito em dois lugares diferentes. Uma tabela por rubrica, cada uma
+   repetida nos dois lugares; a de DESPESA tem dois códigos (fonte e
+   despesa), as outras têm um só. */
+const RUBRICAS_DOTACAO=[
+  {chave:'orgao',     rotulo:'ÓRGÃO',              tabs:['Tabela52','Tabela67'], codigos:1},
+  {chave:'unidade',   rotulo:'UNIDADE',             tabs:['Tabela53','Tabela68'], codigos:1},
+  {chave:'funcao',    rotulo:'FUNÇÃO',              tabs:['Tabela54','Tabela69'], codigos:1},
+  {chave:'subfuncao', rotulo:'SUBFUNÇÃO',           tabs:['Tabela55','Tabela70'], codigos:1},
+  {chave:'programa',  rotulo:'PROGRAMA',            tabs:['Tabela56','Tabela71'], codigos:1},
+  {chave:'projeto',   rotulo:'PROJETO/ATIVIDADE',   tabs:['Tabela63','Tabela72'], codigos:1},
+  {chave:'despesa',   rotulo:'DESPESA',             tabs:['Tabela64','Tabela74'], codigos:2},
+  {chave:'categoria', rotulo:'CATEGORIA ECONÔMICA', tabs:['Tabela73','Tabela76'], codigos:1},
+];
+function normRotulo(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .toUpperCase().replace(/[^A-Z]/g,'');
+}
+/* Aceita colar o próprio bloco de dotação de um edital anterior ou do
+   sistema de empenho — o formato é o mesmo do modelo: "ÓRGÃO  23  SEC. MUN.
+   DE ESPORTE E LAZER" por linha, colunas por tabulação ou " | ". A ordem das
+   linhas não importa: cada uma é reconhecida pelo próprio rótulo. */
+function parsearDotacao(texto){
+  var linhas=String(texto||'').split(/\r?\n/).map(function(l){ return l.trim(); })
+                              .filter(function(l){ return l; });
+  var dados={};
+  linhas.forEach(function(linha){
+    var partes=(linha.indexOf('\t')>=0?linha.split('\t'):linha.split(/\s*\|\s*/)).map(function(p){ return p.trim(); });
+    var rot=normRotulo(partes[0]);
+    if(!rot) return;
+    /* Prefixo, não "contém": com "indexOf" qualquer lugar, "FUNÇÃO" bate
+       dentro de "SUBFUNÇÃO" (SUBFUNCAO contém FUNCAO) e rouba a rubrica
+       errada — a FUNÇÃO some e a SUBFUNÇÃO nunca é preenchida. Com prefixo,
+       "SUBFUNCAO" não começa com "FUNCAO", então só casa com ela mesma. */
+    var rub=RUBRICAS_DOTACAO.find(function(r){
+      var rn=normRotulo(r.rotulo);
+      return rn.indexOf(rot)===0 || rot.indexOf(rn)===0;
+    });
+    if(!rub) return;
+    var resto=partes.slice(1);
+    if(rub.codigos===2){
+      dados[rub.chave]={cod1:resto[0]||'', cod2:resto[1]||'', desc:resto.slice(2).join(' ')||''};
+    } else {
+      dados[rub.chave]={cod1:resto[0]||'', desc:resto.slice(1).join(' ')||''};
+    }
+  });
+  return dados;
+}
+function preencherDotacao(doc, dados){
+  var n=0;
+  RUBRICAS_DOTACAO.forEach(function(rub){
+    var d=dados[rub.chave];
+    if(!d) return; /* rubrica não veio na colagem — tabela do modelo fica como está */
+    rub.tabs.forEach(function(nomeTab){
+      var tab=acharTabela(doc, nomeTab);
+      if(!tab) return;
+      var cels=tab.getElementsByTagNameNS(NS_TABLE,'table-cell');
+      if(rub.codigos===2){
+        if(cels[1]) textoNaCelula(cels[1], d.cod1);
+        if(cels[2]) textoNaCelula(cels[2], d.cod2);
+        if(cels[3]) textoNaCelula(cels[3], d.desc);
+      } else {
+        if(cels[1]) textoNaCelula(cels[1], d.cod1);
+        if(cels[2]) textoNaCelula(cels[2], d.desc);
+      }
+      n++;
+    });
+  });
+  return n;
+}
+
 /* Boa parte dos títulos do edital mora dentro de uma tabela de uma célula só,
    usada como faixa/moldura. Apagar os parágrafos deixaria a moldura vazia no
    documento — uma caixa com borda e nada dentro. Este mapa diz quais
@@ -895,6 +998,7 @@ async function montarODT(dados){
   var itens=parsearItens(dados.itens);
   montarTabelaItens(doc, 'Tabela1',  itens, false);  /* Termo de Referência */
   montarTabelaItens(doc, 'Tabela18', itens, true);   /* modelo de proposta  */
+  preencherDotacao(doc, parsearDotacao(dados.dotacao));
 
   contentTxt=new XMLSerializer().serializeToString(doc);
 

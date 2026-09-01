@@ -257,5 +257,47 @@ except FileNotFoundError:
     print('   (saida-itens.odt não gerado — rode t-itens.js antes)')
 
 
+# ── Cenário da dotação: as duas tabelas preenchidas de uma colagem só ──
+print(f'\n{"="*72}\nsaida-dotacao.odt (dotação orçamentária)')
+try:
+    zf = zipfile.ZipFile('saida-dotacao.odt')
+    r = ET.fromstring(zf.read('content.xml').decode('utf-8'))
+
+    def linha_tabela(nome):
+        for t in r.iter(TBL + 'table'):
+            if t.get(TBL + 'name') == nome:
+                for ln in t.iter(TBL + 'table-row'):
+                    return [' '.join(''.join(p.itertext()).strip()
+                                     for p in c.iter(T + 'p')).strip()
+                            for c in ln.findall(TBL + 'table-cell')]
+        return None
+
+    GRUPO1 = ['Tabela52','Tabela53','Tabela54','Tabela55','Tabela56','Tabela63','Tabela64','Tabela73']
+    GRUPO2 = ['Tabela67','Tabela68','Tabela69','Tabela70','Tabela71','Tabela72','Tabela74','Tabela76']
+    ESPERADO = [
+        ['ÓRGÃO', '09', 'SEC. MUN. DE EDUCAÇÃO'],
+        ['UNIDADE', '0901', 'Coordenadoria de Ensino Fundamental'],
+        ['FUNÇÃO', '12', 'Educação'],
+        ['SUBFUNÇÃO', '361', 'Ensino Fundamental'],
+        ['PROGRAMA', '201', 'Educação de Qualidade para Todos'],
+        ['PROJETO/ATIVIDADE', '2044', 'Manutenção do Ensino Fundamental'],
+        ['DESPESA', '10500', '1001', 'Recursos do Tesouro Municipal'],
+        ['CATEGORIA ECONÔMICA', '339030000000', 'MATERIAL DE CONSUMO'],
+    ]
+    for grupo, rotulo in ((GRUPO1, 'item 17.12 do edital'), (GRUPO2, 'Cláusula Quarta do contrato')):
+        for nome, esp in zip(grupo, ESPERADO):
+            real = linha_tabela(nome)
+            checa(f'{rotulo} — {esp[0]}', real == esp, f'esperava {esp}, achei {real}')
+
+    checa('FUNÇÃO e SUBFUNÇÃO não se confundiram (bug do prefixo)',
+          linha_tabela('Tabela54') != linha_tabela('Tabela55'))
+
+    texto = texto_do(zf, 'content.xml')
+    checa('nenhum dado do exemplo (Esporte e Lazer) sobrou', 'Esporte e Lazer' not in texto)
+    checa('nenhum marcador @@…@@ restante', not re.findall(r'@@\w+@@', texto))
+except FileNotFoundError:
+    print('   (saida-dotacao.odt não gerado — rode t-dotacao.js antes)')
+
+
 print(f'\n{"="*72}\n{ok} conferências passaram, {falhas} falharam.')
 sys.exit(1 if falhas else 0)
