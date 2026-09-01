@@ -730,6 +730,26 @@ function listarParagrafos(doc){
   return saida;
 }
 
+/* O modelo original resolve a concordância de gênero à mão: "a/o" ou "o/a"
+   na frente do objeto, pro pregoeiro apagar o artigo errado. Sem isso, o
+   documento sairia com "a/o Aquisição de..." escrito literalmente — o que
+   este gerador faria por padrão se não resolvesse, exatamente como o
+   modelo chegou. Reconhece o substantivo que abre o objeto (é ele que
+   concorda com o artigo, não a coisa comprada: "a Aquisição", "o Registro
+   de preços") e escolhe certo; não reconhecendo, mantém "a/o" — mesmo
+   comportamento de hoje, nunca pior. */
+function artigoObjeto(objeto){
+  var primeira=String(objeto||'').trim().split(/\s+/)[0]||'';
+  var norm=primeira.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z]/g,'');
+  var FEMININOS=['aquisicao','contratacao','prestacao','locacao','concessao',
+                 'renovacao','manutencao','execucao','permissao','construcao','reforma'];
+  var MASCULINOS=['registro','fornecimento','servico','servicos','credenciamento',
+                  'estudo','projeto','sistema'];
+  if(FEMININOS.indexOf(norm)>=0) return 'a';
+  if(MASCULINOS.indexOf(norm)>=0) return 'o';
+  return null;
+}
+
 /* ── Itens do edital ─────────────────────────────────────────────────
    As mesmas linhas alimentam a tabela do Termo de Referência e a do modelo
    de proposta (Anexo I). No Anexo I os valores saem em branco: aquela tabela
@@ -1012,6 +1032,9 @@ async function montarODT(dados){
     '@@DIA_SEMANA@@':   diaDaSemana(dados.data),
     '@@HORARIO@@':      dados.hora,
     '@@DATA_EDITAL@@':  porExtenso(dados.dataEdital),
+    /* Se não reconhecer o gênero pelo objeto digitado, mantém "a/o" — igual
+       ao modelo original, pro pregoeiro resolver à mão como já fazia. */
+    '@@ARTIGO_OBJETO@@': artigoObjeto(dados.objeto) || 'a/o',
     /* Item 1.3: com um item só, o "facultando-se a participação em quantos
        itens" perde o sentido — é a instrução que estava anotada no modelo. */
     '@@FORMA_DISPUTA@@': dados.itemUnico

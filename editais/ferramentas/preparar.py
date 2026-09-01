@@ -77,6 +77,19 @@ CAMPOS = [
 # no de execução; "___" aparece 174 vezes no documento. Trocar global aí seria
 # estragar o edital em silêncio.
 CAMPOS_POR_PARAGRAFO = {
+    # O modelo original resolve a concordância de gênero à mão: "a/o", "o/a" ou
+    # "o / a" na frente do objeto, pro pregoeiro apagar o artigo errado. Sem
+    # isso, o documento gerado sairia com "a/o Aquisição de..." escrito
+    # literalmente. @@ARTIGO_OBJETO@@ funde os três jeitos que o modelo usa
+    # num só marcador — todos resolvem pro mesmo lugar, o artigo sempre vem
+    # antes do objeto em português ("a Aquisição...", "o Registro...").
+    # Roda DEPOIS do CAMPOS global da mesma iteração, que já tokenizou
+    # @@OBJETO@@ nesse parágrafo — por isso o texto buscado já contém o token.
+    127:  [('a/o @@OBJETO@@',   '@@ARTIGO_OBJETO@@ @@OBJETO@@')],
+    1157: [('a/o @@OBJETO@@',   '@@ARTIGO_OBJETO@@ @@OBJETO@@')],
+    1398: [('o/a @@OBJETO@@',   '@@ARTIGO_OBJETO@@ @@OBJETO@@')],
+    1669: [('o / a @@OBJETO@@', '@@ARTIGO_OBJETO@@ @@OBJETO@@')],
+
     131: [('por ITENS, facultando-se ao licitante a participação em quantos itens '
            'forem de seu interesse,', '@@FORMA_DISPUTA@@'),
           ('ABERTO E FECHADO', '@@MODO_DISPUTA@@')],
