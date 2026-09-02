@@ -55,6 +55,7 @@ rede.
 | `t-editar-valor-forn.js` | edição de Valor/Modelo/Marca na colocação |
 | `t-editar-atalho-status.js` | edição dos botões de mensagem rápida |
 | `t-pdf-cabecalho-enxuto.js` | cabeçalho do PDF de Decisão/Diligência |
+| `t-pdf-unificado.js` | Decisão e Diligência saem do mesmo gerador, sem se misturar |
 | `t-editais.js` | módulo de editais: 3 cenários de marcação |
 | `t-itens.js` | tabela de itens colada preenche TR e Anexo I |
 | `t-dotacao.js` | dotação orçamentária nas duas tabelas |
