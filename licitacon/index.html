@@ -22,7 +22,6 @@
 <style>
   :root {
     --navy:      #1a3a6b;
-    --navy-dark: #12294d;
     --navy-light:#2e5da8;
     --gold:      #e8a020;
     --card:      #ffffff;
@@ -31,12 +30,9 @@
     --muted:     #6b7793;
     --border:    #dde4f0;
     --shadow:    0 2px 10px rgba(20,40,80,0.07);
-    --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
     --blue-bg:   #e7eefb;
     --blue-text: #1e4a8a;
-    --green:     #2a8a3a;
     --red:       #c0282a;
-    --amber:     #c07000;  --amber-bg:  #fef3dc;
     --radius:    18px;
     --ring:      0 0 0 3px rgba(46,93,168,0.14);
   }
@@ -63,7 +59,7 @@
     box-shadow: 0 3px 16px rgba(15,32,80,0.15);
     border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 55%, var(--gold) 100%) 1;
   }
-  .header-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 74px; gap: 20px; }
+  .header-inner { max-width: 1600px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 74px; gap: 20px; }
   .logo-wrap { display: flex; align-items: center; gap: 18px; }
   .logo-mark { width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--navy), var(--navy-light)); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(26,58,107,0.28); flex-shrink: 0; font-size: 22px; }
   .logo-divider { width: 2px; height: 44px; background: var(--border); border-radius: 2px; }
@@ -73,22 +69,22 @@
 
   /* Barra de estatísticas (o número de itens sem vencedor filtra ao clicar) */
   .stats-bar { background: linear-gradient(180deg, #10254a, #173562); border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .stats-inner { max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; }
-  .stat { padding: 13px 28px 13px 0; display: flex; align-items: center; gap: 10px; border-right: 1px solid rgba(255,255,255,0.10); margin-right: 28px; cursor: pointer; transition: opacity .15s; border-bottom: 3px solid transparent; }
+  .stats-inner { max-width: 1600px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; }
+  .stat { padding: 12px 26px 12px 0; display: flex; align-items: center; gap: 10px; border-right: 1px solid rgba(255,255,255,0.10); margin-right: 26px; cursor: pointer; transition: opacity .15s; border-bottom: 3px solid transparent; }
   .stat:hover { opacity: .85; }
   .stat.active { border-bottom-color: var(--gold); }
   .stat:last-child { border-right: none; margin-right: 0; }
-  .stat-num { font-size: 24px; font-weight: 800; color: var(--gold); line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+  .stat-num { font-size: 23px; font-weight: 800; color: var(--gold); line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
   .stat-num.amberc { color: #ffcf7d; }
   .stat-label { font-size: 11.5px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
 
-  main { max-width: 1440px; margin: 0 auto; padding: 20px 32px 60px; }
+  main { max-width: 1600px; margin: 0 auto; padding: 18px 32px 60px; }
 
   /* Filtros */
-  .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 16px; }
-  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 14px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .panel-title { font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .8px; display: flex; align-items: center; gap: 8px; }
-  .panel-body { padding: 16px 20px; }
+  .panel-body { padding: 15px 20px; }
   .filters-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.3fr; gap: 12px; align-items: end; }
   .f-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
   .f-field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -105,87 +101,71 @@
   .link-clear { background: none; border: none; color: var(--red); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
 
   /* Barra da lista */
-  .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
+  .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 2px 10px; flex-wrap: wrap; }
   .result-count { font-size: 13.5px; color: var(--muted); }
   .result-count b { color: var(--navy); font-size: 16px; }
   .toolbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .sort-sel { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; background: #fbfcff; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
   .sort-sel:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
 
-  /* ══ Lista: tabela agrupada por processo, como no próprio LicitaCon ══ */
-  .grupo { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
-  .grupo-head { background: #f2f5fb; border-bottom: 1px solid var(--border); padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .gh-num { background: var(--navy); color: #fff; border-radius: 20px; padding: 4px 11px; font-size: 12px; font-weight: 800; white-space: nowrap; }
-  .gh-txt { font-size: 12.5px; color: var(--muted); font-weight: 600; }
-  .gh-txt b { color: var(--text); font-weight: 700; }
-  .gh-qtd { margin-left: auto; font-size: 11.5px; color: var(--muted); font-weight: 700; white-space: nowrap; }
-
-  .tab-wrap { overflow-x: auto; }
+  /* ══ Tabela única — tudo o que se consulta está aqui, sem clicar em nada ══ */
+  .tab-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
   .tab { width: 100%; border-collapse: collapse; }
-  .tab th { background: #fafbfe; border-bottom: 1.5px solid var(--border); padding: 9px 10px; font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap; }
-  .tab th.r, .tab td.r { text-align: right; }
-  .tab th.unit { color: var(--navy); }
-  .tab td { padding: 10px; border-bottom: 1px solid #eef1f8; font-size: 13px; vertical-align: top; line-height: 1.45; }
-  .tab tr:last-child td { border-bottom: none; }
-  .tab tbody tr { cursor: pointer; transition: background .12s; }
-  .tab tbody tr:hover { background: var(--blue-bg); }
-  .tab .c-lupa { width: 30px; color: var(--muted); text-align: center; }
-  .tab .c-item { width: 38%; word-break: break-word; }
-  .tab .c-qtd, .tab .c-un { white-space: nowrap; color: var(--muted); font-size: 12.5px; }
-  /* Valor unitário é o dado principal desta consulta — é o que se compara
-     entre licitações. O total vem em segundo plano. */
-  .tab .c-unit { white-space: nowrap; font-size: 14.5px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
-  .tab .c-total { white-space: nowrap; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .tab .c-vend { width: 20%; font-weight: 600; word-break: break-word; }
-  .tab .c-vend.vazio { color: var(--muted); font-weight: 400; font-style: italic; }
-  .tab .c-cnpj { white-space: nowrap; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  /* Sem cabeçalho fixo: o Chromium resolve o `top` do sticky a partir da
+     própria tabela, não da janela, e empurrava o cabeçalho 78px para baixo —
+     ele aparecia embaixo da primeira linha. Tabela normal é melhor do que
+     tabela com o cabeçalho no lugar errado. */
+  .tab th {
+    background: #eef2fa; border-bottom: 1.5px solid var(--border);
+    padding: 10px 9px; font-size: 10.5px; font-weight: 800; color: var(--navy);
+    text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap;
+  }
+  .tab th.r { text-align: right; }
+  .tab td { padding: 9px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.42; }
+  .tab tbody tr:last-child td { border-bottom: none; }
+  .tab tbody tr:nth-child(even) td { background: #fafbfe; }
+  .tab tbody tr:hover td { background: var(--blue-bg); }
 
-  .load-wrap { text-align: center; margin-top: 16px; }
+  .c-proc { width: 12%; }
+  .p-num { display: block; font-weight: 800; color: var(--navy); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .p-mod { display: block; font-size: 10.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
+  .c-abert { width: 7%; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .c-item { width: 30%; word-break: break-word; }
+  .c-qtd { width: 5%; text-align: right; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .c-un { width: 6%; color: var(--muted); }
+  /* O valor unitário é o dado principal desta consulta — é o que se compara
+     entre licitações. O total fica em segundo plano, ao lado. */
+  .c-unit { width: 9%; text-align: right; white-space: nowrap; font-size: 14px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .c-total { width: 9%; text-align: right; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .c-vend { width: 15%; font-weight: 600; word-break: break-word; }
+  .c-vend.vazio { color: var(--muted); font-weight: 400; font-style: italic; }
+  .c-cnpj { width: 10%; white-space: nowrap; color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+  .load-wrap { text-align: center; margin-top: 14px; }
   .btn-mais { background: var(--card); color: var(--navy); border: 1.5px solid var(--border); padding: 11px 20px; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; max-width: 340px; }
   .btn-mais:hover { border-color: var(--navy-light); background: var(--blue-bg); }
-  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; }
   .empty span { font-size: 40px; display: block; margin-bottom: 10px; }
+  .rodape { font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 16px; line-height: 1.6; }
 
-  /* Modal */
-  .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
-  .overlay.open { display: flex; }
-  .modal { background: var(--card); border-radius: 18px; box-shadow: var(--shadow-lg); width: 100%; max-width: 640px; margin: 20px; overflow: hidden; animation: slideUp 0.22s ease; max-height: 92vh; overflow-y: auto; }
-  @keyframes slideUp { from { transform: translateY(22px); opacity: 0; } to { transform: none; opacity: 1; } }
-  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 18px 22px; display: flex; align-items: flex-start; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
-  .modal-header h2 { font-size: 16px; color: #fff; font-weight: 700; line-height: 1.4; }
-  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 12px; }
-  .modal-close:hover { background: rgba(255,255,255,0.30); }
-  .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 13px; }
-  .modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: #f7f9fd; line-height: 1.5; }
-  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-  .badge-num { background: var(--navy); color: #fff; }
-  .badge-modal { background: var(--blue-bg); color: var(--blue-text); }
-  .badge-cat { background: #f0e8f8; color: #6a20b0; }
-  .det-destaque { background: var(--blue-bg); border-radius: 12px; padding: 14px 16px; }
-  .det-destaque .k { font-size: 10.5px; font-weight: 800; color: var(--blue-text); text-transform: uppercase; letter-spacing: .6px; }
-  .det-destaque .v { font-size: 25px; font-weight: 800; color: var(--navy); line-height: 1.2; margin-top: 3px; font-variant-numeric: tabular-nums; }
-  .det-destaque .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
-  .det-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 14px; }
-  .det-row .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
-  .det-row .v { color: var(--text); line-height: 1.5; }
-  .det-hr { border: none; border-top: 1px solid var(--border); }
-
-  .only-mobile { display: none; }
   .caret { transition: transform .2s; display: inline-block; color: var(--muted); }
   .caret.up { transform: rotate(180deg); }
+  .only-mobile { display: none; }
 
-  @media (max-width: 1100px) {
+  @media (max-width: 1180px) {
     .filters-grid { grid-template-columns: 1fr 1fr 1fr; }
-    .tab .c-item { width: 32%; }
-    .tab .c-vend { width: 18%; }
+    .tab th, .tab td { padding: 8px 7px; }
+    .tab td { font-size: 12px; }
+    .c-cnpj { display: none; }
+    .tab th.h-cnpj { display: none; }
   }
 
   /* ═══════════════════ CELULAR ═══════════════════
      A tabela deixa de ser tabela: cada linha vira um bloco em que o item
-     ocupa a largura toda e os números se acomodam embaixo. Tabela de 8
-     colunas espremida em 390px quebra palavra no meio ("TANQ UINH O") e
-     fica ilegível — este é o mesmo erro que já custou caro no painel de
-     Vencedores, e aqui ele não se repete. */
+     ocupa a largura toda e os números se acomodam embaixo, com rótulo.
+     Uma tabela de 9 colunas espremida em 390px quebra palavra no meio
+     ("TANQ UINH O") e fica ilegível — mesmo erro que já apareceu no painel
+     de Vencedores, e que aqui não se repete. */
   @media (max-width: 860px) {
     .only-mobile { display: inline-block; }
     header { padding: 0 13px; }
@@ -224,38 +204,29 @@
     .toolbar-right label { display: none; }
     .sort-sel { flex: 1; font-size: 16px; }
 
-    .grupo { border-radius: 12px; margin-bottom: 10px; }
-    .grupo-head { padding: 9px 11px; gap: 7px; }
-    .gh-num { font-size: 11.5px; padding: 3px 9px; }
-    .gh-txt { font-size: 11.5px; width: 100%; line-height: 1.45; }
-    .gh-qtd { margin-left: auto; font-size: 10.5px; }
-
-    .tab-wrap { overflow-x: visible; }
+    .tab-box { border-radius: 12px; }
     .tab, .tab tbody, .tab tr { display: block; width: 100%; }
     .tab thead { display: none; }
-    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 14px;
+    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 13px;
       padding: 11px 12px; border-bottom: 1px solid #eef1f8; }
-    .tab tr:last-child { border-bottom: none; }
-    .tab td { display: inline; padding: 0; border: none; font-size: 12.5px; }
+    .tab tbody tr:last-child { border-bottom: none; }
+    .tab tbody tr:nth-child(even) { background: #fafbfe; }
+    .tab tbody tr:nth-child(even) td, .tab tbody tr:hover td { background: transparent; }
+    .tab td { display: inline; padding: 0; border: none; width: auto; font-size: 12.5px; }
     .tab td::before { content: attr(data-label) " "; color: var(--muted); font-size: 9.5px;
       font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
-    .tab td.c-lupa, .tab td.vazia { display: none; }
-    .tab .c-item { flex: 0 0 100%; width: auto; font-size: 13.5px; font-weight: 700; line-height: 1.42; margin-bottom: 4px; }
-    .tab .c-item::before { content: none; }
-    .tab .c-unit { font-size: 15px; }
-    .tab .c-vend { flex: 0 0 100%; width: auto; margin-top: 4px; font-size: 12.5px; }
-    .tab .c-cnpj { flex: 0 0 100%; }
-
-    .overlay { align-items: flex-end; }
-    .modal { margin: 0; border-radius: 18px 18px 0 0; max-width: 100%; max-height: 92vh; }
-    .modal-header { padding: 15px 16px; }
-    .modal-header h2 { font-size: 14.5px; }
-    .modal-close { width: 34px; height: 34px; }
-    .modal-body { padding: 16px; gap: 11px; }
-    .modal-footer { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
-    .det-destaque .v { font-size: 22px; }
-    .det-row { grid-template-columns: 1fr; gap: 1px; }
-    .det-row .k { padding-top: 0; }
+    .tab td.vazia { display: none; }
+    /* 1ª linha: processo + abertura. 2ª: o item. Depois os números, e por
+       fim o vencedor. */
+    .c-proc { flex: 1 1 auto; }
+    .c-proc .p-num, .c-proc .p-mod { display: inline; }
+    .c-proc .p-mod { font-size: 11px; }
+    .c-proc .p-mod::before { content: "· "; }
+    .c-abert { margin-left: auto; }
+    .c-item { flex: 0 0 100%; font-size: 13.5px; font-weight: 700; line-height: 1.42; margin: 5px 0 3px; }
+    .c-unit { font-size: 15px; }
+    .c-vend { flex: 0 0 100%; margin-top: 3px; font-size: 12.5px; }
+    .c-cnpj { flex: 0 0 100%; display: inline; font-size: 11.5px; }
   }
   @media (max-width: 380px) {
     .filters-grid { grid-template-columns: 1fr; }
@@ -340,20 +311,35 @@
     </div>
   </div>
 
-  <div id="lista"></div>
+  <div class="tab-box">
+    <table class="tab">
+      <thead>
+        <tr>
+          <th>Processo</th>
+          <th>Abertura</th>
+          <th>Item</th>
+          <th class="r">Qtd.</th>
+          <th>Un.</th>
+          <th class="r">Vl. Un. Homolg.</th>
+          <th class="r">Vl. Total</th>
+          <th>Vencedor</th>
+          <th class="h-cnpj">CPF/CNPJ</th>
+        </tr>
+      </thead>
+      <tbody id="corpo"></tbody>
+    </table>
+    <div id="vazio"></div>
+  </div>
+
   <div class="load-wrap" id="loadWrap" style="display:none">
     <button class="btn-mais" onclick="renderMais()" id="btnMais">Carregar mais itens ↓</button>
   </div>
-</main>
 
-<!-- MODAL DETALHE -->
-<div class="overlay" id="ovDet" onclick="if(event.target===this)fecharDet()">
-  <div class="modal">
-    <div class="modal-header"><h2 id="detTitle">Item</h2><button class="modal-close" onclick="fecharDet()">✕</button></div>
-    <div class="modal-body" id="detBody"></div>
-    <div class="modal-footer" id="detFooter"></div>
-  </div>
-</div>
+  <p class="rodape">
+    Fonte: Portal LicitaCon (TCE-RS) · Prefeitura Municipal de Ijuí<br>
+    Dados sujeitos a atualização do portal — esta consulta não é em tempo real.
+  </p>
+</main>
 
 <script>
 /* ══════════════ DADOS ══════════════
@@ -378,7 +364,7 @@ const fmtNum = new Intl.NumberFormat('pt-BR');
 function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
 function num(v){ return (v==null||isNaN(v)) ? '—' : fmtNum.format(v); }
 function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
-function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : ''; }
 function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function temVencedor(it){ return !!(it.vencedor && it.vencedor.trim()); }
 function fmtCnpj(c){
@@ -391,8 +377,8 @@ function fmtCnpj(c){
 
 /* ══════════════ ESTADO ══════════════ */
 const F = { busca:'', modal:'', cat:'', ano:'', vencedor:'', sit:'', sort:'abertura-desc' };
-let filtrados = [], grupos = [], grupoIdx = 0, mostrando = 0;
-const LOTE = 50;   /* itens por lote — grupos nunca são partidos ao meio */
+let filtrados = [], mostrando = 0;
+const LOTE = 100;
 
 /* ══════════════ POPULAR SELECTS ══════════════ */
 function initSelects(){
@@ -433,9 +419,9 @@ function aplicarFiltros(){
   });
 
   ordenar();
-  grupos = agrupar(filtrados);
-  grupoIdx = 0; mostrando = 0;
-  document.getElementById('lista').innerHTML = '';
+  mostrando = 0;
+  document.getElementById('corpo').innerHTML = '';
+  document.getElementById('vazio').innerHTML = '';
   renderMais();
   renderChips();
   renderStats();
@@ -452,19 +438,6 @@ function ordenar(){
     if(s==='vencedor-az') return String(a.vencedor||'￿').localeCompare(String(b.vencedor||'￿'),'pt-BR');
     return 0;
   });
-}
-/* Agrupa por processo mantendo a ordem em que cada processo apareceu na lista
-   já ordenada: ordenando por maior valor unitário, o processo que contém o
-   item mais caro vem primeiro, e dentro dele os itens seguem a mesma ordem. */
-function agrupar(lista){
-  const mapa = new Map();
-  lista.forEach(it => {
-    const k = it.modalidade+'|'+it.nr+'|'+it.ano;
-    if(!mapa.has(k)) mapa.set(k, {modalidade:it.modalidade, nr:it.nr, ano:it.ano,
-                                  categoria:it.categoria, abertura:it.abertura, itens:[]});
-    mapa.get(k).itens.push(it);
-  });
-  return [...mapa.values()];
 }
 function setSituacao(btn){
   document.querySelectorAll('[data-sit]').forEach(b=>b.classList.remove('active'));
@@ -513,7 +486,9 @@ function renderStats(){
 function statTodos(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='')); F.sit=''; aplicarFiltros(); }
 function statSemVencedor(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='SEM')); F.sit='SEM'; aplicarFiltros(); }
 
-/* ══════════════ FILTROS RECOLHÍVEIS (celular) ══════════════ */
+/* ══════════════ FILTROS RECOLHÍVEIS (celular) ══════════════
+   Começam ABERTOS: a busca é o motivo de a página existir, esconder atrás de
+   um toque só atrasava quem chegou para procurar alguma coisa. */
 function isMobile(){ return window.matchMedia ? window.matchMedia('(max-width: 860px)').matches : (window.innerWidth||999) <= 860; }
 function toggleFiltros(ev){
   if(!isMobile()) return;
@@ -523,117 +498,56 @@ function toggleFiltros(ev){
   document.getElementById('caretFiltros').classList.toggle('up', !b.classList.contains('hide'));
 }
 
-/* ══════════════ RENDER DA LISTA ══════════════ */
+/* ══════════════ RENDER DA TABELA ══════════════ */
 function linhaHTML(it){
   /* Célula sem conteúdo não leva rótulo: no celular os rótulos viram texto
-     visível (::before), e um "CNPJ" solto sem número é ruído. */
+     visível (::before), e um "CNPJ" solto sem número seria ruído. */
   const cel = (classe, valor, rotulo) => valor
     ? `<td class="${classe}" data-label="${rotulo}">${valor}</td>`
     : `<td class="${classe} vazia"></td>`;
-  return `<tr onclick="abrirDet(${it.id})">
-    <td class="c-lupa">🔍</td>
+  return `<tr>
+    <td class="c-proc"><span class="p-num">Nº ${esc(it.nr)}/${esc(it.ano)}</span><span class="p-mod">${esc(it.modalidade)}${it.categoria?' · '+esc(it.categoria):''}</span></td>
+    ${cel('c-abert', fmtD(it.abertura), 'Abertura')}
     <td class="c-item">${esc(it.item)}</td>
-    ${cel('c-qtd r', it.qtd!=null?num(it.qtd):'', 'Qtd.')}
+    ${cel('c-qtd', it.qtd!=null?num(it.qtd):'', 'Qtd.')}
     ${cel('c-un', esc(it.unidade), 'Un.')}
-    ${cel('c-unit r', money(it.vlUnit), 'Unitário')}
-    ${cel('c-total r', money(it.vlTotal), 'Total')}
+    ${cel('c-unit', money(it.vlUnit), 'Unitário')}
+    ${cel('c-total', money(it.vlTotal), 'Total')}
     <td class="c-vend${temVencedor(it)?'':' vazio'}" data-label="Vencedor">${temVencedor(it)?esc(it.vencedor):'sem vencedor informado'}</td>
     ${cel('c-cnpj', esc(fmtCnpj(it.cnpj)), 'CPF/CNPJ')}
   </tr>`;
 }
-function grupoHTML(g){
-  const n = g.itens.length;
-  return `<div class="grupo">
-    <div class="grupo-head">
-      <span class="gh-num">Nº ${esc(g.nr)}/${esc(g.ano)}</span>
-      <span class="gh-txt"><b>${esc(g.modalidade)}</b>${g.categoria?' · '+esc(g.categoria):''}${g.abertura?' · Abertura '+fmtD(g.abertura):''}</span>
-      <span class="gh-qtd">${n} ${n>1?'itens':'item'}</span>
-    </div>
-    <div class="tab-wrap">
-      <table class="tab">
-        <thead><tr>
-          <th class="c-lupa"></th>
-          <th>Item</th>
-          <th class="r">Qtd.</th>
-          <th>Un.</th>
-          <th class="r unit">Vl. Un. Homolg.</th>
-          <th class="r">Vl. Total</th>
-          <th>Vencedor</th>
-          <th>CPF/CNPJ</th>
-        </tr></thead>
-        <tbody>${g.itens.map(linhaHTML).join('')}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
 function renderMais(){
-  const alvo = document.getElementById('lista');
+  const corpo = document.getElementById('corpo');
   if(!filtrados.length){
-    alvo.innerHTML = '<div class="empty"><span>🔍</span>Nenhum item encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+    document.getElementById('vazio').innerHTML =
+      '<div class="empty"><span>🔍</span>Nenhum item encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
     document.getElementById('loadWrap').style.display = 'none';
     document.getElementById('resultCount').innerHTML = '';
     return;
   }
-  let html='', add=0;
-  while(grupoIdx < grupos.length && add < LOTE){
-    const g = grupos[grupoIdx++];
-    html += grupoHTML(g);
-    add += g.itens.length;
-  }
-  alvo.insertAdjacentHTML('beforeend', html);
-  mostrando += add;
+  const fatia = filtrados.slice(mostrando, mostrando+LOTE);
+  corpo.insertAdjacentHTML('beforeend', fatia.map(linhaHTML).join(''));
+  mostrando += fatia.length;
   const faltam = filtrados.length - mostrando;
   document.getElementById('loadWrap').style.display = faltam>0 ? '' : 'none';
-  document.getElementById('btnMais').textContent = `Carregar mais (${faltam} restantes) ↓`;
+  document.getElementById('btnMais').textContent = `Carregar mais (${num(faltam)} restantes) ↓`;
+  const processos = new Set(filtrados.map(it=>it.modalidade+'|'+it.nr+'|'+it.ano)).size;
   document.getElementById('resultCount').innerHTML =
-    `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> ite${filtrados.length>1?'ns':'m'} em <b>${grupos.length}</b> processo${grupos.length>1?'s':''}`;
+    `Exibindo <b>${num(mostrando)}</b> de <b>${num(filtrados.length)}</b> ite${filtrados.length>1?'ns':'m'} em <b>${num(processos)}</b> processo${processos>1?'s':''}`;
 }
-
-/* ══════════════ MODAL DETALHE ══════════════ */
-function abrirDet(id){
-  const it = ITENS.find(x=>x.id===id); if(!it) return;
-  document.getElementById('detTitle').textContent = it.item;
-  const row = (k,v)=> v ? `<div class="det-row"><div class="k">${k}</div><div class="v">${v}</div></div>` : '';
-  document.getElementById('detBody').innerHTML =
-    `<div class="det-destaque">
-       <div class="k">Valor unitário homologado</div>
-       <div class="v">${money(it.vlUnit)}</div>
-       <div class="sub">${it.qtd!=null?num(it.qtd)+' '+esc(it.unidade)+' · total ':'total '}<b>${money(it.vlTotal)}</b></div>
-     </div>` +
-    `<div style="display:flex;gap:7px;flex-wrap:wrap">
-       <span class="badge badge-num">Nº ${esc(it.nr)}/${esc(it.ano)}</span>
-       <span class="badge badge-modal">${esc(it.modalidade)}</span>
-       ${it.categoria?`<span class="badge badge-cat">${esc(it.categoria)}</span>`:''}
-     </div>` +
-    row('Item', esc(it.item)) +
-    row('Abertura', fmtD(it.abertura)) +
-    '<hr class="det-hr">' +
-    (temVencedor(it)
-      ? row('Empresa vencedora', '<b>'+esc(it.vencedor)+'</b>') + row('CPF/CNPJ', esc(fmtCnpj(it.cnpj)))
-      : row('Empresa vencedora', '<span style="color:var(--muted)">Sem vencedor informado no Portal LicitaCon para este item.</span>'));
-  document.getElementById('detFooter').textContent =
-    'Fonte: Portal LicitaCon (TCE-RS) · Prefeitura Municipal de Ijuí · dados sujeitos a atualização do portal, não em tempo real.';
-  document.getElementById('ovDet').classList.add('open');
-}
-function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
 
 /* ══════════════ INICIALIZAÇÃO ══════════════ */
-document.addEventListener('keydown', e=>{ if(e.key==='Escape') fecharDet(); });
-
 function iniciar(){
   document.getElementById('infoChip').textContent = num(ITENS.length) + ' itens · dados do LicitaCon';
   initSelects();
   aplicarFiltros();
-  if(isMobile()){
-    document.getElementById('filtrosBody').classList.add('hide');
-    document.getElementById('caretFiltros').classList.remove('up');
-  }
 }
 
 carregarItens().then(d => { ITENS = d; iniciar(); }).catch(e => {
   console.error('Erro ao carregar os itens:', e);
   document.getElementById('infoChip').textContent = 'erro ao carregar';
-  document.getElementById('lista').innerHTML =
+  document.getElementById('vazio').innerHTML =
     '<div class="empty"><span>⚠️</span>Não foi possível carregar os dados.<br>' + esc(e.message) + '</div>';
 });
 </script>
