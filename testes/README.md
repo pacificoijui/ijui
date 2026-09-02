@@ -66,6 +66,7 @@ rede.
 | `t-agenda-busca-itens.js` | busca de itens já licitados na agenda |
 | `t-proximos-objeto.js` | objeto inteiro nos Próximos Processos |
 | `t-lista-celular.js` | agenda no celular: só Lista, objeto sem corte |
+| `t-licitacon.js` | consulta de itens licitados: filtros e totais batem com o JSON |
 | `t-repro-naoenviou-propostas.js` | "não enviou" não mexe nas propostas |
 | `t-contratos.js` | contratos: dados fora do HTML, tela intacta |
 

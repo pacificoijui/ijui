@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="theme-color" content="#102040">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Município de Ijuí">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="Consulta de Itens Licitados — Município de Ijuí">
+<meta property="og:description" content="Busca por item, empresa vencedora e valor homologado nas licitações do Município de Ijuí — dados publicados no Portal LicitaCon do TCE-RS.">
+<meta property="og:url" content="https://ijui.net/licitacon/">
+<meta name="description" content="Consulta pública de itens licitados pelo Município de Ijuí: item, quantidade, valor unitário e total homologado, empresa vencedora. Dados do Portal LicitaCon (TCE-RS).">
+<title>Consulta de Itens Licitados – Município de Ijuí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:      #1a3a6b;
+    --navy-mid:  #1e4a8a;
+    --navy-dark: #12294d;
+    --navy-light:#2e5da8;
+    --gold:      #e8a020;
+    --gold-light:#f6b93b;
+    --card:      #ffffff;
+    --bg:        #eaeef6;
+    --text:      #1c2433;
+    --muted:     #6b7793;
+    --border:    #dde4f0;
+    --shadow:    0 2px 10px rgba(20,40,80,0.07);
+    --shadow-md: 0 6px 22px rgba(20,40,80,0.10);
+    --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
+    --blue-bg:   #e7eefb;
+    --blue-text: #1e4a8a;
+    --green:     #2a8a3a;  --green-bg:  #e6f4ea;
+    --red:       #c0282a;  --red-bg:    #fbe7e7;
+    --amber:     #c07000;  --amber-bg:  #fef3dc;
+    --radius:    18px;
+    --ring:      0 0 0 3px rgba(46,93,168,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', Arial, sans-serif; font-size: 15px;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(46,93,168,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 0%, rgba(232,160,32,0.07), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(46,93,168,0.18); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(46,93,168,0.28); border-radius: 20px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(46,93,168,0.45); }
+
+  header {
+    background: #ffffff;
+    padding: 0 32px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 3px 16px rgba(15,32,80,0.15);
+    border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 55%, var(--gold) 100%) 1;
+  }
+  .header-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 74px; gap: 20px; }
+  .logo-wrap { display: flex; align-items: center; gap: 18px; }
+  .logo-mark { width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg, var(--navy), var(--navy-light)); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(26,58,107,0.28); flex-shrink: 0; font-size: 22px; }
+  .logo-divider { width: 2px; height: 44px; background: var(--border); border-radius: 2px; }
+  .logo-text h1 { font-size: 18px; color: var(--navy); font-weight: 700; letter-spacing: 0.2px; line-height: 1.2; }
+  .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .info-chip { background: var(--blue-bg); color: var(--blue-text); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .3px; }
+
+  .stats-bar { background: linear-gradient(180deg, #10254a, #173562); border-bottom: 1px solid rgba(255,255,255,0.08); }
+  .stats-inner { max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; gap: 0; flex-wrap: wrap; }
+  .stat { padding: 13px 28px 13px 0; display: flex; align-items: center; gap: 10px; border-right: 1px solid rgba(255,255,255,0.10); margin-right: 28px; cursor: pointer; transition: opacity .15s; border-bottom: 3px solid transparent; }
+  .stat:hover { opacity: .85; }
+  .stat.active { border-bottom-color: var(--gold); }
+  .stat:last-child { border-right: none; margin-right: 0; }
+  .stat-num { font-size: 24px; font-weight: 800; color: var(--gold); line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+  .stat-num.amberc { color: #ffcf7d; }
+  .stat-label { font-size: 11.5px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 18px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .panel-title { font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .8px; display: flex; align-items: center; gap: 8px; }
+  .panel-body { padding: 16px 20px; }
+  .filters-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1.3fr; gap: 12px; align-items: end; }
+  .f-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .f-field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .f-field input, .f-field select { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13.5px; background: #fbfcff; color: var(--text); outline: none; width: 100%; transition: border-color .15s, box-shadow .15s, background .15s; }
+  .f-field input:focus, .f-field select:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
+  .filters-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+  .filter-btn { padding: 8px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--card); font-family: inherit; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover { border-color: var(--navy-light); color: var(--navy); }
+  .filter-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  .chip { background: var(--blue-bg); color: var(--blue-text); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .chip b { cursor: pointer; opacity: .6; }
+  .chip b:hover { opacity: 1; }
+  .link-clear { background: none; border: none; color: var(--red); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+  .dash-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
+  .dash-block h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  .bar-row { display: grid; grid-template-columns: 200px 1fr 84px; align-items: center; gap: 10px; padding: 4px 0; cursor: pointer; border-radius: 6px; }
+  .bar-row:hover { background: var(--blue-bg); }
+  .bar-row.sel .bar-label { color: var(--navy); }
+  .bar-label { font-size: 12.5px; font-weight: 700; color: var(--text); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { background: #eef2fa; border-radius: 20px; height: 22px; overflow: hidden; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--navy-light), var(--navy)); border-radius: 20px; min-width: 3px; transition: width .35s ease; }
+  .bar-row.sel .bar-fill { background: linear-gradient(90deg, var(--gold), var(--gold-light)); }
+  .bar-val { font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; text-align: right; }
+  .ano-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .ano-box { border-radius: 14px; padding: 14px 12px; cursor: pointer; border: 2px solid transparent; transition: transform .12s; background: var(--blue-bg); color: var(--blue-text); }
+  .ano-box:hover { transform: translateY(-2px); }
+  .ano-box.sel { border-color: var(--navy); }
+  .ano-box .vnum { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+  .ano-box .vlab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; line-height: 1.3; }
+
+  .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
+  .result-count { font-size: 13.5px; color: var(--muted); }
+  .result-count b { color: var(--navy); font-size: 16px; }
+  .toolbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .sort-sel { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; background: #fbfcff; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+  .sort-sel:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; align-items: stretch; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .icard { background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--navy-light); border-radius: 14px; padding: 15px 18px; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow .18s, transform .14s; animation: cardIn .28s ease both; display: flex; flex-direction: column; }
+  .icard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  @media (prefers-reduced-motion: reduce) { .icard { animation: none; } }
+  .icard.sem-vencedor { border-left-color: #b8c0d4; }
+  .icard-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .badge-num { background: var(--navy); color: #fff; }
+  .badge-modal { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-cat { background: #f0e8f8; color: #6a20b0; }
+  .badge-semvenc { margin-left: auto; background: #eef0f5; color: #7c869c; }
+  .icard-item { font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 6px; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .icard-bottom { display: flex; align-items: center; gap: 16px; margin-top: 9px; flex-wrap: wrap; }
+  .meta { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+  .meta b { color: var(--text); font-weight: 700; }
+  .icard-valor { margin-left: auto; text-align: right; }
+  .icard-valor .vtot { font-size: 15px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+  .icard-valor .vuni { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .load-wrap { text-align: center; margin-top: 18px; }
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; }
+  .empty span { font-size: 40px; display: block; margin-bottom: 10px; }
+
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 18px; box-shadow: var(--shadow-lg); width: 100%; max-width: 640px; margin: 20px; overflow: hidden; animation: slideUp 0.22s ease; max-height: 92vh; overflow-y: auto; }
+  @keyframes slideUp { from { transform: translateY(22px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 19px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
+  .modal-header h2 { font-size: 17px; color: #fff; font-weight: 700; line-height: 1.35; }
+  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; flex-shrink: 0; margin-left: 12px; }
+  .modal-close:hover { background: rgba(255,255,255,0.30); }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-footer { padding: 15px 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: #f7f9fd; position: sticky; bottom: 0; }
+  .det-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 14px; }
+  .det-row .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
+  .det-row .v { color: var(--text); line-height: 1.5; }
+  .det-hr { border: none; border-top: 1px solid var(--border); }
+
+  .only-mobile { display: none; }
+  .caret { transition: transform .2s; display: inline-block; color: var(--muted); }
+  .caret.up { transform: rotate(180deg); }
+
+  @media (max-width: 1100px) { .filters-grid { grid-template-columns: 1fr 1fr 1fr; } .dash-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    .only-mobile { display: inline-block; }
+    header { padding: 0 14px; }
+    .header-inner { min-height: 62px; gap: 10px; }
+    .logo-mark { width: 38px; height: 38px; border-radius: 10px; font-size: 18px; }
+    .logo-divider { display: none; }
+    .logo-wrap { gap: 11px; }
+    .logo-text h1 { font-size: 15.5px; }
+    .logo-text p { font-size: 9.5px; letter-spacing: .6px; }
+    .info-chip { display: none; }
+
+    main { padding: 14px 12px 40px; }
+
+    .stats-inner { padding: 10px 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat { padding: 9px 6px; margin: 0; border-right: none; border-bottom: none; border-radius: 12px; background: rgba(255,255,255,0.06); flex-direction: column; align-items: flex-start; gap: 3px; justify-content: center; }
+    .stat.active { background: rgba(232,160,32,0.20); box-shadow: inset 0 0 0 1.5px var(--gold); }
+    .stat-num { font-size: 19px; }
+    .stat-label { font-size: 9.5px; letter-spacing: .3px; line-height: 1.25; }
+
+    .panel-head { cursor: pointer; padding: 13px 15px; }
+    .panel-body { padding: 14px 15px; }
+    .panel-body.hide { display: none; }
+    .filters-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .f-field:first-child { grid-column: 1 / -1; }
+    .f-field input, .f-field select { font-size: 16px; padding: 11px 12px; }
+    .f-field label { font-size: 10px; }
+    .filters-actions { gap: 7px; }
+    .filter-btn { padding: 9px 14px; font-size: 12.5px; }
+    .chips { width: 100%; margin: 8px 0 0; }
+
+    .bar-row { grid-template-columns: 96px 1fr 58px; gap: 8px; padding: 5px 0; }
+    .bar-label { font-size: 11.5px; }
+    .bar-val { font-size: 11px; }
+    .bar-track { height: 18px; }
+    .ano-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ano-box { padding: 12px 10px; }
+    .ano-box .vnum { font-size: 22px; }
+    .panel-head span { display: none; }
+
+    .list-toolbar { gap: 8px; }
+    .toolbar-right { width: 100%; }
+    .toolbar-right label { display: none; }
+    .sort-sel { flex: 1; font-size: 16px; }
+    .cards { grid-template-columns: 1fr; gap: 10px; }
+    .icard { padding: 13px 14px; border-radius: 13px; }
+    .icard-top { gap: 6px; margin-bottom: 6px; }
+    .badge { font-size: 11px; padding: 3px 9px; }
+    .badge-semvenc { margin-left: 0; width: 100%; }
+    .icard-item { font-size: 13.5px; -webkit-line-clamp: 3; }
+    .icard-bottom { gap: 10px; margin-top: 8px; }
+    .meta { font-size: 11.5px; }
+    .icard-valor { margin-left: 0; width: 100%; text-align: left; padding-top: 6px; border-top: 1px dashed var(--border); }
+
+    .overlay { align-items: flex-end; }
+    .modal { margin: 0; border-radius: 20px 20px 0 0; max-width: 100%; max-height: 90vh; }
+    .modal-header { padding: 16px 18px; }
+    .modal-header h2 { font-size: 15.5px; }
+    .modal-close { width: 34px; height: 34px; }
+    .modal-body { padding: 18px; gap: 12px; }
+    .modal-footer { padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); }
+    .det-row { grid-template-columns: 1fr; gap: 2px; }
+  }
+  @media (max-width: 380px) {
+    .stats-inner { grid-template-columns: repeat(2, 1fr); }
+    .filters-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-mark">📋</div>
+      <div class="logo-divider"></div>
+      <div class="logo-text">
+        <h1>Consulta de Itens Licitados</h1>
+        <p>Município de Ijuí · Portal LicitaCon (TCE-RS)</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="info-chip" id="infoChip">carregando...</span>
+    </div>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stats-inner" id="statsBar"></div>
+</div>
+
+<main>
+  <!-- PAINEL DINÂMICO -->
+  <div class="panel" id="painelDash">
+    <div class="panel-head">
+      <div class="panel-title">📊 Painel dinâmico</div>
+      <span style="font-size:12px;color:var(--muted)">Clique nas barras e nos blocos para filtrar a lista abaixo</span>
+    </div>
+    <div class="panel-body">
+      <div class="dash-grid">
+        <div class="dash-block">
+          <h3>Itens por modalidade</h3>
+          <div id="dashModal"></div>
+        </div>
+        <div class="dash-block">
+          <h3>Itens por ano</h3>
+          <div class="ano-strip" id="dashAno"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="panel">
+    <div class="panel-head" onclick="toggleFiltros(event)">
+      <div class="panel-title">🔎 Buscar itens <span class="only-mobile caret up" id="caretFiltros">▾</span></div>
+      <div class="chips" id="chipsAtivos"></div>
+    </div>
+    <div class="panel-body" id="filtrosBody">
+      <div class="filters-grid">
+        <div class="f-field">
+          <label>Busca livre (item, empresa, CNPJ, nº do processo...)</label>
+          <input type="text" id="fBusca" placeholder="Ex.: ambulância, ou nome da empresa..." oninput="aplicarFiltros()">
+        </div>
+        <div class="f-field">
+          <label>Modalidade</label>
+          <select id="fModal" onchange="aplicarFiltros()"><option value="">Todas</option></select>
+        </div>
+        <div class="f-field">
+          <label>Categoria</label>
+          <select id="fCat" onchange="aplicarFiltros()"><option value="">Todas</option></select>
+        </div>
+        <div class="f-field">
+          <label>Ano</label>
+          <select id="fAno" onchange="aplicarFiltros()"><option value="">Todos</option></select>
+        </div>
+        <div class="f-field">
+          <label>Empresa vencedora</label>
+          <input type="text" id="fVencedor" list="listaVencedores" placeholder="Todas" oninput="aplicarFiltros()">
+          <datalist id="listaVencedores"></datalist>
+        </div>
+      </div>
+      <div class="filters-actions">
+        <button class="filter-btn active" data-sit="" onclick="setSituacao(this)">Todos</button>
+        <button class="filter-btn" data-sit="COM" onclick="setSituacao(this)">✅ Com vencedor</button>
+        <button class="filter-btn" data-sit="SEM" onclick="setSituacao(this)">— Sem vencedor</button>
+        <button class="link-clear" onclick="limparFiltros()">✕ Limpar todos os filtros</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LISTA -->
+  <div class="list-toolbar">
+    <div class="result-count" id="resultCount"></div>
+    <div class="toolbar-right">
+      <label style="font-size:12px;color:var(--muted);font-weight:700">ORDENAR:</label>
+      <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
+        <option value="abertura-desc">Abertura (mais recente)</option>
+        <option value="abertura-asc">Abertura (mais antiga)</option>
+        <option value="valor-desc">Maior valor total</option>
+        <option value="valor-asc">Menor valor total</option>
+        <option value="item-az">Item (A–Z)</option>
+        <option value="vencedor-az">Empresa (A–Z)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="cards" id="cardsList"></div>
+  <div class="load-wrap" id="loadWrap" style="display:none">
+    <button class="btn-ghost" onclick="renderMais()" id="btnMais" style="background:var(--bg);color:var(--navy);border:1.5px solid var(--border);padding:9px 18px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;width:100%;max-width:320px">Carregar mais itens ↓</button>
+  </div>
+</main>
+
+<!-- MODAL DETALHE -->
+<div class="overlay" id="ovDet" onclick="if(event.target===this)fecharDet()">
+  <div class="modal">
+    <div class="modal-header"><h2 id="detTitle">Item</h2><button class="modal-close" onclick="fecharDet()">✕</button></div>
+    <div class="modal-body" id="detBody"></div>
+    <div class="modal-footer" id="detFooter"></div>
+  </div>
+</div>
+
+<script>
+/* ══════════════ DADOS ══════════════
+   Consulta pública, sem Firebase e sem escrita — só leitura de um JSON
+   versionado aqui no repositório. Convém a este módulo especificamente: os
+   dados são o que já está publicado no Portal LicitaCon (TCE-RS), não algo
+   que o sistema interno gera. Reexportar do zero é rodar
+   ferramentas/converter.mjs em cima de um novo arquivo do portal — ver
+   LEIA-ME.md. */
+let ITENS = [];
+
+function carregarItens(){
+  return fetch('dados/itens.json', {cache:'no-cache'}).then(r => {
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  });
+}
+
+/* ══════════════ UTILIDADES ══════════════ */
+const fmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const fmtNum = new Intl.NumberFormat('pt-BR');
+function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
+function num(v){ return (v==null||isNaN(v)) ? '—' : fmtNum.format(v); }
+function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function temVencedor(it){ return !!(it.vencedor && it.vencedor.trim()); }
+function fmtCnpj(c){
+  if(!c) return '';
+  const d=c.replace(/\D/g,'');
+  if(d.length!==14) return c;
+  return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+}
+
+/* ══════════════ ESTADO ══════════════ */
+const F = { busca:'', modal:'', cat:'', ano:'', vencedor:'', sit:'', sort:'abertura-desc' };
+let filtrados = [], mostrando = 0;
+const LOTE = 60;
+
+/* ══════════════ POPULAR SELECTS ══════════════ */
+function initSelects(){
+  const modais = new Set(), cats = new Set(), anos = new Set(), vends = new Set();
+  ITENS.forEach(it => {
+    if(it.modalidade) modais.add(it.modalidade);
+    if(it.categoria) cats.add(it.categoria);
+    if(it.ano) anos.add(it.ano);
+    if(it.vencedor) vends.add(it.vencedor);
+  });
+  const fill = (id, arr) => { const el=document.getElementById(id); [...arr].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; el.appendChild(o); }); };
+  fill('fModal', modais); fill('fCat', cats);
+  const anoEl=document.getElementById('fAno'); [...anos].sort((a,b)=>b-a).forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; anoEl.appendChild(o); });
+  fill('listaVencedores', vends);
+}
+
+/* ══════════════ FILTRAGEM ══════════════ */
+function aplicarFiltros(){
+  F.busca = document.getElementById('fBusca').value.trim().toLowerCase();
+  F.modal = document.getElementById('fModal').value;
+  F.cat = document.getElementById('fCat').value;
+  F.ano = document.getElementById('fAno').value;
+  F.vencedor = document.getElementById('fVencedor').value.trim().toLowerCase();
+  F.sort = document.getElementById('fSort').value;
+
+  filtrados = ITENS.filter(it => {
+    if(F.sit==='COM' && !temVencedor(it)) return false;
+    if(F.sit==='SEM' && temVencedor(it)) return false;
+    if(F.modal && it.modalidade!==F.modal) return false;
+    if(F.cat && it.categoria!==F.cat) return false;
+    if(F.ano && String(it.ano)!==F.ano) return false;
+    if(F.vencedor && !(it.vencedor||'').toLowerCase().includes(F.vencedor)) return false;
+    if(F.busca){
+      const alvo = (it.item+' '+it.vencedor+' '+it.cnpj+' '+it.nr+'/'+it.ano+' '+it.modalidade+' '+it.categoria).toLowerCase();
+      for(const termo of F.busca.split(/\s+/)) if(!alvo.includes(termo)) return false;
+    }
+    return true;
+  });
+
+  ordenar();
+  mostrando = 0;
+  document.getElementById('cardsList').innerHTML = '';
+  renderMais();
+  renderChips();
+  renderStats();
+  renderDash();
+}
+function ordenar(){
+  const s = F.sort;
+  filtrados.sort((a,b)=>{
+    if(s==='abertura-desc') return String(b.abertura||'').localeCompare(String(a.abertura||''));
+    if(s==='abertura-asc') return String(a.abertura||'').localeCompare(String(b.abertura||''));
+    if(s==='valor-desc') return (b.vlTotal||0)-(a.vlTotal||0);
+    if(s==='valor-asc') return (a.vlTotal||0)-(b.vlTotal||0);
+    if(s==='item-az') return String(a.item).localeCompare(String(b.item),'pt-BR');
+    if(s==='vencedor-az') return String(a.vencedor||'￿').localeCompare(String(b.vencedor||'￿'),'pt-BR');
+    return 0;
+  });
+}
+function setSituacao(btn){
+  document.querySelectorAll('[data-sit]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  F.sit = btn.dataset.sit;
+  aplicarFiltros();
+}
+function limparFiltros(){
+  ['fBusca','fVencedor'].forEach(id=>document.getElementById(id).value='');
+  ['fModal','fCat','fAno'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit===''));
+  F.sit='';
+  aplicarFiltros();
+}
+function setFiltroExterno(campo, valor){
+  if(campo==='modal'){ const el=document.getElementById('fModal'); el.value = (el.value===valor?'':valor); }
+  if(campo==='ano'){ const el=document.getElementById('fAno'); el.value = (el.value===valor?'':valor); }
+  aplicarFiltros();
+  const lst=document.getElementById('cardsList'); if(lst.scrollIntoView) lst.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ══════════════ CHIPS DE FILTROS ATIVOS ══════════════ */
+function renderChips(){
+  const c=[];
+  const mk=(txt,fn)=>`<span class="chip">${esc(txt)} <b onclick="${fn}">✕</b></span>`;
+  if(F.busca) c.push(mk('“'+F.busca+'”',"document.getElementById('fBusca').value='';aplicarFiltros()"));
+  if(F.modal) c.push(mk(F.modal,"document.getElementById('fModal').value='';aplicarFiltros()"));
+  if(F.cat) c.push(mk(F.cat,"document.getElementById('fCat').value='';aplicarFiltros()"));
+  if(F.ano) c.push(mk('Ano '+F.ano,"document.getElementById('fAno').value='';aplicarFiltros()"));
+  if(F.vencedor) c.push(mk('Empresa: '+document.getElementById('fVencedor').value,"document.getElementById('fVencedor').value='';aplicarFiltros()"));
+  document.getElementById('chipsAtivos').innerHTML = c.join('');
+}
+
+/* ══════════════ BARRA DE ESTATÍSTICAS ══════════════
+   Mostram sempre o total geral (não o filtrado) — clicar aplica um filtro
+   rápido, do mesmo jeito que o painel de Contratos. */
+function renderStats(){
+  const semVenc = ITENS.filter(it=>!temVencedor(it)).length;
+  const valorTotal = ITENS.reduce((s,it)=>s+(it.vlTotal||0),0);
+  const processos = new Set(ITENS.map(it=>it.modalidade+'|'+it.nr+'|'+it.ano)).size;
+  const empresas = new Set(ITENS.filter(temVencedor).map(it=>it.vencedor)).size;
+  const st = (num, label, cls, on, act) =>
+    `<div class="stat ${act?'active':''}" onclick="${on}"><div class="stat-num ${cls||''}">${num}</div><div class="stat-label">${label}</div></div>`;
+  document.getElementById('statsBar').innerHTML =
+    st(ITENS.length,'Itens<br>cadastrados','',"statTodos()", F.sit===''&&!F.modal&&!F.cat&&!F.ano&&!F.vencedor&&!F.busca) +
+    st(processos,'Processos<br>distintos','',"statTodos()", false) +
+    st(money(valorTotal).replace('R$',''),'Valor total<br>homologado (R$)','amberc',"statTodos()", false) +
+    st(empresas,'Empresas<br>vencedoras','',"statTodos()", false) +
+    st(semVenc,'Itens sem<br>vencedor','',"statSemVencedor()", F.sit==='SEM');
+}
+function statTodos(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='')); F.sit=''; aplicarFiltros(); }
+function statSemVencedor(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='SEM')); F.sit='SEM'; aplicarFiltros(); }
+
+/* ══════════════ PAINEL DINÂMICO ══════════════ */
+function isMobile(){ return window.matchMedia ? window.matchMedia('(max-width: 860px)').matches : (window.innerWidth||999) <= 860; }
+function toggleFiltros(ev){
+  if(!isMobile()) return;
+  if(ev && ev.target.closest('.chip')) return;
+  const b = document.getElementById('filtrosBody');
+  b.classList.toggle('hide');
+  document.getElementById('caretFiltros').classList.toggle('up', !b.classList.contains('hide'));
+}
+function renderDash(){
+  const porModal = {};
+  ITENS.forEach(it=>{ if(it.modalidade) porModal[it.modalidade]=(porModal[it.modalidade]||0)+1; });
+  const arr = Object.entries(porModal).sort((a,b)=>b[1]-a[1]);
+  const max = arr.length?arr[0][1]:1;
+  document.getElementById('dashModal').innerHTML = arr.map(([m,n])=>
+    `<div class="bar-row ${F.modal===m?'sel':''}" onclick="setFiltroExterno('modal','${esc(m).replace(/'/g,"\\'")}')">
+       <div class="bar-label">${esc(m)}</div>
+       <div class="bar-track"><div class="bar-fill" style="width:${Math.max(3,n/max*100)}%"></div></div>
+       <div class="bar-val">${n} itens</div>
+     </div>`).join('');
+  const porAno = {};
+  ITENS.forEach(it=>{ if(it.ano) porAno[it.ano]=(porAno[it.ano]||0)+1; });
+  const anos = Object.entries(porAno).sort((a,b)=>b[0]-a[0]);
+  document.getElementById('dashAno').innerHTML = anos.map(([a,n])=>
+    `<div class="ano-box ${F.ano===a?'sel':''}" onclick="setFiltroExterno('ano','${a}')"><div class="vnum">${n}</div><div class="vlab">${a}</div></div>`).join('');
+}
+
+/* ══════════════ RENDER DOS CARDS ══════════════ */
+function cardHTML(it){
+  const cls = ['icard'];
+  if(!temVencedor(it)) cls.push('sem-vencedor');
+  return `<div class="${cls.join(' ')}" onclick="abrirDet(${it.id})">
+    <div class="icard-top">
+      <span class="badge badge-num">Nº ${esc(it.nr)}/${esc(it.ano)}</span>
+      <span class="badge badge-modal">${esc(it.modalidade)}</span>
+      ${it.categoria?`<span class="badge badge-cat">${esc(it.categoria)}</span>`:''}
+      ${!temVencedor(it)?'<span class="badge badge-semvenc">— sem vencedor</span>':''}
+    </div>
+    <div class="icard-item">${esc(it.item)}</div>
+    <div class="icard-bottom">
+      ${temVencedor(it)?`<span class="meta">🏢 <b>${esc(it.vencedor)}</b></span>`:''}
+      ${it.qtd!=null?`<span class="meta">📦 <b>${num(it.qtd)} ${esc(it.unidade)}</b></span>`:''}
+      ${it.abertura?`<span class="meta">📅 ${fmtD(it.abertura)}</span>`:''}
+      <div class="icard-valor">
+        <div class="vtot">${money(it.vlTotal)}</div>
+        ${it.vlUnit!=null?`<div class="vuni">unit. ${money(it.vlUnit)}</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+function renderMais(){
+  const alvo = document.getElementById('cardsList');
+  const fatia = filtrados.slice(mostrando, mostrando+LOTE);
+  alvo.insertAdjacentHTML('beforeend', fatia.map(cardHTML).join(''));
+  mostrando += fatia.length;
+  document.getElementById('loadWrap').style.display = mostrando < filtrados.length ? '' : 'none';
+  document.getElementById('btnMais').textContent = `Carregar mais (${filtrados.length-mostrando} restantes) ↓`;
+  document.getElementById('resultCount').innerHTML =
+    filtrados.length
+      ? `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> ite${filtrados.length>1?'ns':'m'}`
+      : '';
+  if(!filtrados.length) alvo.innerHTML = '<div class="empty"><span>🔍</span>Nenhum item encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+}
+
+/* ══════════════ MODAL DETALHE ══════════════ */
+function abrirDet(id){
+  const it = ITENS.find(x=>x.id===id); if(!it) return;
+  document.getElementById('detTitle').textContent = it.item;
+  const row = (k,v)=> v ? `<div class="det-row"><div class="k">${k}</div><div class="v">${v}</div></div>` : '';
+  document.getElementById('detBody').innerHTML =
+    `<div style="display:flex;gap:8px;flex-wrap:wrap">
+       <span class="badge badge-num">Nº ${esc(it.nr)}/${esc(it.ano)}</span>
+       <span class="badge badge-modal">${esc(it.modalidade)}</span>
+       ${it.categoria?`<span class="badge badge-cat">${esc(it.categoria)}</span>`:''}
+     </div>` +
+    row('Item', '<b>'+esc(it.item)+'</b>') +
+    row('Abertura', fmtD(it.abertura)) +
+    '<hr class="det-hr">' +
+    row('Quantidade', it.qtd!=null ? num(it.qtd)+' '+esc(it.unidade) : '—') +
+    row('Valor unitário homologado', '<b>'+money(it.vlUnit)+'</b>') +
+    row('Valor total homologado', '<b style="color:var(--navy);font-size:16px">'+money(it.vlTotal)+'</b>') +
+    '<hr class="det-hr">' +
+    (temVencedor(it)
+      ? row('Empresa vencedora', '<b>'+esc(it.vencedor)+'</b>') + row('CNPJ/CPF', esc(fmtCnpj(it.cnpj)))
+      : row('Empresa vencedora', '<span style="color:var(--muted)">Sem vencedor informado no Portal LicitaCon para este item.</span>'));
+  document.getElementById('detFooter').textContent =
+    'Fonte: Portal LicitaCon (TCE-RS) · Prefeitura Municipal de Ijuí · dados sujeitos a atualização do portal, não em tempo real.';
+  document.getElementById('ovDet').classList.add('open');
+}
+function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
+
+/* ══════════════ INICIALIZAÇÃO ══════════════ */
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') fecharDet(); });
+
+function iniciar(){
+  document.getElementById('infoChip').textContent = ITENS.length + ' itens · dados do LicitaCon';
+  initSelects();
+  aplicarFiltros();
+  renderDash();
+  if(isMobile()){
+    document.getElementById('filtrosBody').classList.add('hide');
+    document.getElementById('caretFiltros').classList.remove('up');
+  }
+}
+
+carregarItens().then(d => { ITENS = d; iniciar(); }).catch(e => {
+  console.error('Erro ao carregar os itens:', e);
+  document.getElementById('infoChip').textContent = 'erro ao carregar';
+  document.getElementById('cardsList').innerHTML =
+    '<div class="empty"><span>⚠️</span>Não foi possível carregar os dados.<br>' + esc(e.message) + '</div>';
+});
+</script>
+</body>
+</html>
