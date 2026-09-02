@@ -152,12 +152,17 @@
   .caret.up { transform: rotate(180deg); }
   .only-mobile { display: none; }
 
-  @media (max-width: 1180px) {
+  /* Faixa FECHADA: só o desktop apertado. Sem o min-width, o `.tab td` daqui
+     (mais específico que as classes) vazava para o celular e achatava todos
+     os tamanhos em 12px — a hierarquia do bloco no celular não valia nada. */
+  @media (min-width: 861px) and (max-width: 1180px) {
     .filters-grid { grid-template-columns: 1fr 1fr 1fr; }
     .tab th, .tab td { padding: 8px 7px; }
     .tab td { font-size: 12px; }
-    .c-cnpj { display: none; }
-    .tab th.h-cnpj { display: none; }
+    .c-cnpj, .tab th.h-cnpj { display: none; }
+  }
+  @media (max-width: 1180px) {
+    .filters-grid { grid-template-columns: 1fr 1fr 1fr; }
   }
 
   /* ═══════════════════ CELULAR ═══════════════════
@@ -204,29 +209,53 @@
     .toolbar-right label { display: none; }
     .sort-sel { flex: 1; font-size: 16px; }
 
-    .tab-box { border-radius: 12px; }
+    .tab-box { border-radius: 14px; }
     .tab, .tab tbody, .tab tr { display: block; width: 100%; }
     .tab thead { display: none; }
-    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 13px;
-      padding: 11px 12px; border-bottom: 1px solid #eef1f8; }
+    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 9px;
+      padding: 14px 14px 15px; border-bottom: 1px solid var(--border); }
     .tab tbody tr:last-child { border-bottom: none; }
-    .tab tbody tr:nth-child(even) { background: #fafbfe; }
-    .tab tbody tr:nth-child(even) td, .tab tbody tr:hover td { background: transparent; }
-    .tab td { display: inline; padding: 0; border: none; width: auto; font-size: 12.5px; }
-    .tab td::before { content: attr(data-label) " "; color: var(--muted); font-size: 9.5px;
-      font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    /* Sem zebra: com blocos altos, alternar o fundo vira faixa cinza grande.
+       A borda e o respiro já separam um item do outro. */
+    .tab tbody tr:nth-child(even), .tab tbody tr:nth-child(even) td,
+    .tab tbody tr:hover td { background: transparent; }
+    .tab td { display: inline; padding: 0; border: none; width: auto; }
+    /* Fim dos rótulos gritados: "QTD. UN. UNITÁRIO TOTAL VENCEDOR CPF/CNPJ"
+       em caixa alta a cada item era mais texto de rótulo do que de conteúdo.
+       Quem manda agora é o tamanho e a cor. */
+    .tab td::before { content: ""; }
     .tab td.vazia { display: none; }
-    /* 1ª linha: processo + abertura. 2ª: o item. Depois os números, e por
-       fim o vencedor. */
-    .c-proc { flex: 1 1 auto; }
-    .c-proc .p-num, .c-proc .p-mod { display: inline; }
-    .c-proc .p-mod { font-size: 11px; }
-    .c-proc .p-mod::before { content: "· "; }
-    .c-abert { margin-left: auto; }
-    .c-item { flex: 0 0 100%; font-size: 13.5px; font-weight: 700; line-height: 1.42; margin: 5px 0 3px; }
-    .c-unit { font-size: 15px; }
-    .c-vend { flex: 0 0 100%; margin-top: 3px; font-size: 12.5px; }
-    .c-cnpj { flex: 0 0 100%; display: inline; font-size: 11.5px; }
+
+    /* Todas prefixadas com `.tab`: sem isso a regra base `.tab td` (mais
+       específica que uma classe solta) vence dentro do media query e achata
+       os tamanhos, deixando o bloco sem hierarquia nenhuma. */
+
+    /* 1) o item — é o que a pessoa digitou para procurar */
+    .tab .c-item { order: 1; flex: 0 0 100%; font-size: 14.5px; font-weight: 700;
+      line-height: 1.4; color: var(--text); margin-bottom: 8px; }
+
+    /* 2) o preço unitário — é o que se compara entre licitações */
+    .tab .c-unit { order: 2; font-size: 19px; font-weight: 800; color: var(--navy); }
+    .tab .c-un { order: 3; font-size: 12px; color: var(--muted); }
+    .tab .c-un::before { content: "por "; }
+    .tab .c-qtd { order: 4; font-size: 12px; color: var(--muted); }
+    .tab .c-qtd::before { content: "qtde "; }
+    .tab .c-total { order: 5; font-size: 12px; color: var(--muted); }
+    .tab .c-total::before { content: "total "; }
+
+    /* 3) quem ganhou */
+    .tab .c-vend { order: 6; flex: 0 0 100%; margin-top: 9px; font-size: 12.5px;
+      font-weight: 600; color: var(--text); line-height: 1.4; }
+    .tab .c-cnpj { order: 7; flex: 0 0 100%; font-size: 11px; margin-top: 1px; }
+
+    /* 4) de onde veio — no pé, discreto */
+    .tab .c-proc { order: 8; flex: 1 1 auto; margin-top: 9px; font-size: 11px; line-height: 1.45; }
+    .tab .c-proc .p-num, .tab .c-proc .p-mod { display: inline; font-size: 11px; }
+    .tab .c-proc .p-num { color: var(--navy); }
+    .tab .c-proc .p-mod { color: var(--muted); margin-left: 5px; }
+    /* sem margin-left:auto — empurrada para a direita, quando o processo era
+       longo a data caía sozinha numa linha só dela, com um vão à esquerda */
+    .tab .c-abert { order: 9; margin-top: 9px; font-size: 11px; color: var(--muted); }
   }
   @media (max-width: 380px) {
     .filters-grid { grid-template-columns: 1fr; }

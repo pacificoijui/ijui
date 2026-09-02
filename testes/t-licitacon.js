@@ -175,13 +175,29 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const noCel=await cel.evaluate(()=>{
     const corpo=document.getElementById('filtrosBody');
     const busca=document.getElementById('fBusca');
+    const tr=document.querySelector('.tab tbody tr');
+    const cs=c=>getComputedStyle(tr.querySelector('.'+c));
+    const px=v=>parseFloat(v);
     return {
       escondido: corpo.classList.contains('hide'),
       buscaVisivel: busca.getBoundingClientRect().height>0,
       colunasEscondidas: getComputedStyle(document.querySelector('.tab thead')).display,
-      linhaEhBloco: getComputedStyle(document.querySelector('.tab tbody tr')).display,
+      linhaEhBloco: getComputedStyle(tr).display,
       larguraPagina: document.documentElement.scrollWidth,
       larguraTela: document.documentElement.clientWidth,
+      /* hierarquia: o item e o preço unitário mandam; o resto é apoio */
+      fItem: px(cs('c-item').fontSize),
+      fUnit: px(cs('c-unit').fontSize),
+      fQtd: px(cs('c-qtd').fontSize),
+      fProc: px(cs('c-proc').fontSize),
+      pesoUnit: cs('c-unit').fontWeight,
+      /* rótulos gerados por CSS que ainda aparecem, em ordem de leitura */
+      rotulos: ['c-item','c-unit','c-un','c-qtd','c-total','c-vend','c-cnpj','c-abert']
+        .map(c=>getComputedStyle(tr.querySelector('.'+c),'::before').content)
+        .filter(v=>v && v!=='none' && v!=='""'),
+      /* nenhum bloco pode ficar mais alto que a tela: se ficar, cabe 1 item
+         por vez e a lista deixa de ser consultável */
+      alturaMaiorBloco: Math.max(...[...document.querySelectorAll('.tab tbody tr')].map(r=>r.getBoundingClientRect().height)),
     };
   });
   console.log('  ', noCel);
@@ -189,6 +205,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('o campo de busca está visível de cara', noCel.buscaVisivel, noCel);
   t('a tabela vira blocos no celular (não tabela espremida)', noCel.linhaEhBloco==='flex' && noCel.colunasEscondidas==='none', noCel);
   t('a página não estoura para os lados', noCel.larguraPagina<=noCel.larguraTela, noCel);
+  t('acabaram os rótulos em CAIXA ALTA (QTD., UN., UNITÁRIO...)',
+    !noCel.rotulos.some(r=>/[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,}/.test(r)), noCel.rotulos);
+  t('os rótulos que sobraram são palavras minúsculas de apoio',
+    noCel.rotulos.every(r=>/^"(por |qtde |total )"$/.test(r)), noCel.rotulos);
+  t('o preço unitário é o número maior do bloco', noCel.fUnit>noCel.fItem && noCel.fUnit>=18, noCel);
+  t('e vem em negrito forte', Number(noCel.pesoUnit)>=800, noCel);
+  t('o item vem em segundo, acima dos dados de apoio', noCel.fItem>noCel.fQtd && noCel.fItem>noCel.fProc, noCel);
+  t('nenhum bloco é mais alto que a tela', noCel.alturaMaiorBloco<844, noCel.alturaMaiorBloco);
 
   console.log('\nerros JS:', errs.length||errsCel.length?[...errs,...errsCel]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
