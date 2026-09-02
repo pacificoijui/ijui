@@ -1,0 +1,12 @@
+{
+  "name": "ijui-testes",
+  "private": true,
+  "description": "Suíte de regressão do sistema de licitações de Ijuí",
+  "scripts": {
+    "test": "./rodar.sh"
+  },
+  "devDependencies": {
+    "jszip": "^3.10.1",
+    "jspdf": "^2.5.1"
+  }
+}
