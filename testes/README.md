@@ -65,6 +65,7 @@ rede.
 | `t-proximos-objeto.js` | objeto inteiro nos Próximos Processos |
 | `t-lista-celular.js` | agenda no celular: só Lista, objeto sem corte |
 | `t-repro-naoenviou-propostas.js` | "não enviou" não mexe nas propostas |
+| `t-contratos.js` | contratos: dados fora do HTML, tela intacta |
 
 ## Escrevendo um teste novo
 

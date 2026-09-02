@@ -16,11 +16,13 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-const PROJETO = "processos-ijui";
-
-// As colecoes que o sistema usa. Se um dia surgir uma nova, ela precisa entrar
-// aqui: a API REST nao lista colecoes sem credencial de admin.
-const COLECOES = [
+// Sao dois projetos Firebase separados de proposito (ver contratos/LEIA-ME.md):
+// as licitacoes nao alcancam os contratos e vice-versa. O backup e o unico
+// lugar que le os dois — de fora, so para guardar.
+//
+// As colecoes de cada um precisam estar listadas aqui: a API REST nao lista
+// colecoes sem credencial de admin.
+const LICITACOES = [
   "processos",
   "rankings",
   "habilitacoes",
@@ -35,6 +37,8 @@ const COLECOES = [
   "email_config",
 ];
 
+const CONTRATOS = ["contratos"];
+
 // A chave sai do proprio HTML do sistema, para nao existirem duas fontes de
 // verdade: se ela for trocada la, o backup acompanha sozinho.
 function lerChaveWeb() {
@@ -42,6 +46,20 @@ function lerChaveWeb() {
   const m = html.match(/apiKey:\s*"([^"]+)"/);
   if (!m) throw new Error("nao achei a apiKey em pregoeiro/index.html");
   return m[1];
+}
+
+// O modulo de contratos ainda pode estar sem projeto proprio: enquanto o
+// FIREBASE_CONFIG estiver vazio, ele le de contratos/dados/contratos.json, que
+// ja esta versionado aqui e nao precisa de backup. Nesse caso devolve null e o
+// backup segue so com as licitacoes.
+function lerConfigContratos() {
+  const html = readFileSync(join(RAIZ, "contratos", "index.html"), "utf8");
+  const bloco = html.match(/const FIREBASE_CONFIG = (\{[\s\S]*?\});/);
+  if (!bloco) return null;
+  const chave = bloco[1].match(/apiKey:\s*["\']([^"\']+)["\']/);
+  const projeto = bloco[1].match(/projectId:\s*["\']([^"\']+)["\']/);
+  if (!chave || !projeto) return null;
+  return { projeto: projeto[1], chave: chave[1], colecoes: CONTRATOS };
 }
 
 // Converte o formato tipado do Firestore ({stringValue:"x"}) em JSON comum.
@@ -87,9 +105,9 @@ async function buscarJson(url, tentativa = 1) {
   return res.json();
 }
 
-async function baixarColecao(nome, chave) {
+async function baixarColecao(nome, projeto, chave) {
   const base =
-    `https://firestore.googleapis.com/v1/projects/${PROJETO}` +
+    `https://firestore.googleapis.com/v1/projects/${projeto}` +
     `/databases/(default)/documents/${nome}`;
   const docsBrutos = [];
   let pageToken = "";
@@ -124,40 +142,53 @@ function dataBrasilia() {
 
 async function main() {
   const saida = process.argv[2] || join(RAIZ, "backup");
-  const chave = lerChaveWeb();
   const dia = dataBrasilia();
-  const destino = join(saida, dia);
-  mkdirSync(join(destino, "raw"), { recursive: true });
 
-  const contagem = {};
+  const fontes = [
+    { projeto: "processos-ijui", chave: lerChaveWeb(), colecoes: LICITACOES },
+  ];
+  const contratos = lerConfigContratos();
+  if (contratos) fontes.push(contratos);
+  else console.log("contratos: sem projeto proprio ainda — nada a baixar\n");
+
+  const porProjeto = {};
   const vazias = [];
   let total = 0;
 
-  for (const nome of COLECOES) {
-    const { docs, docsBrutos } = await baixarColecao(nome, chave);
-    writeFileSync(
-      join(destino, `${nome}.json`),
-      JSON.stringify(docs, null, 2) + "\n"
-    );
-    writeFileSync(
-      join(destino, "raw", `${nome}.json`),
-      JSON.stringify(docsBrutos, null, 2) + "\n"
-    );
-    contagem[nome] = docs.length;
-    total += docs.length;
-    if (docs.length === 0) vazias.push(nome);
-    console.log(`${nome}: ${docs.length}`);
+  for (const fonte of fontes) {
+    // Cada projeto no seu diretorio: um nunca sobrescreve arquivo do outro,
+    // nem se os dois tiverem uma colecao de mesmo nome.
+    const destino = join(saida, dia, fonte.projeto);
+    mkdirSync(join(destino, "raw"), { recursive: true });
+    const contagem = {};
+    for (const nome of fonte.colecoes) {
+      const { docs, docsBrutos } = await baixarColecao(nome, fonte.projeto, fonte.chave);
+      writeFileSync(
+        join(destino, `${nome}.json`),
+        JSON.stringify(docs, null, 2) + "\n"
+      );
+      writeFileSync(
+        join(destino, "raw", `${nome}.json`),
+        JSON.stringify(docsBrutos, null, 2) + "\n"
+      );
+      contagem[nome] = docs.length;
+      total += docs.length;
+      if (docs.length === 0) vazias.push(`${fonte.projeto}/${nome}`);
+      console.log(`${fonte.projeto}/${nome}: ${docs.length}`);
+    }
+    porProjeto[fonte.projeto] = contagem;
   }
 
+  const destino = join(saida, dia);
   writeFileSync(
     join(destino, "manifest.json"),
     JSON.stringify(
       {
-        projeto: PROJETO,
         dia,
         geradoEm: new Date().toISOString(),
+        projetos: fontes.map((f) => f.projeto),
         totalDocumentos: total,
-        documentosPorColecao: contagem,
+        documentosPorColecao: porProjeto,
       },
       null,
       2
