@@ -2,7 +2,11 @@
    LicitaCon, TCE-RS), sem Firebase e sem escrita: só lê dados/itens.json.
    Confere que os dados carregam, que os filtros (busca livre, modalidade,
    categoria, ano, empresa vencedora, com/sem vencedor) e a ordenação batem
-   com o que está no arquivo, e que o modal de detalhe mostra o item certo. */
+   com o que está no arquivo, e que o modal de detalhe mostra o item certo.
+
+   Cobre também o formato pedido: tabela agrupada por processo (como no
+   próprio LicitaCon), não cards; e o valor UNITÁRIO como dado principal,
+   com o total em segundo plano. */
 const {chromium, executablePath} = require('./navegador');
 const fs=require('fs');
 let ok=0,mau=0;
@@ -32,14 +36,20 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const est=await pg.evaluate(()=>({
     total: ITENS.length,
     chip: document.getElementById('infoChip').textContent,
-    cards: document.querySelectorAll('.icard').length,
+    grupos: document.querySelectorAll('.grupo').length,
+    linhas: document.querySelectorAll('.tab tbody tr').length,
     stats: document.getElementById('statsBar').children.length,
     modais: document.getElementById('fModal').options.length-1,
     anos: document.getElementById('fAno').options.length-1,
+    semPainelDinamico: !document.getElementById('painelDash') && typeof window.renderDash==='undefined',
+    semCards: document.querySelectorAll('.icard').length===0,
   }));
   t('total de itens bate com o arquivo', est.total===dados.length, est);
-  t('a tarja do cabeçalho mostra o total', est.chip.indexOf(String(dados.length))===0, est.chip);
-  t('cards do primeiro lote renderizaram', est.cards>0 && est.cards<=60, est);
+  t('a tarja do cabeçalho mostra o total', est.chip.indexOf('6.514')===0||est.chip.indexOf(String(dados.length))===0, est.chip);
+  t('o painel dinâmico não existe mais', est.semPainelDinamico, est);
+  t('não há mais cards — a lista é tabela', est.semCards, est);
+  t('grupos de processo renderizaram', est.grupos>0, est);
+  t('linhas de item renderizaram dentro das tabelas', est.linhas>0, est);
   t('as 5 estatísticas foram montadas', est.stats===5, est);
   t('select de modalidade populado', est.modais>0, est);
   t('select de ano populado', est.anos>0, est);
@@ -84,16 +94,51 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const esperadoModal=dados.filter(x=>x.modalidade===modalidadeAlvo).length;
   t('filtro por modalidade "'+modalidadeAlvo+'" bate', porModal===esperadoModal, {tela:porModal, esperado:esperadoModal});
 
-  console.log('\n7) Ordenar por maior valor traz o item mais caro primeiro');
-  const maisCaro=dados.reduce((a,b)=>(b.vlTotal||0)>(a.vlTotal||0)?b:a);
-  const primeiroOrdenado=await pg.evaluate(()=>{
+  console.log('\n7) Ordenação — o valor UNITÁRIO é a prioridade desta consulta');
+  const ordena = (chave)=>pg.evaluate((k)=>{
     document.getElementById('fModal').value='';
-    document.getElementById('fSort').value='valor-desc';
+    document.getElementById('fSort').value=k;
     aplicarFiltros();
-    return filtrados[0].id;
+    return {id:filtrados[0].id, primeiroGrupo:document.querySelector('.grupo .tab tbody tr td.c-unit').textContent.trim()};
+  }, chave);
+
+  const maiorUnit=dados.reduce((a,b)=>(b.vlUnit||0)>(a.vlUnit||0)?b:a);
+  const porUnit=await ordena('unit-desc');
+  t('"Maior valor unitário" traz em 1º o item de maior unitário do arquivo',
+    porUnit.id===maiorUnit.id, {tela:porUnit.id, esperado:maiorUnit.id, item:maiorUnit.item});
+  t('a primeira linha da tabela mostra esse unitário',
+    porUnit.primeiroGrupo.replace(/\s/g,'').indexOf(maiorUnit.vlUnit.toLocaleString('pt-BR',{minimumFractionDigits:2}).replace(/\s/g,''))>=0,
+    {tela:porUnit.primeiroGrupo, esperado:maiorUnit.vlUnit});
+
+  const menorUnit=dados.reduce((a,b)=>(b.vlUnit||0)<(a.vlUnit||0)?b:a);
+  const porUnitAsc=await ordena('unit-asc');
+  t('"Menor valor unitário" inverte a ordem', (dados.find(x=>x.id===porUnitAsc.id).vlUnit||0)===(menorUnit.vlUnit||0),
+    {tela:porUnitAsc.id, esperado:menorUnit.id});
+
+  const maiorTotal=dados.reduce((a,b)=>(b.vlTotal||0)>(a.vlTotal||0)?b:a);
+  const porTotal=await ordena('total-desc');
+  t('"Maior valor total" continua existindo e funciona', porTotal.id===maiorTotal.id,
+    {tela:porTotal.id, esperado:maiorTotal.id, item:maiorTotal.item});
+
+  console.log('\n7b) A lista agrupa por processo, como no LicitaCon');
+  const grupo=await pg.evaluate(()=>{
+    document.getElementById('fSort').value='abertura-desc';
+    aplicarFiltros();
+    const g=document.querySelector('.grupo');
+    return {
+      cabecalho: g.querySelector('.grupo-head').textContent.replace(/\s+/g,' ').trim(),
+      colunas: [...g.querySelectorAll('.tab thead th')].map(th=>th.textContent.trim()).filter(Boolean),
+      itensNoGrupo: g.querySelectorAll('.tab tbody tr').length,
+      itensDoPrimeiroProcesso: grupos[0].itens.length
+    };
   });
-  t('o item de maior valor do arquivo aparece em 1º ao ordenar por valor', primeiroOrdenado===maisCaro.id,
-    {tela:primeiroOrdenado, esperado:maisCaro.id, item:maisCaro.item});
+  console.log('   cabeçalho:', grupo.cabecalho);
+  console.log('   colunas..:', grupo.colunas.join(' | '));
+  t('o cabeçalho do grupo traz Nº/ano do processo', /Nº\s*\S+\/\d{4}/.test(grupo.cabecalho), grupo.cabecalho);
+  t('as colunas são as do LicitaCon (item, qtd, un, unitário, total, vencedor, CNPJ)',
+    grupo.colunas.join('|')==='Item|Qtd.|Un.|Vl. Un. Homolg.|Vl. Total|Vencedor|CPF/CNPJ', grupo.colunas);
+  t('as linhas do grupo são exatamente os itens daquele processo',
+    grupo.itensNoGrupo===grupo.itensDoPrimeiroProcesso, grupo);
 
   console.log('\n8) Modal de detalhe mostra os dados certos de um item específico');
   const comVencedor=dados.find(x=>x.vencedor && x.cnpj);

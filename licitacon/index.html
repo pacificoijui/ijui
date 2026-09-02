@@ -12,7 +12,7 @@
 <meta property="og:site_name" content="Município de Ijuí">
 <meta property="og:locale" content="pt_BR">
 <meta property="og:title" content="Consulta de Itens Licitados — Município de Ijuí">
-<meta property="og:description" content="Busca por item, empresa vencedora e valor homologado nas licitações do Município de Ijuí — dados publicados no Portal LicitaCon do TCE-RS.">
+<meta property="og:description" content="Busca por item, empresa vencedora e valor unitário homologado nas licitações do Município de Ijuí — dados publicados no Portal LicitaCon do TCE-RS.">
 <meta property="og:url" content="https://ijui.net/licitacon/">
 <meta name="description" content="Consulta pública de itens licitados pelo Município de Ijuí: item, quantidade, valor unitário e total homologado, empresa vencedora. Dados do Portal LicitaCon (TCE-RS).">
 <title>Consulta de Itens Licitados – Município de Ijuí</title>
@@ -22,23 +22,20 @@
 <style>
   :root {
     --navy:      #1a3a6b;
-    --navy-mid:  #1e4a8a;
     --navy-dark: #12294d;
     --navy-light:#2e5da8;
     --gold:      #e8a020;
-    --gold-light:#f6b93b;
     --card:      #ffffff;
     --bg:        #eaeef6;
     --text:      #1c2433;
     --muted:     #6b7793;
     --border:    #dde4f0;
     --shadow:    0 2px 10px rgba(20,40,80,0.07);
-    --shadow-md: 0 6px 22px rgba(20,40,80,0.10);
     --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
     --blue-bg:   #e7eefb;
     --blue-text: #1e4a8a;
-    --green:     #2a8a3a;  --green-bg:  #e6f4ea;
-    --red:       #c0282a;  --red-bg:    #fbe7e7;
+    --green:     #2a8a3a;
+    --red:       #c0282a;
     --amber:     #c07000;  --amber-bg:  #fef3dc;
     --radius:    18px;
     --ring:      0 0 0 3px rgba(46,93,168,0.14);
@@ -58,7 +55,6 @@
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(46,93,168,0.28); border-radius: 20px; border: 2px solid var(--bg); }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(46,93,168,0.45); }
 
   header {
     background: #ffffff;
@@ -73,11 +69,11 @@
   .logo-divider { width: 2px; height: 44px; background: var(--border); border-radius: 2px; }
   .logo-text h1 { font-size: 18px; color: var(--navy); font-weight: 700; letter-spacing: 0.2px; line-height: 1.2; }
   .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
-  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-  .info-chip { background: var(--blue-bg); color: var(--blue-text); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .3px; }
+  .info-chip { background: var(--blue-bg); color: var(--blue-text); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .3px; flex-shrink: 0; }
 
+  /* Barra de estatísticas (o número de itens sem vencedor filtra ao clicar) */
   .stats-bar { background: linear-gradient(180deg, #10254a, #173562); border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .stats-inner { max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; gap: 0; flex-wrap: wrap; }
+  .stats-inner { max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; }
   .stat { padding: 13px 28px 13px 0; display: flex; align-items: center; gap: 10px; border-right: 1px solid rgba(255,255,255,0.10); margin-right: 28px; cursor: pointer; transition: opacity .15s; border-bottom: 3px solid transparent; }
   .stat:hover { opacity: .85; }
   .stat.active { border-bottom-color: var(--gold); }
@@ -86,9 +82,10 @@
   .stat-num.amberc { color: #ffcf7d; }
   .stat-label { font-size: 11.5px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
 
-  main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
+  main { max-width: 1440px; margin: 0 auto; padding: 20px 32px 60px; }
 
-  .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 18px; }
+  /* Filtros */
+  .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 16px; }
   .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .panel-title { font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .8px; display: flex; align-items: center; gap: 8px; }
   .panel-body { padding: 16px 20px; }
@@ -107,23 +104,7 @@
   .chip b:hover { opacity: 1; }
   .link-clear { background: none; border: none; color: var(--red); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
 
-  .dash-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
-  .dash-block h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
-  .bar-row { display: grid; grid-template-columns: 200px 1fr 84px; align-items: center; gap: 10px; padding: 4px 0; cursor: pointer; border-radius: 6px; }
-  .bar-row:hover { background: var(--blue-bg); }
-  .bar-row.sel .bar-label { color: var(--navy); }
-  .bar-label { font-size: 12.5px; font-weight: 700; color: var(--text); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar-track { background: #eef2fa; border-radius: 20px; height: 22px; overflow: hidden; }
-  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--navy-light), var(--navy)); border-radius: 20px; min-width: 3px; transition: width .35s ease; }
-  .bar-row.sel .bar-fill { background: linear-gradient(90deg, var(--gold), var(--gold-light)); }
-  .bar-val { font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; text-align: right; }
-  .ano-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .ano-box { border-radius: 14px; padding: 14px 12px; cursor: pointer; border: 2px solid transparent; transition: transform .12s; background: var(--blue-bg); color: var(--blue-text); }
-  .ano-box:hover { transform: translateY(-2px); }
-  .ano-box.sel { border-color: var(--navy); }
-  .ano-box .vnum { font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
-  .ano-box .vlab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; line-height: 1.3; }
-
+  /* Barra da lista */
   .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
   .result-count { font-size: 13.5px; color: var(--muted); }
   .result-count b { color: var(--navy); font-size: 16px; }
@@ -131,39 +112,59 @@
   .sort-sel { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; background: #fbfcff; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
   .sort-sel:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; align-items: stretch; }
-  @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .icard { background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--navy-light); border-radius: 14px; padding: 15px 18px; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow .18s, transform .14s; animation: cardIn .28s ease both; display: flex; flex-direction: column; }
-  .icard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-  @media (prefers-reduced-motion: reduce) { .icard { animation: none; } }
-  .icard.sem-vencedor { border-left-color: #b8c0d4; }
-  .icard-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
-  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
-  .badge-num { background: var(--navy); color: #fff; }
-  .badge-modal { background: var(--blue-bg); color: var(--blue-text); }
-  .badge-cat { background: #f0e8f8; color: #6a20b0; }
-  .badge-semvenc { margin-left: auto; background: #eef0f5; color: #7c869c; }
-  .icard-item { font-size: 14.5px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 6px; flex: 1; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .icard-bottom { display: flex; align-items: center; gap: 16px; margin-top: 9px; flex-wrap: wrap; }
-  .meta { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
-  .meta b { color: var(--text); font-weight: 700; }
-  .icard-valor { margin-left: auto; text-align: right; }
-  .icard-valor .vtot { font-size: 15px; font-weight: 700; color: var(--navy); white-space: nowrap; }
-  .icard-valor .vuni { font-size: 11px; color: var(--muted); white-space: nowrap; }
-  .load-wrap { text-align: center; margin-top: 18px; }
-  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; }
+  /* ══ Lista: tabela agrupada por processo, como no próprio LicitaCon ══ */
+  .grupo { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
+  .grupo-head { background: #f2f5fb; border-bottom: 1px solid var(--border); padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .gh-num { background: var(--navy); color: #fff; border-radius: 20px; padding: 4px 11px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+  .gh-txt { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .gh-txt b { color: var(--text); font-weight: 700; }
+  .gh-qtd { margin-left: auto; font-size: 11.5px; color: var(--muted); font-weight: 700; white-space: nowrap; }
+
+  .tab-wrap { overflow-x: auto; }
+  .tab { width: 100%; border-collapse: collapse; }
+  .tab th { background: #fafbfe; border-bottom: 1.5px solid var(--border); padding: 9px 10px; font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap; }
+  .tab th.r, .tab td.r { text-align: right; }
+  .tab th.unit { color: var(--navy); }
+  .tab td { padding: 10px; border-bottom: 1px solid #eef1f8; font-size: 13px; vertical-align: top; line-height: 1.45; }
+  .tab tr:last-child td { border-bottom: none; }
+  .tab tbody tr { cursor: pointer; transition: background .12s; }
+  .tab tbody tr:hover { background: var(--blue-bg); }
+  .tab .c-lupa { width: 30px; color: var(--muted); text-align: center; }
+  .tab .c-item { width: 38%; word-break: break-word; }
+  .tab .c-qtd, .tab .c-un { white-space: nowrap; color: var(--muted); font-size: 12.5px; }
+  /* Valor unitário é o dado principal desta consulta — é o que se compara
+     entre licitações. O total vem em segundo plano. */
+  .tab .c-unit { white-space: nowrap; font-size: 14.5px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .tab .c-total { white-space: nowrap; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tab .c-vend { width: 20%; font-weight: 600; word-break: break-word; }
+  .tab .c-vend.vazio { color: var(--muted); font-weight: 400; font-style: italic; }
+  .tab .c-cnpj { white-space: nowrap; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  .load-wrap { text-align: center; margin-top: 16px; }
+  .btn-mais { background: var(--card); color: var(--navy); border: 1.5px solid var(--border); padding: 11px 20px; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; width: 100%; max-width: 340px; }
+  .btn-mais:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
   .empty span { font-size: 40px; display: block; margin-bottom: 10px; }
 
+  /* Modal */
   .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
   .overlay.open { display: flex; }
   .modal { background: var(--card); border-radius: 18px; box-shadow: var(--shadow-lg); width: 100%; max-width: 640px; margin: 20px; overflow: hidden; animation: slideUp 0.22s ease; max-height: 92vh; overflow-y: auto; }
   @keyframes slideUp { from { transform: translateY(22px); opacity: 0; } to { transform: none; opacity: 1; } }
-  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 19px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
-  .modal-header h2 { font-size: 17px; color: #fff; font-weight: 700; line-height: 1.35; }
-  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; flex-shrink: 0; margin-left: 12px; }
+  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 18px 22px; display: flex; align-items: flex-start; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
+  .modal-header h2 { font-size: 16px; color: #fff; font-weight: 700; line-height: 1.4; }
+  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 12px; }
   .modal-close:hover { background: rgba(255,255,255,0.30); }
-  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
-  .modal-footer { padding: 15px 24px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: #f7f9fd; position: sticky; bottom: 0; }
+  .modal-body { padding: 22px; display: flex; flex-direction: column; gap: 13px; }
+  .modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); background: #f7f9fd; line-height: 1.5; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge-num { background: var(--navy); color: #fff; }
+  .badge-modal { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-cat { background: #f0e8f8; color: #6a20b0; }
+  .det-destaque { background: var(--blue-bg); border-radius: 12px; padding: 14px 16px; }
+  .det-destaque .k { font-size: 10.5px; font-weight: 800; color: var(--blue-text); text-transform: uppercase; letter-spacing: .6px; }
+  .det-destaque .v { font-size: 25px; font-weight: 800; color: var(--navy); line-height: 1.2; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .det-destaque .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
   .det-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 14px; }
   .det-row .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
   .det-row .v { color: var(--text); line-height: 1.5; }
@@ -173,72 +174,92 @@
   .caret { transition: transform .2s; display: inline-block; color: var(--muted); }
   .caret.up { transform: rotate(180deg); }
 
-  @media (max-width: 1100px) { .filters-grid { grid-template-columns: 1fr 1fr 1fr; } .dash-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) {
+    .filters-grid { grid-template-columns: 1fr 1fr 1fr; }
+    .tab .c-item { width: 32%; }
+    .tab .c-vend { width: 18%; }
+  }
+
+  /* ═══════════════════ CELULAR ═══════════════════
+     A tabela deixa de ser tabela: cada linha vira um bloco em que o item
+     ocupa a largura toda e os números se acomodam embaixo. Tabela de 8
+     colunas espremida em 390px quebra palavra no meio ("TANQ UINH O") e
+     fica ilegível — este é o mesmo erro que já custou caro no painel de
+     Vencedores, e aqui ele não se repete. */
   @media (max-width: 860px) {
     .only-mobile { display: inline-block; }
-    header { padding: 0 14px; }
-    .header-inner { min-height: 62px; gap: 10px; }
-    .logo-mark { width: 38px; height: 38px; border-radius: 10px; font-size: 18px; }
+    header { padding: 0 13px; }
+    .header-inner { min-height: 58px; gap: 10px; }
+    .logo-mark { width: 36px; height: 36px; border-radius: 10px; font-size: 17px; }
     .logo-divider { display: none; }
-    .logo-wrap { gap: 11px; }
-    .logo-text h1 { font-size: 15.5px; }
-    .logo-text p { font-size: 9.5px; letter-spacing: .6px; }
+    .logo-wrap { gap: 10px; }
+    .logo-text h1 { font-size: 15px; }
+    .logo-text p { font-size: 9px; letter-spacing: .5px; }
     .info-chip { display: none; }
 
-    main { padding: 14px 12px 40px; }
+    main { padding: 12px 10px 36px; }
 
-    .stats-inner { padding: 10px 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .stat { padding: 9px 6px; margin: 0; border-right: none; border-bottom: none; border-radius: 12px; background: rgba(255,255,255,0.06); flex-direction: column; align-items: flex-start; gap: 3px; justify-content: center; }
+    .stats-inner { padding: 9px 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+    .stat { padding: 8px 10px; margin: 0; border-right: none; border-radius: 11px; background: rgba(255,255,255,0.06); flex-direction: column; align-items: flex-start; gap: 2px; }
+    .stat:last-child { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
     .stat.active { background: rgba(232,160,32,0.20); box-shadow: inset 0 0 0 1.5px var(--gold); }
-    .stat-num { font-size: 19px; }
-    .stat-label { font-size: 9.5px; letter-spacing: .3px; line-height: 1.25; }
+    .stat-num { font-size: 18px; }
+    .stat-label { font-size: 9px; letter-spacing: .2px; line-height: 1.25; }
 
-    .panel-head { cursor: pointer; padding: 13px 15px; }
-    .panel-body { padding: 14px 15px; }
+    .panel { border-radius: 14px; margin-bottom: 12px; }
+    .panel-head { cursor: pointer; padding: 12px 14px; }
+    .panel-body { padding: 13px 14px; }
     .panel-body.hide { display: none; }
-    .filters-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .filters-grid { grid-template-columns: 1fr 1fr; gap: 9px; }
     .f-field:first-child { grid-column: 1 / -1; }
-    .f-field input, .f-field select { font-size: 16px; padding: 11px 12px; }
-    .f-field label { font-size: 10px; }
-    .filters-actions { gap: 7px; }
-    .filter-btn { padding: 9px 14px; font-size: 12.5px; }
+    /* 16px evita o zoom automático do navegador ao focar o campo */
+    .f-field input, .f-field select { font-size: 16px; padding: 10px 11px; }
+    .f-field label { font-size: 9.5px; }
+    .filter-btn { padding: 8px 13px; font-size: 12.5px; }
     .chips { width: 100%; margin: 8px 0 0; }
 
-    .bar-row { grid-template-columns: 96px 1fr 58px; gap: 8px; padding: 5px 0; }
-    .bar-label { font-size: 11.5px; }
-    .bar-val { font-size: 11px; }
-    .bar-track { height: 18px; }
-    .ano-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .ano-box { padding: 12px 10px; }
-    .ano-box .vnum { font-size: 22px; }
-    .panel-head span { display: none; }
-
-    .list-toolbar { gap: 8px; }
+    .list-toolbar { gap: 8px; margin-bottom: 10px; }
+    .result-count { font-size: 12.5px; }
     .toolbar-right { width: 100%; }
     .toolbar-right label { display: none; }
     .sort-sel { flex: 1; font-size: 16px; }
-    .cards { grid-template-columns: 1fr; gap: 10px; }
-    .icard { padding: 13px 14px; border-radius: 13px; }
-    .icard-top { gap: 6px; margin-bottom: 6px; }
-    .badge { font-size: 11px; padding: 3px 9px; }
-    .badge-semvenc { margin-left: 0; width: 100%; }
-    .icard-item { font-size: 13.5px; -webkit-line-clamp: 3; }
-    .icard-bottom { gap: 10px; margin-top: 8px; }
-    .meta { font-size: 11.5px; }
-    .icard-valor { margin-left: 0; width: 100%; text-align: left; padding-top: 6px; border-top: 1px dashed var(--border); }
+
+    .grupo { border-radius: 12px; margin-bottom: 10px; }
+    .grupo-head { padding: 9px 11px; gap: 7px; }
+    .gh-num { font-size: 11.5px; padding: 3px 9px; }
+    .gh-txt { font-size: 11.5px; width: 100%; line-height: 1.45; }
+    .gh-qtd { margin-left: auto; font-size: 10.5px; }
+
+    .tab-wrap { overflow-x: visible; }
+    .tab, .tab tbody, .tab tr { display: block; width: 100%; }
+    .tab thead { display: none; }
+    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 14px;
+      padding: 11px 12px; border-bottom: 1px solid #eef1f8; }
+    .tab tr:last-child { border-bottom: none; }
+    .tab td { display: inline; padding: 0; border: none; font-size: 12.5px; }
+    .tab td::before { content: attr(data-label) " "; color: var(--muted); font-size: 9.5px;
+      font-weight: 800; text-transform: uppercase; letter-spacing: .3px; }
+    .tab td.c-lupa, .tab td.vazia { display: none; }
+    .tab .c-item { flex: 0 0 100%; width: auto; font-size: 13.5px; font-weight: 700; line-height: 1.42; margin-bottom: 4px; }
+    .tab .c-item::before { content: none; }
+    .tab .c-unit { font-size: 15px; }
+    .tab .c-vend { flex: 0 0 100%; width: auto; margin-top: 4px; font-size: 12.5px; }
+    .tab .c-cnpj { flex: 0 0 100%; }
 
     .overlay { align-items: flex-end; }
-    .modal { margin: 0; border-radius: 20px 20px 0 0; max-width: 100%; max-height: 90vh; }
-    .modal-header { padding: 16px 18px; }
-    .modal-header h2 { font-size: 15.5px; }
+    .modal { margin: 0; border-radius: 18px 18px 0 0; max-width: 100%; max-height: 92vh; }
+    .modal-header { padding: 15px 16px; }
+    .modal-header h2 { font-size: 14.5px; }
     .modal-close { width: 34px; height: 34px; }
-    .modal-body { padding: 18px; gap: 12px; }
-    .modal-footer { padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); }
-    .det-row { grid-template-columns: 1fr; gap: 2px; }
+    .modal-body { padding: 16px; gap: 11px; }
+    .modal-footer { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+    .det-destaque .v { font-size: 22px; }
+    .det-row { grid-template-columns: 1fr; gap: 1px; }
+    .det-row .k { padding-top: 0; }
   }
   @media (max-width: 380px) {
-    .stats-inner { grid-template-columns: repeat(2, 1fr); }
     .filters-grid { grid-template-columns: 1fr; }
+    .stat-num { font-size: 16px; }
   }
 </style>
 </head>
@@ -254,9 +275,7 @@
         <p>Município de Ijuí · Portal LicitaCon (TCE-RS)</p>
       </div>
     </div>
-    <div class="header-actions">
-      <span class="info-chip" id="infoChip">carregando...</span>
-    </div>
+    <span class="info-chip" id="infoChip">carregando...</span>
   </div>
 </header>
 
@@ -265,26 +284,6 @@
 </div>
 
 <main>
-  <!-- PAINEL DINÂMICO -->
-  <div class="panel" id="painelDash">
-    <div class="panel-head">
-      <div class="panel-title">📊 Painel dinâmico</div>
-      <span style="font-size:12px;color:var(--muted)">Clique nas barras e nos blocos para filtrar a lista abaixo</span>
-    </div>
-    <div class="panel-body">
-      <div class="dash-grid">
-        <div class="dash-block">
-          <h3>Itens por modalidade</h3>
-          <div id="dashModal"></div>
-        </div>
-        <div class="dash-block">
-          <h3>Itens por ano</h3>
-          <div class="ano-strip" id="dashAno"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- FILTROS -->
   <div class="panel">
     <div class="panel-head" onclick="toggleFiltros(event)">
@@ -330,19 +329,20 @@
     <div class="toolbar-right">
       <label style="font-size:12px;color:var(--muted);font-weight:700">ORDENAR:</label>
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
-        <option value="abertura-desc">Abertura (mais recente)</option>
+        <option value="unit-desc">Maior valor unitário</option>
+        <option value="unit-asc">Menor valor unitário</option>
+        <option value="abertura-desc" selected>Abertura (mais recente)</option>
         <option value="abertura-asc">Abertura (mais antiga)</option>
-        <option value="valor-desc">Maior valor total</option>
-        <option value="valor-asc">Menor valor total</option>
+        <option value="total-desc">Maior valor total</option>
         <option value="item-az">Item (A–Z)</option>
         <option value="vencedor-az">Empresa (A–Z)</option>
       </select>
     </div>
   </div>
 
-  <div class="cards" id="cardsList"></div>
+  <div id="lista"></div>
   <div class="load-wrap" id="loadWrap" style="display:none">
-    <button class="btn-ghost" onclick="renderMais()" id="btnMais" style="background:var(--bg);color:var(--navy);border:1.5px solid var(--border);padding:9px 18px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;width:100%;max-width:320px">Carregar mais itens ↓</button>
+    <button class="btn-mais" onclick="renderMais()" id="btnMais">Carregar mais itens ↓</button>
   </div>
 </main>
 
@@ -384,14 +384,15 @@ function temVencedor(it){ return !!(it.vencedor && it.vencedor.trim()); }
 function fmtCnpj(c){
   if(!c) return '';
   const d=c.replace(/\D/g,'');
-  if(d.length!==14) return c;
-  return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  if(d.length===14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  if(d.length===11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  return c;
 }
 
 /* ══════════════ ESTADO ══════════════ */
 const F = { busca:'', modal:'', cat:'', ano:'', vencedor:'', sit:'', sort:'abertura-desc' };
-let filtrados = [], mostrando = 0;
-const LOTE = 60;
+let filtrados = [], grupos = [], grupoIdx = 0, mostrando = 0;
+const LOTE = 50;   /* itens por lote — grupos nunca são partidos ao meio */
 
 /* ══════════════ POPULAR SELECTS ══════════════ */
 function initSelects(){
@@ -432,24 +433,38 @@ function aplicarFiltros(){
   });
 
   ordenar();
-  mostrando = 0;
-  document.getElementById('cardsList').innerHTML = '';
+  grupos = agrupar(filtrados);
+  grupoIdx = 0; mostrando = 0;
+  document.getElementById('lista').innerHTML = '';
   renderMais();
   renderChips();
   renderStats();
-  renderDash();
 }
 function ordenar(){
   const s = F.sort;
   filtrados.sort((a,b)=>{
+    if(s==='unit-desc') return (b.vlUnit||0)-(a.vlUnit||0);
+    if(s==='unit-asc') return (a.vlUnit||0)-(b.vlUnit||0);
     if(s==='abertura-desc') return String(b.abertura||'').localeCompare(String(a.abertura||''));
     if(s==='abertura-asc') return String(a.abertura||'').localeCompare(String(b.abertura||''));
-    if(s==='valor-desc') return (b.vlTotal||0)-(a.vlTotal||0);
-    if(s==='valor-asc') return (a.vlTotal||0)-(b.vlTotal||0);
+    if(s==='total-desc') return (b.vlTotal||0)-(a.vlTotal||0);
     if(s==='item-az') return String(a.item).localeCompare(String(b.item),'pt-BR');
     if(s==='vencedor-az') return String(a.vencedor||'￿').localeCompare(String(b.vencedor||'￿'),'pt-BR');
     return 0;
   });
+}
+/* Agrupa por processo mantendo a ordem em que cada processo apareceu na lista
+   já ordenada: ordenando por maior valor unitário, o processo que contém o
+   item mais caro vem primeiro, e dentro dele os itens seguem a mesma ordem. */
+function agrupar(lista){
+  const mapa = new Map();
+  lista.forEach(it => {
+    const k = it.modalidade+'|'+it.nr+'|'+it.ano;
+    if(!mapa.has(k)) mapa.set(k, {modalidade:it.modalidade, nr:it.nr, ano:it.ano,
+                                  categoria:it.categoria, abertura:it.abertura, itens:[]});
+    mapa.get(k).itens.push(it);
+  });
+  return [...mapa.values()];
 }
 function setSituacao(btn){
   document.querySelectorAll('[data-sit]').forEach(b=>b.classList.remove('active'));
@@ -463,12 +478,6 @@ function limparFiltros(){
   document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit===''));
   F.sit='';
   aplicarFiltros();
-}
-function setFiltroExterno(campo, valor){
-  if(campo==='modal'){ const el=document.getElementById('fModal'); el.value = (el.value===valor?'':valor); }
-  if(campo==='ano'){ const el=document.getElementById('fAno'); el.value = (el.value===valor?'':valor); }
-  aplicarFiltros();
-  const lst=document.getElementById('cardsList'); if(lst.scrollIntoView) lst.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 /* ══════════════ CHIPS DE FILTROS ATIVOS ══════════════ */
@@ -484,26 +493,27 @@ function renderChips(){
 }
 
 /* ══════════════ BARRA DE ESTATÍSTICAS ══════════════
-   Mostram sempre o total geral (não o filtrado) — clicar aplica um filtro
-   rápido, do mesmo jeito que o painel de Contratos. */
+   Mostram sempre o total geral (não o filtrado). Clicar em "itens sem
+   vencedor" aplica esse filtro; os demais números voltam ao estado limpo. */
 function renderStats(){
   const semVenc = ITENS.filter(it=>!temVencedor(it)).length;
   const valorTotal = ITENS.reduce((s,it)=>s+(it.vlTotal||0),0);
   const processos = new Set(ITENS.map(it=>it.modalidade+'|'+it.nr+'|'+it.ano)).size;
   const empresas = new Set(ITENS.filter(temVencedor).map(it=>it.vencedor)).size;
-  const st = (num, label, cls, on, act) =>
-    `<div class="stat ${act?'active':''}" onclick="${on}"><div class="stat-num ${cls||''}">${num}</div><div class="stat-label">${label}</div></div>`;
+  const st = (n, label, cls, on, act) =>
+    `<div class="stat ${act?'active':''}" onclick="${on}"><div class="stat-num ${cls||''}">${n}</div><div class="stat-label">${label}</div></div>`;
+  const limpo = F.sit===''&&!F.modal&&!F.cat&&!F.ano&&!F.vencedor&&!F.busca;
   document.getElementById('statsBar').innerHTML =
-    st(ITENS.length,'Itens<br>cadastrados','',"statTodos()", F.sit===''&&!F.modal&&!F.cat&&!F.ano&&!F.vencedor&&!F.busca) +
-    st(processos,'Processos<br>distintos','',"statTodos()", false) +
-    st(money(valorTotal).replace('R$',''),'Valor total<br>homologado (R$)','amberc',"statTodos()", false) +
-    st(empresas,'Empresas<br>vencedoras','',"statTodos()", false) +
-    st(semVenc,'Itens sem<br>vencedor','',"statSemVencedor()", F.sit==='SEM');
+    st(num(ITENS.length),'Itens<br>cadastrados','',"statTodos()", limpo) +
+    st(num(processos),'Processos<br>distintos','',"statTodos()", false) +
+    st(money(valorTotal).replace('R$','').trim(),'Valor total<br>homologado (R$)','amberc',"statTodos()", false) +
+    st(num(empresas),'Empresas<br>vencedoras','',"statTodos()", false) +
+    st(num(semVenc),'Itens sem<br>vencedor','',"statSemVencedor()", F.sit==='SEM');
 }
 function statTodos(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='')); F.sit=''; aplicarFiltros(); }
 function statSemVencedor(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='SEM')); F.sit='SEM'; aplicarFiltros(); }
 
-/* ══════════════ PAINEL DINÂMICO ══════════════ */
+/* ══════════════ FILTROS RECOLHÍVEIS (celular) ══════════════ */
 function isMobile(){ return window.matchMedia ? window.matchMedia('(max-width: 860px)').matches : (window.innerWidth||999) <= 860; }
 function toggleFiltros(ev){
   if(!isMobile()) return;
@@ -512,59 +522,71 @@ function toggleFiltros(ev){
   b.classList.toggle('hide');
   document.getElementById('caretFiltros').classList.toggle('up', !b.classList.contains('hide'));
 }
-function renderDash(){
-  const porModal = {};
-  ITENS.forEach(it=>{ if(it.modalidade) porModal[it.modalidade]=(porModal[it.modalidade]||0)+1; });
-  const arr = Object.entries(porModal).sort((a,b)=>b[1]-a[1]);
-  const max = arr.length?arr[0][1]:1;
-  document.getElementById('dashModal').innerHTML = arr.map(([m,n])=>
-    `<div class="bar-row ${F.modal===m?'sel':''}" onclick="setFiltroExterno('modal','${esc(m).replace(/'/g,"\\'")}')">
-       <div class="bar-label">${esc(m)}</div>
-       <div class="bar-track"><div class="bar-fill" style="width:${Math.max(3,n/max*100)}%"></div></div>
-       <div class="bar-val">${n} itens</div>
-     </div>`).join('');
-  const porAno = {};
-  ITENS.forEach(it=>{ if(it.ano) porAno[it.ano]=(porAno[it.ano]||0)+1; });
-  const anos = Object.entries(porAno).sort((a,b)=>b[0]-a[0]);
-  document.getElementById('dashAno').innerHTML = anos.map(([a,n])=>
-    `<div class="ano-box ${F.ano===a?'sel':''}" onclick="setFiltroExterno('ano','${a}')"><div class="vnum">${n}</div><div class="vlab">${a}</div></div>`).join('');
-}
 
-/* ══════════════ RENDER DOS CARDS ══════════════ */
-function cardHTML(it){
-  const cls = ['icard'];
-  if(!temVencedor(it)) cls.push('sem-vencedor');
-  return `<div class="${cls.join(' ')}" onclick="abrirDet(${it.id})">
-    <div class="icard-top">
-      <span class="badge badge-num">Nº ${esc(it.nr)}/${esc(it.ano)}</span>
-      <span class="badge badge-modal">${esc(it.modalidade)}</span>
-      ${it.categoria?`<span class="badge badge-cat">${esc(it.categoria)}</span>`:''}
-      ${!temVencedor(it)?'<span class="badge badge-semvenc">— sem vencedor</span>':''}
+/* ══════════════ RENDER DA LISTA ══════════════ */
+function linhaHTML(it){
+  /* Célula sem conteúdo não leva rótulo: no celular os rótulos viram texto
+     visível (::before), e um "CNPJ" solto sem número é ruído. */
+  const cel = (classe, valor, rotulo) => valor
+    ? `<td class="${classe}" data-label="${rotulo}">${valor}</td>`
+    : `<td class="${classe} vazia"></td>`;
+  return `<tr onclick="abrirDet(${it.id})">
+    <td class="c-lupa">🔍</td>
+    <td class="c-item">${esc(it.item)}</td>
+    ${cel('c-qtd r', it.qtd!=null?num(it.qtd):'', 'Qtd.')}
+    ${cel('c-un', esc(it.unidade), 'Un.')}
+    ${cel('c-unit r', money(it.vlUnit), 'Unitário')}
+    ${cel('c-total r', money(it.vlTotal), 'Total')}
+    <td class="c-vend${temVencedor(it)?'':' vazio'}" data-label="Vencedor">${temVencedor(it)?esc(it.vencedor):'sem vencedor informado'}</td>
+    ${cel('c-cnpj', esc(fmtCnpj(it.cnpj)), 'CPF/CNPJ')}
+  </tr>`;
+}
+function grupoHTML(g){
+  const n = g.itens.length;
+  return `<div class="grupo">
+    <div class="grupo-head">
+      <span class="gh-num">Nº ${esc(g.nr)}/${esc(g.ano)}</span>
+      <span class="gh-txt"><b>${esc(g.modalidade)}</b>${g.categoria?' · '+esc(g.categoria):''}${g.abertura?' · Abertura '+fmtD(g.abertura):''}</span>
+      <span class="gh-qtd">${n} ${n>1?'itens':'item'}</span>
     </div>
-    <div class="icard-item">${esc(it.item)}</div>
-    <div class="icard-bottom">
-      ${temVencedor(it)?`<span class="meta">🏢 <b>${esc(it.vencedor)}</b></span>`:''}
-      ${it.qtd!=null?`<span class="meta">📦 <b>${num(it.qtd)} ${esc(it.unidade)}</b></span>`:''}
-      ${it.abertura?`<span class="meta">📅 ${fmtD(it.abertura)}</span>`:''}
-      <div class="icard-valor">
-        <div class="vtot">${money(it.vlTotal)}</div>
-        ${it.vlUnit!=null?`<div class="vuni">unit. ${money(it.vlUnit)}</div>`:''}
-      </div>
+    <div class="tab-wrap">
+      <table class="tab">
+        <thead><tr>
+          <th class="c-lupa"></th>
+          <th>Item</th>
+          <th class="r">Qtd.</th>
+          <th>Un.</th>
+          <th class="r unit">Vl. Un. Homolg.</th>
+          <th class="r">Vl. Total</th>
+          <th>Vencedor</th>
+          <th>CPF/CNPJ</th>
+        </tr></thead>
+        <tbody>${g.itens.map(linhaHTML).join('')}</tbody>
+      </table>
     </div>
   </div>`;
 }
 function renderMais(){
-  const alvo = document.getElementById('cardsList');
-  const fatia = filtrados.slice(mostrando, mostrando+LOTE);
-  alvo.insertAdjacentHTML('beforeend', fatia.map(cardHTML).join(''));
-  mostrando += fatia.length;
-  document.getElementById('loadWrap').style.display = mostrando < filtrados.length ? '' : 'none';
-  document.getElementById('btnMais').textContent = `Carregar mais (${filtrados.length-mostrando} restantes) ↓`;
+  const alvo = document.getElementById('lista');
+  if(!filtrados.length){
+    alvo.innerHTML = '<div class="empty"><span>🔍</span>Nenhum item encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+    document.getElementById('loadWrap').style.display = 'none';
+    document.getElementById('resultCount').innerHTML = '';
+    return;
+  }
+  let html='', add=0;
+  while(grupoIdx < grupos.length && add < LOTE){
+    const g = grupos[grupoIdx++];
+    html += grupoHTML(g);
+    add += g.itens.length;
+  }
+  alvo.insertAdjacentHTML('beforeend', html);
+  mostrando += add;
+  const faltam = filtrados.length - mostrando;
+  document.getElementById('loadWrap').style.display = faltam>0 ? '' : 'none';
+  document.getElementById('btnMais').textContent = `Carregar mais (${faltam} restantes) ↓`;
   document.getElementById('resultCount').innerHTML =
-    filtrados.length
-      ? `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> ite${filtrados.length>1?'ns':'m'}`
-      : '';
-  if(!filtrados.length) alvo.innerHTML = '<div class="empty"><span>🔍</span>Nenhum item encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+    `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> ite${filtrados.length>1?'ns':'m'} em <b>${grupos.length}</b> processo${grupos.length>1?'s':''}`;
 }
 
 /* ══════════════ MODAL DETALHE ══════════════ */
@@ -573,20 +595,21 @@ function abrirDet(id){
   document.getElementById('detTitle').textContent = it.item;
   const row = (k,v)=> v ? `<div class="det-row"><div class="k">${k}</div><div class="v">${v}</div></div>` : '';
   document.getElementById('detBody').innerHTML =
-    `<div style="display:flex;gap:8px;flex-wrap:wrap">
+    `<div class="det-destaque">
+       <div class="k">Valor unitário homologado</div>
+       <div class="v">${money(it.vlUnit)}</div>
+       <div class="sub">${it.qtd!=null?num(it.qtd)+' '+esc(it.unidade)+' · total ':'total '}<b>${money(it.vlTotal)}</b></div>
+     </div>` +
+    `<div style="display:flex;gap:7px;flex-wrap:wrap">
        <span class="badge badge-num">Nº ${esc(it.nr)}/${esc(it.ano)}</span>
        <span class="badge badge-modal">${esc(it.modalidade)}</span>
        ${it.categoria?`<span class="badge badge-cat">${esc(it.categoria)}</span>`:''}
      </div>` +
-    row('Item', '<b>'+esc(it.item)+'</b>') +
+    row('Item', esc(it.item)) +
     row('Abertura', fmtD(it.abertura)) +
     '<hr class="det-hr">' +
-    row('Quantidade', it.qtd!=null ? num(it.qtd)+' '+esc(it.unidade) : '—') +
-    row('Valor unitário homologado', '<b>'+money(it.vlUnit)+'</b>') +
-    row('Valor total homologado', '<b style="color:var(--navy);font-size:16px">'+money(it.vlTotal)+'</b>') +
-    '<hr class="det-hr">' +
     (temVencedor(it)
-      ? row('Empresa vencedora', '<b>'+esc(it.vencedor)+'</b>') + row('CNPJ/CPF', esc(fmtCnpj(it.cnpj)))
+      ? row('Empresa vencedora', '<b>'+esc(it.vencedor)+'</b>') + row('CPF/CNPJ', esc(fmtCnpj(it.cnpj)))
       : row('Empresa vencedora', '<span style="color:var(--muted)">Sem vencedor informado no Portal LicitaCon para este item.</span>'));
   document.getElementById('detFooter').textContent =
     'Fonte: Portal LicitaCon (TCE-RS) · Prefeitura Municipal de Ijuí · dados sujeitos a atualização do portal, não em tempo real.';
@@ -598,10 +621,9 @@ function fecharDet(){ document.getElementById('ovDet').classList.remove('open');
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') fecharDet(); });
 
 function iniciar(){
-  document.getElementById('infoChip').textContent = ITENS.length + ' itens · dados do LicitaCon';
+  document.getElementById('infoChip').textContent = num(ITENS.length) + ' itens · dados do LicitaCon';
   initSelects();
   aplicarFiltros();
-  renderDash();
   if(isMobile()){
     document.getElementById('filtrosBody').classList.add('hide');
     document.getElementById('caretFiltros').classList.remove('up');
@@ -611,7 +633,7 @@ function iniciar(){
 carregarItens().then(d => { ITENS = d; iniciar(); }).catch(e => {
   console.error('Erro ao carregar os itens:', e);
   document.getElementById('infoChip').textContent = 'erro ao carregar';
-  document.getElementById('cardsList').innerHTML =
+  document.getElementById('lista').innerHTML =
     '<div class="empty"><span>⚠️</span>Não foi possível carregar os dados.<br>' + esc(e.message) + '</div>';
 });
 </script>

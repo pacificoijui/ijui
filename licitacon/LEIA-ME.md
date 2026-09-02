@@ -47,7 +47,7 @@ não é uma planilha de verdade).
 
 | | |
 |---|---|
-| `index.html` | a tela (busca, painel dinâmico, cards, modal de detalhe) |
+| `index.html` | a tela (busca, tabela agrupada por processo, modal de detalhe) |
 | `dados/itens.json` | os itens, um por linha |
 | `ferramentas/converter.mjs` | transforma o export do portal em `dados/itens.json` |
 | `../testes/t-licitacon.js` | confere que filtros e totais batem com o arquivo |
