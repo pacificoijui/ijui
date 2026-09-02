@@ -37,14 +37,12 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const est=await pg.evaluate(()=>({
     total: ITENS.length,
     chip: document.getElementById('infoChip').textContent,
-    stats: document.getElementById('statsBar').children.length,
     modais: document.getElementById('fModal').options.length-1,
     anos: document.getElementById('fAno').options.length-1,
     linhas: document.querySelectorAll('.tab tbody tr').length,
   }));
   t('total de itens bate com o arquivo', est.total===dados.length, est);
   t('a tarja do cabeçalho mostra o total', /^6\.514/.test(est.chip), est.chip);
-  t('as 5 estatísticas foram montadas', est.stats===5, est);
   t('select de modalidade populado', est.modais>0, est);
   t('select de ano populado', est.anos>0, est);
   t('primeiro lote de linhas renderizou', est.linhas>0 && est.linhas<=100, est);
@@ -58,11 +56,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     modais: document.querySelectorAll('.overlay, .modal').length,
     semAbrirDet: typeof window.abrirDet==='undefined',
     semPainelDinamico: !document.getElementById('painelDash') && typeof window.renderDash==='undefined',
-    colunas: [...document.querySelectorAll('.tab thead th')].map(th=>th.textContent.trim()),
+    colunas: [...document.querySelectorAll('.tab .th-titulos th')].map(th=>th.textContent.trim()),
+    linhasCabecalho: document.querySelectorAll('.tab thead tr').length,
   }));
   console.log('   colunas:', forma.colunas.join(' | '));
   t('existe exatamente 1 tabela na página', forma.tabelas===1, forma);
   t('e exatamente 1 cabeçalho de colunas', forma.theads===1, forma);
+  t('o cabeçalho tem 2 linhas: os títulos e a busca por coluna',
+    forma.linhasCabecalho===2, forma);
   t('não há mais caixas agrupadas por processo', forma.grupos===0, forma);
   t('não há cards', forma.cards===0, forma);
   t('não há modal de detalhe', forma.modais===0 && forma.semAbrirDet, forma);
@@ -71,10 +72,16 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     forma.colunas.join('|')==='Processo|Abertura|Item|Qtd.|Un.|Vl. Un. Homolg.|Vl. Total|Vencedor|CPF/CNPJ',
     forma.colunas);
 
-  console.log('\n4) A estatística de valor total bate com a soma do arquivo');
-  const statTxt=await pg.evaluate(()=>document.getElementById('statsBar').children[2].querySelector('.stat-num').textContent);
-  const totalFmt=totalGeral.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-  t('valor total homologado exibido bate com a soma do JSON', statTxt.trim()===totalFmt, {tela:statTxt, esperado:totalFmt});
+  console.log('\n4) A barra escura de números saiu da página');
+  const semNumeros=await pg.evaluate(()=>({
+    barra: !!document.querySelector('.stats-bar'),
+    caixa: !!document.getElementById('statsBar'),
+    fn: typeof window.renderStats!=='undefined' || typeof window.statTodos!=='undefined',
+    somaNaTela: document.body.textContent.indexOf('327.931.497,39')>=0,
+  }));
+  t('não existe mais a barra de estatísticas', !semNumeros.barra && !semNumeros.caixa, semNumeros);
+  t('e nem as funções que a montavam', !semNumeros.fn, semNumeros);
+  t('o valor total somado não aparece mais em lugar nenhum', !semNumeros.somaNaTela, semNumeros);
 
   console.log('\n5) Busca livre filtra');
   const alvo=dados[0];
@@ -95,14 +102,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   console.log('\n6) Filtros de situação e modalidade batem com o arquivo');
   const semv=await pg.evaluate(()=>{
     document.getElementById('fBusca').value='';
-    statSemVencedor();
+    document.querySelector('[data-sit="SEM"]').click();
     return filtrados.length;
   });
   t('contagem de itens sem vencedor bate', semv===semVencedor, {tela:semv, esperado:semVencedor});
 
   const modalidadeAlvo=dados[0].modalidade;
   const porModal=await pg.evaluate((m)=>{
-    statTodos();
+    document.querySelector('[data-sit=""]').click();
     document.getElementById('fModal').value=m;
     aplicarFiltros();
     return filtrados.length;
@@ -162,6 +169,83 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const cnpjFmt=comTudo.cnpj.length===14
     ? comTudo.cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5') : comTudo.cnpj;
   t('traz o CPF/CNPJ formatado', linha.cnpj===cnpjFmt, {tela:linha.cnpj, esperado:cnpjFmt});
+
+  console.log('\n8b) Cada coluna tem a sua própria busca');
+  const cols=await pg.evaluate(()=>{
+    limparFiltros();
+    return {
+      quantos: document.querySelectorAll('.cf').length,
+      colunas: [...document.querySelectorAll('.cf')].map(i=>i.dataset.col),
+    };
+  });
+  console.log('   colunas com busca:', cols.colunas.join(', '));
+  t('todas as 9 colunas têm campo de busca', cols.quantos===9, cols);
+  t('e são as colunas da tabela', cols.colunas.join('|')==='proc|abert|item|qtd|un|unit|total|vend|cnpj', cols);
+
+  /* a busca da coluna casa com o texto que a coluna MOSTRA — inclusive o
+     valor já formatado, então dá para procurar "939" e achar "R$ 939,97" */
+  const porItem=await pg.evaluate(()=>{
+    document.querySelector('.cf[data-col="item"]').value='cebola';
+    aplicarFiltros();
+    return {n:filtrados.length, todosTemCebola:filtrados.every(x=>x.item.toLowerCase().includes('cebola'))};
+  });
+  const esperadoCebola=dados.filter(x=>x.item.toLowerCase().includes('cebola')).length;
+  t('buscar "cebola" na coluna Item bate com o arquivo', porItem.n===esperadoCebola, {tela:porItem.n, esperado:esperadoCebola});
+  t('e só traz itens que realmente contêm "cebola"', porItem.todosTemCebola, porItem);
+
+  const porEmpresa=await pg.evaluate((emp)=>{
+    limparFiltros();
+    document.querySelector('.cf[data-col="vend"]').value=emp;
+    aplicarFiltros();
+    return filtrados.length;
+  }, comTudo.vencedor.slice(0,12).toLowerCase());
+  const esperadoEmp=dados.filter(x=>(x.vencedor||'').toLowerCase().includes(comTudo.vencedor.slice(0,12).toLowerCase())).length;
+  t('buscar na coluna Vencedor bate com o arquivo', porEmpresa===esperadoEmp, {tela:porEmpresa, esperado:esperadoEmp});
+
+  const porValor=await pg.evaluate(()=>{
+    limparFiltros();
+    document.querySelector('.cf[data-col="unit"]').value='939,97';
+    aplicarFiltros();
+    return {n:filtrados.length, chips:document.getElementById('chipsAtivos').textContent.trim()};
+  });
+  t('dá para buscar pelo valor já formatado na coluna de preço', porValor.n>0, porValor);
+  t('o filtro de coluna aparece como chip (no celular não há cabeçalho)',
+    /Valor unitário: 939,97/.test(porValor.chips), porValor.chips);
+
+  const limpou=await pg.evaluate(()=>{
+    limparFiltros();
+    return {n:filtrados.length, campos:[...document.querySelectorAll('.cf')].every(i=>i.value==='')};
+  });
+  t('limpar filtros esvazia também os campos das colunas', limpou.campos && limpou.n===6514, limpou);
+
+  console.log('\n8c) Clicar no cabeçalho ordena, e clicar de novo inverte');
+  const clique = campo => pg.evaluate(c=>{
+    ordenarPor(c);
+    const th=document.querySelector('.th-titulos th[data-ord="'+c+'"]');
+    return {sort:F.sort, select:document.getElementById('fSort').value,
+            classe:th.className, primeiro:filtrados[0], segundo:filtrados[1]};
+  }, campo);
+
+  const u1=await clique('unit');
+  t('1º clique em "Vl. Un. Homolg." põe o maior primeiro', u1.sort==='unit-desc', u1.sort);
+  t('e o 1º item realmente tem o maior unitário', u1.primeiro.vlUnit>=u1.segundo.vlUnit, {a:u1.primeiro.vlUnit,b:u1.segundo.vlUnit});
+  t('a seta ▼ marca a coluna ordenada', /ord-desc/.test(u1.classe), u1.classe);
+  t('o seletor "ORDENAR" acompanha o clique', u1.select==='unit-desc', u1.select);
+
+  const u2=await clique('unit');
+  t('2º clique inverte para o menor primeiro', u2.sort==='unit-asc', u2.sort);
+  t('e o 1º item passa a ter o menor unitário', u2.primeiro.vlUnit<=u2.segundo.vlUnit, {a:u2.primeiro.vlUnit,b:u2.segundo.vlUnit});
+  t('a seta vira ▲', /ord-asc/.test(u2.classe), u2.classe);
+
+  const tt=await clique('total');
+  t('o valor total também ordena, do maior para o menor', tt.sort==='total-desc' && tt.primeiro.vlTotal>=tt.segundo.vlTotal, tt.sort);
+  const soUma=await pg.evaluate(()=>document.querySelectorAll('.th-titulos th.ord-asc, .th-titulos th.ord-desc').length);
+  t('só uma coluna fica marcada por vez', soUma===1, soUma);
+
+  const it1=await clique('item');
+  t('coluna de texto começa em A–Z (e não do maior para o menor)', it1.sort==='item-asc', it1.sort);
+  t('e a ordem alfabética vale', it1.primeiro.item.localeCompare(it1.segundo.item,'pt-BR')<=0,
+    {a:it1.primeiro.item, b:it1.segundo.item});
 
   console.log('\n9) Limpar filtros volta ao estado inicial');
   const total2=await pg.evaluate(()=>{ limparFiltros(); return filtrados.length; });

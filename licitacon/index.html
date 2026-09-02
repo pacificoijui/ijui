@@ -67,17 +67,6 @@
   .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
   .info-chip { background: var(--blue-bg); color: var(--blue-text); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .3px; flex-shrink: 0; }
 
-  /* Barra de estatísticas (o número de itens sem vencedor filtra ao clicar) */
-  .stats-bar { background: linear-gradient(180deg, #10254a, #173562); border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .stats-inner { max-width: 1600px; margin: 0 auto; padding: 0 32px; display: flex; flex-wrap: wrap; }
-  .stat { padding: 12px 26px 12px 0; display: flex; align-items: center; gap: 10px; border-right: 1px solid rgba(255,255,255,0.10); margin-right: 26px; cursor: pointer; transition: opacity .15s; border-bottom: 3px solid transparent; }
-  .stat:hover { opacity: .85; }
-  .stat.active { border-bottom-color: var(--gold); }
-  .stat:last-child { border-right: none; margin-right: 0; }
-  .stat-num { font-size: 23px; font-weight: 800; color: var(--gold); line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
-  .stat-num.amberc { color: #ffcf7d; }
-  .stat-label { font-size: 11.5px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
-
   main { max-width: 1600px; margin: 0 auto; padding: 18px 32px 60px; }
 
   /* Filtros */
@@ -121,6 +110,23 @@
     text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap;
   }
   .tab th.r { text-align: right; }
+  /* Cabeçalho ordenável: um clique ordena, o mesmo clique de novo inverte.
+     A seta diz por qual coluna a tabela está ordenada e em que sentido. */
+  .tab .th-titulos th { cursor: pointer; user-select: none; }
+  .tab .th-titulos th:hover { background: #e2e9f7; color: var(--navy-light); }
+  .tab .th-titulos th::after { content: "↕"; opacity: .28; margin-left: 4px; font-size: 10px; font-weight: 700; }
+  .tab .th-titulos th.ord-asc::after { content: "▲"; opacity: 1; }
+  .tab .th-titulos th.ord-desc::after { content: "▼"; opacity: 1; }
+  .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #dfe8f8; }
+  /* Busca por coluna: a mesma ideia do filtro de planilha, casando com o
+     texto que aparece na coluna (inclusive o valor já formatado). */
+  .tab .th-filtros th { padding: 0 5px 8px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
+  .tab .th-filtros input {
+    width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 11.5px; background: #fff; color: var(--text); outline: none;
+  }
+  .tab .th-filtros input:focus { border-color: var(--navy-light); box-shadow: 0 0 0 2px rgba(46,93,168,0.14); }
+  .tab .th-filtros input::placeholder { color: #a8b2c8; }
   .tab td { padding: 9px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.42; }
   .tab tbody tr:last-child td { border-bottom: none; }
   .tab tbody tr:nth-child(even) td { background: #fafbfe; }
@@ -183,13 +189,6 @@
     .info-chip { display: none; }
 
     main { padding: 12px 10px 36px; }
-
-    .stats-inner { padding: 9px 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
-    .stat { padding: 8px 10px; margin: 0; border-right: none; border-radius: 11px; background: rgba(255,255,255,0.06); flex-direction: column; align-items: flex-start; gap: 2px; }
-    .stat:last-child { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; }
-    .stat.active { background: rgba(232,160,32,0.20); box-shadow: inset 0 0 0 1.5px var(--gold); }
-    .stat-num { font-size: 18px; }
-    .stat-label { font-size: 9px; letter-spacing: .2px; line-height: 1.25; }
 
     .panel { border-radius: 14px; margin-bottom: 12px; }
     .panel-head { cursor: pointer; padding: 12px 14px; }
@@ -259,7 +258,6 @@
   }
   @media (max-width: 380px) {
     .filters-grid { grid-template-columns: 1fr; }
-    .stat-num { font-size: 16px; }
   }
 </style>
 </head>
@@ -278,10 +276,6 @@
     <span class="info-chip" id="infoChip">carregando...</span>
   </div>
 </header>
-
-<div class="stats-bar">
-  <div class="stats-inner" id="statsBar"></div>
-</div>
 
 <main>
   <!-- FILTROS -->
@@ -329,13 +323,30 @@
     <div class="toolbar-right">
       <label style="font-size:12px;color:var(--muted);font-weight:700">ORDENAR:</label>
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
-        <option value="unit-desc">Maior valor unitário</option>
-        <option value="unit-asc">Menor valor unitário</option>
-        <option value="abertura-desc" selected>Abertura (mais recente)</option>
-        <option value="abertura-asc">Abertura (mais antiga)</option>
-        <option value="total-desc">Maior valor total</option>
-        <option value="item-az">Item (A–Z)</option>
-        <option value="vencedor-az">Empresa (A–Z)</option>
+        <optgroup label="Valores">
+          <option value="unit-desc">Valor unitário — do maior para o menor</option>
+          <option value="unit-asc">Valor unitário — do menor para o maior</option>
+          <option value="total-desc">Valor total — do maior para o menor</option>
+          <option value="total-asc">Valor total — do menor para o maior</option>
+        </optgroup>
+        <optgroup label="Data">
+          <option value="abertura-desc" selected>Abertura — mais recente primeiro</option>
+          <option value="abertura-asc">Abertura — mais antiga primeiro</option>
+        </optgroup>
+        <optgroup label="Quantidade">
+          <option value="qtd-desc">Quantidade — da maior para a menor</option>
+          <option value="qtd-asc">Quantidade — da menor para a maior</option>
+        </optgroup>
+        <optgroup label="Texto">
+          <option value="item-asc">Item (A–Z)</option>
+          <option value="item-desc">Item (Z–A)</option>
+          <option value="vend-asc">Empresa (A–Z)</option>
+          <option value="vend-desc">Empresa (Z–A)</option>
+          <option value="un-asc">Unidade (A–Z)</option>
+          <option value="proc-desc">Processo (mais recente)</option>
+          <option value="proc-asc">Processo (mais antigo)</option>
+          <option value="cnpj-asc">CPF/CNPJ (crescente)</option>
+        </optgroup>
       </select>
     </div>
   </div>
@@ -343,16 +354,27 @@
   <div class="tab-box">
     <table class="tab">
       <thead>
-        <tr>
-          <th>Processo</th>
-          <th>Abertura</th>
-          <th>Item</th>
-          <th class="r">Qtd.</th>
-          <th>Un.</th>
-          <th class="r">Vl. Un. Homolg.</th>
-          <th class="r">Vl. Total</th>
-          <th>Vencedor</th>
-          <th class="h-cnpj">CPF/CNPJ</th>
+        <tr class="th-titulos">
+          <th data-ord="proc"     onclick="ordenarPor('proc')">Processo</th>
+          <th data-ord="abertura" onclick="ordenarPor('abertura')">Abertura</th>
+          <th data-ord="item"     onclick="ordenarPor('item')">Item</th>
+          <th data-ord="qtd"      onclick="ordenarPor('qtd')" class="r">Qtd.</th>
+          <th data-ord="un"       onclick="ordenarPor('un')">Un.</th>
+          <th data-ord="unit"     onclick="ordenarPor('unit')" class="r">Vl. Un. Homolg.</th>
+          <th data-ord="total"    onclick="ordenarPor('total')" class="r">Vl. Total</th>
+          <th data-ord="vend"     onclick="ordenarPor('vend')">Vencedor</th>
+          <th data-ord="cnpj"     onclick="ordenarPor('cnpj')" class="h-cnpj">CPF/CNPJ</th>
+        </tr>
+        <tr class="th-filtros">
+          <th><input class="cf" data-col="proc"  placeholder="nº, modalidade…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="abert" placeholder="data…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="item"  placeholder="buscar no item…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="qtd"   placeholder="qtd…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="un"    placeholder="un…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="unit"  placeholder="valor…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="total" placeholder="valor…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="vend"  placeholder="empresa…" oninput="aplicarFiltros()"></th>
+          <th class="h-cnpj"><input class="cf" data-col="cnpj" placeholder="CNPJ…" oninput="aplicarFiltros()"></th>
         </tr>
       </thead>
       <tbody id="corpo"></tbody>
@@ -406,8 +428,43 @@ function fmtCnpj(c){
 
 /* ══════════════ ESTADO ══════════════ */
 const F = { busca:'', modal:'', cat:'', ano:'', vencedor:'', sit:'', sort:'abertura-desc' };
+/* Um filtro por coluna, casando com o texto que a coluna mostra. */
+const COL = { proc:'', abert:'', item:'', qtd:'', un:'', unit:'', total:'', vend:'', cnpj:'' };
 let filtrados = [], mostrando = 0;
 const LOTE = 100;
+
+/* O texto de cada coluna, do jeito que aparece na tela — é sobre ele que a
+   busca da coluna casa, então procurar "939" acha "R$ 939,97" e procurar
+   "2026" acha tanto o ano do processo quanto a data de abertura. */
+const TEXTO_COL = {
+  proc:  it => 'nº '+it.nr+'/'+it.ano+' '+it.modalidade+' '+(it.categoria||''),
+  abert: it => fmtD(it.abertura),
+  item:  it => it.item||'',
+  qtd:   it => num(it.qtd),
+  un:    it => it.unidade||'',
+  unit:  it => money(it.vlUnit),
+  total: it => money(it.vlTotal),
+  vend:  it => it.vencedor||'',
+  cnpj:  it => fmtCnpj(it.cnpj),
+};
+
+/* Como cada coluna se ordena. Número ordena por número (senão "R$ 1.000,00"
+   viria antes de "R$ 9,00"); texto ordena por localeCompare. */
+const VALOR_ORD = {
+  proc:  it => String(it.ano)+'-'+String(it.nr).padStart(8,'0'),
+  abertura: it => it.abertura||'',
+  item:  it => it.item||'',
+  qtd:   it => it.qtd||0,
+  un:    it => it.unidade||'',
+  unit:  it => it.vlUnit||0,
+  total: it => it.vlTotal||0,
+  /* quem não tem vencedor vai para o fim em ordem crescente */
+  vend:  it => it.vencedor||'\uffff',
+  cnpj:  it => it.cnpj||'',
+};
+/* Nestas, o primeiro clique mostra o MAIOR primeiro — é o que se espera de
+   preço, quantidade e data. Nas de texto, o primeiro clique é A→Z. */
+const ORD_DESC_PRIMEIRO = ['unit','total','qtd','abertura','proc'];
 
 /* ══════════════ POPULAR SELECTS ══════════════ */
 function initSelects(){
@@ -425,13 +482,19 @@ function initSelects(){
 }
 
 /* ══════════════ FILTRAGEM ══════════════ */
-function aplicarFiltros(){
+function aplicarFiltros(sortForcado){
   F.busca = document.getElementById('fBusca').value.trim().toLowerCase();
   F.modal = document.getElementById('fModal').value;
   F.cat = document.getElementById('fCat').value;
   F.ano = document.getElementById('fAno').value;
   F.vencedor = document.getElementById('fVencedor').value.trim().toLowerCase();
-  F.sort = document.getElementById('fSort').value;
+  /* sortForcado só chega pelo clique no cabeçalho, quando a combinação não
+     existe no select (aí o select fica em branco e quem manda é este valor) */
+  F.sort = sortForcado || document.getElementById('fSort').value || F.sort;
+  document.querySelectorAll('.cf').forEach(i => { COL[i.dataset.col] = i.value.trim().toLowerCase(); });
+  /* só as colunas realmente preenchidas entram na conta — formatar 6.514
+     valores por tecla, nas nove colunas, seria trabalho jogado fora */
+  const colsAtivas = Object.keys(COL).filter(c => COL[c]);
 
   filtrados = ITENS.filter(it => {
     if(F.sit==='COM' && !temVencedor(it)) return false;
@@ -444,6 +507,9 @@ function aplicarFiltros(){
       const alvo = (it.item+' '+it.vencedor+' '+it.cnpj+' '+it.nr+'/'+it.ano+' '+it.modalidade+' '+it.categoria).toLowerCase();
       for(const termo of F.busca.split(/\s+/)) if(!alvo.includes(termo)) return false;
     }
+    for(const c of colsAtivas){
+      if(!TEXTO_COL[c](it).toLowerCase().includes(COL[c])) return false;
+    }
     return true;
   });
 
@@ -453,19 +519,37 @@ function aplicarFiltros(){
   document.getElementById('vazio').innerHTML = '';
   renderMais();
   renderChips();
-  renderStats();
+  marcarSetas();
 }
 function ordenar(){
-  const s = F.sort;
+  const [campo, dir] = String(F.sort).split('-');
+  const valor = VALOR_ORD[campo];
+  if(!valor) return;
+  const sinal = (dir === 'asc') ? 1 : -1;
   filtrados.sort((a,b)=>{
-    if(s==='unit-desc') return (b.vlUnit||0)-(a.vlUnit||0);
-    if(s==='unit-asc') return (a.vlUnit||0)-(b.vlUnit||0);
-    if(s==='abertura-desc') return String(b.abertura||'').localeCompare(String(a.abertura||''));
-    if(s==='abertura-asc') return String(a.abertura||'').localeCompare(String(b.abertura||''));
-    if(s==='total-desc') return (b.vlTotal||0)-(a.vlTotal||0);
-    if(s==='item-az') return String(a.item).localeCompare(String(b.item),'pt-BR');
-    if(s==='vencedor-az') return String(a.vencedor||'￿').localeCompare(String(b.vencedor||'￿'),'pt-BR');
-    return 0;
+    const x = valor(a), y = valor(b);
+    if(typeof x === 'number') return (x - y) * sinal;
+    return String(x).localeCompare(String(y), 'pt-BR') * sinal;
+  });
+}
+/* Clique no cabeçalho: ordena por aquela coluna; clicar de novo na mesma
+   inverte o sentido. O select de ordenar acompanha, para os dois nunca
+   mostrarem coisas diferentes (e para o celular, onde não há cabeçalho). */
+function ordenarPor(campo){
+  const [atual, dir] = String(F.sort).split('-');
+  let nova;
+  if(atual === campo) nova = campo + (dir === 'asc' ? '-desc' : '-asc');
+  else nova = campo + (ORD_DESC_PRIMEIRO.indexOf(campo) >= 0 ? '-desc' : '-asc');
+  const sel = document.getElementById('fSort');
+  if([...sel.options].some(o => o.value === nova)) sel.value = nova;
+  else { F.sort = nova; sel.value = ''; }
+  aplicarFiltros(nova);
+}
+function marcarSetas(){
+  const [campo, dir] = String(F.sort).split('-');
+  document.querySelectorAll('.th-titulos th').forEach(th => {
+    th.classList.remove('ord-asc','ord-desc');
+    if(th.dataset.ord === campo) th.classList.add(dir === 'asc' ? 'ord-asc' : 'ord-desc');
   });
 }
 function setSituacao(btn){
@@ -477,6 +561,7 @@ function setSituacao(btn){
 function limparFiltros(){
   ['fBusca','fVencedor'].forEach(id=>document.getElementById(id).value='');
   ['fModal','fCat','fAno'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.cf').forEach(i => i.value='');   /* inclusive os de coluna */
   document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit===''));
   F.sit='';
   aplicarFiltros();
@@ -491,29 +576,22 @@ function renderChips(){
   if(F.cat) c.push(mk(F.cat,"document.getElementById('fCat').value='';aplicarFiltros()"));
   if(F.ano) c.push(mk('Ano '+F.ano,"document.getElementById('fAno').value='';aplicarFiltros()"));
   if(F.vencedor) c.push(mk('Empresa: '+document.getElementById('fVencedor').value,"document.getElementById('fVencedor').value='';aplicarFiltros()"));
+  /* Os filtros de coluna também viram chip: no celular o cabeçalho da tabela
+     não existe, e sem isso um filtro digitado no computador continuaria
+     valendo sem nada na tela dizendo que ele está lá. */
+  const NOME_COL = {proc:'Processo', abert:'Abertura', item:'Item', qtd:'Qtd.', un:'Un.',
+                    unit:'Valor unitário', total:'Valor total', vend:'Vencedor', cnpj:'CPF/CNPJ'};
+  Object.keys(COL).forEach(k => {
+    if(!COL[k]) return;
+    c.push(mk(NOME_COL[k]+': '+COL[k], "limparColuna('"+k+"')"));
+  });
   document.getElementById('chipsAtivos').innerHTML = c.join('');
 }
-
-/* ══════════════ BARRA DE ESTATÍSTICAS ══════════════
-   Mostram sempre o total geral (não o filtrado). Clicar em "itens sem
-   vencedor" aplica esse filtro; os demais números voltam ao estado limpo. */
-function renderStats(){
-  const semVenc = ITENS.filter(it=>!temVencedor(it)).length;
-  const valorTotal = ITENS.reduce((s,it)=>s+(it.vlTotal||0),0);
-  const processos = new Set(ITENS.map(it=>it.modalidade+'|'+it.nr+'|'+it.ano)).size;
-  const empresas = new Set(ITENS.filter(temVencedor).map(it=>it.vencedor)).size;
-  const st = (n, label, cls, on, act) =>
-    `<div class="stat ${act?'active':''}" onclick="${on}"><div class="stat-num ${cls||''}">${n}</div><div class="stat-label">${label}</div></div>`;
-  const limpo = F.sit===''&&!F.modal&&!F.cat&&!F.ano&&!F.vencedor&&!F.busca;
-  document.getElementById('statsBar').innerHTML =
-    st(num(ITENS.length),'Itens<br>cadastrados','',"statTodos()", limpo) +
-    st(num(processos),'Processos<br>distintos','',"statTodos()", false) +
-    st(money(valorTotal).replace('R$','').trim(),'Valor total<br>homologado (R$)','amberc',"statTodos()", false) +
-    st(num(empresas),'Empresas<br>vencedoras','',"statTodos()", false) +
-    st(num(semVenc),'Itens sem<br>vencedor','',"statSemVencedor()", F.sit==='SEM');
+function limparColuna(col){
+  const i = document.querySelector('.cf[data-col="'+col+'"]');
+  if(i) i.value = '';
+  aplicarFiltros();
 }
-function statTodos(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='')); F.sit=''; aplicarFiltros(); }
-function statSemVencedor(){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='SEM')); F.sit='SEM'; aplicarFiltros(); }
 
 /* ══════════════ FILTROS RECOLHÍVEIS (celular) ══════════════
    Começam ABERTOS: a busca é o motivo de a página existir, esconder atrás de
