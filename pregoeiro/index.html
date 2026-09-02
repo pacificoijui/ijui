@@ -4848,7 +4848,7 @@ function habLogEvento(msg){
   if(habEventos.length>500) habEventos=habEventos.slice(-500);
 }
 var habFiltroAtivo=null, habSaveTimer=null, habDocId=null, habUnsubscribe=null;
-var habRkUnsubscribe=null, habRkItens=[], habRkEstados={};
+var habRkUnsubscribe=null, habRkItens=[], habRkEstados={}, habRkMotivos={};
 var habLegacyEmpresas=[], habOwn=false;
 
 /* ── Catálogo de documentos padrão (presentes em todos os editais) ──
@@ -4989,7 +4989,7 @@ function abrirHabilitacao(pid){
   habEmpresas=[]; habEstados={}; habMotivos={}; habDocs={}; habDocMotivos={}; habExpand={};
   habDeclarados={}; habDeclaradosInab={}; habDeclaradosNaoEnviou={}; habEventos=[]; habObs={};
   habConfig={tecnicaExige:false,tecnicaItens:[]};
-  habRkItens=[]; habRkEstados={}; habLegacyEmpresas=[];
+  habRkItens=[]; habRkEstados={}; habRkMotivos={}; habLegacyEmpresas=[];
   document.getElementById('habPanelTitle').textContent='Habilitação — '+p.numero+(function(){var n=primeiroNomeAgente(p.responsavel);return n?' — '+n:'';})();
   document.getElementById('habPanel').classList.add('open');
   /* Cancela listeners anteriores se existirem */
@@ -5000,8 +5000,8 @@ function abrirHabilitacao(pid){
   habRkUnsubscribe=rkColRef.doc(pid).onSnapshot(function(doc){
     if(doc.exists){
       var d=doc.data();
-      habRkItens=d.itens||[]; habRkEstados=d.estados||{};
-    } else { habRkItens=[]; habRkEstados={}; }
+      habRkItens=d.itens||[]; habRkEstados=d.estados||{}; habRkMotivos=d.motivos||{};
+    } else { habRkItens=[]; habRkEstados={}; habRkMotivos={}; }
     habAtualizarEmpresas();
   }, function(err){ console.error('Hab/ranking snapshot error:', err); });
   /* Escuta os julgamentos de habilitação (docs/motivos por empresa + config técnica) */
@@ -5116,11 +5116,45 @@ function habInabilitar(empKey){
   habDesclassificarNoRanking(empKey, nomeEmp);
   habSalvarFirestore(); habRenderLista();
 }
+/* Devolve ao ranking as propostas que a inabilitação desclassificou.
+   Reverte SÓ as que trazem o motivo padrão da inabilitação: proposta reprovada
+   antes, por outro motivo (catálogo fora da especificação, preço inexequível),
+   tem de continuar reprovada — desfazer a inabilitação não apaga julgamento
+   que não foi ela que fez. */
+function habReclassificarNoRanking(empKey){
+  if(!habDocId||!habRkItens.length) return 0;
+  var upd={}, n=0;
+  habRkItens.forEach(function(it){
+    (it.fornecedores||[]).forEach(function(f,idx){
+      if(habKeyEmpresa(f.nome)!==empKey) return;
+      var key=it.num+'-'+idx;
+      if(habRkEstados[key]!=='reprovado') return;
+      if((habRkMotivos[key]||'')!==HAB_MOTIVO_INABILITACAO) return;
+      upd['estados.'+key]='neutro';
+      upd['motivos.'+key]='';
+      habRkEstados=Object.assign({}, habRkEstados); habRkEstados[key]='neutro';
+      n++;
+    });
+  });
+  if(!n) return 0;
+  upd['updatedAt']=firebase.firestore.FieldValue.serverTimestamp();
+  rkColRef.doc(habDocId).update(upd)
+    .catch(function(e){ console.error('Erro ao reclassificar no ranking:', e);
+                        habToast('Erro ao devolver as propostas ao ranking: '+e.message); });
+  return n;
+}
+
 function habDesfazerInabilitacao(empKey){
   var nomeEmp=(habEmpresas.find(function(e){ return habKeyEmpresa(e.nome)===empKey; })||{}).nome||empKey;
   delete habDeclaradosInab[empKey];
-  habLogEvento('Declaração de inabilitação de '+nomeEmp+' desfeita');
+  /* Sem devolver as propostas, a empresa sumia da tela de Habilitação (ela só
+     lista quem está arrematando algum item) e ficava desclassificada para
+     sempre, sem caminho de volta pela interface. */
+  var voltaram=habReclassificarNoRanking(empKey);
+  habLogEvento('Declaração de inabilitação de '+nomeEmp+' desfeita'
+    + (voltaram ? ' — '+voltaram+(voltaram>1?' propostas devolvidas':' proposta devolvida')+' ao ranking' : ''));
   habSalvarFirestore(); habRenderLista();
+  if(voltaram) habToast(voltaram+(voltaram>1?' propostas voltaram':' proposta voltou')+' ao ranking.');
 }
 /* Botão cinza: marca que a empresa foi cobrada uma 2ª vez pelos documentos,
    sem ainda fechar a questão (nem habilitada, nem inabilitada) — e libera
