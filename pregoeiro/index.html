@@ -7175,11 +7175,11 @@ function rkEmpGerarPedido(nomeEmp, eid){
     texto:texto
   };
   var nums=regs.map(function(r){ return r.num; });
-  rkLogEvento('Pedido de Diligência nº '+dilFmtNum(data)+' gerado — '+nomeEmp+' ('+rkFormatarListaItens(nums)+')');
+  rkLogEvento('Pedido de Diligência nº '+pdfFmtNum(data)+' gerado — '+nomeEmp+' ('+rkFormatarListaItens(nums)+')');
   rkHasPending=false; rkSalvarFirestore(); rkRenderProcesso(); rkRenderPainelEmpresas();
   var ts=firebase.firestore.FieldValue.serverTimestamp();
   dilColRef.add(Object.assign({createdAt:ts, updatedAt:ts}, data)).then(function(){
-    toast('Pedido de Diligência nº '+dilFmtNum(data)+' registrado no módulo!');
+    toast('Pedido de Diligência nº '+pdfFmtNum(data)+' registrado no módulo!');
   }).catch(function(e){ alert('Erro ao registrar o pedido: '+e.message); });
   dilGerarPDF(data);
 }
@@ -8507,7 +8507,7 @@ var editandoDecId = null;
 var decSectionOpen = true;
 var decPreviewAberto = false;
 
-function decFmtNum(d){
+function pdfFmtNum(d){
   var n=parseInt(d.numero,10)||0;
   return (n<100?("00"+n).slice(-3):String(n))+"/"+(d.ano||"");
 }
@@ -8549,7 +8549,7 @@ function decRender(){
   var lista=decisoes.filter(function(d){
     if(fAno!=="todos"&&String(d.ano)!==String(fAno)) return false;
     if(busca){
-      var txt=(decFmtNum(d)+" "+(d.titulo||"")+" "+(d.processoNumero||"")).toLowerCase();
+      var txt=(pdfFmtNum(d)+" "+(d.titulo||"")+" "+(d.processoNumero||"")).toLowerCase();
       if(!txt.includes(busca)) return false;
     }
     return true;
@@ -8564,7 +8564,7 @@ function decRender(){
   for(var i=0;i<lista.length;i++){
     var d=lista[i];
     html+='<div class="dec-card">';
-    html+='<div class="dec-card-num">&#9878;&#65039; Decisão do Pregoeiro nº '+escHtml(decFmtNum(d))+'</div>';
+    html+='<div class="dec-card-num">&#9878;&#65039; Decisão do Pregoeiro nº '+escHtml(pdfFmtNum(d))+'</div>';
     if(d.titulo) html+='<div class="dec-card-title">'+escHtml(d.titulo)+'</div>';
     html+='<div class="dec-card-meta">';
     if(d.processoNumero) html+='<span class="dec-tag dec-tag-proc">'+escHtml(d.processoNumero)+'</span>';
@@ -8698,7 +8698,7 @@ function editarDec(id){
   var d=decisoes.find(function(x){ return x.id===id; });
   if(!d) return;
   editandoDecId=id;
-  document.getElementById("modalDecTitulo").textContent="Editar Decisão nº "+decFmtNum(d);
+  document.getElementById("modalDecTitulo").textContent="Editar Decisão nº "+pdfFmtNum(d);
   document.getElementById("btnExcluirDec").style.display="inline-block";
   decPopularSelects();
   document.getElementById("decNumero").value=d.numero||"";
@@ -8731,7 +8731,7 @@ function salvarDec(){
   var duplicada=decisoes.find(function(d){
     return d.id!==editandoDecId && String(d.ano)===ano && (parseInt(d.numero,10)||0)===numero;
   });
-  if(duplicada && !confirm("Já existe a Decisão nº "+decFmtNum(duplicada)+". Salvar mesmo assim com número repetido?")) return;
+  if(duplicada && !confirm("Já existe a Decisão nº "+pdfFmtNum(duplicada)+". Salvar mesmo assim com número repetido?")) return;
   btn.disabled=true; btn.textContent="Salvando...";
   var ts=firebase.firestore.FieldValue.serverTimestamp();
   var data={
@@ -8755,7 +8755,7 @@ function salvarDec(){
 function excluirDec(){
   if(!editandoDecId) return;
   var d=decisoes.find(function(x){ return x.id===editandoDecId; });
-  if(!confirm("Excluir definitivamente a Decisão nº "+(d?decFmtNum(d):"")+"?")) return;
+  if(!confirm("Excluir definitivamente a Decisão nº "+(d?pdfFmtNum(d):"")+"?")) return;
   decColRef.doc(editandoDecId).delete()
     .then(function(){ toast("Decisão excluída."); fecharModalDec(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -8806,7 +8806,7 @@ function decInserirModelo(tipo){
 /* ── Parser: texto bruto → blocos estruturados ──────────────────────────────
    Reconhece Markdown (#, ##, ###, **negrito**, listas, > citações) e também
    convenções comuns de pareceres (linhas em MAIÚSCULAS, "I.", "1.", "1.1"). */
-function decLimparInline(s){
+function pdfLimparInline(s){
   return String(s)
     .replace(/\*\*(.+?)\*\*/g,"$1")
     .replace(/==(.+?)==/g,"$1")
@@ -8815,8 +8815,8 @@ function decLimparInline(s){
     .replace(/\*(\S[^*]*?)\*/g,"$1")
     .replace(/\s+$/,"");
 }
-/* Igual a decLimparInline mas PRESERVA **negrito** para renderização no PDF */
-function decLimparPara(s){
+/* Igual a pdfLimparInline mas PRESERVA **negrito** para renderização no PDF */
+function pdfLimparPara(s){
   return String(s)
     .replace(/__(.+?)__/g,"$1")
     .replace(/`([^`]+)`/g,"$1")
@@ -8825,13 +8825,13 @@ function decLimparPara(s){
     .replace(/\x00/g,"**")
     .replace(/\s+$/,"");
 }
-function decEhMaiuscula(s){
+function pdfEhMaiuscula(s){
   var letras=s.replace(/[^A-Za-zÀ-ÿ]/g,"");
   if(letras.length<3) return false;
   var up=letras.replace(/[^A-ZÀ-Þ]/g,"");
   return (up.length/letras.length)>=0.9;
 }
-function decEhSecaoPrincipal(s){
+function pdfEhSecaoPrincipal(s){
   return /(RELAT|FUNDAMENT|AN[ÁA]LISE|DECIS|DISPOSITIVO|CONCLUS|EMENTA|RESPOSTA|VOTO)/i.test(s);
 }
 
@@ -8913,7 +8913,7 @@ function pdfTabelaSolta(linhas, ini){
   return {linhas:tab, fim:i-1};
 }
 
-function decParseBlocos(texto){
+function pdfParseBlocos(texto){
   var blocos=[];
   var linhas=String(texto||"").replace(/\r\n?/g,"\n").replace(/```[a-z]*\n?/gi,"").split("\n");
   for(var i=0;i<linhas.length;i++){
@@ -8921,6 +8921,9 @@ function decParseBlocos(texto){
     var l=raw.trim();
     if(!l) continue;
     var m;
+    /* Link para o portal, usado pelo Pedido de Diligência: [LINK] url | texto */
+    m=l.match(/^\[LINK\]\s*(\S+)\s*\|\s*(.+)$/i);
+    if(m){ blocos.push({t:"link", url:m[1], x:m[2].trim()}); continue; }
     /* Tabela: linhas seguidas entre barras. Uma linha de traços (|---|---|)
        logo abaixo da primeira marca aquela primeira como cabeçalho. */
     if(/^\|.*\|$/.test(l)){
@@ -8929,7 +8932,7 @@ function decParseBlocos(texto){
         var lt=linhas[i].trim();
         if(!/^\|.*\|$/.test(lt)) break;
         if(/^\|[\s:|-]+\|$/.test(lt)){ if(tab.length===1) temCab=true; i++; continue; }
-        tab.push(lt.replace(/^\|/,"").replace(/\|$/,"").split("|").map(function(cel){ return decLimparPara(cel.trim()); }));
+        tab.push(lt.replace(/^\|/,"").replace(/\|$/,"").split("|").map(function(cel){ return pdfLimparPara(cel.trim()); }));
         i++;
       }
       i--;
@@ -8941,7 +8944,7 @@ function decParseBlocos(texto){
     var tsolta=pdfTabelaSolta(linhas, i);
     if(tsolta){
       blocos.push({t:"tabela", cab:true, linhas:tsolta.linhas.map(function(r){
-        return r.map(function(cel){ return decLimparPara(cel); });
+        return r.map(function(cel){ return pdfLimparPara(cel); });
       })});
       i=tsolta.fim;
       continue;
@@ -8952,7 +8955,7 @@ function decParseBlocos(texto){
     m=l.match(/^(#{1,6})\s+(.*)$/);
     if(m){
       var nivel=Math.min(m[1].length,3);
-      blocos.push({t:"h"+nivel, x:decLimparInline(m[2])});
+      blocos.push({t:"h"+nivel, x:pdfLimparInline(m[2])});
       continue;
     }
     /* Linha inteira em **negrito** é subtítulo — mas só se for curta. Um
@@ -8960,49 +8963,49 @@ function decParseBlocos(texto){
        diligência) é texto, não título: virando h2 ele sairia todo em
        MAIÚSCULAS. */
     m=l.match(/^(\*\*|__)(.+?)(\*\*|__)\s*:?\s*$/);
-    if(m && m[2].length<=90){ blocos.push({t:"h2", x:decLimparInline(m[2])}); continue; }
+    if(m && m[2].length<=90){ blocos.push({t:"h2", x:pdfLimparInline(m[2])}); continue; }
     /* Fonte da citação (">> Lei nº ...") — tem de vir antes da citação */
-    if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:decLimparInline(l.replace(/^>>\s?/,""))}); continue; }
-    if(/^>\s?/.test(l)){ blocos.push({t:"q", x:decLimparPara(l.replace(/^>\s?/,""))}); continue; }
+    if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:pdfLimparInline(l.replace(/^>>\s?/,""))}); continue; }
+    if(/^>\s?/.test(l)){ blocos.push({t:"q", x:pdfLimparPara(l.replace(/^>\s?/,""))}); continue; }
     /* Caixa de destaque — dispositivo, conclusão, o que não pode passar batido */
-    if(/^!!\s?/.test(l)){ blocos.push({t:"destaque", x:decLimparPara(l.replace(/^!!\s?/,""))}); continue; }
-    if(/^[-*•]\s+/.test(l)){ blocos.push({t:"li", x:decLimparPara(l.replace(/^[-*•]\s+/,""))}); continue; }
+    if(/^!!\s?/.test(l)){ blocos.push({t:"destaque", x:pdfLimparPara(l.replace(/^!!\s?/,""))}); continue; }
+    if(/^[-*•]\s+/.test(l)){ blocos.push({t:"li", x:pdfLimparPara(l.replace(/^[-*•]\s+/,""))}); continue; }
     /* Algarismo romano: em MAIÚSCULAS é título de seção; em texto corrido é
        inciso. O separador ponto fica de fora do inciso, senão "V. Exa." e
        companhia virariam lista. */
     m=l.match(/^([IVXLC]+)\s*([–—.\-)])\s+(.+)$/);
     if(m){
-      if(decEhMaiuscula(m[3])){ blocos.push({t:"h1", x:decLimparInline(l)}); continue; }
-      if(m[2]!=="."){ blocos.push({t:"oli", n:m[1]+" –", x:decLimparPara(m[3])}); continue; }
+      if(pdfEhMaiuscula(m[3])){ blocos.push({t:"h1", x:pdfLimparInline(l)}); continue; }
+      if(m[2]!=="."){ blocos.push({t:"oli", n:m[1]+" –", x:pdfLimparPara(m[3])}); continue; }
     }
     /* Item numerado. No máximo 3 dígitos por grupo, para "2021. O edital..."
        continuar sendo parágrafo. */
     m=l.match(/^(\d{1,3}(?:\.\d{1,3})*)\s*([.)–—-])\s+(.+)$/);
     if(m){
-      if(decEhMaiuscula(m[3])){
-        blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:decLimparInline(l)});
+      if(pdfEhMaiuscula(m[3])){
+        blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:pdfLimparInline(l)});
         continue;
       }
-      blocos.push({t:"oli", n:m[1]+(m[2]===")"?")":"."), x:decLimparPara(m[3])});
+      blocos.push({t:"oli", n:m[1]+(m[2]===")"?")":"."), x:pdfLimparPara(m[3])});
       continue;
     }
     /* Alínea: a) b) c) */
     m=l.match(/^([a-z])\)\s+(.+)$/);
-    if(m){ blocos.push({t:"oli", n:m[1]+")", x:decLimparPara(m[2])}); continue; }
+    if(m){ blocos.push({t:"oli", n:m[1]+")", x:pdfLimparPara(m[2])}); continue; }
 
-    if(decEhMaiuscula(l) && l.length<=90 && !/[.;,]$/.test(l)){
-      blocos.push({t:(decEhSecaoPrincipal(l)?"h1":"h2"), x:decLimparInline(l)});
+    if(pdfEhMaiuscula(l) && l.length<=90 && !/[.;,]$/.test(l)){
+      blocos.push({t:(pdfEhSecaoPrincipal(l)?"h1":"h2"), x:pdfLimparInline(l)});
       continue;
     }
     /* Citação de lei sem marcação — ver pdfEhDispositivoLegal/pdfEhFonteLegal */
     if(pdfEhFonteLegal(l)){
       var antDec=blocos[blocos.length-1];
       if(antDec && antDec.t==="p") antDec.t="q";   /* o texto que a fonte credita */
-      blocos.push({t:"fonte", x:decLimparInline(l)});
+      blocos.push({t:"fonte", x:pdfLimparInline(l)});
       continue;
     }
-    if(pdfEhDispositivoLegal(l)){ blocos.push({t:"q", x:decLimparPara(l)}); continue; }
-    blocos.push({t:"p", x:decLimparPara(l)});
+    if(pdfEhDispositivoLegal(l)){ blocos.push({t:"q", x:pdfLimparPara(l)}); continue; }
+    blocos.push({t:"p", x:pdfLimparPara(l)});
   }
   return blocos;
 }
@@ -9017,8 +9020,8 @@ function decTogglePreview(){
 /* ══════════════════════════════════════════════════════════════════════════
    INSTRUÇÕES DE FORMATAÇÃO PARA A IA
    O texto que sai daqui é o mesmo que o botão arrastável entrega ao Claude
-   (ou ao ChatGPT). Ele descreve o formato que decParseBlocos/dilParseBlocos
-   entendem — se um bloco novo for criado no parser, precisa ser descrito
+   (ou ao ChatGPT). Ele descreve o formato que pdfParseBlocos
+   entende — se um bloco novo for criado no parser, precisa ser descrito
    aqui também, senão a IA nunca vai usá-lo.
    ══════════════════════════════════════════════════════════════════════════ */
 var PDF_IA_BASE = "INSTRUÇÕES DE FORMATAÇÃO — {{DOCNOME}}\nSistema de Gestão de Processos Licitatórios · Município de Ijuí · COPAM\n\nVocê vai redigir o TEXTO de {{DOCARTIGO}}. Esse texto será colado no campo\n\"{{CAMPO}}\" do sistema, que monta sozinho o PDF oficial — com brasão,\ncabeçalho, rodapé, numeração de páginas e bloco de assinatura. Escreva\nsomente o corpo do documento, usando exatamente as marcações abaixo.\n\nDADOS DESTE DOCUMENTO\n{{DADOS}}\n\n════════════════════════════════════════════════════════════════════════\nREGRA DE OURO: UM PARÁGRAFO = UMA LINHA\n════════════════════════════════════════════════════════════════════════\nO sistema lê o texto LINHA A LINHA. Toda quebra de linha começa um bloco\nnovo. Portanto, um parágrafo inteiro — por mais longo que seja — precisa\nficar numa única linha, sem quebras no meio. Se você quebrar um parágrafo\nem várias linhas \"para caber na tela\", ele vira vários parágrafos soltos\nno PDF, cada um com seu próprio recuo.\n\nLinhas em branco entre os blocos são opcionais: o sistema as ignora. Use-as\nà vontade para deixar o rascunho legível.\n\n════════════════════════════════════════════════════════════════════════\nTOM: OBJETIVO, DIRETO, SEM LINGUIÇA\n════════════════════════════════════════════════════════════════════════\nCada frase carrega um fato, uma norma ou uma conclusão. Nada de reafirmar o\nmesmo ponto com outras palavras, nem de alongar um parágrafo só para o\nparecer parecer mais robusto. Se uma frase pode sair sem mudar o\nentendimento do leitor, ela sai. Prefira um parágrafo curto e preciso a\ntrês genéricos. Vá direto: contexto mínimo, análise, conclusão — sem\nintroduções floreadas nem fechos repetindo o que já foi dito.\n\n════════════════════════════════════════════════════════════════════════\nFUNDAMENTAÇÃO: LEI Nº 14.133/2021 E JURISPRUDÊNCIA DO TCU\n════════════════════════════════════════════════════════════════════════\nToda conclusão de mérito se apoia numa norma. Cite o artigo da Lei nº\n14.133/2021 (ou o item do edital) junto do ponto que ele sustenta — logo\nali no parágrafo, não isolado no fim. Quando existir entendimento do TCU\naplicável ao caso (acórdão ou súmula), cite-o também, sempre pela\nreferência real — número do acórdão, e o relator quando isso importar ao\ncaso.\n\nNunca invente número de acórdão, súmula ou trecho de ementa. Se não tiver\ncerteza da referência exata, diga isso ao pregoeiro em vez de citar às\ncegas — uma citação errada é pior que nenhuma citação.\n\nUse a marcação de citação (item 8, abaixo) para reproduzir o texto de lei\nou de acórdão; no corpo do parágrafo, basta mencionar o dispositivo.\n\n════════════════════════════════════════════════════════════════════════\nO QUE O SISTEMA JÁ PÕE SOZINHO — NÃO ESCREVA\n════════════════════════════════════════════════════════════════════════\n• Brasão, cabeçalho e rodapé do Município, em todas as páginas\n• O título \"{{TITULOAUTO}}\", centralizado no alto\n• A data por extenso (\"Ijuí/RS, 6 de agosto de 2026\") no fecho\n• O bloco de assinatura do pregoeiro e dos demais assinantes\n• A numeração das páginas e as quebras de página\n\nNão repita nada disso no texto. Comece direto na primeira seção.\n\n════════════════════════════════════════════════════════════════════════\nMARCAÇÕES DISPONÍVEIS\n════════════════════════════════════════════════════════════════════════\n\n1) TÍTULO DE SEÇÃO\n   Uma linha em MAIÚSCULAS, sozinha, sem ponto final:\n\n       I. RELATÓRIO\n       II. ANÁLISE E FUNDAMENTAÇÃO\n       III. DECISÃO\n\n   Sai em maiúsculas, em negrito, destacado do corpo do texto.\n   Também funciona com cerquilha:  # RELATÓRIO\n\n2) SUBTÍTULO\n   MAIÚSCULAS numeradas com ponto, ou duas cerquilhas:\n\n       DA TEMPESTIVIDADE\n       2.1. DO MÉRITO\n       ## Da regularidade fiscal\n\n   Sai menor, também em maiúsculas e negrito.\n   Para um terceiro nível, use três cerquilhas:  ### Do atestado técnico\n\n3) PARÁGRAFO\n   Escreva a linha inteira, sem marcação nenhuma. Sai justificado, com recuo\n   na primeira linha. Use **negrito** para destacar trechos dentro dele.\n\n   Para o que precisa saltar aos olhos, use ==marca-texto==: sai com tarja\n   amarela no PDF, igual a passar marcador no papel. Os dois se combinam\n   (**==negrito destacado==**). Vale no parágrafo, no inciso e na alínea; em\n   título e em célula de tabela a marcação é ignorada e fica só o texto.\n   Use com parcimônia — é documento oficial, não caderno de faculdade.\n\n4) LISTA SIMPLES\n       - certidão negativa de débitos municipais\n       - certidão de regularidade do FGTS\n\n5) INCISO (algarismo romano)\n       I – o preço proposto mostrou-se inexequível;\n       II – a licitante não apresentou o atestado exigido no item 9.4;\n\n   Use travessão (–), hífen (-) ou parêntese, NUNCA ponto: com ponto e em\n   maiúsculas, a linha vira título de seção.\n\n6) ITEM NUMERADO\n       1. Trata-se de impugnação apresentada tempestivamente.\n       2. A impugnante alega violação ao princípio da isonomia.\n\n7) ALÍNEA\n       a) contrato social consolidado;\n       b) certidão de falência e concordata;\n\n8) CITAÇÃO DE LEI, EDITAL OU JURISPRUDÊNCIA\n       > Art. 64. Após a entrega dos documentos de habilitação, verificado o descumprimento, a licitante será inabilitada.\n       >> Lei nº 14.133/2021, art. 64\n\n   A linha iniciada por \">\" vira um bloco recuado, em corpo menor, no formato\n   clássico de transcrição em parecer. A linha iniciada por \">>\" logo abaixo\n   vira a fonte da citação: pequena, em itálico, alinhada à direita.\n\n   O sistema também reconhece a citação SEM a marcação: uma linha que começa\n   transcrevendo o dispositivo (\"Art. 64. ...\", \"§ 2º ...\") já sai como\n   citação, e uma linha solta logo abaixo contendo só a referência (\"Lei nº\n   14.133/2021, art. 64\") já sai como fonte.\n\n9) TABELA / QUADRO COMPARATIVO\n       | Item | Empresa | Valor do edital | Proposta | % acima |\n       |---|---|---|---|---|\n       | 1 | ALFA LTDA | R$ 2,50 | R$ 3,00 | +20,0% |\n       | 2 | BETA ME | R$ 22,00 | R$ 26,40 | +20,0% |\n\n    Esse é o formato preferido: toda linha começa e termina com barra\n    vertical, e a segunda linha, só com traços, marca a primeira como\n    cabeçalho. As colunas se ajustam sozinhas ao conteúdo, e o cabeçalho se\n    repete quando a tabela vira a página.\n\n    O sistema também entende a tabela sem as barras das pontas\n    (\"Rubrica | Valor\") e com as colunas separadas por TAB — que é como ela\n    chega quando o texto é copiado de algum lugar já formatado, de uma\n    planilha ou do Word. Nesses dois casos a primeira linha é sempre lida\n    como cabeçalho. O que não pode faltar: as linhas coladas uma embaixo da\n    outra, sem linha em branco no meio, e todas com o mesmo número de\n    colunas.\n\n10) LINHA DIVISÓRIA\n       ---\n{{EXTRA}}\n════════════════════════════════════════════════════════════════════════\nESQUELETO SUGERIDO\n════════════════════════════════════════════════════════════════════════\n{{ESQUELETO}}\n════════════════════════════════════════════════════════════════════════\nERROS COMUNS — NÃO FAÇA\n════════════════════════════════════════════════════════════════════════\n✗ Quebrar um parágrafo em várias linhas. Vira vários parágrafos.\n✗ Escrever UMA FRASE INTEIRA EM MAIÚSCULAS no meio do texto: ela vira\n  título. Para dar ênfase, use **negrito**.\n✗ Terminar um título com ponto final: ele deixa de ser reconhecido.\n✗ Envolver a resposta em blocos de código (três crases). O sistema\n  descarta essas linhas.\n✗ Variar o número de colunas entre as linhas de uma tabela, ou deixar uma\n  linha em branco no meio dela: a tabela se desmonta em parágrafos soltos.\n✗ Repetir o número do documento, o assunto, a data ou a assinatura no\n  texto: o sistema já põe tudo isso.\n✗ Escrever \"Página 1 de 3\" ou inserir quebras de página manuais.\n✗ Deixar espaços reservados como [NOME DA EMPRESA] sem preencher, quando\n  a informação foi passada.\n✗ Citar número de acórdão do TCU, súmula ou artigo de lei sem ter certeza\n  — se não souber a referência exata, avise em vez de inventar.\n✗ Parágrafo que só repete, com outras palavras, o que o anterior já disse.\n\n════════════════════════════════════════════════════════════════════════\nFORMATO DA RESPOSTA\n════════════════════════════════════════════════════════════════════════\nResponda APENAS com o texto do documento, pronto para copiar e colar no\nsistema. Sem comentário antes, sem explicação depois, sem bloco de código\nem volta. Se faltar alguma informação essencial, pergunte antes de redigir.\n";
@@ -9205,9 +9208,9 @@ function docEdAbrir(tipo, id){
     tit.textContent="Documento";
     folha.innerHTML='<div class="de-vazio">Documento não encontrado. Talvez ele tenha sido excluído.</div>';
   } else {
-    var nome=(tipo==="dil"?"Pedido de Diligência nº "+dilFmtNum(d):"Decisão do Pregoeiro nº "+decFmtNum(d));
+    var nome=(tipo==="dil"?"Pedido de Diligência nº ":"Decisão do Pregoeiro nº ")+pdfFmtNum(d);
     tit.textContent=nome+(d.titulo?" — "+d.titulo:"");
-    var blocos=(tipo==="dil"?dilParseBlocos:decParseBlocos)(d.texto||"");
+    var blocos=pdfParseBlocos(d.texto||"");
     folha.innerHTML=docEdBlocosParaHTML(blocos);
     docEdUltimo=docEdSerializar();
   }
@@ -9412,7 +9415,7 @@ function pdfBlocosHTML(blocos){
 }
 function decAtualizarPreview(){
   var el=document.getElementById("decPreview");
-  var blocos=decParseBlocos(document.getElementById("decTexto").value);
+  var blocos=pdfParseBlocos(document.getElementById("decTexto").value);
   if(!blocos.length){ el.innerHTML='<i style="color:var(--muted)">Nada para pré-visualizar.</i>'; return; }
   el.innerHTML=pdfBlocosHTML(blocos);
 }
@@ -9426,7 +9429,13 @@ function decGerarPDFById(id){
   var d=decisoes.find(function(x){ return x.id===id; });
   if(d) decGerarPDF(d);
 }
-function decGerarPDF(dec){
+/* Gerador único da Decisão do Pregoeiro e do Pedido de Diligência.
+   Eram duas funções de 430 linhas com sete diferenças entre elas — e toda
+   correção de layout precisava ser feita duas vezes, o que nem sempre
+   acontecia. O que muda entre os dois documentos está reunido no começo:
+   o título, o nome do arquivo e o fecho sem a linha de "pendente". */
+function pdfGerarDocumento(dec, tipo){
+  var ehDil=(tipo==="dil");
   if(!window.jspdf||!window.jspdf.jsPDF){ alert("Biblioteca PDF ainda carregando. Tente em segundos."); return; }
   var jsPDFCls=window.jspdf.jsPDF;
   var doc=new jsPDFCls({orientation:"portrait",unit:"mm",format:"a4"});
@@ -9440,7 +9449,7 @@ function decGerarPDF(dec){
   var cNavy=[0,0,0],cNavy2=[0,0,0],cGold=[0,0,0],cAmber=[0,0,0];
   var cText=[0,0,0],cMuted=[90,90,90],cBorder=[150,150,150];
   var cMarca=[255,240,130];   /* marca-texto amarelo do ==destaque== */
-  var numFmt=decFmtNum(dec);
+  var numFmt=pdfFmtNum(dec);
   var y=0;
   var ag=(typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===dec.agente;});
   var nomeAssina=(ag&&ag.nomeCompleto)?ag.nomeCompleto:(dec.agente||"Pregoeiro(a)");
@@ -9702,904 +9711,13 @@ function decGerarPDF(dec){
   y=42;
 
   fs(15);ft("bold");tc(cNavy);
-  doc.text("Decisão do Pregoeiro "+numFmt,PW/2,y,{align:"center"}); y+=9;
+  doc.text((ehDil?"Pedido de Diligência ":"Decisão do Pregoeiro ")+numFmt,PW/2,y,{align:"center"}); y+=9;
   /* Só o título. Número do processo, data, pregoeiro e assunto já aparecem
      no corpo e no fecho do documento — repetir aqui era o pregoeiro lendo a
      mesma informação três vezes antes de chegar no que importa. */
   y+=11;
 
-  var blocos=decParseBlocos(dec.texto||"");
-  /* Altura mínima de um título: o texto mais o menor respiro de baixo. */
-  function alturaTitulo(b){
-    if(b.t==="h1"){ fs(12);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+5; }
-    if(b.t==="h2"){ fs(FS);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*LH+5; }
-    if(b.t==="h3"){ fs(FS);ft("bold"); return doc.splitTextToSize(b.x,CW).length*LH+3; }
-    return 0;
-  }
-  /* Todo título tem dois espaços elásticos: o respiro antes e o depois.
-     Faltando um dedo de página, eles encolhem — primeiro o de cima, depois o
-     de baixo — em vez de a seção inteira descer e deixar meia página em
-     branco. Devolve [antes, depois], ou null quando nem encolhido cabe. */
-  function encaixarTitulo(antes, texto, depois, minDepois, comp){
-    var op=[[antes,depois],[0,depois],[0,minDepois]];
-    for(var i=0;i<op.length;i++)
-      if(y+op[i][0]+texto+op[i][1]+comp<=BOTTOM) return op[i];
-    return null;
-  }
-  /* Espaço que um título precisa reservar para o que vem depois dele. Título
-     seguido de título soma os dois — era por não olhar isso que "II. ANÁLISE E
-     FUNDAMENTAÇÃO" ficava sozinha no pé com a subseção pulando de página.
-     Para um parágrafo basta reservar a primeira linha, já que o resto pode
-     continuar na página seguinte; a exceção é o parágrafo curto demais para
-     se dividir, que desce inteiro e leva o título junto. */
-  function companhia(i){
-    var prox=blocos[i+1];
-    if(!prox) return 0;
-    var h=alturaTitulo(prox);
-    if(h) return h+companhia(i+1);
-    if(prox.t==="p"||prox.t==="li"||prox.t==="oli"){
-      var ehLi=(prox.t!=="p");
-      var n=buildLines(mkWords(mkSegs(prox.x||"")), ehLi?CW-10:CW, ehLi?0:IND).length;
-      return (n<=MIN_TOPO?n:MIN_PE)*LH;
-    }
-    return MIN_TOPO*LH;
-  }
-  for(var bi=0;bi<blocos.length;bi++){
-    var b=blocos[bi];
-    if(b.t==="h1"){
-      /* Título só entra aqui se couber ele MAIS o começo do que vem depois —
-         senão fica pendurado sozinho no pé da página. */
-      var comp1=companhia(bi);
-      fs(12);ft("bold");
-      var h1l=doc.splitTextToSize(b.x.toUpperCase(),CW);
-      var e1=encaixarTitulo(6, h1l.length*7.5, 9, 5, comp1);
-      if(!e1){ newPage(); e1=[0,9]; } else y+=e1[0];
-      tc(cNavy);
-      doc.text(h1l,ML,y); y+=h1l.length*7.5;
-      y+=e1[1];
-    } else if(b.t==="h2"){
-      var comp2=companhia(bi);
-      fs(FS);ft("bold");
-      var h2u=b.x.toUpperCase();
-      var h2l=doc.splitTextToSize(h2u,CW);
-      var e2=encaixarTitulo(4, h2l.length*LH, 8, 5, comp2);
-      if(!e2){ newPage(); e2=[0,8]; } else y+=e2[0];
-      tc(cNavy);
-      doc.text(h2l,ML,y);
-      y+=h2l.length*LH+e2[1];
-    } else if(b.t==="h3"){
-      var comp3=companhia(bi);
-      fs(FS);ft("bold");
-      var h3l=doc.splitTextToSize(b.x,CW);
-      var e3=encaixarTitulo(3, h3l.length*LH, 5, 3, comp3);
-      if(!e3){ newPage(); e3=[0,5]; } else y+=e3[0];
-      tc(cText);
-      doc.text(h3l,ML,y); y+=h3l.length*LH+e3[1];
-    } else if(b.t==="q"){
-      /* Transcrição de norma/edital no formato clássico de parecer: recuo à
-         esquerda e corpo menor, sem caixa nem barra colorida. */
-      var qclean=b.x.replace(/\*\*(.+?)\*\*/g,"$1").replace(/==(.+?)==/g,"$1");
-      var qRec=18, qLH=LH-1.2;
-      fs(FS-1.5);ft("normal");
-      var ql=doc.splitTextToSize(qclean,CW-qRec);
-      var qH=ql.length*qLH+7;
-      if(qH<(BOTTOM-28)&&y+qH>BOTTOM) newPage(); else y+=4;
-      fs(FS-1.5);ft("normal");tc(cText);
-      for(var qi=0;qi<ql.length;qi++){
-        if(y+qLH>BOTTOM) newPage();
-        doc.text(ql[qi],ML+qRec,y); y+=qLH;
-      }
-      y+=3;
-    } else if(b.t==="tabela"){
-      renderTabela(b);
-    } else if(b.t==="hr"){
-      if(y+9>BOTTOM) newPage(); else y+=4;
-      draw(cBorder); doc.setLineWidth(0.4); doc.line(ML+25,y,PW-MR-25,y);
-      y+=7;
-    } else if(b.t==="fonte"){
-      /* Referência da citação: pequena, em itálico, encostada à direita */
-      fs(8.5);ft("italic");tc(cText);
-      var fl=doc.splitTextToSize(b.x,CW-14);
-      for(var fi2=0;fi2<fl.length;fi2++){
-        if(y+4.6>BOTTOM) newPage();
-        doc.text(fl[fi2],ML+CW,y,{align:"right"}); y+=4.6;
-      }
-      y+=3;
-    } else if(b.t==="destaque"){
-      /* A tarja âmbar saiu do documento: o dispositivo agora é um parágrafo
-         em negrito, como num parecer. O bloco continua existindo só para os
-         documentos antigos que já foram salvos com "!!" no texto. */
-      renderPara("**"+b.x.replace(/\*\*(.+?)\*\*/g,"$1").replace(/==(.+?)==/g,"$1")+"**",IND);
-    } else if(b.t==="oli"){
-      renderLiItem(b.x, b.n);
-    } else if(b.t==="li"){
-      renderLiItem(b.x);
-    } else {
-      renderPara(b.x,IND);
-    }
-  }
-
-  /* O fecho não se parte: ou a data e as assinaturas cabem juntas nesta
-     página, ou descem juntas. Separá-las deixava a data perdida no pé de uma
-     página e a assinatura sozinha na seguinte.
-
-     Antes o bloco reservava sempre a altura folgada e, faltando poucos
-     milímetros, descia inteiro — deixava o pé da página vazio e a assinatura
-     sozinha na página seguinte. Agora ele encolhe primeiro (respiro da data,
-     espaço acima da linha e o vão entre fileiras) e só desce se nem apertado
-     couber. */
-  var assinantes=asgSignersDoc(dec,nomeAssina);
-  var fecho=asgFechoEncaixe(y,BOTTOM,assinantes.length);
-  if(!fecho.cabe) newPage();
-  y+=fecho.respiro;
-  fs(FS);ft("normal");tc(cText);
-  doc.text(asgDataExtenso(dec.dataDecisao||hoje()),PW/2,y,{align:"center"}); y+=8;
-  y=asgAssinaturasPDF(doc,{
-    signers:assinantes,
-    PW:PW,ML:ML,MR:MR,CW:CW,BOTTOM:BOTTOM,LH:LH,
-    cNavy:cNavy,cMuted:cMuted,cText:cText,cBorder:cBorder,
-    above:fecho.above, rowGap:fecho.rowGap,
-    y:y,
-    requestPage:function(){ newPage(); return y; }
-  });
-
-  var total=doc.internal.getNumberOfPages();
-  for(var pg=1;pg<=total;pg++){
-    doc.setPage(pg);
-    draw(cBorder); doc.setLineWidth(0.2); doc.line(ML,PH-16,PW-MR,PH-16);
-    fs(7.5);ft("normal");tc(cMuted);
-    doc.text("Município de Ijuí  \u00b7  Capital Mundial das Etnias  \u00b7  Gestão de Processos Licitatórios",ML,PH-11.5);
-    doc.text("Página "+pg+" de "+total,PW-MR,PH-11.5,{align:"right"});
-  }
-
-  var _slugDec=pdfSlugTitulo(dec.titulo);
-  var nome="Decisao Pregoeiro "+("00"+(parseInt(dec.numero,10)||0)).slice(-3)+" "+dec.ano+(_slugDec?" "+_slugDec:"")+".pdf";
-  doc.save(nome); toast("PDF gerado: "+nome);
-}
-
-
-/* ── Integração futura com IA (segura, sem chave no HTML) ───────────────── */
-function decEstruturarComIA(){
-  if(!DEC_IA_ENDPOINT){
-    alert("Integração com IA ainda não configurada.\n\nNesta versão, o sistema estrutura o texto com o formatador interno (títulos, subtítulos, listas e citações são reconhecidos automaticamente).\n\nPara ativar a IA com segurança, configure um backend intermediário e informe a URL na constante DEC_IA_ENDPOINT.");
-    return;
-  }
-  var ta=document.getElementById("decTexto");
-  if(!ta.value.trim()){ alert("Cole primeiro o texto bruto."); return; }
-  var btn=document.getElementById("decBtnIA");
-  btn.disabled=true; btn.textContent="Estruturando...";
-  fetch(DEC_IA_ENDPOINT,{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({texto:ta.value})
-  }).then(function(r){
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    return r.json();
-  }).then(function(j){
-    if(j&&j.texto){ ta.value=j.texto; if(decPreviewAberto) decAtualizarPreview(); toast("Texto estruturado pela IA."); }
-    else throw new Error("Resposta inválida do servidor.");
-  }).catch(function(e){
-    alert("Falha ao estruturar com IA: "+e.message);
-  }).finally(function(){
-    btn.disabled=false; btn.innerHTML="&#10024; Estruturar com IA";
-  });
-}
-
-
-/* ══════════════════════════════════════════════════════════════════════════
-   PEDIDOS DE DILIGÊNCIA
-   Registro, organização e geração de pedidos de diligência vinculados aos
-   processos licitatórios. Numeração sequencial por ano (ex: 001/2026).
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/* Endpoint seguro de IA (deixe vazio na 1ª versão).
-   IMPORTANTE: nunca coloque chave de API aqui. Quando existir um backend
-   intermediário (Cloud Function / Cloudflare Worker) que guarde a chave,
-   informe a URL dele abaixo e o botão "Estruturar com IA" aparece sozinho.
-   O backend deve receber POST JSON {texto:"..."} e responder {texto:"..."}. */
-var DIL_IA_ENDPOINT = "";
-
-var diligenciasList = [];
-var editandoDilId = null;
-var dilSectionOpen = true;
-var dilPreviewAberto = false;
-
-var DIL_TIPOS = {
-  impugnacao:    "Impugnação",
-  esclarecimento:"Esclarecimento",
-  recurso:       "Recurso",
-  diligencia:    "Diligência",
-  habilitacao:   "Habilitação / Inabilitação",
-  adjudicacao:   "Adjudicação",
-  outro:         "Outro"
-};
-var DIL_RESULTADOS = {
-  procedente:    "Procedente",
-  parcial:       "Parcialmente Procedente",
-  improcedente:  "Improcedente",
-  nao_conhecido: "Não Conhecido",
-  prejudicado:   "Prejudicado",
-  outro:         "Outro"
-};
-function dilResultadoCls(r){
-  if(r==="procedente") return "dil-tag-res-procedente";
-  if(r==="improcedente") return "dil-tag-res-improcedente";
-  if(r==="parcial") return "dil-tag-res-parcial";
-  return "dil-tag-res-outro";
-}
-function dilFmtNum(d){
-  var n=parseInt(d.numero,10)||0;
-  return (n<100?("00"+n).slice(-3):String(n))+"/"+(d.ano||"");
-}
-
-/* ── Tempo real (Firestore) ─────────────────────────────────────────────── */
-dilColRef.onSnapshot(function(snap){
-  diligenciasList = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
-    .sort(function(a,b){
-      if(String(a.ano)!==String(b.ano)) return String(b.ano).localeCompare(String(a.ano));
-      return (parseInt(b.numero,10)||0)-(parseInt(a.numero,10)||0);
-    });
-  dilRenderFiltros();
-  dilRender();
-}, function(err){ console.error("Diligencias err:", err); });
-
-function abrirPainelDil(){ document.getElementById("painelDil").classList.add("open"); }
-function fecharPainelDil(){ document.getElementById("painelDil").classList.remove("open"); }
-
-/* ── Filtros ────────────────────────────────────────────────────────────── */
-function dilRenderFiltros(){
-  var selAno=document.getElementById("dilFiltroAno");
-  var selTipo=document.getElementById("dilFiltroTipo");
-  var selRes=document.getElementById("dilFiltroResultado");
-  if(!selAno||!selTipo||!selRes) return;
-  var anoAtual=selAno.value, tipoAtual=selTipo.value, resAtual=selRes.value;
-  var anos={};
-  diligenciasList.forEach(function(d){ if(d.ano) anos[d.ano]=true; });
-  var listaAnos=Object.keys(anos).sort().reverse();
-  var html='<option value="todos">Todos</option>';
-  listaAnos.forEach(function(a){ html+='<option value="'+escHtml(a)+'">'+escHtml(a)+'</option>'; });
-  selAno.innerHTML=html;
-  if(listaAnos.indexOf(anoAtual)>=0) selAno.value=anoAtual;
-  html='<option value="todos">Todos</option>';
-  Object.keys(DIL_TIPOS).forEach(function(k){ html+='<option value="'+k+'">'+DIL_TIPOS[k]+'</option>'; });
-  selTipo.innerHTML=html;
-  if(DIL_TIPOS[tipoAtual]) selTipo.value=tipoAtual;
-  html='<option value="todos">Todos</option>';
-  Object.keys(DIL_RESULTADOS).forEach(function(k){ html+='<option value="'+k+'">'+DIL_RESULTADOS[k]+'</option>'; });
-  selRes.innerHTML=html;
-  if(DIL_RESULTADOS[resAtual]) selRes.value=resAtual;
-}
-
-/* ── Render dos cards ───────────────────────────────────────────────────── */
-function dilRender(){
-  var el=document.getElementById("dilGrid"); if(!el) return;
-  var badge=document.getElementById("dilBadge");
-  var busca=(document.getElementById("dilFiltroBusca")||{value:""}).value.toLowerCase().trim();
-  var fAno=(document.getElementById("dilFiltroAno")||{value:"todos"}).value;
-  var fTipo=(document.getElementById("dilFiltroTipo")||{value:"todos"}).value;
-  var fRes=(document.getElementById("dilFiltroResultado")||{value:"todos"}).value;
-  var lista=diligenciasList.filter(function(d){
-    if(fAno!=="todos"&&String(d.ano)!==String(fAno)) return false;
-    if(fTipo!=="todos"&&d.tipo!==fTipo) return false;
-    if(fRes!=="todos"&&d.resultado!==fRes) return false;
-    if(busca){
-      var txt=(dilFmtNum(d)+" "+(d.titulo||"")+" "+(d.processoNumero||"")).toLowerCase();
-      if(!txt.includes(busca)) return false;
-    }
-    return true;
-  });
-  if(badge) badge.textContent=diligenciasList.length;
-  if(!lista.length){
-    el.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:20px;font-style:italic">'
-      +(diligenciasList.length?'Nenhum pedido corresponde aos filtros.':'Nenhum pedido de diligência cadastrado.')+'</div>';
-    return;
-  }
-  var html="";
-  for(var i=0;i<lista.length;i++){
-    var d=lista[i];
-    html+='<div class="dil-card">';
-    html+='<div class="dil-card-num">&#128269; Pedido de Diligência nº '+escHtml(dilFmtNum(d))+'</div>';
-    if(d.titulo) html+='<div class="dil-card-title">'+escHtml(d.titulo)+'</div>';
-    html+='<div class="dil-card-meta">';
-    if(d.processoNumero) html+='<span class="dil-tag dil-tag-proc">'+escHtml(d.processoNumero)+'</span>';
-    html+='<span class="dil-tag dil-tag-tipo">'+escHtml(DIL_TIPOS[d.tipo]||d.tipo||"")+'</span>';
-    if(d.resultado) html+='<span class="dil-tag '+dilResultadoCls(d.resultado)+'">'+escHtml(DIL_RESULTADOS[d.resultado]||d.resultado)+'</span>';
-    if(d.dataDecisao) html+='<span class="dil-tag dil-tag-data">&#128198; '+formatarData(d.dataDecisao)+'</span>';
-    html+='</div>';
-    if(d.agente) html+='<div style="font-size:11.5px;color:var(--muted)">Pregoeiro(a): <b style="color:var(--navy)">'+escHtml(d.agente)+'</b></div>';
-    html+='<div class="dil-card-footer">';
-    html+='<button class="imp-btn" onclick="editarDil(\''+escHtml(d.id)+'\')">&#9998; Editar</button>';
-    html+='<button class="imp-btn" onclick="abrirDocumentoEditor(\'dil\',\''+escHtml(d.id)+'\')" title="Abrir o documento numa folha A4 para escrever, destacar e revisar — salva sozinho">&#128221; Documento</button>';
-    html+='<button class="imp-btn pdf-view" onclick="dilGerarPDFById(\''+escHtml(d.id)+'\')">&#128438; PDF</button>';
-    html+='</div></div>';
-  }
-  el.innerHTML=html;
-}
-
-/* ── Modal ──────────────────────────────────────────────────────────────── */
-function dilPopularSelects(){
-  var sel=document.getElementById("dilAgente");
-  var atual=sel.value;
-  var html='<option value="">-- Selecione --</option>';
-  agentes.forEach(function(a){ html+='<option value="'+escHtml(a.nomeAbrev)+'">'+escHtml(a.nomeAbrev)+'</option>'; });
-  sel.innerHTML=html;
-  if(atual) sel.value=atual;
-  procPopularTipos("dil");
-}
-function dilSugerirNumero(){
-  if(editandoDilId) return;
-  var ano=String(document.getElementById("dilAno").value||"").trim();
-  var max=0;
-  diligenciasList.forEach(function(d){
-    if(String(d.ano)===ano){ var n=parseInt(d.numero,10)||0; if(n>max) max=n; }
-  });
-  document.getElementById("dilNumero").value=max+1;
-}
-function abrirModalDil(){
-  editandoDilId=null;
-  document.getElementById("modalDilTitulo").textContent="Novo Pedido de Diligência";
-  document.getElementById("btnExcluirDil").style.display="none";
-  ["dilTitulo","dilTexto"].forEach(function(id){ document.getElementById(id).value=""; });
-  procEscrever("dil","",new Date().getFullYear());
-  document.getElementById("dilTipo").value="impugnacao";
-  document.getElementById("dilResultado").value="procedente";
-  document.getElementById("dilData").value=hoje();
-  document.getElementById("dilAno").value=new Date().getFullYear();
-  dilPopularSelects();
-  document.getElementById("dilAgente").value="";
-  dilSugerirNumero();
-  asgEditInit("dil", null, document.getElementById("dilAgente").value);
-  dilPreviewAberto=false;
-  document.getElementById("dilPreview").style.display="none";
-  document.getElementById("dilBtnIA").style.display = DIL_IA_ENDPOINT ? "inline-block" : "none";
-  document.getElementById("modalDil").classList.add("open");
-}
-function editarDil(id){
-  var d=diligenciasList.find(function(x){ return x.id===id; });
-  if(!d) return;
-  editandoDilId=id;
-  document.getElementById("modalDilTitulo").textContent="Editar Pedido de Diligência nº "+dilFmtNum(d);
-  document.getElementById("btnExcluirDil").style.display="inline-block";
-  dilPopularSelects();
-  document.getElementById("dilNumero").value=d.numero||"";
-  document.getElementById("dilAno").value=d.ano||new Date().getFullYear();
-  document.getElementById("dilData").value=d.dataDecisao||"";
-  document.getElementById("dilTitulo").value=d.titulo||"";
-  procEscrever("dil", d.processoNumero||"");
-  document.getElementById("dilAgente").value=d.agente||"";
-  document.getElementById("dilTipo").value=DIL_TIPOS[d.tipo]?d.tipo:"outro";
-  document.getElementById("dilResultado").value=DIL_RESULTADOS[d.resultado]?d.resultado:"outro";
-  document.getElementById("dilTexto").value=d.texto||"";
-  asgEditInit("dil", d, d.agente);
-  dilPreviewAberto=false;
-  document.getElementById("dilPreview").style.display="none";
-  document.getElementById("dilBtnIA").style.display = DIL_IA_ENDPOINT ? "inline-block" : "none";
-  document.getElementById("modalDil").classList.add("open");
-}
-function fecharModalDil(){
-  document.getElementById("modalDil").classList.remove("open");
-  editandoDilId=null;
-}
-function salvarDil(){
-  var btn=document.getElementById("btnSalvarDil");
-  var numero=parseInt(document.getElementById("dilNumero").value,10);
-  var ano=String(document.getElementById("dilAno").value||"").trim();
-  var titulo=document.getElementById("dilTitulo").value.trim();
-  var texto=document.getElementById("dilTexto").value;
-  if(!numero||numero<1){ alert("Informe o número do pedido."); return; }
-  if(!/^\d{4}$/.test(ano)){ alert("Informe um ano válido (ex: 2026)."); return; }
-  if(!titulo){ alert("Informe o título / assunto do pedido."); return; }
-  if(!texto.trim()){ alert("Informe o texto do pedido."); return; }
-  var duplicada=diligenciasList.find(function(d){
-    return d.id!==editandoDilId && String(d.ano)===ano && (parseInt(d.numero,10)||0)===numero;
-  });
-  if(duplicada && !confirm("Já existe o Pedido de Diligência nº "+dilFmtNum(duplicada)+". Salvar mesmo assim com número repetido?")) return;
-  btn.disabled=true; btn.textContent="Salvando...";
-  var ts=firebase.firestore.FieldValue.serverTimestamp();
-  var data={
-    numero:numero,
-    ano:ano,
-    titulo:titulo,
-    processoNumero:procLer("dil"),
-    agente:document.getElementById("dilAgente").value,
-    tipo:document.getElementById("dilTipo").value,
-    resultado:document.getElementById("dilResultado").value,
-    dataDecisao:document.getElementById("dilData").value,
-    assinantes:asgMergeForSave("dil", editandoDilId?diligenciasList.find(function(x){return x.id===editandoDilId;}):null),
-    texto:texto,
-    updatedAt:ts
-  };
-  var op=editandoDilId
-    ? dilColRef.doc(editandoDilId).set(data,{merge:true})
-    : dilColRef.add(Object.assign({createdAt:ts},data));
-  op.then(function(){ toast(editandoDilId?"Pedido atualizado!":"Pedido registrado!"); fecharModalDil(); })
-    .catch(function(e){ alert("Erro ao salvar pedido: "+e.message); })
-    .finally(function(){ btn.disabled=false; btn.textContent="Salvar Pedido"; });
-}
-function excluirDil(){
-  if(!editandoDilId) return;
-  var d=diligenciasList.find(function(x){ return x.id===editandoDilId; });
-  if(!confirm("Excluir definitivamente o Pedido de Diligência nº "+(d?dilFmtNum(d):"")+"?")) return;
-  dilColRef.doc(editandoDilId).delete()
-    .then(function(){ toast("Pedido excluído."); fecharModalDil(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-
-/* ── Modelos internos ───────────────────────────────────────────────────── */
-function dilInserirModelo(tipo){
-  var ta=document.getElementById("dilTexto");
-  if(ta.value.trim() && !confirm("O texto atual será substituído pelo modelo. Continuar?")) return;
-  var proc=procLer("dil")||"[NÚMERO DO PROCESSO]";
-  var corpo={
-    impugnacao:
-      "I. RELATÓRIO\n\nTrata-se de impugnação ao edital do "+proc+", apresentada por [NOME DA EMPRESA], "
-      +"recebida em [DATA], na qual a impugnante alega, em síntese, que [RESUMO DAS ALEGAÇÕES].\n\n"
-      +"A impugnação foi recebida tempestivamente, nos termos do art. 164 da Lei nº 14.133/2021 e do item [X] do edital.\n\n"
-      +"II. ANÁLISE E FUNDAMENTAÇÃO\n\n"
-      +"DA TEMPESTIVIDADE\n\n[Analisar a tempestividade.]\n\n"
-      +"DO MÉRITO\n\n[Analisar ponto a ponto as alegações, com fundamento no edital, na Lei nº 14.133/2021 e na jurisprudência aplicável.]\n\n"
-      +"III. DECISÃO\n\nDiante do exposto, CONHEÇO da impugnação apresentada para, no mérito, julgá-la [PROCEDENTE / PARCIALMENTE PROCEDENTE / IMPROCEDENTE], pelos fundamentos acima, [mantendo / retificando] os termos do edital.\n\n"
-      +"Publique-se. Comunique-se à impugnante.",
-    esclarecimento:
-      "I. RELATÓRIO\n\nTrata-se de pedido de esclarecimento referente ao "+proc+", formulado por [NOME DA EMPRESA] em [DATA], questionando, em síntese: [RESUMO DOS QUESTIONAMENTOS].\n\n"
-      +"II. RESPOSTA\n\nQUESTIONAMENTO 1\n\n[Transcrever a pergunta.]\n\nRESPOSTA: [Responder objetivamente, indicando o item do edital aplicável.]\n\n"
-      +"III. CONCLUSÃO\n\nFicam prestados os esclarecimentos acima, que passam a integrar o processo licitatório para todos os efeitos, mantendo-se inalteradas as demais condições do edital.",
-    recurso:
-      "I. RELATÓRIO\n\nTrata-se de recurso administrativo interposto por [NOME DA EMPRESA] no âmbito do "+proc+", contra [ATO RECORRIDO], com fundamento no art. 165 da Lei nº 14.133/2021.\n\n"
-      +"Devidamente intimadas, as demais licitantes [apresentaram / não apresentaram] contrarrazões.\n\n"
-      +"II. ANÁLISE E FUNDAMENTAÇÃO\n\nDA ADMISSIBILIDADE\n\n[Analisar tempestividade e legitimidade.]\n\n"
-      +"DO MÉRITO\n\n[Analisar as razões recursais e as contrarrazões.]\n\n"
-      +"III. DECISÃO\n\nDiante do exposto, CONHEÇO do recurso para, no mérito, [NEGAR-LHE / DAR-LHE] PROVIMENTO, [mantendo / reformando] a decisão recorrida.\n\n"
-      +"Caso mantida a decisão, encaminhem-se os autos à autoridade superior, nos termos do art. 165, § 2º, da Lei nº 14.133/2021.",
-    diligencia:
-      "I. RELATÓRIO\n\nNo curso do "+proc+", verificou-se a necessidade de esclarecer [PONTO OBJETO DA DILIGÊNCIA] em relação à proposta/documentação da empresa [NOME DA EMPRESA].\n\n"
-      +"II. FUNDAMENTAÇÃO\n\nNos termos do art. 64 da Lei nº 14.133/2021 e do item [X] do edital, é facultada a realização de diligência destinada a esclarecer ou complementar a instrução do processo, vedada a inclusão posterior de documento que deveria constar originariamente da proposta.\n\n"
-      +"III. DECISÃO\n\nDETERMINO a realização de diligência junto à empresa [NOME DA EMPRESA], para que, no prazo de [PRAZO], apresente/esclareça: [LISTAR].\n\n"
-      +"O não atendimento no prazo assinalado poderá ensejar [CONSEQUÊNCIA].",
-    habilitacao:
-      "I. RELATÓRIO\n\nConcluída a fase de julgamento das propostas do "+proc+", procedeu-se à análise dos documentos de habilitação da empresa [NOME DA EMPRESA], primeira classificada para o(s) item(ns) [ITENS].\n\n"
-      +"II. ANÁLISE E FUNDAMENTAÇÃO\n\nDA HABILITAÇÃO JURÍDICA\n\n[Analisar.]\n\nDA REGULARIDADE FISCAL E TRABALHISTA\n\n[Analisar.]\n\n"
-      +"DA QUALIFICAÇÃO ECONÔMICO-FINANCEIRA\n\n[Analisar.]\n\nDA QUALIFICAÇÃO TÉCNICA\n\n[Analisar.]\n\n"
-      +"III. DECISÃO\n\nDiante do exposto, DECLARO [HABILITADA / INABILITADA] a empresa [NOME DA EMPRESA] no certame em referência, pelos fundamentos acima expostos."
-  };
-  ta.value=corpo[tipo]||"";
-  if(dilPreviewAberto) dilAtualizarPreview();
-  toast("Modelo inserido. Ajuste os campos entre colchetes.");
-}
-
-/* ── Parser: texto bruto → blocos estruturados ──────────────────────────────
-   Reconhece Markdown (#, ##, ###, **negrito**, listas, > citações) e também
-   convenções comuns de pareceres (linhas em MAIÚSCULAS, "I.", "1.", "1.1"). */
-function dilLimparInline(s){
-  return String(s)
-    .replace(/\*\*(.+?)\*\*/g,"$1")
-    .replace(/==(.+?)==/g,"$1")
-    .replace(/__(.+?)__/g,"$1")
-    .replace(/`([^`]+)`/g,"$1")
-    .replace(/\*(\S[^*]*?)\*/g,"$1")
-    .replace(/\s+$/,"");
-}
-/* Igual a dilLimparInline mas PRESERVA **negrito** para renderização no PDF */
-function dilLimparPara(s){
-  return String(s)
-    .replace(/__(.+?)__/g,"$1")
-    .replace(/`([^`]+)`/g,"$1")
-    .replace(/\*\*/g,"\x00")
-    .replace(/\*(\S[^*\n]*?)\*/g,"$1")
-    .replace(/\x00/g,"**")
-    .replace(/\s+$/,"");
-}
-function dilEhMaiuscula(s){
-  var letras=s.replace(/[^A-Za-zÀ-ÿ]/g,"");
-  if(letras.length<3) return false;
-  var up=letras.replace(/[^A-ZÀ-Þ]/g,"");
-  return (up.length/letras.length)>=0.9;
-}
-function dilEhSecaoPrincipal(s){
-  return /(RELAT|FUNDAMENT|AN[ÁA]LISE|DECIS|DISPOSITIVO|CONCLUS|EMENTA|RESPOSTA|VOTO)/i.test(s);
-}
-function dilParseBlocos(texto){
-  var blocos=[];
-  var linhas=String(texto||"").replace(/\r\n?/g,"\n").replace(/```[a-z]*\n?/gi,"").split("\n");
-  for(var i=0;i<linhas.length;i++){
-    var raw=linhas[i];
-    var l=raw.trim();
-    if(!l) continue;
-    var m;
-    m=l.match(/^\[LINK\]\s*(\S+)\s*\|\s*(.+)$/i);
-    if(m){ blocos.push({t:"link", url:m[1], x:m[2].trim()}); continue; }
-    /* Tabela: linhas seguidas entre barras. Uma linha de traços (|---|---|)
-       logo abaixo da primeira marca aquela primeira como cabeçalho. */
-    if(/^\|.*\|$/.test(l)){
-      var tab=[], temCab=false;
-      while(i<linhas.length){
-        var lt=linhas[i].trim();
-        if(!/^\|.*\|$/.test(lt)) break;
-        if(/^\|[\s:|-]+\|$/.test(lt)){ if(tab.length===1) temCab=true; i++; continue; }
-        tab.push(lt.replace(/^\|/,"").replace(/\|$/,"").split("|").map(function(cel){ return dilLimparPara(cel.trim()); }));
-        i++;
-      }
-      i--;
-      if(tab.length) blocos.push({t:"tabela", linhas:tab, cab:temCab});
-      continue;
-    }
-    /* Tabela colada sem as barras: colunas separadas por TAB, ou Markdown
-       sem as barras das pontas — ver pdfTabelaSolta. */
-    var tsolta=pdfTabelaSolta(linhas, i);
-    if(tsolta){
-      blocos.push({t:"tabela", cab:true, linhas:tsolta.linhas.map(function(r){
-        return r.map(function(cel){ return dilLimparPara(cel); });
-      })});
-      i=tsolta.fim;
-      continue;
-    }
-    /* Linha divisória */
-    if(/^(-{3,}|\*{3,}|_{3,})$/.test(l)){ blocos.push({t:"hr"}); continue; }
-
-    m=l.match(/^(#{1,6})\s+(.*)$/);
-    if(m){
-      var nivel=Math.min(m[1].length,3);
-      blocos.push({t:"h"+nivel, x:dilLimparInline(m[2])});
-      continue;
-    }
-    /* Linha inteira em **negrito** é subtítulo — mas só se for curta. Um
-       parágrafo inteiro em negrito (o dispositivo da decisão, o prazo da
-       diligência) é texto, não título: virando h2 ele sairia todo em
-       MAIÚSCULAS. */
-    m=l.match(/^(\*\*|__)(.+?)(\*\*|__)\s*:?\s*$/);
-    if(m && m[2].length<=90){ blocos.push({t:"h2", x:dilLimparInline(m[2])}); continue; }
-    /* Fonte da citação (">> Lei nº ...") — tem de vir antes da citação */
-    if(/^>>\s?/.test(l)){ blocos.push({t:"fonte", x:dilLimparInline(l.replace(/^>>\s?/,""))}); continue; }
-    if(/^>\s?/.test(l)){ blocos.push({t:"q", x:dilLimparPara(l.replace(/^>\s?/,""))}); continue; }
-    /* Caixa de destaque — dispositivo, conclusão, o que não pode passar batido */
-    if(/^!!\s?/.test(l)){ blocos.push({t:"destaque", x:dilLimparPara(l.replace(/^!!\s?/,""))}); continue; }
-    if(/^[-*•]\s+/.test(l)){ blocos.push({t:"li", x:dilLimparPara(l.replace(/^[-*•]\s+/,""))}); continue; }
-    /* Algarismo romano: em MAIÚSCULAS é título de seção; em texto corrido é
-       inciso. O separador ponto fica de fora do inciso, senão "V. Exa." e
-       companhia virariam lista. */
-    m=l.match(/^([IVXLC]+)\s*([–—.\-)])\s+(.+)$/);
-    if(m){
-      if(dilEhMaiuscula(m[3])){ blocos.push({t:"h1", x:dilLimparInline(l)}); continue; }
-      if(m[2]!=="."){ blocos.push({t:"oli", n:m[1]+" –", x:dilLimparPara(m[3])}); continue; }
-    }
-    /* Item numerado. No máximo 3 dígitos por grupo, para "2021. O edital..."
-       continuar sendo parágrafo. */
-    m=l.match(/^(\d{1,3}(?:\.\d{1,3})*)\s*([.)–—-])\s+(.+)$/);
-    if(m){
-      if(dilEhMaiuscula(m[3])){
-        blocos.push({t:(m[1].indexOf(".")>=0?"h2":"h1"), x:dilLimparInline(l)});
-        continue;
-      }
-      blocos.push({t:"oli", n:m[1]+(m[2]===")"?")":"."), x:dilLimparPara(m[3])});
-      continue;
-    }
-    /* Alínea: a) b) c) */
-    m=l.match(/^([a-z])\)\s+(.+)$/);
-    if(m){ blocos.push({t:"oli", n:m[1]+")", x:dilLimparPara(m[2])}); continue; }
-
-    if(dilEhMaiuscula(l) && l.length<=90 && !/[.;,]$/.test(l)){
-      blocos.push({t:(dilEhSecaoPrincipal(l)?"h1":"h2"), x:dilLimparInline(l)});
-      continue;
-    }
-    /* Citação de lei sem marcação — ver pdfEhDispositivoLegal/pdfEhFonteLegal */
-    if(pdfEhFonteLegal(l)){
-      var antDil=blocos[blocos.length-1];
-      if(antDil && antDil.t==="p") antDil.t="q";   /* o texto que a fonte credita */
-      blocos.push({t:"fonte", x:dilLimparInline(l)});
-      continue;
-    }
-    if(pdfEhDispositivoLegal(l)){ blocos.push({t:"q", x:dilLimparPara(l)}); continue; }
-    blocos.push({t:"p", x:dilLimparPara(l)});
-  }
-  return blocos;
-}
-
-/* ── Pré-visualização no modal ──────────────────────────────────────────── */
-function dilTogglePreview(){
-  dilPreviewAberto=!dilPreviewAberto;
-  var el=document.getElementById("dilPreview");
-  el.style.display=dilPreviewAberto?"block":"none";
-  if(dilPreviewAberto) dilAtualizarPreview();
-}
-function dilAtualizarPreview(){
-  var el=document.getElementById("dilPreview");
-  var blocos=dilParseBlocos(document.getElementById("dilTexto").value);
-  if(!blocos.length){ el.innerHTML='<i style="color:var(--muted)">Nada para pré-visualizar.</i>'; return; }
-  el.innerHTML=pdfBlocosHTML(blocos);
-}
-(function(){
-  var ta=document.getElementById("dilTexto");
-  if(ta) ta.addEventListener("input", function(){ if(dilPreviewAberto) dilAtualizarPreview(); });
-})();
-
-/* ── Geração do PDF (padrão visual do sistema) ──────────────────────────── */
-function dilGerarPDFById(id){
-  var d=diligenciasList.find(function(x){ return x.id===id; });
-  if(d) dilGerarPDF(d);
-}
-function dilGerarPDF(dec){
-  if(!window.jspdf||!window.jspdf.jsPDF){ alert("Biblioteca PDF ainda carregando. Tente em segundos."); return; }
-  var jsPDFCls=window.jspdf.jsPDF;
-  var doc=new jsPDFCls({orientation:"portrait",unit:"mm",format:"a4"});
-  var PW=210,PH=297,ML=25,MR=25,CW=PW-ML-MR;
-  var FS=11.5,LH=6.8,PARA=5.5,IND=10;
-  var BOTTOM=PH-25;
-  /* Documento monocromático: parecer oficial não usa cor de enfeite — a
-     hierarquia vem do corpo da fonte, do negrito e do recuo. Os nomes antigos
-     (cNavy/cGold/...) ficam para não reescrever cada chamada, mas todos
-     apontam para preto; só o rodapé usa um cinza mais claro. */
-  var cNavy=[0,0,0],cNavy2=[0,0,0],cGold=[0,0,0],cAmber=[0,0,0];
-  var cText=[0,0,0],cMuted=[90,90,90],cBorder=[150,150,150];
-  var cMarca=[255,240,130];   /* marca-texto amarelo do ==destaque== */
-  var numFmt=dilFmtNum(dec);
-  var y=0;
-  var ag=(typeof agentes!=="undefined"?agentes:[]).find(function(a){return a.nomeAbrev===dec.agente;});
-  var nomeAssina=(ag&&ag.nomeCompleto)?ag.nomeCompleto:(dec.agente||"Pregoeiro(a)");
-
-  function fill(c){doc.setFillColor(c[0],c[1],c[2]);}
-  function draw(c){doc.setDrawColor(c[0],c[1],c[2]);}
-  function tc(c){doc.setTextColor(c[0],c[1],c[2]);}
-  function fs(n){doc.setFontSize(n);}
-  function ft(s){doc.setFont("helvetica",s);}
-
-  /* Marcação inline: **negrito** e ==destaque amarelo==, que podem estar
-     aninhados (**==assim==**). Continua exigindo o PAR de marcadores — um
-     "**" solto segue sendo texto comum, como sempre foi. */
-  function mkSegs(s,b0,h0){
-    b0=!!b0; h0=!!h0; s=String(s==null?"":s);
-    var r=[],re=/\*\*([\s\S]+?)\*\*|==([\s\S]+?)==/g,last=0,m;
-    while((m=re.exec(s))!==null){
-      if(m.index>last) r.push({t:s.slice(last,m.index),b:b0,h:h0});
-      if(m[1]!=null) r=r.concat(mkSegs(m[1],true,h0));
-      else r=r.concat(mkSegs(m[2],b0,true));
-      last=re.lastIndex;
-    }
-    if(last<s.length) r.push({t:s.slice(last),b:b0,h:h0});
-    return r;
-  }
-  /* Uma "palavra" pode misturar trechos em negrito e normal (ex.: "**2026**,"
-     ou "n**º**"). Guardamos as partes juntas para que a pontuação encostada no
-     fechamento do ** não vire uma palavra separada — era isso que gerava o
-     espaço indevido antes da vírgula na justificação do parágrafo.          */
-  function mkWords(sgArr){
-    var w=[], cur=null;
-    sgArr.forEach(function(sg){
-      sg.t.split(/(\s+)/).forEach(function(tk){
-        if(!tk) return;
-        if(!/\S/.test(tk)){ cur=null; return; }
-        if(!cur){ cur={p:[]}; w.push(cur); }
-        cur.p.push({t:tk,b:sg.b,h:sg.h});
-      });
-    });
-    return w;
-  }
-  /* Largura total da palavra somando cada parte com sua própria fonte. */
-  function wWidth(wd){
-    var t=0;
-    for(var i=0;i<wd.p.length;i++){ ft(wd.p[i].b?"bold":"normal"); t+=doc.getTextWidth(wd.p[i].t); }
-    return t;
-  }
-  /* Altura da tarja do marca-texto, a partir do corpo da fonte. */
-  function marcaCaixa(x0,x1){
-    var hmm=FS*0.3528;
-    fill(cMarca); doc.rect(x0-0.5,y-hmm*0.80,(x1-x0)+1.0,hmm*1.06,"F");
-  }
-
-  function buildLines(wsArr,maxW,xOffset){
-    fs(FS); ft("normal");
-    var spW=doc.getTextWidth(" ");
-    var lines=[],cur=[],curW=0,fst=true;
-    wsArr.forEach(function(w){
-      var ww=wWidth(w);
-      var lmW=maxW-(fst&&xOffset?xOffset:0);
-      if(curW+ww>lmW&&cur.length){
-        lines.push({ws:cur,fi:fst,xo:(fst&&xOffset?xOffset:0)});
-        fst=false; cur=[w]; curW=ww+spW;
-      } else {
-        cur.push(w); curW+=ww+spW;
-      }
-    });
-    if(cur.length) lines.push({ws:cur,fi:fst,xo:(fst&&xOffset?xOffset:0)});
-    return lines;
-  }
-
-  /* Três passadas: mede onde cada pedaço cai, pinta as tarjas do
-     ==destaque== e só então escreve o texto por cima. Pintar palavra a
-     palavra deixava o marca-texto riscado no texto justificado, porque o
-     espaço entre as palavras ficava de fora da tarja. */
-  function renderLine(line,isLast,xBase,availW){
-    var x=xBase+(line.xo||0);
-    var w=availW-(line.xo||0);
-    fs(FS); ft("normal");
-    var gap=doc.getTextWidth(" ");
-    if(!(isLast||line.ws.length<=1)){
-      var totalWW=0;
-      line.ws.forEach(function(wd){ totalWW+=wWidth(wd); });
-      gap=(w-totalWW)/(line.ws.length-1);
-    }
-    var pecas=[], cx=x, wi, pi;
-    for(wi=0;wi<line.ws.length;wi++){
-      var wd=line.ws[wi];
-      for(pi=0;pi<wd.p.length;pi++){
-        ft(wd.p[pi].b?"bold":"normal"); fs(FS);
-        var pw2=doc.getTextWidth(wd.p[pi].t);
-        pecas.push({x:cx,w:pw2,h:!!wd.p[pi].h,parte:wd.p[pi]});
-        cx+=pw2;
-      }
-      if(wi<line.ws.length-1){
-        /* o espaço entre duas palavras entra na tarja só quando os dois
-           lados estão destacados */
-        var antH=(wd.p[wd.p.length-1]||{}).h;
-        var proxH=(line.ws[wi+1].p[0]||{}).h;
-        pecas.push({x:cx,w:gap,h:!!(antH&&proxH),vazio:true});
-        cx+=gap;
-      }
-    }
-    var ini=null, fim=0;
-    function fecharMarca(){ if(ini!==null){ marcaCaixa(ini,fim); ini=null; } }
-    pecas.forEach(function(pc){
-      if(pc.h){ if(ini===null) ini=pc.x; fim=pc.x+pc.w; }
-      else fecharMarca();
-    });
-    fecharMarca();
-    pecas.forEach(function(pc){
-      if(pc.vazio) return;
-      ft(pc.parte.b?"bold":"normal"); fs(FS); tc(cText);
-      doc.text(pc.parte.t,pc.x,y);
-    });
-  }
-
-  /* ── Quebra de página ────────────────────────────────────────────────
-     Um parágrafo PODE se dividir entre duas páginas; o que não pode é deixar
-     linha solta. Ficam no mínimo 2 linhas embaixo e 2 seguem para a página
-     nova — e, quando não dá para dividir assim, o parágrafo inteiro desce.
-     Empurrar todo bloco por inteiro, como antes, é o que abria aqueles vãos
-     em branco no pé da página.                                            */
-  var MIN_TOPO=2;   /* nunca deixa uma linha sozinha no alto da página nova */
-  var MIN_PE=1;     /* mas uma linha só no pé, antes da quebra, é aceitável */
-  /* Em que linha quebrar: 0 = antes do bloco todo, n = não precisa quebrar. */
-  function planoDeQuebra(n){
-    var cabem=Math.floor((BOTTOM-y)/LH);
-    if(cabem>=n) return n;
-    var k=Math.min(cabem, n-MIN_TOPO);
-    return (k>=MIN_PE)?k:0;
-  }
-
-  function renderPara(raw,indent){
-    var ws=mkWords(mkSegs(raw||""));
-    if(!ws.length){y+=PARA;return;}
-    var lines=buildLines(ws,CW,indent);
-    if(!lines.length){y+=PARA;return;}
-    var corte=planoDeQuebra(lines.length);
-    if(corte===0) newPage();
-    lines.forEach(function(line,li){
-      if(corte>0&&li===corte) newPage();
-      else if(y+LH>BOTTOM) newPage();
-      renderLine(line,li===lines.length-1,ML,CW);
-      y+=LH;
-    });
-    y+=PARA;
-  }
-
-  /* Item de lista. Sem marcador é o traço de sempre; com marcador serve para
-     inciso ("I –"), item numerado ("1.") e alínea ("a)"), que ficam pendurados
-     à esquerda com o texto alinhado ao lado. */
-  function renderLiItem(raw, marcador){
-    var ws=mkWords(mkSegs(raw||""));
-    if(!ws.length) return;
-    var marca=marcador||"\u2013";
-    fs(FS); ft("bold");
-    var LII=Math.max(10, doc.getTextWidth(marca)+5);
-    var lines=buildLines(ws,CW-LII,0);
-    var corte=planoDeQuebra(lines.length);
-    if(corte===0) newPage();
-    lines.forEach(function(line,li){
-      if(corte>0&&li===corte) newPage();
-      else if(y+LH>BOTTOM) newPage();
-      if(li===0){tc(cText);ft(marcador?"bold":"normal");fs(FS);doc.text(marca,ML+3,y);}
-      renderLine(line,li===lines.length-1,ML+LII,CW-LII);
-      y+=LH;
-    });
-    y+=2.5;
-  }
-
-  /* Tabela: larguras proporcionais ao conteúdo (com teto, para a coluna de
-     texto longo não espremer as de número) e cabeçalho repetido a cada
-     página nova. */
-  function renderTabela(b){
-    var linhasT=b.linhas||[]; if(!linhasT.length) return;
-    var nCols=0, c;
-    linhasT.forEach(function(r){ if(r.length>nCols) nCols=r.length; });
-    if(!nCols) return;
-    /* Largura de cada coluna a partir da largura REAL do texto, não da
-       contagem de caracteres: contar caractere fazia "R$ 26,40" quebrar em
-       duas linhas só porque dividia espaço com uma coluna de texto longo. */
-    var ideal=[], somaIdeal=0;
-    for(c=0;c<nCols;c++){
-      var maior=0;
-      for(var r=0;r<linhasT.length;r++){
-        var ehCabR=(b.cab&&r===0);
-        ft(ehCabR?"bold":"normal"); fs(ehCabR?9:9.5);
-        var t=String((linhasT[r]&&linhasT[r][c])||"").replace(/\*\*(.+?)\*\*/g,"$1").replace(/==(.+?)==/g,"$1");
-        var tw=doc.getTextWidth(t);
-        if(tw>maior) maior=tw;
-      }
-      ideal.push(Math.min(maior+5, CW*0.45));
-      somaIdeal+=ideal[c];
-    }
-    var larg=[];
-    if(somaIdeal<=CW){
-      var sobra=(CW-somaIdeal)/nCols;
-      for(c=0;c<nCols;c++) larg.push(ideal[c]+sobra);
-    } else {
-      /* Não cabe: garante um mínimo a todas e reparte o resto conforme o
-         ideal, de modo que só as colunas largas encolham. */
-      var MINC=Math.min(16, CW/nCols), livre=CW-MINC*nCols, excedente=0;
-      for(c=0;c<nCols;c++) excedente+=Math.max(0, ideal[c]-MINC);
-      for(c=0;c<nCols;c++){
-        larg.push(MINC + (excedente>0 ? livre*Math.max(0, ideal[c]-MINC)/excedente : livre/nCols));
-      }
-    }
-    var LHT=4.6;
-    function medir(r, ehCab){
-      ft(ehCab?"bold":"normal"); fs(ehCab?9:9.5);
-      var cel=[], alt=1;
-      for(var c2=0;c2<nCols;c2++){
-        var txtc=String((r&&r[c2])||"").replace(/\*\*(.+?)\*\*/g,"$1").replace(/==(.+?)==/g,"$1");
-        var ls=txtc?doc.splitTextToSize(txtc, larg[c2]-5):[""];
-        cel.push(ls); if(ls.length>alt) alt=ls.length;
-      }
-      return {cel:cel, h:alt*LHT+4.4};
-    }
-    function pintar(med, ehCab, zebra){
-      if(ehCab){ fill(cNavy); doc.rect(ML,y,CW,med.h,"F"); }
-      else { fill(zebra?[247,249,253]:[255,255,255]); doc.rect(ML,y,CW,med.h,"F"); }
-      draw(cBorder); doc.setLineWidth(0.15); doc.line(ML,y+med.h,ML+CW,y+med.h);
-      ft(ehCab?"bold":"normal"); fs(ehCab?9:9.5);
-      tc(ehCab?[255,255,255]:cText);
-      var cx2=ML;
-      for(var c3=0;c3<nCols;c3++){
-        var ly=y+4.4;
-        for(var k=0;k<med.cel[c3].length;k++){ doc.text(med.cel[c3][k], cx2+2.5, ly); ly+=LHT; }
-        cx2+=larg[c3];
-      }
-      y+=med.h;
-    }
-    var inicio=b.cab?1:0;
-    var medCab=b.cab?medir(linhasT[0], true):null;
-    /* a tabela não começa no finalzinho da página: cabeçalho + 1ª linha juntos */
-    var minimo=(medCab?medCab.h:0)+medir(linhasT[inicio], false).h;
-    if(y+minimo+4>BOTTOM) newPage(); else y+=3;
-    if(medCab) pintar(medCab, true, false);
-    var zebra=0;
-    for(var rr=inicio; rr<linhasT.length; rr++){
-      var med=medir(linhasT[rr], false);
-      if(y+med.h>BOTTOM){ newPage(); if(medCab) pintar(medir(linhasT[0], true), true, false); }
-      pintar(med, false, zebra%2===0);
-      zebra++;
-    }
-    y+=6;
-  }
-
-  function newPage(){
-    doc.addPage();
-    var lw=22,lhh=7.1;
-    try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-lw)/2,9,lw,lhh);}catch(e){}
-    y=27;
-  }
-
-  fill([255,255,255]); doc.rect(0,0,PW,PH,"F");
-  try{doc.addImage(LOGO_B64_PDF,"JPEG",(PW-52)/2,13,52,16.8);}catch(e){}
-  y=42;
-
-  fs(15);ft("bold");tc(cNavy);
-  doc.text("Pedido de Diligência "+numFmt,PW/2,y,{align:"center"}); y+=9;
-  /* Só o título. Número do processo, data, pregoeiro e assunto já aparecem
-     no corpo e no fecho do documento — repetir aqui era o pregoeiro lendo a
-     mesma informação três vezes antes de chegar no que importa. */
-  y+=11;
-
-  var blocos=dilParseBlocos(dec.texto||"");
+  var blocos=pdfParseBlocos(dec.texto||"");
   /* Altura mínima de um título: o texto mais o menor respiro de baixo. */
   function alturaTitulo(b){
     if(b.t==="h1"){ fs(12);ft("bold"); return doc.splitTextToSize(b.x.toUpperCase(),CW).length*7.5+5; }
@@ -10725,10 +9843,14 @@ function dilGerarPDF(dec){
 
   /* O fecho não se parte: ou a data e as assinaturas cabem juntas nesta
      página, ou descem juntas. Separá-las deixava a data perdida no pé de uma
-     página e a assinatura sozinha na seguinte. */
+     página e a assinatura sozinha na seguinte.
+
+     Antes o bloco reservava sempre a altura folgada e, faltando poucos
+     milímetros, descia inteiro — deixava o pé da página vazio e a assinatura
+     sozinha na página seguinte. Agora ele encolhe primeiro (respiro da data,
+     espaço acima da linha e o vão entre fileiras) e só desce se nem apertado
+     couber. */
   var assinantes=asgSignersDoc(dec,nomeAssina);
-  /* Mesmo encaixe elástico da Decisão: o fecho encolhe antes de descer de
-     página, para a assinatura não ficar sozinha na folha seguinte. */
   var fecho=asgFechoEncaixe(y,BOTTOM,assinantes.length);
   if(!fecho.cabe) newPage();
   y+=fecho.respiro;
@@ -10739,7 +9861,7 @@ function dilGerarPDF(dec){
     PW:PW,ML:ML,MR:MR,CW:CW,BOTTOM:BOTTOM,LH:LH,
     cNavy:cNavy,cMuted:cMuted,cText:cText,cBorder:cBorder,
     above:fecho.above, rowGap:fecho.rowGap,
-    y:y, semPendente:true,
+    y:y, semPendente:ehDil,
     requestPage:function(){ newPage(); return y; }
   });
 
@@ -10752,10 +9874,343 @@ function dilGerarPDF(dec){
     doc.text("Página "+pg+" de "+total,PW-MR,PH-11.5,{align:"right"});
   }
 
-  var _slugDil=pdfSlugTitulo(dec.titulo);
-  var nome="Pedido Diligencia "+("00"+(parseInt(dec.numero,10)||0)).slice(-3)+" "+dec.ano+(_slugDil?" "+_slugDil:"")+".pdf";
+  var _slug=pdfSlugTitulo(dec.titulo);
+  var nome=(ehDil?"Pedido Diligencia ":"Decisao Pregoeiro ")
+    +("00"+(parseInt(dec.numero,10)||0)).slice(-3)+" "+dec.ano+(_slug?" "+_slug:"")+".pdf";
   doc.save(nome); toast("PDF gerado: "+nome);
 }
+function decGerarPDF(dec){ pdfGerarDocumento(dec,"dec"); }
+
+
+/* ── Integração futura com IA (segura, sem chave no HTML) ───────────────── */
+function decEstruturarComIA(){
+  if(!DEC_IA_ENDPOINT){
+    alert("Integração com IA ainda não configurada.\n\nNesta versão, o sistema estrutura o texto com o formatador interno (títulos, subtítulos, listas e citações são reconhecidos automaticamente).\n\nPara ativar a IA com segurança, configure um backend intermediário e informe a URL na constante DEC_IA_ENDPOINT.");
+    return;
+  }
+  var ta=document.getElementById("decTexto");
+  if(!ta.value.trim()){ alert("Cole primeiro o texto bruto."); return; }
+  var btn=document.getElementById("decBtnIA");
+  btn.disabled=true; btn.textContent="Estruturando...";
+  fetch(DEC_IA_ENDPOINT,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({texto:ta.value})
+  }).then(function(r){
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return r.json();
+  }).then(function(j){
+    if(j&&j.texto){ ta.value=j.texto; if(decPreviewAberto) decAtualizarPreview(); toast("Texto estruturado pela IA."); }
+    else throw new Error("Resposta inválida do servidor.");
+  }).catch(function(e){
+    alert("Falha ao estruturar com IA: "+e.message);
+  }).finally(function(){
+    btn.disabled=false; btn.innerHTML="&#10024; Estruturar com IA";
+  });
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PEDIDOS DE DILIGÊNCIA
+   Registro, organização e geração de pedidos de diligência vinculados aos
+   processos licitatórios. Numeração sequencial por ano (ex: 001/2026).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Endpoint seguro de IA (deixe vazio na 1ª versão).
+   IMPORTANTE: nunca coloque chave de API aqui. Quando existir um backend
+   intermediário (Cloud Function / Cloudflare Worker) que guarde a chave,
+   informe a URL dele abaixo e o botão "Estruturar com IA" aparece sozinho.
+   O backend deve receber POST JSON {texto:"..."} e responder {texto:"..."}. */
+var DIL_IA_ENDPOINT = "";
+
+var diligenciasList = [];
+var editandoDilId = null;
+var dilSectionOpen = true;
+var dilPreviewAberto = false;
+
+var DIL_TIPOS = {
+  impugnacao:    "Impugnação",
+  esclarecimento:"Esclarecimento",
+  recurso:       "Recurso",
+  diligencia:    "Diligência",
+  habilitacao:   "Habilitação / Inabilitação",
+  adjudicacao:   "Adjudicação",
+  outro:         "Outro"
+};
+var DIL_RESULTADOS = {
+  procedente:    "Procedente",
+  parcial:       "Parcialmente Procedente",
+  improcedente:  "Improcedente",
+  nao_conhecido: "Não Conhecido",
+  prejudicado:   "Prejudicado",
+  outro:         "Outro"
+};
+function dilResultadoCls(r){
+  if(r==="procedente") return "dil-tag-res-procedente";
+  if(r==="improcedente") return "dil-tag-res-improcedente";
+  if(r==="parcial") return "dil-tag-res-parcial";
+  return "dil-tag-res-outro";
+}
+
+/* ── Tempo real (Firestore) ─────────────────────────────────────────────── */
+dilColRef.onSnapshot(function(snap){
+  diligenciasList = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
+    .sort(function(a,b){
+      if(String(a.ano)!==String(b.ano)) return String(b.ano).localeCompare(String(a.ano));
+      return (parseInt(b.numero,10)||0)-(parseInt(a.numero,10)||0);
+    });
+  dilRenderFiltros();
+  dilRender();
+}, function(err){ console.error("Diligencias err:", err); });
+
+function abrirPainelDil(){ document.getElementById("painelDil").classList.add("open"); }
+function fecharPainelDil(){ document.getElementById("painelDil").classList.remove("open"); }
+
+/* ── Filtros ────────────────────────────────────────────────────────────── */
+function dilRenderFiltros(){
+  var selAno=document.getElementById("dilFiltroAno");
+  var selTipo=document.getElementById("dilFiltroTipo");
+  var selRes=document.getElementById("dilFiltroResultado");
+  if(!selAno||!selTipo||!selRes) return;
+  var anoAtual=selAno.value, tipoAtual=selTipo.value, resAtual=selRes.value;
+  var anos={};
+  diligenciasList.forEach(function(d){ if(d.ano) anos[d.ano]=true; });
+  var listaAnos=Object.keys(anos).sort().reverse();
+  var html='<option value="todos">Todos</option>';
+  listaAnos.forEach(function(a){ html+='<option value="'+escHtml(a)+'">'+escHtml(a)+'</option>'; });
+  selAno.innerHTML=html;
+  if(listaAnos.indexOf(anoAtual)>=0) selAno.value=anoAtual;
+  html='<option value="todos">Todos</option>';
+  Object.keys(DIL_TIPOS).forEach(function(k){ html+='<option value="'+k+'">'+DIL_TIPOS[k]+'</option>'; });
+  selTipo.innerHTML=html;
+  if(DIL_TIPOS[tipoAtual]) selTipo.value=tipoAtual;
+  html='<option value="todos">Todos</option>';
+  Object.keys(DIL_RESULTADOS).forEach(function(k){ html+='<option value="'+k+'">'+DIL_RESULTADOS[k]+'</option>'; });
+  selRes.innerHTML=html;
+  if(DIL_RESULTADOS[resAtual]) selRes.value=resAtual;
+}
+
+/* ── Render dos cards ───────────────────────────────────────────────────── */
+function dilRender(){
+  var el=document.getElementById("dilGrid"); if(!el) return;
+  var badge=document.getElementById("dilBadge");
+  var busca=(document.getElementById("dilFiltroBusca")||{value:""}).value.toLowerCase().trim();
+  var fAno=(document.getElementById("dilFiltroAno")||{value:"todos"}).value;
+  var fTipo=(document.getElementById("dilFiltroTipo")||{value:"todos"}).value;
+  var fRes=(document.getElementById("dilFiltroResultado")||{value:"todos"}).value;
+  var lista=diligenciasList.filter(function(d){
+    if(fAno!=="todos"&&String(d.ano)!==String(fAno)) return false;
+    if(fTipo!=="todos"&&d.tipo!==fTipo) return false;
+    if(fRes!=="todos"&&d.resultado!==fRes) return false;
+    if(busca){
+      var txt=(pdfFmtNum(d)+" "+(d.titulo||"")+" "+(d.processoNumero||"")).toLowerCase();
+      if(!txt.includes(busca)) return false;
+    }
+    return true;
+  });
+  if(badge) badge.textContent=diligenciasList.length;
+  if(!lista.length){
+    el.innerHTML='<div style="grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;padding:20px;font-style:italic">'
+      +(diligenciasList.length?'Nenhum pedido corresponde aos filtros.':'Nenhum pedido de diligência cadastrado.')+'</div>';
+    return;
+  }
+  var html="";
+  for(var i=0;i<lista.length;i++){
+    var d=lista[i];
+    html+='<div class="dil-card">';
+    html+='<div class="dil-card-num">&#128269; Pedido de Diligência nº '+escHtml(pdfFmtNum(d))+'</div>';
+    if(d.titulo) html+='<div class="dil-card-title">'+escHtml(d.titulo)+'</div>';
+    html+='<div class="dil-card-meta">';
+    if(d.processoNumero) html+='<span class="dil-tag dil-tag-proc">'+escHtml(d.processoNumero)+'</span>';
+    html+='<span class="dil-tag dil-tag-tipo">'+escHtml(DIL_TIPOS[d.tipo]||d.tipo||"")+'</span>';
+    if(d.resultado) html+='<span class="dil-tag '+dilResultadoCls(d.resultado)+'">'+escHtml(DIL_RESULTADOS[d.resultado]||d.resultado)+'</span>';
+    if(d.dataDecisao) html+='<span class="dil-tag dil-tag-data">&#128198; '+formatarData(d.dataDecisao)+'</span>';
+    html+='</div>';
+    if(d.agente) html+='<div style="font-size:11.5px;color:var(--muted)">Pregoeiro(a): <b style="color:var(--navy)">'+escHtml(d.agente)+'</b></div>';
+    html+='<div class="dil-card-footer">';
+    html+='<button class="imp-btn" onclick="editarDil(\''+escHtml(d.id)+'\')">&#9998; Editar</button>';
+    html+='<button class="imp-btn" onclick="abrirDocumentoEditor(\'dil\',\''+escHtml(d.id)+'\')" title="Abrir o documento numa folha A4 para escrever, destacar e revisar — salva sozinho">&#128221; Documento</button>';
+    html+='<button class="imp-btn pdf-view" onclick="dilGerarPDFById(\''+escHtml(d.id)+'\')">&#128438; PDF</button>';
+    html+='</div></div>';
+  }
+  el.innerHTML=html;
+}
+
+/* ── Modal ──────────────────────────────────────────────────────────────── */
+function dilPopularSelects(){
+  var sel=document.getElementById("dilAgente");
+  var atual=sel.value;
+  var html='<option value="">-- Selecione --</option>';
+  agentes.forEach(function(a){ html+='<option value="'+escHtml(a.nomeAbrev)+'">'+escHtml(a.nomeAbrev)+'</option>'; });
+  sel.innerHTML=html;
+  if(atual) sel.value=atual;
+  procPopularTipos("dil");
+}
+function dilSugerirNumero(){
+  if(editandoDilId) return;
+  var ano=String(document.getElementById("dilAno").value||"").trim();
+  var max=0;
+  diligenciasList.forEach(function(d){
+    if(String(d.ano)===ano){ var n=parseInt(d.numero,10)||0; if(n>max) max=n; }
+  });
+  document.getElementById("dilNumero").value=max+1;
+}
+function abrirModalDil(){
+  editandoDilId=null;
+  document.getElementById("modalDilTitulo").textContent="Novo Pedido de Diligência";
+  document.getElementById("btnExcluirDil").style.display="none";
+  ["dilTitulo","dilTexto"].forEach(function(id){ document.getElementById(id).value=""; });
+  procEscrever("dil","",new Date().getFullYear());
+  document.getElementById("dilTipo").value="impugnacao";
+  document.getElementById("dilResultado").value="procedente";
+  document.getElementById("dilData").value=hoje();
+  document.getElementById("dilAno").value=new Date().getFullYear();
+  dilPopularSelects();
+  document.getElementById("dilAgente").value="";
+  dilSugerirNumero();
+  asgEditInit("dil", null, document.getElementById("dilAgente").value);
+  dilPreviewAberto=false;
+  document.getElementById("dilPreview").style.display="none";
+  document.getElementById("dilBtnIA").style.display = DIL_IA_ENDPOINT ? "inline-block" : "none";
+  document.getElementById("modalDil").classList.add("open");
+}
+function editarDil(id){
+  var d=diligenciasList.find(function(x){ return x.id===id; });
+  if(!d) return;
+  editandoDilId=id;
+  document.getElementById("modalDilTitulo").textContent="Editar Pedido de Diligência nº "+pdfFmtNum(d);
+  document.getElementById("btnExcluirDil").style.display="inline-block";
+  dilPopularSelects();
+  document.getElementById("dilNumero").value=d.numero||"";
+  document.getElementById("dilAno").value=d.ano||new Date().getFullYear();
+  document.getElementById("dilData").value=d.dataDecisao||"";
+  document.getElementById("dilTitulo").value=d.titulo||"";
+  procEscrever("dil", d.processoNumero||"");
+  document.getElementById("dilAgente").value=d.agente||"";
+  document.getElementById("dilTipo").value=DIL_TIPOS[d.tipo]?d.tipo:"outro";
+  document.getElementById("dilResultado").value=DIL_RESULTADOS[d.resultado]?d.resultado:"outro";
+  document.getElementById("dilTexto").value=d.texto||"";
+  asgEditInit("dil", d, d.agente);
+  dilPreviewAberto=false;
+  document.getElementById("dilPreview").style.display="none";
+  document.getElementById("dilBtnIA").style.display = DIL_IA_ENDPOINT ? "inline-block" : "none";
+  document.getElementById("modalDil").classList.add("open");
+}
+function fecharModalDil(){
+  document.getElementById("modalDil").classList.remove("open");
+  editandoDilId=null;
+}
+function salvarDil(){
+  var btn=document.getElementById("btnSalvarDil");
+  var numero=parseInt(document.getElementById("dilNumero").value,10);
+  var ano=String(document.getElementById("dilAno").value||"").trim();
+  var titulo=document.getElementById("dilTitulo").value.trim();
+  var texto=document.getElementById("dilTexto").value;
+  if(!numero||numero<1){ alert("Informe o número do pedido."); return; }
+  if(!/^\d{4}$/.test(ano)){ alert("Informe um ano válido (ex: 2026)."); return; }
+  if(!titulo){ alert("Informe o título / assunto do pedido."); return; }
+  if(!texto.trim()){ alert("Informe o texto do pedido."); return; }
+  var duplicada=diligenciasList.find(function(d){
+    return d.id!==editandoDilId && String(d.ano)===ano && (parseInt(d.numero,10)||0)===numero;
+  });
+  if(duplicada && !confirm("Já existe o Pedido de Diligência nº "+pdfFmtNum(duplicada)+". Salvar mesmo assim com número repetido?")) return;
+  btn.disabled=true; btn.textContent="Salvando...";
+  var ts=firebase.firestore.FieldValue.serverTimestamp();
+  var data={
+    numero:numero,
+    ano:ano,
+    titulo:titulo,
+    processoNumero:procLer("dil"),
+    agente:document.getElementById("dilAgente").value,
+    tipo:document.getElementById("dilTipo").value,
+    resultado:document.getElementById("dilResultado").value,
+    dataDecisao:document.getElementById("dilData").value,
+    assinantes:asgMergeForSave("dil", editandoDilId?diligenciasList.find(function(x){return x.id===editandoDilId;}):null),
+    texto:texto,
+    updatedAt:ts
+  };
+  var op=editandoDilId
+    ? dilColRef.doc(editandoDilId).set(data,{merge:true})
+    : dilColRef.add(Object.assign({createdAt:ts},data));
+  op.then(function(){ toast(editandoDilId?"Pedido atualizado!":"Pedido registrado!"); fecharModalDil(); })
+    .catch(function(e){ alert("Erro ao salvar pedido: "+e.message); })
+    .finally(function(){ btn.disabled=false; btn.textContent="Salvar Pedido"; });
+}
+function excluirDil(){
+  if(!editandoDilId) return;
+  var d=diligenciasList.find(function(x){ return x.id===editandoDilId; });
+  if(!confirm("Excluir definitivamente o Pedido de Diligência nº "+(d?pdfFmtNum(d):"")+"?")) return;
+  dilColRef.doc(editandoDilId).delete()
+    .then(function(){ toast("Pedido excluído."); fecharModalDil(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+
+/* ── Modelos internos ───────────────────────────────────────────────────── */
+function dilInserirModelo(tipo){
+  var ta=document.getElementById("dilTexto");
+  if(ta.value.trim() && !confirm("O texto atual será substituído pelo modelo. Continuar?")) return;
+  var proc=procLer("dil")||"[NÚMERO DO PROCESSO]";
+  var corpo={
+    impugnacao:
+      "I. RELATÓRIO\n\nTrata-se de impugnação ao edital do "+proc+", apresentada por [NOME DA EMPRESA], "
+      +"recebida em [DATA], na qual a impugnante alega, em síntese, que [RESUMO DAS ALEGAÇÕES].\n\n"
+      +"A impugnação foi recebida tempestivamente, nos termos do art. 164 da Lei nº 14.133/2021 e do item [X] do edital.\n\n"
+      +"II. ANÁLISE E FUNDAMENTAÇÃO\n\n"
+      +"DA TEMPESTIVIDADE\n\n[Analisar a tempestividade.]\n\n"
+      +"DO MÉRITO\n\n[Analisar ponto a ponto as alegações, com fundamento no edital, na Lei nº 14.133/2021 e na jurisprudência aplicável.]\n\n"
+      +"III. DECISÃO\n\nDiante do exposto, CONHEÇO da impugnação apresentada para, no mérito, julgá-la [PROCEDENTE / PARCIALMENTE PROCEDENTE / IMPROCEDENTE], pelos fundamentos acima, [mantendo / retificando] os termos do edital.\n\n"
+      +"Publique-se. Comunique-se à impugnante.",
+    esclarecimento:
+      "I. RELATÓRIO\n\nTrata-se de pedido de esclarecimento referente ao "+proc+", formulado por [NOME DA EMPRESA] em [DATA], questionando, em síntese: [RESUMO DOS QUESTIONAMENTOS].\n\n"
+      +"II. RESPOSTA\n\nQUESTIONAMENTO 1\n\n[Transcrever a pergunta.]\n\nRESPOSTA: [Responder objetivamente, indicando o item do edital aplicável.]\n\n"
+      +"III. CONCLUSÃO\n\nFicam prestados os esclarecimentos acima, que passam a integrar o processo licitatório para todos os efeitos, mantendo-se inalteradas as demais condições do edital.",
+    recurso:
+      "I. RELATÓRIO\n\nTrata-se de recurso administrativo interposto por [NOME DA EMPRESA] no âmbito do "+proc+", contra [ATO RECORRIDO], com fundamento no art. 165 da Lei nº 14.133/2021.\n\n"
+      +"Devidamente intimadas, as demais licitantes [apresentaram / não apresentaram] contrarrazões.\n\n"
+      +"II. ANÁLISE E FUNDAMENTAÇÃO\n\nDA ADMISSIBILIDADE\n\n[Analisar tempestividade e legitimidade.]\n\n"
+      +"DO MÉRITO\n\n[Analisar as razões recursais e as contrarrazões.]\n\n"
+      +"III. DECISÃO\n\nDiante do exposto, CONHEÇO do recurso para, no mérito, [NEGAR-LHE / DAR-LHE] PROVIMENTO, [mantendo / reformando] a decisão recorrida.\n\n"
+      +"Caso mantida a decisão, encaminhem-se os autos à autoridade superior, nos termos do art. 165, § 2º, da Lei nº 14.133/2021.",
+    diligencia:
+      "I. RELATÓRIO\n\nNo curso do "+proc+", verificou-se a necessidade de esclarecer [PONTO OBJETO DA DILIGÊNCIA] em relação à proposta/documentação da empresa [NOME DA EMPRESA].\n\n"
+      +"II. FUNDAMENTAÇÃO\n\nNos termos do art. 64 da Lei nº 14.133/2021 e do item [X] do edital, é facultada a realização de diligência destinada a esclarecer ou complementar a instrução do processo, vedada a inclusão posterior de documento que deveria constar originariamente da proposta.\n\n"
+      +"III. DECISÃO\n\nDETERMINO a realização de diligência junto à empresa [NOME DA EMPRESA], para que, no prazo de [PRAZO], apresente/esclareça: [LISTAR].\n\n"
+      +"O não atendimento no prazo assinalado poderá ensejar [CONSEQUÊNCIA].",
+    habilitacao:
+      "I. RELATÓRIO\n\nConcluída a fase de julgamento das propostas do "+proc+", procedeu-se à análise dos documentos de habilitação da empresa [NOME DA EMPRESA], primeira classificada para o(s) item(ns) [ITENS].\n\n"
+      +"II. ANÁLISE E FUNDAMENTAÇÃO\n\nDA HABILITAÇÃO JURÍDICA\n\n[Analisar.]\n\nDA REGULARIDADE FISCAL E TRABALHISTA\n\n[Analisar.]\n\n"
+      +"DA QUALIFICAÇÃO ECONÔMICO-FINANCEIRA\n\n[Analisar.]\n\nDA QUALIFICAÇÃO TÉCNICA\n\n[Analisar.]\n\n"
+      +"III. DECISÃO\n\nDiante do exposto, DECLARO [HABILITADA / INABILITADA] a empresa [NOME DA EMPRESA] no certame em referência, pelos fundamentos acima expostos."
+  };
+  ta.value=corpo[tipo]||"";
+  if(dilPreviewAberto) dilAtualizarPreview();
+  toast("Modelo inserido. Ajuste os campos entre colchetes.");
+}
+
+/* ── Pré-visualização no modal ──────────────────────────────────────────── */
+function dilTogglePreview(){
+  dilPreviewAberto=!dilPreviewAberto;
+  var el=document.getElementById("dilPreview");
+  el.style.display=dilPreviewAberto?"block":"none";
+  if(dilPreviewAberto) dilAtualizarPreview();
+}
+function dilAtualizarPreview(){
+  var el=document.getElementById("dilPreview");
+  var blocos=pdfParseBlocos(document.getElementById("dilTexto").value);
+  if(!blocos.length){ el.innerHTML='<i style="color:var(--muted)">Nada para pré-visualizar.</i>'; return; }
+  el.innerHTML=pdfBlocosHTML(blocos);
+}
+(function(){
+  var ta=document.getElementById("dilTexto");
+  if(ta) ta.addEventListener("input", function(){ if(dilPreviewAberto) dilAtualizarPreview(); });
+})();
+
+/* ── Geração do PDF (padrão visual do sistema) ──────────────────────────── */
+function dilGerarPDFById(id){
+  var d=diligenciasList.find(function(x){ return x.id===id; });
+  if(d) dilGerarPDF(d);
+}
+function dilGerarPDF(dec){ pdfGerarDocumento(dec,"dil"); }
 
 
 /* ── Integração futura com IA (segura, sem chave no HTML) ───────────────── */
@@ -11059,7 +10514,7 @@ function asgAssinaturasPDF(doc, o){
 
 /* ── Página de assinatura (?assinar=ID) ── */
 function asgTextoHTML(texto){
-  var blocos=(typeof decParseBlocos==="function")?decParseBlocos(texto||""):[];
+  var blocos=(typeof pdfParseBlocos==="function")?pdfParseBlocos(texto||""):[];
   return pdfBlocosHTML(blocos);
 }
 function asgMaskCpfInput(el){
