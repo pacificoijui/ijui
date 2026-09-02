@@ -552,6 +552,7 @@
   #vencSharedPanel{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;
     font-family:'Sora',system-ui,sans-serif;background:#eef1f6;-webkit-text-size-adjust:100%;
     overscroll-behavior:none}
+  .vcs-scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none}
   .vcs-header{background:#0d2b6b;color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));
     display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 2px 10px rgba(8,28,82,.25)}
   .vcs-logo{height:30px;width:auto;flex-shrink:0}
@@ -573,7 +574,7 @@
   .vcs-search{width:100%;border:1.5px solid #d3dbeb;border-radius:11px;padding:11px 13px;font-size:16px;
     font-family:inherit;color:#101a33;background:#f7f9fd;-webkit-appearance:none}
   .vcs-search:focus{outline:none;border-color:#1440A8;background:#fff}
-  .vcs-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 12px 18px}
+  .vcs-body{padding:12px 12px 18px}
   .vcs-msg{text-align:center;color:#6b7899;font-size:13.5px;padding:38px 18px;line-height:1.5}
   .vcs-emp{background:#fff;border:1px solid #dbe2f0;border-radius:14px;margin-bottom:11px;overflow:hidden;
     box-shadow:0 1px 3px rgba(16,32,64,.06)}
@@ -688,6 +689,20 @@
   .venc-nota{font-size:11px;color:#A32D2D;text-align:right;padding:4px}
   .venc-search{width:100%;max-width:320px;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-size:13px;font-family:'Sora',system-ui,sans-serif;outline:none;margin-bottom:14px}
   .venc-search:focus{border-color:#1a3a6b}
+  /* Itens do vencedor: mesma frase corrida do link da secretaria ("marca X,
+     modelo Y, pelo valor unitário de R$ Z"), em vez da tabela de 7 colunas —
+     que exigia rolagem lateral e ficava ilegível no celular. */
+  .venc-itens{border-top:1px solid var(--border)}
+  .venc-item{padding:11px 14px;border-bottom:1px solid var(--border)}
+  .venc-item:last-child{border-bottom:none}
+  .venc-item-top{display:flex;gap:9px;align-items:flex-start}
+  .venc-item-num{background:var(--marinho);color:#fff;font-size:10.5px;font-weight:800;border-radius:6px;
+    padding:3px 7px;flex-shrink:0;min-width:30px;text-align:center}
+  .venc-item-desc{flex:1;font-size:12.5px;color:var(--text);line-height:1.42;word-break:break-word}
+  .venc-item-frase{margin:8px 0 0 39px;font-size:12.5px;color:var(--muted);line-height:1.6;word-break:break-word}
+  .venc-item-frase b{color:var(--marinho);font-weight:800}
+  .venc-item-frase b.money{color:var(--verde-2)}
+  .venc-item-qtd{color:var(--muted)}
   .hab-info-row{font-size:12px;color:#666;margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
   .hab-info-row b{color:#333}
   .hab-btns{display:flex;gap:10px}
@@ -1439,18 +1454,6 @@
   .rk-modo-btn.active{background:#fff;color:var(--marinho);box-shadow:0 1px 4px rgba(8,28,82,.12)}
 
   /* ── Tabela de Vencedores: colunas equilibradas + paleta das etnias ── */
-  .venc-tbl{table-layout:fixed}
-  .venc-tbl th{background:linear-gradient(120deg,var(--marinho),var(--real))!important;color:#fff;border-color:rgba(255,255,255,.18)!important;letter-spacing:.2px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .venc-tbl td{white-space:normal;word-break:break-word;vertical-align:top;color:var(--text)}
-  .venc-tbl td.r{white-space:nowrap}
-  .venc-tbl td:first-child{min-width:0;max-width:none;width:7%;text-align:center;font-weight:800;color:var(--marinho);font-family:'Space Grotesk',monospace}
-  .venc-tbl th:nth-child(2),.venc-tbl td:nth-child(2){width:33%}
-  .venc-tbl th:nth-child(3),.venc-tbl td:nth-child(3),
-  .venc-tbl th:nth-child(4),.venc-tbl td:nth-child(4){width:14%}
-  .venc-tbl th:nth-child(5),.venc-tbl td:nth-child(5){width:9%}
-  .venc-tbl th:nth-child(6),.venc-tbl td:nth-child(6),
-  .venc-tbl th:nth-child(7),.venc-tbl td:nth-child(7){width:11.5%}
-  .venc-tbl tbody tr:nth-child(even) td{background:#F6F9FE}
   .venc-card{border:1px solid var(--border);box-shadow:var(--shadow);border-radius:12px}
   .venc-total-row{background:var(--green-bg);color:var(--verde-2);border-top:1px solid #cfe8d4}
   .venc-total-row span{color:var(--verde-2)}
@@ -2237,26 +2240,28 @@
   </div>
 </div>
 <div id="vencSharedPanel">
-  <div class="vcs-header">
-    <img class="vcs-logo" id="vcsLogo" src="" alt="Município de Ijuí">
-    <div class="vcs-hdiv"></div>
-    <div class="vcs-hinfo">
-      <div class="vcs-htitle">Vencedores do Processo</div>
-      <div class="vcs-hsub" id="vcsNumero">Carregando...</div>
-      <div class="vcs-hsub">Município de Ijuí — COPAM</div>
+  <div class="vcs-scroll">
+    <div class="vcs-header">
+      <img class="vcs-logo" id="vcsLogo" src="" alt="Município de Ijuí">
+      <div class="vcs-hdiv"></div>
+      <div class="vcs-hinfo">
+        <div class="vcs-htitle">Vencedores do Processo</div>
+        <div class="vcs-hsub" id="vcsNumero">Carregando...</div>
+        <div class="vcs-hsub">Município de Ijuí — COPAM</div>
+      </div>
     </div>
+    <div class="vcs-faixa"><i style="flex:14;background:#E3242B"></i><i style="flex:14;background:#F26B21"></i><i style="flex:14;background:#FFC20E"></i><i style="flex:16;background:#8CC63F"></i><i style="flex:14;background:#1E7A34"></i><i style="flex:14;background:#0B6E7F"></i><i style="flex:14;background:#1440A8"></i></div>
+    <div class="vcs-objeto" id="vcsObjeto" style="display:none"></div>
+    <div class="vcs-stats" id="vcsStats" style="display:none">
+      <div class="vcs-stat"><div class="n" id="vcsNEmp">0</div><div class="l">Empresas</div></div>
+      <div class="vcs-stat"><div class="n" id="vcsNItens">0</div><div class="l">Itens</div></div>
+      <div class="vcs-stat tot"><div class="n" id="vcsNTotal">—</div><div class="l">Valor</div></div>
+    </div>
+    <div class="vcs-searchwrap" id="vcsSearchWrap" style="display:none">
+      <input class="vcs-search" id="vcsBusca" type="search" placeholder="Buscar empresa, item ou marca..." autocomplete="off">
+    </div>
+    <div class="vcs-body" id="vcsBody"><div class="vcs-msg">Carregando vencedores...</div></div>
   </div>
-  <div class="vcs-faixa"><i style="flex:14;background:#E3242B"></i><i style="flex:14;background:#F26B21"></i><i style="flex:14;background:#FFC20E"></i><i style="flex:16;background:#8CC63F"></i><i style="flex:14;background:#1E7A34"></i><i style="flex:14;background:#0B6E7F"></i><i style="flex:14;background:#1440A8"></i></div>
-  <div class="vcs-objeto" id="vcsObjeto" style="display:none"></div>
-  <div class="vcs-stats" id="vcsStats" style="display:none">
-    <div class="vcs-stat"><div class="n" id="vcsNEmp">0</div><div class="l">Empresas</div></div>
-    <div class="vcs-stat"><div class="n" id="vcsNItens">0</div><div class="l">Itens</div></div>
-    <div class="vcs-stat tot"><div class="n" id="vcsNTotal">—</div><div class="l">Valor</div></div>
-  </div>
-  <div class="vcs-searchwrap" id="vcsSearchWrap" style="display:none">
-    <input class="vcs-search" id="vcsBusca" type="search" placeholder="Buscar empresa, item ou marca..." autocomplete="off">
-  </div>
-  <div class="vcs-body" id="vcsBody"><div class="vcs-msg">Carregando vencedores...</div></div>
   <div class="vcs-footer" id="vcsFooter" style="display:none">
     <div class="vcs-ftot"><div class="k">Valor total do processo</div><div class="v" id="vcsTotalGeral">R$ 0,00</div></div>
     <button class="vcs-share" id="vcsShare">&#128257; Compartilhar</button>
@@ -5774,6 +5779,23 @@ function vencFmtBRL(n){
 function vencFmtNum(n){
   return n.toLocaleString('pt-BR');
 }
+/* Frase corrida por item: "marca X, modelo Y, pelo valor unitário de R$ Z
+   (qtde · total)" — lê-se de uma vez, sem caçar dado em caixinha. Usada tanto
+   aqui no painel interno quanto na página pública ?venc=, para as duas telas
+   mostrarem exatamente a mesma coisa. */
+function vencFraseItem(it, prefixoCss){
+  prefixoCss=prefixoCss||'vcs';
+  var abre=[];
+  if(it.marca)  abre.push('marca <b>'+escHtml(it.marca)+'</b>');
+  if(it.modelo) abre.push('modelo <b>'+escHtml(it.modelo)+'</b>');
+  var frase=abre.length ? (abre[0].charAt(0).toUpperCase()+abre[0].slice(1)+(abre[1]?', '+abre[1]:'')+', ') : '';
+  frase+='pelo valor unitário de <b class="money">R$ '+vencFmtBRL(it.valorUnit)+'</b>';
+  if(it.qtde!==null){
+    frase+=' <span class="'+prefixoCss+'-item-qtd">('+escHtml(vencFmtNum(it.qtde))+(it.unidade?' '+escHtml(it.unidade):'')
+         +(it.valorTotal!==null?' · total <b class="money">R$ '+vencFmtBRL(it.valorTotal)+'</b>':'')+')</span>';
+  }
+  return frase;
+}
 function habKeyEmpresaVenc(nome){ return habKeyEmpresa(nome); }
 
 /* Deriva a lista de empresas vencedoras com o detalhe completo dos itens
@@ -5881,14 +5903,19 @@ function vencRenderLista(){
       if(e.telefone) meta.push('Telefone: '+escHtml(e.telefone));
       if(meta.length) html+='<div class="venc-head-meta">'+meta.join(' &middot; ')+'</div>';
       html+='</div>';
-      html+='<div class="rk-table-scroll"><table class="rk-table venc-tbl"><thead><tr><th>Código</th><th>Produto</th><th>Modelo</th><th>Marca/Fabricante</th><th class="r">Qtde</th><th class="r">Valor Unit.</th><th class="r">Valor Total</th></tr></thead><tbody>';
+      /* Mesma frase corrida da página pública (?venc=), em vez da tabela de 7
+         colunas — que só coube com rolagem lateral e ficava ilegível no
+         celular ("TANQ UINHO 10KG..."). Itens sempre visíveis, sem clique
+         extra pra abrir. */
+      html+='<div class="venc-itens">';
       e.itens.forEach(function(it){
-        html+='<tr class="neutro"><td data-label="Código">'+escHtml(it.num)+'</td><td data-label="Produto">'+escHtml(it.desc)+'</td><td data-label="Modelo">'+escHtml(it.modelo)+'</td><td data-label="Marca/Fabricante">'+escHtml(it.marca)+'</td>'
-          +'<td class="r" data-label="Qtde">'+(it.qtde!==null?vencFmtNum(it.qtde)+(it.unidade?' '+escHtml(it.unidade):''):'—')+'</td>'
-          +'<td class="r" data-label="Valor Unit.">R$ '+vencFmtBRL(it.valorUnit)+'</td>'
-          +'<td class="r" data-label="Valor Total">'+(it.valorTotal!==null?'R$ '+vencFmtBRL(it.valorTotal):'—')+'</td></tr>';
+        html+='<div class="venc-item">';
+        html+='<div class="venc-item-top"><div class="venc-item-num">'+escHtml(it.num)+'</div>'
+             +'<div class="venc-item-desc">'+escHtml(it.desc)+'</div></div>';
+        html+='<div class="venc-item-frase">'+vencFraseItem(it,'venc')+'</div>';
+        html+='</div>';
       });
-      html+='</tbody></table></div>';
+      html+='</div>';
       html+='<div class="venc-total-row">TOTAL DO VENCEDOR&nbsp; <span>R$ '+vencFmtBRL(e.total)+'</span></div>';
       html+='</div>';
     });
@@ -11164,20 +11191,7 @@ function usuariosExcluir(id, usuario, total){
       body.innerHTML='<div class="vcs-msg">Nenhum resultado para “'+escHtml(busca)+'”.</div>';
       return;
     }
-    /* Frase corrida por item: "marca X, modelo Y, pelo valor unitário de
-       R$ Z (qtde · total)" — lê-se de uma vez, sem caçar dado em caixinha. */
-    function fraseItem(it){
-      var abre=[];
-      if(it.marca)  abre.push('marca <b>'+escHtml(it.marca)+'</b>');
-      if(it.modelo) abre.push('modelo <b>'+escHtml(it.modelo)+'</b>');
-      var frase=abre.length ? (abre[0].charAt(0).toUpperCase()+abre[0].slice(1)+(abre[1]?', '+abre[1]:'')+', ') : '';
-      frase+='pelo valor unitário de <b class="money">R$ '+vencFmtBRL(it.valorUnit)+'</b>';
-      if(it.qtde!==null){
-        frase+=' <span class="vcs-item-qtd">('+escHtml(vencFmtNum(it.qtde))+(it.unidade?' '+escHtml(it.unidade):'')
-             +(it.valorTotal!==null?' · total <b class="money">R$ '+vencFmtBRL(it.valorTotal)+'</b>':'')+')</span>';
-      }
-      return frase;
-    }
+
 
     var html='';
     lista.forEach(function(e){
@@ -11199,7 +11213,7 @@ function usuariosExcluir(id, usuario, total){
         html+='<div class="vcs-item">';
         html+='<div class="vcs-item-top"><div class="vcs-item-num">'+escHtml(it.num)+'</div>'
              +'<div class="vcs-item-desc">'+escHtml(it.desc)+'</div></div>';
-        html+='<div class="vcs-item-frase">'+fraseItem(it)+'</div>';
+        html+='<div class="vcs-item-frase">'+vencFraseItem(it)+'</div>';
         html+='</div>';
       });
       html+='</div>';

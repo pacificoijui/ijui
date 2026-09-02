@@ -52,6 +52,8 @@ rede.
 | `t-hab-doc-recusado-nao-desclassifica.js` | recusar 1 documento não desclassifica o ranking sozinho |
 | `t-hab-desfazer-inabilitacao.js` | desfazer a inabilitação devolve as propostas |
 | `t-venc-sempre-aberto.js` | tela pública de Vencedores: itens abertos, frase legível |
+| `t-venc-rolagem-unificada.js` | link da secretaria: o topo rola junto, só o rodapé é fixo |
+| `t-venc-painel-interno.js` | painel interno de Vencedores: mesma frase legível, sem tabela |
 | `t-editar-valor-forn.js` | edição de Valor/Modelo/Marca na colocação |
 | `t-editar-atalho-status.js` | edição dos botões de mensagem rápida |
 | `t-pdf-cabecalho-enxuto.js` | cabeçalho do PDF de Decisão/Diligência |
