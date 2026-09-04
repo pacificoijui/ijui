@@ -1665,6 +1665,7 @@
             <option value="todos">Todos</option>
             <option value="Pregão">Pregão</option>
             <option value="Concorrência">Concorrência</option>
+            <option value="Dispensa">Dispensa</option>
           </select>
         </div>
         <div class="filtro-campo cf-num">
@@ -2129,6 +2130,11 @@
         profissional (objeto, datas, dura&ccedil;&atilde;o e link do portal) para todos os destinat&aacute;rios abaixo.
       </div>
 
+      <div style="background:#fff8ec;border:1.5px solid #f0dca3;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#7a5b00;line-height:1.5">
+        Quando um <b>novo processo for cadastrado</b> na Agenda, o sistema tamb&eacute;m pode enviar automaticamente um
+        e-mail de <b>Edital Publicado</b> (objeto, abertura do certame e link do portal) para os mesmos destinat&aacute;rios.
+      </div>
+
       <!-- Configuracao Google Apps Script -->
       <div style="background:#f0f4fb;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;border:1.5px solid var(--border)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -2157,6 +2163,10 @@
         <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;user-select:none">
           <input type="checkbox" id="emCfgAuto" checked style="width:16px;height:16px;accent-color:var(--green)">
           Disparar automaticamente ao marcar o processo como <b>Conclu&iacute;do</b>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);cursor:pointer;user-select:none">
+          <input type="checkbox" id="emCfgAutoPub" checked style="width:16px;height:16px;accent-color:var(--gold)">
+          Disparar automaticamente ao <b>cadastrar um novo processo</b> na Agenda (Edital Publicado)
         </label>
       </div>
 
@@ -2287,6 +2297,7 @@
           <option value="todos">Todos</option>
           <option value="Pregão">Pregão</option>
           <option value="Concorrência">Concorrência</option>
+          <option value="Dispensa">Dispensa</option>
         </select>
       </div>
       <div class="filtro-campo cf-num">
@@ -2934,13 +2945,14 @@ function copiarFallbackWa(txt,ok,falhou){
    Configuração (credenciais + destinatários) fica na coleção "email_config",
    doc "config", compartilhada entre todos os usuários do sistema.            */
 var emailCfgRef = db.collection("email_config").doc("config");
-var emailCfg = {webAppUrl:"", token:"", auto:true, destinatarios:[]};
+var emailCfg = {webAppUrl:"", token:"", auto:true, autoPublicacao:true, destinatarios:[]};
 var emDestTemp = [];
 emailCfgRef.onSnapshot(function(doc){
   if(doc.exists){
     var d=doc.data()||{};
     emailCfg={webAppUrl:d.webAppUrl||"", token:d.token||"",
-              auto:(d.auto!==false), destinatarios:Array.isArray(d.destinatarios)?d.destinatarios:[]};
+              auto:(d.auto!==false), autoPublicacao:(d.autoPublicacao!==false),
+              destinatarios:Array.isArray(d.destinatarios)?d.destinatarios:[]};
   }
   var m=document.getElementById("modalEmail");
   if(m && m.classList.contains("open")) emailPreencherForm();
@@ -2993,6 +3005,7 @@ function emailPreencherForm(){
   document.getElementById("emCfgUrl").value=emailCfg.webAppUrl||"";
   document.getElementById("emCfgToken").value=emailCfg.token||"";
   document.getElementById("emCfgAuto").checked=(emailCfg.auto!==false);
+  document.getElementById("emCfgAutoPub").checked=(emailCfg.autoPublicacao!==false);
   emDestTemp=(emailCfg.destinatarios||[]).map(function(d){return {nome:d.nome||"",email:d.email||""};});
   emailRenderDest();
 }
@@ -3031,6 +3044,7 @@ function emailLerForm(){
     webAppUrl:document.getElementById("emCfgUrl").value.trim(),
     token:document.getElementById("emCfgToken").value.trim(),
     auto:document.getElementById("emCfgAuto").checked,
+    autoPublicacao:document.getElementById("emCfgAutoPub").checked,
     destinatarios:emDestTemp.slice()
   };
 }
@@ -3330,6 +3344,7 @@ function tipoLicitacao(numero){
   var n=(numero||"").toString().trim().toUpperCase();
   if(/^(RP\s*PE|RPPE|RPE)\b/.test(n) || /^PE\b/.test(n) || /PREG/.test(n)) return "Pregão";
   if(/^(CC|CONC)/.test(n) || /CONCORR/.test(n)) return "Concorrência";
+  if(/^DE\b/.test(n) || /DISPENS/.test(n)) return "Dispensa";
   return ""; /* desconhecido: mantém o número como está */
 }
 /* Extrai só a sequência/ano (ex: "PE 75/2026 - PEDRO" -> "75/2026") */

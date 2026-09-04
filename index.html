@@ -29,6 +29,19 @@
   const db        = firebase.firestore();
   const colRef    = db.collection("processos");
   const agColRef  = db.collection("agentes");
+
+  /* Config do e-mail automático "Edital Publicado" (compartilhada com o
+     sistema interno em pregoeiro/index.html, mesma coleção/doc). */
+  var emailCfgRef = db.collection("email_config").doc("config");
+  var emailCfg = {webAppUrl:"", token:"", autoPublicacao:true, destinatarios:[]};
+  emailCfgRef.onSnapshot(function(doc){
+    if(doc.exists){
+      var d=doc.data()||{};
+      emailCfg={webAppUrl:d.webAppUrl||"", token:d.token||"",
+                autoPublicacao:(d.autoPublicacao!==false),
+                destinatarios:Array.isArray(d.destinatarios)?d.destinatarios:[]};
+    }
+  }, function(err){ console.warn("email_config: sem permissão de leitura ("+err.message+")"); });
 </script>
 
 <style>
@@ -791,6 +804,7 @@
             <option value="todos">Todos</option>
             <option value="Preg&atilde;o">Preg&atilde;o</option>
             <option value="Concorr&ecirc;ncia">Concorr&ecirc;ncia</option>
+            <option value="Dispensa">Dispensa</option>
           </select>
         </div>
         <div class="ag-filtro-campo">
@@ -854,6 +868,7 @@
           <select id="cTipo">
             <option value="Pregão">Pregão</option>
             <option value="Concorrência">Concorrência</option>
+            <option value="Dispensa">Dispensa</option>
           </select>
         </div>
         <div class="field">
@@ -1218,6 +1233,7 @@ function tipoLicitacao(numero){
   var n=(numero||"").toString().trim().toUpperCase();
   if(/^(RP\s*PE|RPPE|RPE)\b/.test(n) || /^PE\b/.test(n) || /PREG/.test(n)) return "Pregão";
   if(/^(CC|CONC)/.test(n) || /CONCORR/.test(n)) return "Concorrência";
+  if(/^DE\b/.test(n) || /DISPENS/.test(n)) return "Dispensa";
   return ""; /* desconhecido */
 }
 /* Extrai apenas o número/sequência (ex: "PE 45/2026" -> "45/2026") */
@@ -2384,6 +2400,16 @@ function _portalHorario(txt){
   if(h<0) h+=24;
   return ("0"+h).slice(-2)+":"+m[2];
 }
+/* Fallback genérico: procura a 1ª linha cujo texto contenha alguma das
+   palavras-chave (label de campo) e retorna o valor da linha seguinte.
+   Usado só quando os labels específicos abaixo não encontram nada. */
+function _portalGenerico(lines,chaves){
+  for(var i=0;i<lines.length-1;i++){
+    var nl=_portalNorm(lines[i]);
+    if(chaves.some(function(k){return nl.indexOf(k)>=0;})) return lines[i+1];
+  }
+  return "";
+}
 function _portalNumeroDoLink(url){
   try{
     var seg=url.split("?")[0].replace(/\/+$/,"").split("/").pop();
@@ -2407,11 +2433,13 @@ function puxarDadosPortal(link){
     var tipoDetect="";
     if(_portalNorm(tipoTexto).indexOf("concorr")>=0) tipoDetect="Concorrência";
     else if(_portalNorm(tipoTexto).indexOf("preg")>=0) tipoDetect="Pregão";
+    else if(_portalNorm(tipoTexto).indexOf("dispens")>=0) tipoDetect="Dispensa";
     /* fallback: tenta deduzir pelo prefixo do link */
     if(!tipoDetect){
       var seg=(link.split("?")[0].replace(/\/+$/,"").split("/").pop()||"").toUpperCase();
       if(/^(PE|RPPE|SRPE)/.test(seg)) tipoDetect="Pregão";
       else if(/^(CC|CONC|CPMP|CMCP)/.test(seg)) tipoDetect="Concorrência";
+      else if(/^(DE|DISP)-/.test(seg)) tipoDetect="Dispensa";
     }
     if(tipoDetect){
       var selT=document.getElementById("cTipo"); if(selT) selT.value=tipoDetect;
@@ -2432,9 +2460,12 @@ function puxarDadosPortal(link){
 
     /* ── 4. DATA: busca primeira data válida entre os campos de prazo ──────── */
     var dataISO="";
-    ["Abertura das Propostas","Limite p/ Recebimento","Data de Publicação"].forEach(function(lb){
+    ["Abertura das Propostas","Limite p/ Recebimento","Data de Publicação",
+     "Data de Abertura","Abertura da Sessão","Data da Sessão Pública",
+     "Data Limite de Acolhimento das Propostas","Encerramento do Prazo"].forEach(function(lb){
       if(!dataISO) dataISO=_portalDataISO(_portalValor(lines,lb));
     });
+    if(!dataISO) dataISO=_portalDataISO(_portalGenerico(lines,["abertura","sessao publica","recebimento","envio de proposta","publicacao"]));
     if(dataISO && !document.getElementById("cData").value)
       document.getElementById("cData").value=dataISO;
 
@@ -2442,7 +2473,12 @@ function puxarDadosPortal(link){
     var hrTxt = _portalValor(lines,"Limite p/ Recebimento das Propostas")
              || _portalValor(lines,"Limite p/ Recebimento")
              || _portalUltimoValor(lines,"Abertura das Propostas")
-             || _portalUltimoValor(lines,"Sessão Pública");
+             || _portalUltimoValor(lines,"Sessão Pública")
+             || _portalValor(lines,"Data de Abertura")
+             || _portalValor(lines,"Abertura da Sessão")
+             || _portalValor(lines,"Data da Sessão Pública")
+             || _portalValor(lines,"Data Limite de Acolhimento das Propostas")
+             || _portalGenerico(lines,["abertura","sessao publica","recebimento","envio de proposta"]);
     var hr = hrTxt ? _portalHorario(hrTxt) : "";
     if(hr && !document.getElementById("cHorario").value)
       document.getElementById("cHorario").value=hr;
@@ -2488,6 +2524,97 @@ function puxarDadosPortal(link){
 
 function fecharCadastro(){ document.getElementById("modalCadastro").classList.remove("open"); }
 
+/* ── E-mail automático "Edital Publicado" (Gmail via Google Apps Script) ──
+   Disparado sempre que um novo processo é cadastrado aqui na Agenda.
+   Reaproveita a mesma configuração (URL/token/destinatários) definida em
+   pregoeiro/index.html → Configurar E-mails (coleção/doc "email_config/config"). */
+function emailTituloProcAgenda(p){
+  var tipo=tipoLicitacao(p.numero);
+  return tipo?(tipo+" "+numeroSeq(p.numero)):(p.numero||"Processo");
+}
+function emailAssuntoPublicacao(p){
+  var obj=(p.objeto||"").trim().replace(/\s+/g," ");
+  if(obj.length>110) obj=obj.slice(0,110).trim()+"...";
+  return "Edital Publicado: "+emailTituloProcAgenda(p)+(obj?" - "+obj:"");
+}
+function montarEmailPublicacaoHtml(p){
+  var titulo=emailTituloProcAgenda(p);
+  var abertura=p.dataLicit?fmtData(p.dataLicit):"";
+  var aberturaTxt=abertura?(abertura+(p.horarioAbertura?" às "+p.horarioAbertura:"")):"—";
+  var objeto=escHtml(p.objeto||"");
+  var link=(p.link||"").trim();
+  var linkAttr=escHtml(link);
+
+  var html='<div style="margin:0;padding:0;background:#eef2f7;">'
+  +'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f7;"><tr><td align="center" style="padding:32px 12px;">'
+  +'<table role="presentation" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;box-shadow:0 4px 24px rgba(13,43,82,0.12);">'
+  +'<tr><td style="background:#c99a2e;height:6px;line-height:6px;font-size:6px;">&nbsp;</td></tr>'
+  +'<tr><td style="background:#0d2b52;padding:36px 40px 30px 40px;text-align:center;">'
+  +'<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td style="width:86px;height:86px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;"><img src="cid:logoijui" width="54" alt="Ijuí" style="display:inline-block;vertical-align:middle;border:0;"></td></tr></table>'
+  +'<div style="color:#f0d38a;font-size:12px;font-weight:bold;letter-spacing:3px;margin-top:16px;">&#128276;&nbsp; EDITAL PUBLICADO</div>'
+  +'<div style="color:#ffffff;font-size:26px;font-weight:bold;margin-top:8px;">'+escHtml(titulo)+'</div>'
+  +'<div style="color:#9fb4d0;font-size:13px;margin-top:8px;">Prefeitura Municipal de Ijuí &nbsp;&bull;&nbsp; Setor de Licitações</div>'
+  +'</td></tr>'
+  +'<tr><td style="padding:28px 40px 0 40px;">'
+  +'<div style="background:#fbf5e6;border:1px solid #ecd9a4;border-radius:10px;padding:16px 18px;text-align:center;">'
+  +'<div style="font-size:10.5px;font-weight:bold;color:#8a6d1f;letter-spacing:1.5px;">ABERTURA DO CERTAME</div>'
+  +'<div style="font-size:18px;font-weight:bold;color:#7a5b00;margin-top:6px;">'+escHtml(aberturaTxt)+'</div></div>'
+  +'</td></tr>'
+  +'<tr><td style="padding:24px 40px 0 40px;">'
+  +'<div style="font-size:11px;font-weight:bold;color:#7a8aa0;letter-spacing:2px;">OBJETO</div>'
+  +'<div style="font-size:14.5px;color:#22314a;line-height:1.65;margin-top:8px;">'+(objeto||"&mdash;")+'</div>'
+  +'</td></tr>';
+  if(link){
+    html+='<tr><td style="padding:30px 40px 8px 40px;text-align:center;">'
+    +'<a href="'+linkAttr+'" target="_blank" style="display:inline-block;background:#c99a2e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:14px 34px;border-radius:50px;">Acessar o Edital no Portal de Compras Públicas &nbsp;&rarr;</a>'
+    +'<div style="font-size:12px;color:#7a8aa0;margin-top:12px;line-height:1.5;">Confira todos os detalhes, documentos e prazos do processo através do link acima.</div>'
+    +'</td></tr>';
+  }
+  html+='<tr><td style="padding:28px 40px 0 40px;"><div style="border-top:1px solid #e3eaf3;font-size:0;">&nbsp;</div></td></tr>'
+  +'<tr><td style="padding:6px 40px 26px 40px;text-align:center;">'
+  +'<div style="font-size:11.5px;color:#9aa8bb;line-height:1.6;">E-mail automático do Sistema de Licitações &bull; Prefeitura Municipal de Ijuí<br>Enviado em '+fmtData(hojeStr())+'</div>'
+  +'</td></tr>'
+  +'</table></td></tr></table></div>';
+  return html;
+}
+function emailChamarWebAppPublicacao(cfg, dests, subject, html){
+  return fetch(cfg.webAppUrl,{
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body:JSON.stringify({
+      token:cfg.token||"",
+      assunto:subject,
+      html:html,
+      remetente:"Licitações - Prefeitura de Ijuí",
+      destinatarios:dests.map(function(d){return {nome:d.nome||"", email:d.email};})
+    })
+  }).then(function(r){
+    return r.text().then(function(t){
+      var data=null;
+      try{ data=JSON.parse(t); }catch(e){}
+      if(!r.ok || !data) throw new Error(data&&data.erro ? data.erro : "Resposta inesperada do script (HTTP "+r.status+").");
+      if(!data.ok) throw new Error(data.erro||"Falha no script.");
+      return data;
+    });
+  });
+}
+/* Chamado após o cadastro de um novo processo. Silencioso: se não houver
+   configuração/destinatários, ou o disparo automático estiver desligado,
+   simplesmente não faz nada (não bloqueia nem avisa o usuário). */
+function emailAoCadastrar(p){
+  if(emailCfg.autoPublicacao===false) return;
+  if(!emailCfg.webAppUrl) return;
+  var dests=(emailCfg.destinatarios||[]).filter(function(d){return d&&d.email;});
+  if(!dests.length) return;
+  var subject=emailAssuntoPublicacao(p);
+  var html=montarEmailPublicacaoHtml(p);
+  emailChamarWebAppPublicacao(emailCfg, dests, subject, html)
+    .then(function(res){
+      if(res.enviados>0) colRef.doc(p.id).set({emailPublicadoEm:hojeStr()},{merge:true}).catch(function(){});
+    })
+    .catch(function(e){ console.warn("Falha ao enviar e-mail de edital publicado:", e.message); });
+}
+
 function salvarCadastro(){
   var btn=document.getElementById("btnSalvarCad");
   var tipo=document.getElementById("cTipo").value;
@@ -2501,17 +2628,22 @@ function salvarCadastro(){
   var contato=document.getElementById("cContato").value.trim();
   if(!seq){ alert("Informe o número da licitação."); return; }
   if(!objeto){ alert("Informe o objeto / descrição."); return; }
-  /* monta o código do processo conforme padrão do sistema: Pregão->PE, Concorrência->CC */
-  var prefixo = tipo==="Concorrência" ? "CC" : "PE";
+  /* monta o código do processo conforme padrão do sistema: Pregão->PE, Concorrência->CC, Dispensa->DE */
+  var PREFIXOS_TIPO = {"Concorrência":"CC", "Dispensa":"DE"};
+  var prefixo = PREFIXOS_TIPO[tipo] || "PE";
   var numero = prefixo+" "+seq;
   btn.disabled=true; btn.textContent="Salvando…";
   var ts=firebase.firestore.FieldValue.serverTimestamp();
-  colRef.add({
+  var dadosProcesso={
     numero:numero, tipo:tipo, objeto:objeto, responsavel:resp, status:status,
     dataLicit:dataLicit, horarioAbertura:horario,
     link:link, contato:contato, atualizacoes:[], createdAt:ts
+  };
+  colRef.add(dadosProcesso)
+  .then(function(docRef){
+    toast("Processo cadastrado!"); fecharCadastro();
+    emailAoCadastrar(Object.assign({id:docRef.id}, dadosProcesso));
   })
-  .then(function(){ toast("Processo cadastrado!"); fecharCadastro(); })
   .catch(function(e){ alert("Erro ao salvar: "+e.message); })
   .finally(function(){ btn.disabled=false; btn.textContent="Salvar Processo"; });
 }
