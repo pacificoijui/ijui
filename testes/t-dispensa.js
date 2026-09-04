@@ -25,23 +25,36 @@ const SEED={
   }
 };
 
-/* HTML sintético de uma página de Dispensa no Portal de Compras Públicas —
-   rótulo "Data de Abertura" (novo fallback nomeado) com data+horário juntos. */
-const HTML_DISPENSA_LABEL_CONHECIDO = `
+/* A linha do tempo "Datas" como ela aparece numa Dispensa do Portal de Compras
+   Públicas: publicação, início das propostas, limite para recebimento e
+   abertura. O horário vem em UTC no HTML do servidor (o JS do portal converte
+   para Brasília no navegador), por isso os valores aqui são 3h à frente.
+
+   É esta a página do bug: o sistema pegava 03/09 (a data de PUBLICAÇÃO) em vez
+   de 10/09, porque procurava o rótulo "Limite p/ Recebimento", com barra, e
+   aqui ele está escrito "Limite para Recebimento das Propostas". */
+const HTML_DISPENSA_REAL = `
   <div>
     <span>Tipo:</span><span>Dispensa Eletrônica</span>
-    <span>Data de Abertura</span><span>15/09/2026 14:30</span>
+    <div class="datas">
+      <div><p>Data de Publicação</p><p>03/09/2026 às 19:49</p></div>
+      <div><p>Início das Propostas</p><p>04/09/2026 às 11:30</p></div>
+      <div><p>Limite para
+              Recebimento das Propostas</p><p>10/09/2026 às 11:30</p></div>
+      <div><p>Início da Disputa</p><p>10/09/2026 às 12:00</p></div>
+    </div>
     <span>Agente de Contratação</span><span>PEDRO HENRIQUE</span>
   </div>
   <h1>Aquisição de materiais de limpeza para as escolas municipais</h1>
 `;
 
-/* mesma página, mas com um rótulo que NÃO está em nenhuma lista nomeada —
-   só o fallback genérico por palavra-chave ("envio de proposta") deve achar. */
-const HTML_DISPENSA_LABEL_GENERICO = `
+/* Mesma página, com a data e a hora partidas em pedaços separados e o rótulo
+   escrito de outro jeito — o que muda de página para página no portal. */
+const HTML_DISPENSA_PARTIDA = `
   <div>
     <span>Tipo:</span><span>Dispensa Eletrônica</span>
-    <span>Prazo Final para Envio de Propostas</span><span>20/09/2026 17:00</span>
+    <div><p>Data de Publicação</p><p>01/09/2026</p><p>às</p><p>10:00</p></div>
+    <div><p>Acolhimento das Propostas</p><p>20/09/2026</p><p>às</p><p>20:00</p></div>
   </div>
   <h1>Contratação de serviços de manutenção predial</h1>
 `;
@@ -122,10 +135,10 @@ const HTML_DISPENSA_LABEL_GENERICO = `
   const emailMarcado=await pg.evaluate(()=>Object.values(window.__STORE.processos).find(p=>/459/.test(p.numero)).emailPublicadoEm);
   t('o processo foi marcado com emailPublicadoEm', !!emailMarcado, emailMarcado);
 
-  console.log('\n5) Autofill do link do portal detecta Dispensa (rótulo já conhecido)');
+  console.log('\n5) Autofill do link do portal: a data é a da SESSÃO, não a da publicação');
   await pg.evaluate(()=>abrirCadastro());
   await pg.waitForTimeout(150);
-  await pg.evaluate((html)=>{ window.__PORTAL_HTML=html; },HTML_DISPENSA_LABEL_CONHECIDO);
+  await pg.evaluate((html)=>{ window.__PORTAL_HTML=html; },HTML_DISPENSA_REAL);
   await pg.fill('#cLink','https://www.portaldecompraspublicas.com.br/processos/rs/municipio-de-ijui-poder-executivo-1164/de-460-2026-2026-509198');
   await pg.waitForTimeout(700);
   const auto1=await pg.evaluate(()=>({
@@ -138,8 +151,9 @@ const HTML_DISPENSA_LABEL_GENERICO = `
   }));
   t('detecta o tipo Dispensa pelo texto "Tipo:" da página', auto1.tipo==='Dispensa', auto1);
   t('preenche o número a partir do link (460/2026)', auto1.numero==='460/2026', auto1);
-  t('preenche a data (rótulo "Data de Abertura")', auto1.data==='2026-09-15', auto1);
-  t('preenche o horário já convertido para Brasília (14:30 UTC → 11:30)', auto1.horario==='11:30', auto1);
+  t('pega o "Limite para Recebimento das Propostas" (10/09)', auto1.data==='2026-09-10', auto1);
+  t('NÃO pega a data de publicação (03/09), que era o bug', auto1.data!=='2026-09-03', auto1);
+  t('o horário vem do mesmo campo, convertido para Brasília (11:30 UTC → 08:30)', auto1.horario==='08:30', auto1);
   t('avisa que preencheu com sucesso', /preenchidos automaticamente/.test(auto1.status), auto1.status);
 
   console.log('\n6) Autofill detecta Dispensa mesmo só pelo prefixo do link (sem "Tipo:" na página)');
@@ -151,25 +165,29 @@ const HTML_DISPENSA_LABEL_GENERICO = `
   const auto2=await pg.evaluate(()=>document.getElementById('cTipo').value);
   t('fallback pelo prefixo "DE-" do link também marca Dispensa', auto2==='Dispensa', auto2);
 
-  console.log('\n7) Data/horário com rótulo desconhecido usam o fallback genérico (não regride Pregão/Concorrência)');
+  console.log('\n7) Data e hora partidas em pedaços, e outro rótulo de sessão');
   await pg.evaluate(()=>abrirCadastro());
   await pg.waitForTimeout(150);
-  await pg.evaluate((html)=>{ window.__PORTAL_HTML=html; },HTML_DISPENSA_LABEL_GENERICO);
+  await pg.evaluate((html)=>{ window.__PORTAL_HTML=html; },HTML_DISPENSA_PARTIDA);
   await pg.fill('#cLink','https://www.portaldecompraspublicas.com.br/processos/rs/municipio-de-ijui-poder-executivo-1164/de-462-2026-2026-509200');
   await pg.waitForTimeout(700);
   const auto3=await pg.evaluate(()=>({
     data:document.getElementById('cData').value,
     horario:document.getElementById('cHorario').value
   }));
-  t('acha a data por palavra-chave genérica ("envio de proposta")', auto3.data==='2026-09-20', auto3);
-  t('acha e converte o horário pelo mesmo fallback (17:00 UTC → 14:00)', auto3.horario==='14:00', auto3);
+  t('acha a data mesmo com "às" e a hora em pedaços separados', auto3.data==='2026-09-20', auto3);
+  t('e o horário do mesmo campo (20:00 UTC → 17:00)', auto3.horario==='17:00', auto3);
+  t('continua ignorando a data de publicação (01/09)', auto3.data!=='2026-09-01', auto3);
 
   console.log('\n8) Pregão continua sendo detectado normalmente (sem regressão)');
   await pg.evaluate(()=>abrirCadastro());
   await pg.waitForTimeout(150);
+  /* Pregão escreve o rótulo com barra ("p/"); a página de dispensa escreve
+     "para". Os dois têm de cair no mesmo lugar, e nenhum na publicação. */
   await pg.evaluate(()=>{ window.__PORTAL_HTML=`
     <div>
       <span>Tipo:</span><span>Pregão Eletrônico</span>
+      <span>Data de Publicação</span><span>02/10/2026 às 15:00</span>
       <span>Limite p/ Recebimento das Propostas</span><span>10/10/2026 12:00</span>
     </div>
     <h1>Registro de preços para combustíveis</h1>`; });

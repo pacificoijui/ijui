@@ -2364,7 +2364,8 @@ function _portalAutoFill(val){
 function _portalNorm(s){
   return (s||"").toLowerCase().trim()
     .replace(/[àáâãä]/g,"a").replace(/[èéêë]/g,"e").replace(/[ìíîï]/g,"i")
-    .replace(/[òóôõö]/g,"o").replace(/[ùúûü]/g,"u").replace(/[ç]/g,"c");
+    .replace(/[òóôõö]/g,"o").replace(/[ùúûü]/g,"u").replace(/[ç]/g,"c")
+    .replace(/\s+/g," ");   /* o rótulo vem quebrado em várias linhas no HTML */
 }
 function _portalLinhas(docHtml){
   var tmp=document.createElement("div"); tmp.innerHTML=docHtml;
@@ -2381,11 +2382,44 @@ function _portalValor(lines,label){
   for(var i=0;i<lines.length-1;i++){ if(_portalNorm(lines[i]).indexOf(nl)>=0) return lines[i+1]; }
   return "";
 }
-/* retorna o ÚLTIMO valor associado a um label (ex: Abertura das Propostas aparece duas vezes) */
-function _portalUltimoValor(lines,label){
-  var nl=_portalNorm(label); var last="";
-  for(var i=0;i<lines.length-1;i++){ if(_portalNorm(lines[i]).indexOf(nl)>=0) last=lines[i+1]; }
-  return last;
+/* Quando a sessão acontece, na ordem do que interessa. Cada item é o conjunto
+   de palavras que o rótulo precisa ter — casar por palavra, e não pela frase
+   inteira, é o que faz "Limite p/ Recebimento" (pregão) e "Limite para
+   Recebimento das Propostas" (dispensa) caírem no mesmo lugar.
+   "Data de Publicação" e "Início das Propostas" ficam DE FORA de propósito:
+   são datas do edital, não da sessão — era a de publicação que vinha errada. */
+var _PORTAL_QUANDO = [
+  ["limite","recebimento"],
+  ["abertura","proposta"],
+  ["sessao"],
+  ["disputa"],
+  ["acolhimento"],
+  ["recebimento"],
+  ["abertura"]
+];
+/* O valor de um rótulo: as linhas logo depois dele. Pega três porque data e
+   hora às vezes vêm partidas ("10/09/2026", "às", "08:30"); quem lê depois
+   fica sempre com a primeira data e a primeira hora do trecho. */
+function _portalValorPorPalavras(lines, palavras){
+  for(var i=0;i<lines.length-1;i++){
+    var nl=_portalNorm(lines[i]);
+    /* rótulo é texto curto: sem isto, um objeto que cite "recebimento das
+       propostas" viraria rótulo e traria a linha seguinte, que não é data */
+    if(nl.length>60) continue;
+    var bate=true;
+    for(var p=0;p<palavras.length;p++){ if(nl.indexOf(palavras[p])<0){ bate=false; break; } }
+    if(bate) return lines.slice(i+1,i+4).join(" ");
+  }
+  return "";
+}
+/* Data e hora da sessão, sempre do MESMO campo — senão a agenda fica com a
+   data de um evento e o horário de outro. */
+function _portalQuando(lines){
+  for(var i=0;i<_PORTAL_QUANDO.length;i++){
+    var v=_portalValorPorPalavras(lines,_PORTAL_QUANDO[i]);
+    if(_portalDataISO(v)) return v;
+  }
+  return "";
 }
 function _portalDataISO(txt){
   var m=(txt||"").match(/(\d{2})\/(\d{2})\/(\d{4})/);
@@ -2399,16 +2433,6 @@ function _portalHorario(txt){
   var h=parseInt(m[1],10)-3;
   if(h<0) h+=24;
   return ("0"+h).slice(-2)+":"+m[2];
-}
-/* Fallback genérico: procura a 1ª linha cujo texto contenha alguma das
-   palavras-chave (label de campo) e retorna o valor da linha seguinte.
-   Usado só quando os labels específicos abaixo não encontram nada. */
-function _portalGenerico(lines,chaves){
-  for(var i=0;i<lines.length-1;i++){
-    var nl=_portalNorm(lines[i]);
-    if(chaves.some(function(k){return nl.indexOf(k)>=0;})) return lines[i+1];
-  }
-  return "";
 }
 function _portalNumeroDoLink(url){
   try{
@@ -2458,28 +2482,12 @@ function puxarDadosPortal(link){
     if(best && !document.getElementById("cObjeto").value.trim())
       document.getElementById("cObjeto").value=best;
 
-    /* ── 4. DATA: busca primeira data válida entre os campos de prazo ──────── */
-    var dataISO="";
-    ["Abertura das Propostas","Limite p/ Recebimento","Data de Publicação",
-     "Data de Abertura","Abertura da Sessão","Data da Sessão Pública",
-     "Data Limite de Acolhimento das Propostas","Encerramento do Prazo"].forEach(function(lb){
-      if(!dataISO) dataISO=_portalDataISO(_portalValor(lines,lb));
-    });
-    if(!dataISO) dataISO=_portalDataISO(_portalGenerico(lines,["abertura","sessao publica","recebimento","envio de proposta","publicacao"]));
+    /* ── 4/5. DATA E HORÁRIO da sessão (vêm juntos, do mesmo campo) ────────── */
+    var quando = _portalQuando(lines);
+    var dataISO = _portalDataISO(quando);
+    var hr = _portalHorario(quando);
     if(dataISO && !document.getElementById("cData").value)
       document.getElementById("cData").value=dataISO;
-
-    /* ── 5. HORÁRIO: usa "Limite p/ Recebimento" (horário local) como prioridade ── */
-    var hrTxt = _portalValor(lines,"Limite p/ Recebimento das Propostas")
-             || _portalValor(lines,"Limite p/ Recebimento")
-             || _portalUltimoValor(lines,"Abertura das Propostas")
-             || _portalUltimoValor(lines,"Sessão Pública")
-             || _portalValor(lines,"Data de Abertura")
-             || _portalValor(lines,"Abertura da Sessão")
-             || _portalValor(lines,"Data da Sessão Pública")
-             || _portalValor(lines,"Data Limite de Acolhimento das Propostas")
-             || _portalGenerico(lines,["abertura","sessao publica","recebimento","envio de proposta"]);
-    var hr = hrTxt ? _portalHorario(hrTxt) : "";
     if(hr && !document.getElementById("cHorario").value)
       document.getElementById("cHorario").value=hr;
 
