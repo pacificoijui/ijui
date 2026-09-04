@@ -89,35 +89,38 @@ const tag = (s,re) => { const m=s.match(re); return m?m[1]:null; };
   t('e traz Item, Marca, Modelo, Qtde e os dois valores',
     cab.join('|')==='Item|Marca/Fabricante|Modelo|Qtde|Valor Unit.|Valor Total', cab);
 
-  console.log('\n3) Cada item ocupa duas linhas: descrição em cima, dados embaixo');
+  console.log('\n3) Cada item ocupa duas linhas: dados em cima, descrição embaixo');
   /* 1 cabeçalho + 2 itens × 2 linhas + 1 total = 6 */
   t('a tabela tem 6 linhas para 2 itens', linhas.length===6, linhas.length);
 
-  const desc1=celulas(linhas[1]);
-  t('a 1ª linha do item é uma célula só', desc1.length===1, desc1);
-  t('e ela atravessa as 6 colunas', desc1[0].span===6, desc1[0]);
-  t('a descrição inteira está lá, sem corte', desc1[0].txt===DESC_LONGA, desc1[0].txt);
-  t('a linha da descrição usa o estilo próprio (CDesc)', desc1[0].estilo==='CDesc', desc1[0].estilo);
-  t('e as células cobertas pelo merge foram declaradas',
-    (linhas[1].match(/<table:covered-table-cell\/>/g)||[]).length===5, linhas[1]);
-
-  const dados1=celulas(linhas[2]);
+  const dados1=celulas(linhas[1]);
   console.log('   dados:', dados1.map(x=>x.txt).join(' | '));
-  t('a 2ª linha tem as 6 células de dados', dados1.length===6, dados1.length);
+  t('a 1ª linha do item tem as 6 células de dados', dados1.length===6, dados1.length);
   t('todas em cinza claro (CDados)', dados1.every(x=>x.estilo==='CDados'), dados1.map(x=>x.estilo));
   t('nº do item', dados1[0].txt==='1', dados1[0].txt);
   t('marca', dados1[1].txt==='Libell', dados1[1].txt);
   t('modelo', dados1[2].txt==='Tanquinho 10kg', dados1[2].txt);
-  t('quantidade com unidade', dados1[3].txt.replace(/ /g,' ')==='40 UN', dados1[3].txt);
-  t('valor unitário', dados1[4].txt.replace(/ /g,' ')==='R$ 405,00', dados1[4].txt);
-  t('valor total (40 × 405)', dados1[5].txt.replace(/ /g,' ')==='R$ 16.200,00', dados1[5].txt);
+  t('quantidade com unidade', dados1[3].txt.replace(/\u00a0/g,' ')==='40 UN', dados1[3].txt);
+  t('valor unitário', dados1[4].txt.replace(/\u00a0/g,' ')==='R$ 405,00', dados1[4].txt);
+  t('valor total (40 × 405)', dados1[5].txt.replace(/\u00a0/g,' ')==='R$ 16.200,00', dados1[5].txt);
+
+  const desc1=celulas(linhas[2]);
+  t('a 2ª linha da descrição é uma célula só', desc1.length===1, desc1);
+  t('e ela atravessa as 6 colunas', desc1[0].span===6, desc1[0]);
+  t('a descrição inteira está lá, sem corte', desc1[0].txt===DESC_LONGA, desc1[0].txt);
+  t('a linha da descrição usa o estilo próprio (CDesc)', desc1[0].estilo==='CDesc', desc1[0].estilo);
+  t('e as células cobertas pelo merge foram declaradas',
+    (linhas[2].match(/<table:covered-table-cell\/>/g)||[]).length===5, linhas[2]);
+  t('a descrição vem DEPOIS dos dados, não "no meio" entre o cabeçalho e os valores que ele descreve',
+    true, {ordem:['dados (linha 1)','descrição (linha 2)']});
 
   console.log('\n4) Item sem marca/modelo não quebra o formato');
-  const desc2=celulas(linhas[3]), dados2=celulas(linhas[4]);
-  t('a descrição curta também vira linha inteira', desc2.length===1 && desc2[0].span===6, desc2);
-  t('e a linha de dados continua com as 6 células', dados2.length===6, dados2.length);
+  const dados2=celulas(linhas[3]), desc2=celulas(linhas[4]);
+  t('a linha de dados continua com as 6 células', dados2.length===6, dados2.length);
   t('marca e modelo vazios ficam em branco, sem "undefined"',
     dados2[1].txt==='' && dados2[2].txt==='', [dados2[1].txt, dados2[2].txt]);
+  t('a descrição curta também vira linha inteira, logo depois dos dados',
+    desc2.length===1 && desc2[0].span===6, desc2);
 
   console.log('\n5) O total do vencedor fecha a tabela');
   const tot=celulas(linhas[5]);
@@ -125,22 +128,25 @@ const tag = (s,re) => { const m=s.match(re); return m?m[1]:null; };
     tot.length===2 && tot[0].span===5, tot);
   t('o texto é "TOTAL DO VENCEDOR"', tot[0].txt==='TOTAL DO VENCEDOR', tot[0].txt);
   t('e o valor soma os dois itens (16.200 + 4.450)',
-    tot[1].txt.replace(/ /g,' ')==='R$ 20.650,00', tot[1].txt);
+    tot[1].txt.replace(/\u00a0/g,' ')==='R$ 20.650,00', tot[1].txt);
 
-  console.log('\n6) Estilos: o cinza claro e o bloco visual das duas linhas');
+  console.log('\n6) Estilos: dados em cinza, descrição justificada e sem negrito');
   const cDados=c.match(/<style:style style:name="CDados"[\s\S]*?<\/style:style>/)[0];
   const cDesc=c.match(/<style:style style:name="CDesc"[\s\S]*?<\/style:style>/)[0];
   const pDesc=c.match(/<style:style style:name="PDesc"[\s\S]*?<\/style:style>/)[0];
+  const pTd=c.match(/<style:style style:name="PTd"[\s\S]*?<\/style:style>/)[0];
   t('a linha de dados tem fundo cinza claro', /fo:background-color="#F1F4FA"/.test(cDados), cDados);
   t('a linha da descrição não tem fundo (fica branca)', !/background-color/.test(cDesc), cDesc);
-  /* as duas linhas precisam ler como um bloco só: a de cima fecha em cima, a
-     de baixo fecha embaixo, e entre elas fica um traço bem claro */
-  t('a descrição fecha em cima e abre embaixo',
-    /fo:border-top="0\.02cm solid #d8dff0"/.test(cDesc) && /fo:border-bottom="none"/.test(cDesc), cDesc);
-  t('a linha de dados fecha embaixo', /fo:border-bottom="0\.02cm solid #d8dff0"/.test(cDados), cDados);
-  t('a descrição sai em negrito', /fo:font-weight="bold"/.test(pDesc), pDesc);
-  t('e é segurada junto da linha de dados (não fica sozinha no fim da página)',
-    /fo:keep-with-next="always"/.test(pDesc), pDesc);
+  /* as duas linhas precisam ler como um bloco só: a de cima (dados) fecha em
+     cima, a de baixo (descrição) fecha embaixo, com um traço bem claro entre
+     as duas em vez de uma borda cheia */
+  t('a linha de dados fecha em cima e abre embaixo',
+    /fo:border-top="0\.02cm solid #d8dff0"/.test(cDados) && /fo:border-bottom="none"/.test(cDados), cDados);
+  t('a linha da descrição fecha embaixo', /fo:border-bottom="0\.02cm solid #d8dff0"/.test(cDesc), cDesc);
+  t('a descrição sai JUSTIFICADA', /fo:text-align="justify"/.test(pDesc), pDesc);
+  t('e SEM negrito', !/font-weight/.test(pDesc), pDesc);
+  t('a linha de dados (que vem primeiro agora) é que segura a descrição junto — não fica sozinha no fim da página',
+    /fo:keep-with-next="always"/.test(pTd), pTd);
   t('a fonte viaja junto do estilo (Arial), para não virar Times ao colar',
     /style:font-name="Arial"/.test(pDesc), pDesc);
 
