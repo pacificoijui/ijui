@@ -1,6 +1,9 @@
 /* Pedido: no ODT de Vencedores, cada item passa a ocupar DUAS linhas — em
-   cima a descrição sozinha, na largura inteira da tabela; embaixo, em cinza
-   claro, o resto (item, marca, modelo, quantidade e valores).
+   cima, em cinza claro, item/marca/modelo/quantidade/valores; embaixo a
+   descrição do edital, justificada e sem negrito. Depois: tira a linha de
+   "Tipo: X · LC123: Y · Documento Z" (poluía sem servir para nada na ata) e
+   abre um respiro entre um item e o outro, pra cada um ler como o seu
+   próprio bloco em vez de tudo parecer uma tabela só emendada.
 
    Antes a descrição era só mais uma coluna e, sendo o campo que mais varia de
    tamanho, espremia Marca e Modelo — ao colar a tabela num documento em
@@ -78,7 +81,9 @@ const tag = (s,re) => { const m=s.match(re); return m?m[1]:null; };
     Math.abs(larguras.reduce((a,x)=>a+x,0)-27.3)<0.01, larguras);
 
   const tabela=c.match(/<table:table table:name="Venc0"[\s\S]*?<\/table:table>/)[0];
-  const linhas=tabela.match(/<table:table-row[\s\S]*?<\/table:table-row>/g);
+  const linhasRe=[...tabela.matchAll(/<table:table-row table:style-name="([^"]+)">([\s\S]*?)<\/table:table-row>/g)];
+  const linhas=linhasRe.map(m=>m[0]);
+  const estilosLinha=linhasRe.map(m=>m[1]);
   const celulas=l=>[...l.matchAll(/<table:table-cell([^>]*)>([\s\S]*?)<\/table:table-cell>/g)]
       .map(m=>({estilo:tag(m[1],/table:style-name="([^"]+)"/), span:Number(tag(m[1],/number-columns-spanned="(\d+)"/)||1),
                 txt:m[2].replace(/<[^>]+>/g,'')}));
@@ -89,9 +94,17 @@ const tag = (s,re) => { const m=s.match(re); return m?m[1]:null; };
   t('e traz Item, Marca, Modelo, Qtde e os dois valores',
     cab.join('|')==='Item|Marca/Fabricante|Modelo|Qtde|Valor Unit.|Valor Total', cab);
 
+  console.log('\n2b) A linha de "Tipo/LC123/Documento" saiu de cima da tabela');
+  const entrePEmpETabela=c.match(/<text:p text:style-name="PEmp">.*?<\/text:p>([\s\S]*?)<table:table table:name="Venc0"/)[1];
+  t('não sobrou nenhum parágrafo entre o nome da empresa e a tabela', !/<text:p/.test(entrePEmpETabela), entrePEmpETabela);
+  t('o estilo PMeta não existe mais no documento', !/style:name="PMeta"/.test(c));
+  t('nem os textos "Tipo:", "LC123:" ou "Documento "', !/Tipo:|LC123:|Documento /.test(c));
+
   console.log('\n3) Cada item ocupa duas linhas: dados em cima, descrição embaixo');
-  /* 1 cabeçalho + 2 itens × 2 linhas + 1 total = 6 */
-  t('a tabela tem 6 linhas para 2 itens', linhas.length===6, linhas.length);
+  /* 1 cabeçalho + 2 itens × (dados + descrição + respiro) + total = 8 */
+  t('a tabela tem 8 linhas para 2 itens (com o respiro entre eles)', linhas.length===8, linhas.length);
+  t('a ordem das linhas é: cabeçalho, dados, descrição, respiro, dados, descrição, respiro, total',
+    estilosLinha.join(',')==='RVen,RVen,RVen,RGap,RVen,RVen,RGap,RVen', estilosLinha);
 
   const dados1=celulas(linhas[1]);
   console.log('   dados:', dados1.map(x=>x.txt).join(' | '));
@@ -114,16 +127,30 @@ const tag = (s,re) => { const m=s.match(re); return m?m[1]:null; };
   t('a descrição vem DEPOIS dos dados, não "no meio" entre o cabeçalho e os valores que ele descreve',
     true, {ordem:['dados (linha 1)','descrição (linha 2)']});
 
+  console.log('\n3b) Respiro entre um item e o outro — cada um lê como o seu próprio bloco');
+  const gap1=celulas(linhas[3]);
+  t('a linha de respiro é uma célula só, atravessando as 6 colunas', gap1.length===1 && gap1[0].span===6, gap1);
+  t('e vem vazia', gap1[0].txt==='', gap1[0].txt);
+  t('com o estilo CGap (sem borda, sem fundo)', gap1[0].estilo==='CGap', gap1[0].estilo);
+  const cGap=c.match(/<style:style style:name="CGap"[\s\S]*?<\/style:style>/)[0];
+  t('o estilo CGap de fato não tem borda', /fo:border="none"/.test(cGap), cGap);
+  t('nem fundo', !/background-color/.test(cGap), cGap);
+  const rGap=c.match(/<style:style style:name="RGap"[\s\S]*?<\/style:style>/)[0];
+  t('a linha de respiro tem uma altura fixa (não fica do tamanho do texto vazio)',
+    /style:row-height="[\d.]+cm"/.test(rGap), rGap);
+
   console.log('\n4) Item sem marca/modelo não quebra o formato');
-  const dados2=celulas(linhas[3]), desc2=celulas(linhas[4]);
+  const dados2=celulas(linhas[4]), desc2=celulas(linhas[5]);
   t('a linha de dados continua com as 6 células', dados2.length===6, dados2.length);
   t('marca e modelo vazios ficam em branco, sem "undefined"',
     dados2[1].txt==='' && dados2[2].txt==='', [dados2[1].txt, dados2[2].txt]);
   t('a descrição curta também vira linha inteira, logo depois dos dados',
     desc2.length===1 && desc2[0].span===6, desc2);
 
-  console.log('\n5) O total do vencedor fecha a tabela');
-  const tot=celulas(linhas[5]);
+  console.log('\n5) O total do vencedor fecha a tabela, também com respiro antes dele');
+  const gap2=celulas(linhas[6]);
+  t('há respiro entre o último item e o total', gap2.length===1 && gap2[0].estilo==='CGap', gap2);
+  const tot=celulas(linhas[7]);
   t('rótulo atravessa 5 colunas e sobra 1 para o valor',
     tot.length===2 && tot[0].span===5, tot);
   t('o texto é "TOTAL DO VENCEDOR"', tot[0].txt==='TOTAL DO VENCEDOR', tot[0].txt);
