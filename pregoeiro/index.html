@@ -6013,11 +6013,12 @@ function vencGerarODT(){
 
   /* Larguras fixas (paisagem A4, margens de 1,2cm → 27,3cm úteis).
      É isto que o import de HTML não conseguia respeitar.                    */
-  /* Modelo e Marca ganharam folga: quando a tabela é colada num documento em
-     RETRATO (a ata), o LibreOffice reduz tudo proporcionalmente, e era aí que
-     "SURGIFORCE" virava "SURGIFORC / E". Produto absorve a diferença porque
-     é texto corrido e quebra bem em várias linhas.                          */
-  var COLS=[1.5, 7.9, 5.4, 4.2, 2.0, 2.7, 3.6];   /* soma = 27,3 */
+  /* A descrição do produto saiu da grade: agora ela é uma linha inteira, em
+     cima, e embaixo vem a linha cinza com os dados. Com isso Marca e Modelo
+     ganharam largura de sobra — antes disputavam espaço com a descrição e,
+     ao colar a tabela num documento em RETRATO (a ata), o LibreOffice reduzia
+     tudo proporcionalmente e "SURGIFORCE" virava "SURGIFORC / E".           */
+  var COLS=[1.6, 7.6, 7.6, 2.6, 3.5, 4.4];   /* soma = 27,3 */
   var TW=0; COLS.forEach(function(c){ TW+=c; });
 
   var FAIXA=[['#E3242B',3.82],['#F26B21',3.82],['#FFC20E',3.82],['#8CC63F',4.37],
@@ -6056,6 +6057,10 @@ function vencGerarODT(){
   pStyle('PTh','fo:text-align="left"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
   pStyle('PThR','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
   pStyle('PTd','fo:text-align="left"','fo:font-size="9pt" fo:color="#101A33"');
+  /* keep-with-next segura a descrição junto da linha de dados: sem isso a
+     descrição podia fechar a página e os valores começarem na seguinte. */
+  pStyle('PDesc','fo:text-align="left" fo:keep-with-next="always"',
+         'fo:font-size="9pt" fo:font-weight="bold" fo:color="#101A33"');
   pStyle('PTdC','fo:text-align="center"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#12306B"');
   pStyle('PTdR','fo:text-align="right"','fo:font-size="9pt" fo:color="#101A33"');
   pStyle('PTot','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#1E7A34"');
@@ -6068,6 +6073,14 @@ function vencGerarODT(){
 
   cStyle('CTh','fo:background-color="#12306B" '+BD_TH+' '+PAD);
   cStyle('CTd',BD_TD+' '+PAD);
+  /* As duas linhas de um item precisam ler como um bloco só: a da descrição
+     fecha em cima e nas laterais, a cinza fecha embaixo, e entre elas fica um
+     traço bem claro em vez de uma borda cheia. */
+  cStyle('CDesc','fo:border-left="0.02cm solid #d8dff0" fo:border-right="0.02cm solid #d8dff0" '
+        +'fo:border-top="0.02cm solid #d8dff0" fo:border-bottom="none" '+PAD);
+  cStyle('CDados','fo:background-color="#F1F4FA" fo:border-left="0.02cm solid #d8dff0" '
+        +'fo:border-right="0.02cm solid #d8dff0" fo:border-bottom="0.02cm solid #d8dff0" '
+        +'fo:border-top="0.02cm solid #e6ebf5" '+PAD);
   cStyle('CTot','fo:background-color="#EAF6EC" fo:border="0.02cm solid #cfe8d4" '+PAD);
   FAIXA.forEach(function(f,i){ cStyle('CFx'+i,'fo:background-color="'+f[0]+'" fo:padding="0cm" fo:border="none"'); });
 
@@ -6099,7 +6112,7 @@ function vencGerarODT(){
     FAIXA.forEach(function(f,i){ h+=_odTd('CFx'+i,'PFx',''); });
     return h+'</table:table-row></table:table>';
   }
-  var HEAD=['Item','Produto','Modelo','Marca/Fabricante','Qtde','Valor Unit.','Valor Total'];
+  var HEAD=['Item','Marca/Fabricante','Modelo','Qtde','Valor Unit.','Valor Total'];
   var body='';
   lista.forEach(function(e,ei){
     body+=_odP('PEmp',e.nome);
@@ -6118,21 +6131,27 @@ function vencGerarODT(){
     COLS.forEach(function(w,i){ t+='<table:table-column table:style-name="TVen.C'+i+'"/>'; });
     /* cabeçalho que se repete automaticamente quando a tabela quebra a página */
     t+='<table:table-header-rows><table:table-row table:style-name="RVen">';
-    HEAD.forEach(function(h,i){ t+=_odTd('CTh', i>=4?'PThR':'PTh', h); });
+    HEAD.forEach(function(h,i){ t+=_odTd('CTh', i>=3?'PThR':'PTh', h); });
     t+='</table:table-row></table:table-header-rows>';
+    /* Cada item ocupa DUAS linhas: em cima a descrição, sozinha, na largura
+       inteira da tabela; embaixo, em cinza claro, o resto (item, marca,
+       modelo, quantidade e valores). A descrição é o que mais varia de
+       tamanho — espremida numa coluna, empurrava tudo para muitas linhas. */
     e.itens.forEach(function(it){
       t+='<table:table-row table:style-name="RVen">';
-      t+=_odTd('CTd','PTdC',it.num);
-      t+=_odTd('CTd','PTd',it.desc);
-      t+=_odTd('CTd','PTd',it.modelo);
-      t+=_odTd('CTd','PTd',it.marca);
-      t+=_odTd('CTd','PTdR', it.qtde!==null?_nb(vencFmtNum(it.qtde)+(it.unidade?' '+it.unidade:'')):'—');
-      t+=_odTd('CTd','PTdR', _nb('R$ '+vencFmtBRL(it.valorUnit)));
-      t+=_odTd('CTd','PTdR', it.valorTotal!==null?_nb('R$ '+vencFmtBRL(it.valorTotal)):'—');
+      t+=_odTd('CDesc','PDesc', it.desc, COLS.length);
+      t+='</table:table-row>';
+      t+='<table:table-row table:style-name="RVen">';
+      t+=_odTd('CDados','PTdC',it.num);
+      t+=_odTd('CDados','PTd',it.marca);
+      t+=_odTd('CDados','PTd',it.modelo);
+      t+=_odTd('CDados','PTdR', it.qtde!==null?_nb(vencFmtNum(it.qtde)+(it.unidade?' '+it.unidade:'')):'—');
+      t+=_odTd('CDados','PTdR', _nb('R$ '+vencFmtBRL(it.valorUnit)));
+      t+=_odTd('CDados','PTdR', it.valorTotal!==null?_nb('R$ '+vencFmtBRL(it.valorTotal)):'—');
       t+='</table:table-row>';
     });
     t+='<table:table-row table:style-name="RVen">';
-    t+=_odTd('CTot','PTot','TOTAL DO VENCEDOR',6);
+    t+=_odTd('CTot','PTot','TOTAL DO VENCEDOR',COLS.length-1);
     t+=_odTd('CTot','PTot',_nb('R$ '+vencFmtBRL(e.total)));
     t+='</table:table-row>';
     body+=t+'</table:table>';
