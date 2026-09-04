@@ -177,6 +177,34 @@ const tag = (s,re) => { const m=s.match(re); return m?m[1]:null; };
   t('a fonte viaja junto do estilo (Arial), para não virar Times ao colar',
     /style:font-name="Arial"/.test(pDesc), pDesc);
 
+  console.log('\n7) Letras em preto no documento inteiro — só o cabeçalho azul/branco continua colorido');
+  const estiloDe = nome => c.match(new RegExp('<style:style style:name="'+nome+'"[\\s\\S]*?<\\/style:style>'))[0];
+  const corDaLetra = bloco => { const m=bloco.match(/fo:color="(#[0-9A-Fa-f]{6})"/); return m?m[1]:null; };
+  /* Todo estilo de PARÁGRAFO que tem cor de letra própria — menos os dois
+     que são texto branco sobre fundo azul (nome da empresa e cabeçalho de
+     colunas) — tem de ser preto. Lista fechada: se um novo estilo colorido
+     for criado e esquecido aqui, o teste pega. */
+  const PARAGRAFOS_COM_COR = ['PTit','PSub','PTd','PDesc','PTdC','PTdR','PTot','PGrand','PNota','PFoot'];
+  const PARAGRAFOS_BRANCOS = ['PEmp','PTh','PThR'];   /* esses continuam brancos, de propósito */
+  PARAGRAFOS_COM_COR.forEach(nome=>{
+    t('letra do estilo '+nome+' é preta', corDaLetra(estiloDe(nome))==='#000000', estiloDe(nome));
+  });
+  PARAGRAFOS_BRANCOS.forEach(nome=>{
+    t('letra do estilo '+nome+' continua branca (é o cabeçalho azul)', corDaLetra(estiloDe(nome))==='#ffffff', estiloDe(nome));
+  });
+  t('o fundo azul do nome da empresa continua', /fo:background-color="#081C52"/.test(estiloDe('PEmp')), estiloDe('PEmp'));
+  t('o fundo azul do cabeçalho de colunas continua (na célula CTh)',
+    /fo:background-color="#12306B"/.test(estiloDe('CTh')), estiloDe('CTh'));
+  t('nenhum outro estilo de parágrafo ficou com cor diferente de preto/branco',
+    [...c.matchAll(/<style:style style:name="(P\w+)"[^>]*family="paragraph"[\s\S]*?<\/style:style>/g)]
+      .every(m=>{ const cor=corDaLetra(m[0]); return !cor || cor==='#000000' || cor==='#ffffff'; }),
+    [...c.matchAll(/<style:style style:name="(P\w+)"[^>]*family="paragraph"[\s\S]*?<\/style:style>/g)]
+      .map(m=>[m[1], corDaLetra(m[0])]));
+  /* os fundos coloridos (total em verde claro, dados em cinza claro, a
+     faixinha arco-íris) não mudam — só a cor da LETRA que virou preta */
+  t('o fundo verde claro do total continua', /fo:background-color="#EAF6EC"/.test(estiloDe('CTot')), estiloDe('CTot'));
+  t('o fundo cinza claro dos dados continua', /fo:background-color="#F1F4FA"/.test(estiloDe('CDados')), estiloDe('CDados'));
+
   console.log('\nerros JS:', errs.length?errs:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
   await b.close();
