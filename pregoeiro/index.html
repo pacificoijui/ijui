@@ -6048,12 +6048,14 @@ function vencGerarODT(){
          'fo:font-size="16pt" fo:font-weight="bold" fo:color="#12306B"');
   pStyle('PSub','fo:text-align="center" fo:margin-bottom="0.05cm"',
          'fo:font-size="10pt" fo:color="#5A6685"');
-  pStyle('PEmp','fo:text-align="left" fo:margin-top="0.5cm" fo:margin-bottom="0cm" '
+  pStyle('PEmp','fo:text-align="left" fo:margin-top="0.5cm" fo:margin-bottom="0.12cm" '
          +'fo:background-color="#081C52" fo:padding="0.16cm" fo:keep-with-next="always"',
          'fo:font-size="10pt" fo:font-weight="bold" fo:color="#ffffff"');
-  pStyle('PMeta','fo:text-align="left" fo:margin-top="0cm" fo:margin-bottom="0.12cm" '
-         +'fo:background-color="#EAEEF7" fo:padding="0.12cm" fo:keep-with-next="always"',
-         'fo:font-size="8.5pt" fo:color="#12306B"');
+  /* Linha em branco entre um item e o próximo — só uma célula vazia sem
+     borda, na largura toda, pra abrir um respiro de verdade. Bordas
+     encostadas (o fim de um item e o começo do outro) liam como se fosse
+     tudo uma tabela só; com o vão, cada item lê como o seu próprio bloco. */
+  pStyle('PGap','','fo:font-size="3pt"');
   pStyle('PTh','fo:text-align="left"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
   pStyle('PThR','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
   /* keep-with-next fica nos estilos da linha de DADOS agora: ela vem primeiro
@@ -6085,6 +6087,7 @@ function vencGerarODT(){
   cStyle('CDesc','fo:border-left="0.02cm solid #d8dff0" fo:border-right="0.02cm solid #d8dff0" '
         +'fo:border-bottom="0.02cm solid #d8dff0" fo:border-top="0.02cm solid #e6ebf5" '+PAD);
   cStyle('CTot','fo:background-color="#EAF6EC" fo:border="0.02cm solid #cfe8d4" '+PAD);
+  cStyle('CGap','fo:border="none" fo:padding="0cm"');
   FAIXA.forEach(function(f,i){ cStyle('CFx'+i,'fo:background-color="'+f[0]+'" fo:padding="0cm" fo:border="none"'); });
 
   /* Tabela + colunas + linhas */
@@ -6098,6 +6101,8 @@ function vencGerarODT(){
   /* keep-together evita que uma linha alta (descrição longa) rache no meio */
   st+='<style:style style:name="RVen" style:family="table-row">'
     +'<style:table-row-properties fo:keep-together="always"/></style:style>';
+  st+='<style:style style:name="RGap" style:family="table-row">'
+    +'<style:table-row-properties style:row-height="0.3cm" style:use-optimal-row-height="false"/></style:style>';
   st+='<style:style style:name="TFx" style:family="table">'
     +'<style:table-properties style:width="'+TW+'cm" table:align="margins" fo:margin-bottom="0.1cm"/></style:style>';
   FAIXA.forEach(function(f,i){
@@ -6119,16 +6124,6 @@ function vencGerarODT(){
   var body='';
   lista.forEach(function(e,ei){
     body+=_odP('PEmp',e.nome);
-    var meta=[];
-    if(e.tipo) meta.push('Tipo: '+e.tipo);
-    if(e.lc123!=='') meta.push('LC123: '+(e.lc123===true?'Sim':e.lc123===false?'Não':String(e.lc123)));
-    if(e.cnpj) meta.push('Documento '+e.cnpj);
-    if(e.endereco) meta.push('Endereço: '+e.endereco);
-    if(e.cep) meta.push('CEP: '+e.cep);
-    if(e.uf) meta.push('UF: '+e.uf);
-    if(e.cidade) meta.push('Município: '+e.cidade);
-    if(e.telefone) meta.push('Telefone: '+e.telefone);
-    body+=_odP('PMeta', meta.length?meta.join('  ·  '):' ');
 
     var t='<table:table table:name="Venc'+ei+'" table:style-name="TVen">';
     COLS.forEach(function(w,i){ t+='<table:table-column table:style-name="TVen.C'+i+'"/>'; });
@@ -6153,6 +6148,8 @@ function vencGerarODT(){
       t+='<table:table-row table:style-name="RVen">';
       t+=_odTd('CDesc','PDesc', it.desc, COLS.length);
       t+='</table:table-row>';
+      /* respiro antes do próximo item (e antes do total, depois do último) */
+      t+='<table:table-row table:style-name="RGap">'+_odTd('CGap','PGap','',COLS.length)+'</table:table-row>';
     });
     t+='<table:table-row table:style-name="RVen">';
     t+=_odTd('CTot','PTot','TOTAL DO VENCEDOR',COLS.length-1);
