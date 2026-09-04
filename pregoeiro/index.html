@@ -6056,13 +6056,16 @@ function vencGerarODT(){
          'fo:font-size="8.5pt" fo:color="#12306B"');
   pStyle('PTh','fo:text-align="left"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
   pStyle('PThR','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
-  pStyle('PTd','fo:text-align="left"','fo:font-size="9pt" fo:color="#101A33"');
-  /* keep-with-next segura a descrição junto da linha de dados: sem isso a
-     descrição podia fechar a página e os valores começarem na seguinte. */
-  pStyle('PDesc','fo:text-align="left" fo:keep-with-next="always"',
-         'fo:font-size="9pt" fo:font-weight="bold" fo:color="#101A33"');
-  pStyle('PTdC','fo:text-align="center"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#12306B"');
-  pStyle('PTdR','fo:text-align="right"','fo:font-size="9pt" fo:color="#101A33"');
+  /* keep-with-next fica nos estilos da linha de DADOS agora: ela vem primeiro
+     e precisa ficar grudada na descrição que vem logo abaixo — sem isso a
+     linha de dados podia fechar a página e a descrição começar na seguinte. */
+  pStyle('PTd','fo:text-align="left" fo:keep-with-next="always"','fo:font-size="9pt" fo:color="#101A33"');
+  /* Descrição do edital: texto corrido, então justificada (não centralizada
+     nem em negrito — ela não é mais o destaque da linha, é o texto de apoio
+     logo abaixo do item/marca/modelo/valores). */
+  pStyle('PDesc','fo:text-align="justify"','fo:font-size="9pt" fo:color="#3A455F"');
+  pStyle('PTdC','fo:text-align="center" fo:keep-with-next="always"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#12306B"');
+  pStyle('PTdR','fo:text-align="right" fo:keep-with-next="always"','fo:font-size="9pt" fo:color="#101A33"');
   pStyle('PTot','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#1E7A34"');
   pStyle('PGrand','fo:text-align="right" fo:margin-top="0.6cm" fo:padding-top="0.25cm" '
          +'fo:border-top="0.06cm solid #12306B"',
@@ -6073,14 +6076,14 @@ function vencGerarODT(){
 
   cStyle('CTh','fo:background-color="#12306B" '+BD_TH+' '+PAD);
   cStyle('CTd',BD_TD+' '+PAD);
-  /* As duas linhas de um item precisam ler como um bloco só: a da descrição
-     fecha em cima e nas laterais, a cinza fecha embaixo, e entre elas fica um
-     traço bem claro em vez de uma borda cheia. */
-  cStyle('CDesc','fo:border-left="0.02cm solid #d8dff0" fo:border-right="0.02cm solid #d8dff0" '
-        +'fo:border-top="0.02cm solid #d8dff0" fo:border-bottom="none" '+PAD);
+  /* As duas linhas de um item precisam ler como um bloco só: a cinza (que
+     vem primeiro agora) fecha em cima e nas laterais, a da descrição fecha
+     embaixo, e entre elas fica um traço bem claro em vez de uma borda cheia. */
   cStyle('CDados','fo:background-color="#F1F4FA" fo:border-left="0.02cm solid #d8dff0" '
-        +'fo:border-right="0.02cm solid #d8dff0" fo:border-bottom="0.02cm solid #d8dff0" '
-        +'fo:border-top="0.02cm solid #e6ebf5" '+PAD);
+        +'fo:border-right="0.02cm solid #d8dff0" fo:border-top="0.02cm solid #d8dff0" '
+        +'fo:border-bottom="none" '+PAD);
+  cStyle('CDesc','fo:border-left="0.02cm solid #d8dff0" fo:border-right="0.02cm solid #d8dff0" '
+        +'fo:border-bottom="0.02cm solid #d8dff0" fo:border-top="0.02cm solid #e6ebf5" '+PAD);
   cStyle('CTot','fo:background-color="#EAF6EC" fo:border="0.02cm solid #cfe8d4" '+PAD);
   FAIXA.forEach(function(f,i){ cStyle('CFx'+i,'fo:background-color="'+f[0]+'" fo:padding="0cm" fo:border="none"'); });
 
@@ -6133,14 +6136,12 @@ function vencGerarODT(){
     t+='<table:table-header-rows><table:table-row table:style-name="RVen">';
     HEAD.forEach(function(h,i){ t+=_odTd('CTh', i>=3?'PThR':'PTh', h); });
     t+='</table:table-row></table:table-header-rows>';
-    /* Cada item ocupa DUAS linhas: em cima a descrição, sozinha, na largura
-       inteira da tabela; embaixo, em cinza claro, o resto (item, marca,
-       modelo, quantidade e valores). A descrição é o que mais varia de
-       tamanho — espremida numa coluna, empurrava tudo para muitas linhas. */
+    /* Cada item ocupa DUAS linhas: em cima, em cinza claro, o item/marca/
+       modelo/quantidade/valores; embaixo, a descrição do edital, sozinha, na
+       largura inteira da tabela, justificada. A descrição não fica mais "no
+       meio" separando o cabeçalho das colunas dos valores que ele descreve —
+       ela vem depois, como texto de apoio. */
     e.itens.forEach(function(it){
-      t+='<table:table-row table:style-name="RVen">';
-      t+=_odTd('CDesc','PDesc', it.desc, COLS.length);
-      t+='</table:table-row>';
       t+='<table:table-row table:style-name="RVen">';
       t+=_odTd('CDados','PTdC',it.num);
       t+=_odTd('CDados','PTd',it.marca);
@@ -6148,6 +6149,9 @@ function vencGerarODT(){
       t+=_odTd('CDados','PTdR', it.qtde!==null?_nb(vencFmtNum(it.qtde)+(it.unidade?' '+it.unidade:'')):'—');
       t+=_odTd('CDados','PTdR', _nb('R$ '+vencFmtBRL(it.valorUnit)));
       t+=_odTd('CDados','PTdR', it.valorTotal!==null?_nb('R$ '+vencFmtBRL(it.valorTotal)):'—');
+      t+='</table:table-row>';
+      t+='<table:table-row table:style-name="RVen">';
+      t+=_odTd('CDesc','PDesc', it.desc, COLS.length);
       t+='</table:table-row>';
     });
     t+='<table:table-row table:style-name="RVen">';
