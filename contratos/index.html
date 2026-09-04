@@ -100,18 +100,6 @@
   .btn-ghost.active { background: var(--navy); color: #fff; border-color: var(--navy); }
   .proto-chip { background: var(--amber-bg); color: var(--amber); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .5px; }
 
-  /* Barra de estatísticas (clicável = filtro rápido) */
-  .stats-bar { background: linear-gradient(180deg, #10254a, #173562); border-bottom: 1px solid rgba(255,255,255,0.08); }
-  .stats-inner { max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; gap: 0; flex-wrap: wrap; }
-  .stat { padding: 13px 28px 13px 0; display: flex; align-items: center; gap: 10px; border-right: 1px solid rgba(255,255,255,0.10); margin-right: 28px; cursor: pointer; transition: opacity .15s; border-bottom: 3px solid transparent; }
-  .stat:hover { opacity: .85; }
-  .stat.active { border-bottom-color: var(--gold); }
-  .stat:last-child { border-right: none; margin-right: 0; }
-  .stat-num { font-size: 26px; font-weight: 800; color: var(--gold); line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
-  .stat-num.red { color: #ff8a8c; }
-  .stat-num.amberc { color: #ffcf7d; }
-  .stat-label { font-size: 11.5px; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.8px; line-height: 1.3; }
-
   main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
 
   /* Painel de filtros */
@@ -134,28 +122,6 @@
   .chip b:hover { opacity: 1; }
   .link-clear { background: none; border: none; color: var(--red); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
 
-  /* Painel dinâmico (dashboard) */
-  .dash-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; }
-  .dash-block h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
-  .bar-row { display: grid; grid-template-columns: 110px 1fr 78px; align-items: center; gap: 10px; padding: 4px 0; cursor: pointer; border-radius: 6px; }
-  .bar-row:hover { background: var(--blue-bg); }
-  .bar-row.sel .bar-label { color: var(--navy); }
-  .bar-label { font-size: 12.5px; font-weight: 700; color: var(--text); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .bar-track { background: #eef2fa; border-radius: 20px; height: 22px; overflow: hidden; }
-  .bar-fill { height: 100%; background: linear-gradient(90deg, var(--navy-light), var(--navy)); border-radius: 20px; min-width: 3px; transition: width .35s ease; }
-  .bar-row.sel .bar-fill { background: linear-gradient(90deg, var(--gold), var(--gold-light)); }
-  .bar-val { font-size: 12px; color: var(--muted); font-weight: 700; white-space: nowrap; }
-  .venc-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .venc-box { border-radius: 14px; padding: 14px 12px; cursor: pointer; border: 2px solid transparent; transition: transform .12s; }
-  .venc-box:hover { transform: translateY(-2px); }
-  .venc-box.sel { border-color: var(--navy); }
-  .venc-box .vnum { font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
-  .venc-box .vlab { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-top: 6px; line-height: 1.3; }
-  .vb-red { background: var(--red-bg); color: var(--red); }
-  .vb-amber { background: var(--amber-bg); color: var(--amber); }
-  .vb-blue { background: var(--blue-bg); color: var(--blue-text); }
-  .vb-green { background: var(--green-bg); color: var(--green); }
-
   /* Toolbar da lista */
   .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
   .result-count { font-size: 13.5px; color: var(--muted); }
@@ -164,35 +130,62 @@
   .sort-sel { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; background: #fbfcff; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
   .sort-sel:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
 
-  /* Cards de contrato */
-  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 12px; align-items: stretch; }
-  @keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .ccard { background: var(--card); border: 1px solid var(--border); border-left: 5px solid var(--navy-light); border-radius: 14px; padding: 15px 18px; box-shadow: var(--shadow); cursor: pointer; transition: box-shadow .18s, transform .14s; animation: cardIn .28s ease both; display: flex; flex-direction: column; }
-  .ccard:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
-  .ccard .ccard-obj { flex: 1; }
-  @media (prefers-reduced-motion: reduce) { .ccard { animation: none; } }
-  .ccard.st-inativo { border-left-color: #b8c0d4; opacity: .82; }
-  .ccard.st-paralizado { border-left-color: var(--gold); }
-  .ccard.venc-red { border-left-color: var(--red); }
-  .ccard-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
-  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  /* ══ Tabela única — mesmo desenho do módulo licitacon ══ */
+  .tab-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .tab { width: 100%; border-collapse: collapse; }
+  /* Sem cabeçalho fixo: o Chromium resolve o `top` do sticky a partir da
+     própria tabela, não da janela, e o cabeçalho acaba embaixo da primeira
+     linha. Mesma lição aprendida no licitacon. */
+  .tab th {
+    background: #eef2fa; border-bottom: 1.5px solid var(--border);
+    padding: 10px 9px; font-size: 10.5px; font-weight: 800; color: var(--navy);
+    text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap;
+  }
+  .tab th.r { text-align: right; }
+  /* Cabeçalho ordenável: um clique ordena, o mesmo clique de novo inverte. */
+  .tab .th-titulos th { cursor: pointer; user-select: none; }
+  .tab .th-titulos th:hover { background: #e2e9f7; color: var(--navy-light); }
+  .tab .th-titulos th::after { content: "↕"; opacity: .28; margin-left: 4px; font-size: 10px; font-weight: 700; }
+  .tab .th-titulos th.ord-asc::after { content: "▲"; opacity: 1; }
+  .tab .th-titulos th.ord-desc::after { content: "▼"; opacity: 1; }
+  .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #dfe8f8; }
+  /* Busca por coluna, no estilo do filtro de planilha. */
+  .tab .th-filtros th { padding: 0 5px 8px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
+  .tab .th-filtros input {
+    width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 11.5px; background: #fff; color: var(--text); outline: none;
+  }
+  .tab .th-filtros input:focus { border-color: var(--navy-light); box-shadow: 0 0 0 2px rgba(46,93,168,0.14); }
+  .tab .th-filtros input::placeholder { color: #a8b2c8; }
+  .tab td { padding: 9px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.42; }
+  .tab tbody tr:last-child td { border-bottom: none; }
+  .tab tbody tr:nth-child(even) td { background: #fafbfe; }
+  .tab tbody tr { cursor: pointer; }
+  .tab tbody tr:hover td { background: var(--blue-bg); }
+
+  .c-num { width: 10%; }
+  .n-num { display: block; font-weight: 800; color: var(--navy); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .n-mod { display: block; font-size: 10.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
+  .c-emp { width: 16%; font-weight: 600; word-break: break-word; }
+  .c-obj { width: 26%; word-break: break-word; }
+  .c-sec { width: 9%; color: var(--muted); word-break: break-word; }
+  .c-tipo { width: 7%; color: var(--muted); }
+  .c-fis { width: 9%; color: var(--muted); word-break: break-word; }
+  .c-sit { width: 7%; white-space: nowrap; }
+  .c-venc { width: 8%; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* O valor é o número que se compara entre contratos — é o destaque da linha */
+  .c-valor { width: 9%; text-align: right; white-space: nowrap; font-size: 13.5px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
   .badge-num { background: var(--navy); color: #fff; }
   .badge-sec { background: var(--blue-bg); color: var(--blue-text); }
   .badge-tipo { background: #f0e8f8; color: #6a20b0; }
   .badge-ativo { background: var(--green-bg); color: var(--green); }
   .badge-inativo { background: #eef0f5; color: #7c869c; }
   .badge-par { background: var(--amber-bg); color: var(--amber); }
-  .badge-venc { margin-left: auto; }
   .bv-red { background: var(--red-bg); color: var(--red); }
   .bv-amber { background: var(--amber-bg); color: var(--amber); }
   .bv-green { background: var(--green-bg); color: var(--green); }
   .bv-gray { background: #eef0f5; color: #7c869c; }
-  .ccard-emp { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 3px; }
-  .ccard-obj { font-size: 13.5px; color: var(--text); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .ccard-bottom { display: flex; align-items: center; gap: 16px; margin-top: 9px; flex-wrap: wrap; }
-  .meta { font-size: 12.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
-  .meta b { color: var(--text); font-weight: 700; }
-  .ccard-valor { margin-left: auto; font-size: 15px; font-weight: 700; color: var(--navy); white-space: nowrap; }
   .load-wrap { text-align: center; margin-top: 18px; }
   .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; }
   .empty span { font-size: 40px; display: block; margin-bottom: 10px; }
@@ -258,13 +251,6 @@
 
     main { padding: 14px 12px 96px; }
 
-    /* estatísticas: grade de 3 colunas, sem divisórias */
-    .stats-inner { padding: 10px 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .stat { padding: 9px 6px; margin: 0; border-right: none; border-bottom: none; border-radius: 12px; background: rgba(255,255,255,0.06); flex-direction: column; align-items: flex-start; gap: 3px; justify-content: center; }
-    .stat.active { background: rgba(232,160,32,0.20); box-shadow: inset 0 0 0 1.5px var(--gold); }
-    .stat-num { font-size: 21px; }
-    .stat-label { font-size: 9.5px; letter-spacing: .3px; line-height: 1.25; }
-
     /* filtros recolhíveis */
     .panel-head { cursor: pointer; padding: 13px 15px; }
     .panel-body { padding: 14px 15px; }
@@ -278,14 +264,6 @@
     .filter-btn { padding: 9px 14px; font-size: 12.5px; }
     .chips { width: 100%; margin: 8px 0 0; }
 
-    /* painel dinâmico */
-    .bar-row { grid-template-columns: 78px 1fr 62px; gap: 8px; padding: 5px 0; }
-    .bar-label { font-size: 11.5px; }
-    .bar-val { font-size: 11px; }
-    .bar-track { height: 18px; }
-    .venc-strip { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .venc-box { padding: 12px 10px; }
-    .venc-box .vnum { font-size: 24px; }
     .panel-head span { display: none; }
 
     /* lista */
@@ -294,16 +272,43 @@
     .toolbar-right label { display: none; }
     .sort-sel { flex: 1; font-size: 16px; }
     .toolbar-right .btn-primary { display: none; }
-    .cards { grid-template-columns: 1fr; gap: 10px; }
-    .ccard { padding: 13px 14px; border-radius: 13px; }
-    .ccard-top { gap: 6px; margin-bottom: 6px; }
-    .badge { font-size: 11px; padding: 3px 9px; }
-    .badge-venc { margin-left: 0; width: 100%; }
-    .ccard-emp { font-size: 14.5px; }
-    .ccard-obj { font-size: 13px; -webkit-line-clamp: 3; }
-    .ccard-bottom { gap: 10px; margin-top: 8px; }
-    .meta { font-size: 11.5px; }
-    .ccard-valor { margin-left: 0; width: 100%; font-size: 16px; padding-top: 2px; border-top: 1px dashed var(--border); }
+    /* A tabela deixa de ser tabela: cada linha vira um bloco, com a empresa
+       de título e o valor em destaque. Tabela de 9 colunas espremida em
+       390px quebra palavra no meio e fica ilegível. */
+    .tab-box { border-radius: 14px; }
+    .tab, .tab tbody, .tab tr { display: block; width: 100%; }
+    .tab thead { display: none; }
+    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 9px;
+      padding: 14px 14px 15px; border-bottom: 1px solid var(--border); }
+    .tab tbody tr:last-child { border-bottom: none; }
+    .tab tbody tr:nth-child(even), .tab tbody tr:nth-child(even) td,
+    .tab tbody tr:hover td { background: transparent; }
+    .tab td { display: inline; padding: 0; border: none; width: auto; }
+    .tab td::before { content: ""; }
+    .tab td.vazia { display: none; }
+    .badge { font-size: 10.5px; padding: 3px 8px; }
+
+    /* 1) a empresa contratada */
+    .tab .c-emp { order: 1; flex: 0 0 100%; font-size: 14.5px; font-weight: 700;
+      color: var(--text); line-height: 1.4; margin-bottom: 3px; }
+    /* 2) o objeto do contrato */
+    .tab .c-obj { order: 2; flex: 0 0 100%; font-size: 12.5px; color: var(--muted);
+      line-height: 1.45; margin-bottom: 8px; }
+    /* 3) o valor, que é o número que se compara */
+    .tab .c-valor { order: 3; width: auto; text-align: left; font-size: 19px; font-weight: 800; color: var(--navy); }
+    /* 4) situação e vencimento, que é o que decide se o contrato preocupa */
+    .tab .c-sit { order: 4; }
+    .tab .c-venc { order: 5; }
+    /* 5) o resto, discreto, no pé */
+    .tab .c-sec { order: 6; flex: 0 0 100%; margin-top: 9px; font-size: 11px; }
+    .tab .c-sec::before { content: "secretaria "; }
+    .tab .c-fis { order: 7; flex: 0 0 100%; font-size: 11px; }
+    .tab .c-fis::before { content: "fiscais "; }
+    .tab .c-num { order: 8; flex: 1 1 auto; margin-top: 8px; font-size: 11px; }
+    .tab .c-num .n-num, .tab .c-num .n-mod { display: inline; font-size: 11px; }
+    .tab .c-num .n-num { color: var(--navy); }
+    .tab .c-num .n-mod { color: var(--muted); margin-left: 5px; }
+    .tab .c-tipo { order: 9; margin-top: 8px; font-size: 11px; color: var(--muted); }
 
     /* modais como folha inferior */
     .overlay { align-items: flex-end; }
@@ -331,7 +336,6 @@
   }
 
   @media (max-width: 380px) {
-    .stats-inner { grid-template-columns: repeat(2, 1fr); }
     .filters-grid { grid-template-columns: 1fr; }
     .mb-btn { font-size: 11.5px; padding: 11px 4px; }
   }
@@ -356,31 +360,7 @@
   </div>
 </header>
 
-<div class="stats-bar">
-  <div class="stats-inner" id="statsBar"></div>
-</div>
-
 <main>
-  <!-- PAINEL DINÂMICO -->
-  <div class="panel" id="painelDash">
-    <div class="panel-head">
-      <div class="panel-title">📊 Painel dinâmico — contratos vigentes</div>
-      <span style="font-size:12px;color:var(--muted)">Clique nas barras e nos blocos para filtrar a lista abaixo</span>
-    </div>
-    <div class="panel-body">
-      <div class="dash-grid">
-        <div class="dash-block">
-          <h3>Contratos ativos por secretaria</h3>
-          <div id="dashSecs"></div>
-        </div>
-        <div class="dash-block">
-          <h3>Vencimentos (contratos ativos)</h3>
-          <div class="venc-strip" id="dashVenc"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- FILTROS -->
   <div class="panel">
     <div class="panel-head" onclick="toggleFiltros(event)">
@@ -444,18 +424,60 @@
     <div class="toolbar-right">
       <label style="font-size:12px;color:var(--muted);font-weight:700">ORDENAR:</label>
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
-        <option value="venc-asc">Vencimento (mais próximo)</option>
-        <option value="venc-desc">Vencimento (mais distante)</option>
-        <option value="valor-desc">Maior valor</option>
-        <option value="valor-asc">Menor valor</option>
-        <option value="num-desc">Nº contrato (recente)</option>
-        <option value="emp">Empresa (A–Z)</option>
+        <optgroup label="Vencimento">
+          <option value="venc-asc" selected>Vencimento — mais próximo primeiro</option>
+          <option value="venc-desc">Vencimento — mais distante primeiro</option>
+        </optgroup>
+        <optgroup label="Valor">
+          <option value="valor-desc">Valor — do maior para o menor</option>
+          <option value="valor-asc">Valor — do menor para o maior</option>
+        </optgroup>
+        <optgroup label="Texto">
+          <option value="num-desc">Nº do contrato (mais recente)</option>
+          <option value="num-asc">Nº do contrato (mais antigo)</option>
+          <option value="emp-asc">Empresa (A–Z)</option>
+          <option value="emp-desc">Empresa (Z–A)</option>
+          <option value="obj-asc">Objeto (A–Z)</option>
+          <option value="sec-asc">Secretaria (A–Z)</option>
+          <option value="tipo-asc">Tipo (A–Z)</option>
+          <option value="fis-asc">Fiscais (A–Z)</option>
+          <option value="sit-asc">Situação (A–Z)</option>
+        </optgroup>
       </select>
       <button class="btn-primary" onclick="pdfDoFiltro()" title="Gera um PDF exatamente com os contratos filtrados acima">🖨️ PDF do filtro atual</button>
     </div>
   </div>
 
-  <div class="cards" id="cardsList"></div>
+  <div class="tab-box">
+    <table class="tab">
+      <thead>
+        <tr class="th-titulos">
+          <th data-ord="num"   onclick="ordenarPor('num')">Contrato</th>
+          <th data-ord="emp"   onclick="ordenarPor('emp')">Empresa</th>
+          <th data-ord="obj"   onclick="ordenarPor('obj')">Objeto</th>
+          <th data-ord="sec"   onclick="ordenarPor('sec')">Secretaria</th>
+          <th data-ord="tipo"  onclick="ordenarPor('tipo')">Tipo</th>
+          <th data-ord="fis"   onclick="ordenarPor('fis')">Fiscais</th>
+          <th data-ord="sit"   onclick="ordenarPor('sit')">Situação</th>
+          <th data-ord="venc"  onclick="ordenarPor('venc')">Vencimento</th>
+          <th data-ord="valor" onclick="ordenarPor('valor')" class="r">Valor</th>
+        </tr>
+        <tr class="th-filtros">
+          <th><input class="cf" data-col="num"   placeholder="nº, modalidade…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="emp"   placeholder="empresa…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="obj"   placeholder="buscar no objeto…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="sec"   placeholder="secretaria…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="tipo"  placeholder="tipo…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="fis"   placeholder="fiscal…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="sit"   placeholder="situação…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="venc"  placeholder="data…" oninput="aplicarFiltros()"></th>
+          <th><input class="cf" data-col="valor" placeholder="valor…" oninput="aplicarFiltros()"></th>
+        </tr>
+      </thead>
+      <tbody id="corpo"></tbody>
+    </table>
+    <div id="vazio"></div>
+  </div>
   <div class="load-wrap" id="loadWrap" style="display:none">
     <button class="btn-ghost" onclick="renderMais()" id="btnMais">Carregar mais contratos ↓</button>
   </div>
@@ -593,8 +615,42 @@ function fiscais(c){ return [...c.fiscalAdm, ...c.fiscalTec]; }
 
 /* ══════════════ ESTADO ══════════════ */
 const F = { busca:'', sec:'', fiscal:'', tipo:'', ano:'', venc:'', palavra:'', sit:'ATIVOS', sort:'venc-asc' };
+/* Um filtro por coluna, casando com o texto que a coluna mostra. */
+const COL = { num:'', emp:'', obj:'', sec:'', tipo:'', fis:'', sit:'', venc:'', valor:'' };
 let filtrados = [], mostrando = 0;
-const LOTE = 60;
+const LOTE = 100;
+
+/* O texto de cada coluna do jeito que aparece na tela — é sobre ele que a
+   busca da coluna casa, então procurar "2.226" acha "R$ 2.226.275,67" e
+   procurar "2023" acha a data de vencimento. */
+const TEXTO_COL = {
+  num:   c => 'nº '+c.contr+'/'+c.ano+' '+(c.modalidade||''),
+  emp:   c => c.empresa||'',
+  obj:   c => c.objeto||'',
+  sec:   c => (c.secretarias||[]).join(' '),
+  tipo:  c => c.tipo||'',
+  fis:   c => fiscais(c).join(' '),
+  sit:   c => c.situacao||'',
+  venc:  c => fmtD(c.vencimento),
+  valor: c => money(c.valor),
+};
+
+/* Como cada coluna se ordena. Número ordena por número (senão
+   "R$ 1.000,00" viria antes de "R$ 9,00"); texto por localeCompare. */
+const VALOR_ORD = {
+  num:   c => String(c.ano)+'-'+String(c.contr).padStart(8,'0'),
+  emp:   c => c.empresa||'',
+  obj:   c => c.objeto||'',
+  sec:   c => (c.secretarias||[]).join(', '),
+  tipo:  c => c.tipo||'',
+  fis:   c => fiscais(c).join(', '),
+  sit:   c => c.situacao||'',
+  /* contrato sem data vai para o fim, tanto crescente quanto decrescente */
+  venc:  c => c._d===null ? 1e9 : c._d,
+  valor: c => c.valor||0,
+};
+/* Nestas o primeiro clique mostra o MAIOR primeiro; nas de texto, A→Z. */
+const ORD_DESC_PRIMEIRO = ['valor','num'];
 
 /* ══════════════ POPULAR SELECTS ══════════════ */
 function initSelects(){
@@ -626,7 +682,7 @@ function passaVenc(c, modo){
     default: return true;
   }
 }
-function aplicarFiltros(){
+function aplicarFiltros(sortForcado){
   F.busca = document.getElementById('fBusca').value.trim().toLowerCase();
   F.sec = document.getElementById('fSec').value;
   F.fiscal = document.getElementById('fFiscal').value.trim().toLowerCase();
@@ -634,7 +690,12 @@ function aplicarFiltros(){
   F.ano = document.getElementById('fAno').value;
   F.venc = document.getElementById('fVenc').value;
   F.palavra = document.getElementById('fPalavra').value;
-  F.sort = document.getElementById('fSort').value;
+  /* sortForcado só chega pelo clique no cabeçalho, quando a combinação não
+     existe no seletor (aí ele fica em branco e quem manda é este valor) */
+  F.sort = sortForcado || document.getElementById('fSort').value || F.sort;
+  document.querySelectorAll('.cf').forEach(i => { COL[i.dataset.col] = i.value.trim().toLowerCase(); });
+  /* só as colunas realmente preenchidas entram na conta */
+  const colsAtivas = Object.keys(COL).filter(k => COL[k]);
 
   filtrados = CONTRATOS.filter(c => {
     if(F.sit==='ATIVOS' && !isAtivo(c)) return false;
@@ -650,27 +711,49 @@ function aplicarFiltros(){
       const alvo = (c.contr+'/'+c.ano+' '+c.empresa+' '+c.objeto+' '+c.palavra+' '+c.modalidade+' '+c.secretarias.join(' ')+' '+fiscais(c).join(' ')).toLowerCase();
       for(const termo of F.busca.split(/\s+/)) if(!alvo.includes(termo)) return false;
     }
+    for(const k of colsAtivas){
+      if(!TEXTO_COL[k](c).toLowerCase().includes(COL[k])) return false;
+    }
     return true;
   });
 
   ordenar();
   mostrando = 0;
-  document.getElementById('cardsList').innerHTML = '';
+  document.getElementById('corpo').innerHTML = '';
+  document.getElementById('vazio').innerHTML = '';
   renderMais();
   renderChips();
-  renderStats();
-  renderDash();
+  marcarSetas();
 }
 function ordenar(){
-  const s = F.sort;
+  const [campo, dir] = String(F.sort).split('-');
+  const valor = VALOR_ORD[campo];
+  if(!valor) return;
+  const sinal = (dir === 'asc') ? 1 : -1;
   filtrados.sort((a,b)=>{
-    if(s==='venc-asc'){ const x=a._d===null?1e9:a._d, y=b._d===null?1e9:b._d; return x-y; }
-    if(s==='venc-desc'){ const x=a._d===null?-1e9:a._d, y=b._d===null?-1e9:b._d; return y-x; }
-    if(s==='valor-desc') return (b.valor||0)-(a.valor||0);
-    if(s==='valor-asc') return (a.valor||0)-(b.valor||0);
-    if(s==='num-desc') return (b.ano-a.ano) || (b.contr-a.contr);
-    if(s==='emp') return String(a.empresa).localeCompare(String(b.empresa),'pt-BR');
-    return 0;
+    const x = valor(a), y = valor(b);
+    if(typeof x === 'number') return (x - y) * sinal;
+    return String(x).localeCompare(String(y), 'pt-BR') * sinal;
+  });
+}
+/* Clique no cabeçalho: ordena por aquela coluna; clicar de novo inverte. O
+   seletor "ORDENAR" acompanha, para os dois nunca mostrarem coisas
+   diferentes (e para o celular, onde não há cabeçalho para clicar). */
+function ordenarPor(campo){
+  const [atual, dir] = String(F.sort).split('-');
+  let nova;
+  if(atual === campo) nova = campo + (dir === 'asc' ? '-desc' : '-asc');
+  else nova = campo + (ORD_DESC_PRIMEIRO.indexOf(campo) >= 0 ? '-desc' : '-asc');
+  const sel = document.getElementById('fSort');
+  if([...sel.options].some(o => o.value === nova)) sel.value = nova;
+  else { F.sort = nova; sel.value = ''; }
+  aplicarFiltros(nova);
+}
+function marcarSetas(){
+  const [campo, dir] = String(F.sort).split('-');
+  document.querySelectorAll('.th-titulos th').forEach(th => {
+    th.classList.remove('ord-asc','ord-desc');
+    if(th.dataset.ord === campo) th.classList.add(dir === 'asc' ? 'ord-asc' : 'ord-desc');
   });
 }
 function setSituacao(btn){
@@ -682,17 +765,11 @@ function setSituacao(btn){
 function limparFiltros(){
   ['fBusca','fFiscal'].forEach(id=>document.getElementById(id).value='');
   ['fSec','fTipo','fAno','fVenc','fPalavra'].forEach(id=>document.getElementById(id).value='');
+  document.querySelectorAll('.cf').forEach(i => i.value='');   /* inclusive os de coluna */
   document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='ATIVOS'));
   F.sit='ATIVOS';
   aplicarFiltros();
 }
-function setFiltroExterno(campo, valor){
-  if(campo==='sec'){ const el=document.getElementById('fSec'); el.value = (el.value===valor?'':valor); }
-  if(campo==='venc'){ const el=document.getElementById('fVenc'); el.value = (el.value===valor?'':valor); }
-  aplicarFiltros();
-  const lst=document.getElementById('cardsList'); if(lst.scrollIntoView) lst.scrollIntoView({behavior:'smooth', block:'start'});
-}
-
 /* ══════════════ CHIPS DE FILTROS ATIVOS ══════════════ */
 const VENC_LABEL = {vencidos:'Vencidos','30':'≤ 30 dias','60':'≤ 60 dias','90':'≤ 90 dias','180':'≤ 180 dias',ano:'Vence este ano',semdata:'Sem data'};
 function renderChips(){
@@ -705,29 +782,22 @@ function renderChips(){
   if(F.ano) c.push(mk('Ano '+F.ano,"document.getElementById('fAno').value='';aplicarFiltros()"));
   if(F.venc) c.push(mk(VENC_LABEL[F.venc]||F.venc,"document.getElementById('fVenc').value='';aplicarFiltros()"));
   if(F.palavra) c.push(mk(F.palavra,"document.getElementById('fPalavra').value='';aplicarFiltros()"));
+  /* Os filtros de coluna também viram chip: no celular o cabeçalho da tabela
+     não existe, e sem isso um filtro digitado no computador continuaria
+     valendo sem nada na tela dizendo que ele está lá. */
+  const NOME_COL = {num:'Contrato', emp:'Empresa', obj:'Objeto', sec:'Secretaria', tipo:'Tipo',
+                    fis:'Fiscais', sit:'Situação', venc:'Vencimento', valor:'Valor'};
+  Object.keys(COL).forEach(k => {
+    if(!COL[k]) return;
+    c.push(mk(NOME_COL[k]+': '+COL[k], "limparColuna('"+k+"')"));
+  });
   document.getElementById('chipsAtivos').innerHTML = c.join('');
 }
-
-/* ══════════════ BARRA DE ESTATÍSTICAS ══════════════ */
-function renderStats(){
-  const ativos = CONTRATOS.filter(isAtivo);
-  const vencidos = ativos.filter(c=>c._d!==null && c._d<0).length;
-  const v30 = ativos.filter(c=>c._d!==null && c._d>=0 && c._d<=30).length;
-  const v90 = ativos.filter(c=>c._d!==null && c._d>=0 && c._d<=90).length;
-  const v180 = ativos.filter(c=>c._d!==null && c._d>=0 && c._d<=180).length;
-  const st = (num, label, cls, on, act) =>
-    `<div class="stat ${act?'active':''}" onclick="${on}"><div class="stat-num ${cls||''}">${num}</div><div class="stat-label">${label}</div></div>`;
-  document.getElementById('statsBar').innerHTML =
-    st(CONTRATOS.length,'Contratos<br>cadastrados','',"statTodos()", F.sit==='' && !F.venc) +
-    st(ativos.length,'Contratos<br>ativos','',"statAtivos()", F.sit==='ATIVOS' && !F.venc) +
-    st(vencidos,'Ativos já<br>vencidos','red',"statVenc('vencidos')", F.venc==='vencidos') +
-    st(v30,'Vencem em<br>até 30 dias','red',"statVenc('30')", F.venc==='30') +
-    st(v90,'Vencem em<br>até 90 dias','amberc',"statVenc('90')", F.venc==='90') +
-    st(v180,'Vencem em<br>até 180 dias','',"statVenc('180')", F.venc==='180');
+function limparColuna(col){
+  const i = document.querySelector('.cf[data-col="'+col+'"]');
+  if(i) i.value = '';
+  aplicarFiltros();
 }
-function statTodos(){ document.getElementById('fVenc').value=''; document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='')); F.sit=''; aplicarFiltros(); }
-function statAtivos(){ document.getElementById('fVenc').value=''; document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='ATIVOS')); F.sit='ATIVOS'; aplicarFiltros(); }
-function statVenc(v){ document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='ATIVOS')); F.sit='ATIVOS'; document.getElementById('fVenc').value=v; aplicarFiltros(); }
 
 /* ══════════════ PAINEL DINÂMICO ══════════════ */
 function isMobile(){ return window.matchMedia ? window.matchMedia('(max-width: 860px)').matches : (window.innerWidth||999) <= 860; }
@@ -739,30 +809,7 @@ function toggleFiltros(ev){
   b.classList.toggle('hide');
   document.getElementById('caretFiltros').classList.toggle('up', !b.classList.contains('hide'));
 }
-function renderDash(){
-  const ativos = CONTRATOS.filter(isAtivo);
-  const porSec = {};
-  ativos.forEach(c=>c.secretarias.forEach(s=>porSec[s]=(porSec[s]||0)+1));
-  const arr = Object.entries(porSec).sort((a,b)=>b[1]-a[1]);
-  const max = arr.length?arr[0][1]:1;
-  document.getElementById('dashSecs').innerHTML = arr.map(([s,n])=>
-    `<div class="bar-row ${F.sec===s?'sel':''}" onclick="setFiltroExterno('sec','${s}')">
-       <div class="bar-label">${esc(s)}</div>
-       <div class="bar-track"><div class="bar-fill" style="width:${Math.max(3,n/max*100)}%"></div></div>
-       <div class="bar-val">${n} ativos</div>
-     </div>`).join('');
-  const cnt = f => ativos.filter(f).length;
-  const boxes = [
-    ['vencidos', cnt(c=>c._d!==null&&c._d<0), 'Vencidos', 'vb-red'],
-    ['30', cnt(c=>c._d!==null&&c._d>=0&&c._d<=30), 'Até 30 dias', 'vb-red'],
-    ['90', cnt(c=>c._d!==null&&c._d>=0&&c._d<=90), 'Até 90 dias', 'vb-amber'],
-    ['180', cnt(c=>c._d!==null&&c._d>=0&&c._d<=180), 'Até 180 dias', 'vb-blue'],
-  ];
-  document.getElementById('dashVenc').innerHTML = boxes.map(([v,n,l,cl])=>
-    `<div class="venc-box ${cl} ${F.venc===v?'sel':''}" onclick="setFiltroExterno('venc','${v}')"><div class="vnum">${n}</div><div class="vlab">${l}</div></div>`).join('');
-}
-
-/* ══════════════ RENDER DOS CARDS ══════════════ */
+/* ══════════════ RENDER DA TABELA ══════════════ */
 function badgeSit(c){
   if(c.situacao==='ATIVO') return '<span class="badge badge-ativo">✅ ATIVO</span>';
   if(c.situacao==='ATIVO-PARALIZADO') return '<span class="badge badge-par">⏸️ PARALISADO</span>';
@@ -777,42 +824,42 @@ function badgeVenc(c){
   if(d<=90) return `<span class="badge badge-venc bv-amber">⏰ Vence em ${d}d · ${fmtD(c.vencimento)}</span>`;
   return `<span class="badge badge-venc bv-green">📅 ${fmtD(c.vencimento)}</span>`;
 }
-function cardHTML(c){
-  const cls = ['ccard'];
-  if(c.situacao==='INATIVO') cls.push('st-inativo');
-  if(c.situacao==='ATIVO-PARALIZADO') cls.push('st-paralizado');
-  if(isAtivo(c) && c._d!==null && c._d<30) cls.push('venc-red');
+function linhaHTML(c){
+  /* Célula sem conteúdo não leva rótulo: no celular os rótulos viram texto
+     visível (::before), e um "fiscais" solto sem nome seria ruído. */
+  const cel = (classe, valor, rotulo) => valor
+    ? `<td class="${classe}" data-label="${rotulo}">${valor}</td>`
+    : `<td class="${classe} vazia"></td>`;
   const fis = fiscais(c);
-  return `<div class="${cls.join(' ')}" onclick="abrirDet(${c.id})">
-    <div class="ccard-top">
-      <span class="badge badge-num">Nº ${c.contr}/${c.ano}</span>
-      ${c.secretarias.map(s=>`<span class="badge badge-sec">${esc(s)}</span>`).join('')}
-      <span class="badge badge-tipo">${esc(c.tipo)}</span>
-      ${badgeSit(c)}
-      ${badgeVenc(c)}
-    </div>
-    <div class="ccard-emp">${esc(c.empresa)||'—'}</div>
-    <div class="ccard-obj">${esc(c.objeto)}</div>
-    <div class="ccard-bottom">
-      ${fis.length?`<span class="meta">👤 Fiscais: <b>${esc(fis.slice(0,3).join(', '))}${fis.length>3?' +'+(fis.length-3):''}</b></span>`:''}
-      ${c.modalidade?`<span class="meta">📁 <b>${esc(c.modalidade)}</b></span>`:''}
-      ${c.palavra?`<span class="meta">🏷️ ${esc(c.palavra)}</span>`:''}
-      <span class="ccard-valor">${money(c.valor)}</span>
-    </div>
-  </div>`;
+  return `<tr onclick="abrirDet(${c.id})">
+    <td class="c-num"><span class="n-num">Nº ${esc(c.contr)}/${esc(c.ano)}</span>${c.modalidade?`<span class="n-mod">${esc(c.modalidade)}</span>`:''}</td>
+    <td class="c-emp">${esc(c.empresa)||'—'}</td>
+    <td class="c-obj">${esc(c.objeto)}</td>
+    ${cel('c-sec', esc((c.secretarias||[]).join(', ')), 'Secretaria')}
+    ${cel('c-tipo', esc(c.tipo), 'Tipo')}
+    ${cel('c-fis', esc(fis.slice(0,3).join(', '))+(fis.length>3?' +'+(fis.length-3):''), 'Fiscais')}
+    <td class="c-sit">${badgeSit(c)}</td>
+    <td class="c-venc">${badgeVenc(c)}</td>
+    <td class="c-valor">${money(c.valor)}</td>
+  </tr>`;
 }
 function renderMais(){
-  const alvo = document.getElementById('cardsList');
+  const corpo = document.getElementById('corpo');
+  if(!filtrados.length){
+    document.getElementById('vazio').innerHTML =
+      '<div class="empty"><span>🔍</span>Nenhum contrato encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+    document.getElementById('loadWrap').style.display = 'none';
+    document.getElementById('resultCount').innerHTML = '';
+    return;
+  }
   const fatia = filtrados.slice(mostrando, mostrando+LOTE);
-  alvo.insertAdjacentHTML('beforeend', fatia.map(cardHTML).join(''));
+  corpo.insertAdjacentHTML('beforeend', fatia.map(linhaHTML).join(''));
   mostrando += fatia.length;
-  document.getElementById('loadWrap').style.display = mostrando < filtrados.length ? '' : 'none';
-  document.getElementById('btnMais').textContent = `Carregar mais (${filtrados.length-mostrando} restantes) ↓`;
+  const faltam = filtrados.length - mostrando;
+  document.getElementById('loadWrap').style.display = faltam>0 ? '' : 'none';
+  document.getElementById('btnMais').textContent = `Carregar mais (${faltam} restantes) ↓`;
   document.getElementById('resultCount').innerHTML =
-    filtrados.length
-      ? `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> contrato${filtrados.length>1?'s':''}`
-      : '';
-  if(!filtrados.length) alvo.innerHTML = '<div class="empty"><span>🔍</span>Nenhum contrato encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+    `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> contrato${filtrados.length>1?'s':''}`;
 }
 
 /* ══════════════ MODAL DETALHE ══════════════ */
@@ -1157,16 +1204,14 @@ function iniciar(){
   marcarFonte();
   initSelects();
   aplicarFiltros();
-  renderDash();   /* painel dinâmico sempre visível, no desktop e no celular */
-  if(isMobile()){
-    document.getElementById('filtrosBody').classList.add('hide');   /* filtros recolhidos p/ ganhar tela */
-    document.getElementById('caretFiltros').classList.remove('up');
-  }
+  /* A busca começa ABERTA também no celular: procurar é o motivo de a página
+     existir, e esconder o campo atrás de um toque atrasava quem chegou para
+     procurar alguma coisa. Mesma escolha do módulo licitacon. */
 }
 
 carregarContratos().then(d => { CONTRATOS = d; iniciar(); }).catch(e => {
   console.error('Erro ao carregar os contratos:', e);
-  const alvo = document.getElementById('cardsList');
+  const alvo = document.getElementById('vazio');
   if(alvo) alvo.innerHTML =
     '<div class="empty"><span>⚠️</span>Não foi possível carregar os contratos.<br>' + esc(e.message) + '</div>';
 });

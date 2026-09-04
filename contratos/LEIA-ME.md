@@ -68,7 +68,7 @@ ele lê o `FIREBASE_CONFIG` daqui e, enquanto estiver vazio, simplesmente pula.
 
 | | |
 |---|---|
-| `index.html` | a tela (95 KB — eram 850 KB com os dados embutidos) |
+| `index.html` | a tela: busca + uma tabela única (mesmo desenho do módulo licitacon) |
 | `dados/contratos.json` | os 1.264 contratos, um por linha |
 | `ferramentas/importar.mjs` | sobe o JSON para o Firestore dos contratos |
 | `../testes/t-contratos.js` | confere que a tela continua fazendo o que fazia |
