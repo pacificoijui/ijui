@@ -102,21 +102,23 @@
 
   main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
 
-  /* Painel de filtros */
-  .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); margin-bottom: 18px; }
-  .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-  .panel-title { font-size: 14px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .8px; display: flex; align-items: center; gap: 8px; }
-  .panel-body { padding: 16px 20px; }
-  .filters-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1fr 1fr; gap: 12px; align-items: end; }
-  .f-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-  .f-field label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
-  .f-field input, .f-field select { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13.5px; background: #fbfcff; color: var(--text); outline: none; width: 100%; transition: border-color .15s, box-shadow .15s, background .15s; }
-  .f-field input:focus, .f-field select:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
-  .filters-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
-  .filter-btn { padding: 8px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--card); font-family: inherit; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
-  .filter-btn:hover { border-color: var(--navy-light); color: var(--navy); }
-  .filter-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+  /* Barra de busca única, no estilo do Google: procura em tudo de uma vez.
+     Os filtros por campo moraram aqui até virarem menu de coluna na tabela. */
+  .busca-wrap { display: flex; justify-content: center; margin: 2px 0 16px; }
+  .busca-box { display: flex; align-items: center; width: 100%; max-width: 780px; background: var(--card);
+    border: 1.5px solid var(--border); border-radius: 28px; padding: 0 6px 0 18px;
+    box-shadow: var(--shadow); transition: box-shadow .18s, border-color .18s; }
+  .busca-box:hover { box-shadow: var(--shadow-md); }
+  .busca-box:focus-within { border-color: var(--navy-light); box-shadow: var(--ring), var(--shadow-md); }
+  .busca-ico { font-size: 15px; opacity: .5; flex-shrink: 0; }
+  .busca-box input { flex: 1; min-width: 0; border: none; outline: none; background: none; font-family: inherit;
+    font-size: 15px; color: var(--text); padding: 14px 12px; }
+  .busca-box input::placeholder { color: #a3aec4; }
+  .busca-x { border: none; background: none; color: var(--muted); font-size: 14px; cursor: pointer;
+    padding: 8px 12px; border-radius: 50%; visibility: hidden; }
+  .busca-x:hover { background: var(--blue-bg); color: var(--navy); }
+  .busca-box.tem-texto .busca-x { visibility: visible; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { background: var(--blue-bg); color: var(--blue-text); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
   .chip b { cursor: pointer; opacity: .6; }
   .chip b:hover { opacity: 1; }
@@ -149,14 +151,64 @@
   .tab .th-titulos th.ord-asc::after { content: "▲"; opacity: 1; }
   .tab .th-titulos th.ord-desc::after { content: "▼"; opacity: 1; }
   .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #dfe8f8; }
-  /* Busca por coluna, no estilo do filtro de planilha. */
+  /* Filtro por coluna, no estilo do filtro de planilha: o botão abre um menu
+     com as opções que aquela coluna tem, para marcar as que interessam. */
   .tab .th-filtros th { padding: 0 5px 8px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
-  .tab .th-filtros input {
+  .cf {
+    display: flex; align-items: center; justify-content: space-between; gap: 4px;
     width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px;
-    font-family: inherit; font-size: 11.5px; background: #fff; color: var(--text); outline: none;
+    font-family: inherit; font-size: 11.5px; font-weight: 600; background: #fff; color: var(--muted);
+    text-align: left; cursor: pointer; text-transform: none; letter-spacing: 0;
   }
-  .tab .th-filtros input:focus { border-color: var(--navy-light); box-shadow: 0 0 0 2px rgba(46,93,168,0.14); }
-  .tab .th-filtros input::placeholder { color: #a8b2c8; }
+  .cf:hover { border-color: var(--navy-light); color: var(--navy); }
+  .cf.ativo { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .cf-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cf-seta { font-size: 8px; opacity: .6; flex-shrink: 0; }
+
+  /* Menu da coluna (e o mesmo conteúdo dentro da folha de filtros do celular) */
+  .pop { position: absolute; z-index: 700; width: 292px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-lg); display: none; flex-direction: column; overflow: hidden; }
+  .pop.open { display: flex; }
+  .pop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 13px; border-bottom: 1px solid var(--border); }
+  .pop-tit { font-size: 11.5px; font-weight: 800; color: var(--navy); text-transform: uppercase; letter-spacing: .6px; }
+  .pop-x { border: none; background: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 2px 4px; }
+  .pop-x:hover { color: var(--navy); }
+  .pop-ord { display: flex; gap: 6px; padding: 9px 13px 0; }
+  .pop-ord button { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcff;
+    font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .pop-ord button:hover { border-color: var(--navy-light); color: var(--navy); }
+  .pop-ord button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .pop-busca { margin: 9px 13px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; color: var(--text); background: #fbfcff; outline: none; }
+  .pop-busca:focus { border-color: var(--navy-light); box-shadow: 0 0 0 2px rgba(46,93,168,.14); background: #fff; }
+  .pop-lista { overflow-y: auto; max-height: 292px; border-top: 1px solid var(--border); }
+  .pop-grupo { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .7px;
+    padding: 9px 13px 5px; background: #f4f7fd; border-bottom: 1px solid var(--border); }
+  .pop-op { display: flex; align-items: center; gap: 9px; padding: 6px 13px; font-size: 12.5px;
+    color: var(--text); cursor: pointer; }
+  .pop-op:hover { background: var(--blue-bg); }
+  .pop-op input { width: 15px; height: 15px; accent-color: var(--navy-light); flex-shrink: 0; margin: 0; }
+  .pop-op .op-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pop-op .op-n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .pop-op.todos { font-weight: 700; color: var(--navy); border-bottom: 1px solid var(--border); }
+  .pop-vazio { padding: 14px 13px; font-size: 12px; color: var(--muted); text-align: center; }
+  .pop-pe { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 13px; border-top: 1px solid var(--border); background: #f4f7fd; }
+  .pop-info { font-size: 11.5px; color: var(--muted); }
+
+  /* Folha de filtros do celular: mesma lista, sem cabeçalho de tabela para clicar */
+  .fm-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    padding: 13px 4px; border: none; border-bottom: 1px solid var(--border); background: none;
+    font-family: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
+  .fm-linha:hover { background: var(--blue-bg); }
+  .fm-nome { font-weight: 700; }
+  .fm-val { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+  .fm-val.on { color: var(--blue-text); font-weight: 700; }
+  .fm-secao { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .7px; margin: 16px 0 2px; }
+  .fm-voltar { border: none; background: none; color: var(--navy); font-family: inherit; font-size: 13px;
+    font-weight: 700; cursor: pointer; padding: 0 0 10px; }
   .tab td { padding: 9px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.42; }
   .tab tbody tr:last-child td { border-bottom: none; }
   .tab tbody tr:nth-child(even) td { background: #fafbfe; }
@@ -232,11 +284,9 @@
   .sel-count b { color: var(--navy); }
 
   .only-mobile { display: none; }
-  .caret { transition: transform .2s; display: inline-block; color: var(--muted); }
-  .caret.up { transform: rotate(180deg); }
   .mobile-bar { display: none; }
 
-  @media (max-width: 1100px) { .filters-grid { grid-template-columns: 1fr 1fr 1fr; } .dash-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
   /* ═══════════ CELULAR ═══════════ */
   @media (max-width: 860px) {
     .only-mobile { display: inline-block; }
@@ -251,20 +301,19 @@
 
     main { padding: 14px 12px 96px; }
 
-    /* filtros recolhíveis */
-    .panel-head { cursor: pointer; padding: 13px 15px; }
-    .panel-body { padding: 14px 15px; }
-    .panel-body.hide { display: none; }
-    .filters-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-    .f-field:first-child { grid-column: 1 / -1; }
     /* 16px evita o zoom automático do navegador ao focar o campo */
-    .f-field input, .f-field select, .sel-busca { font-size: 16px; padding: 11px 12px; }
-    .f-field label { font-size: 10px; }
-    .filters-actions { gap: 7px; }
-    .filter-btn { padding: 9px 14px; font-size: 12.5px; }
-    .chips { width: 100%; margin: 8px 0 0; }
+    .busca-wrap { margin: 0 0 12px; }
+    .busca-box { padding: 0 4px 0 14px; }
+    .busca-box input, .sel-busca { font-size: 16px; }
+    .busca-box input { padding: 12px 10px; }
+    .chips { width: 100%; }
 
-    .panel-head span { display: none; }
+    /* Sem cabeçalho de tabela para clicar, os filtros de coluna viram uma
+       folha: a lista das colunas e, ao tocar em uma, as opções dela. */
+    .pop { position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: 8px;
+      width: auto; max-height: 74vh; }
+    .pop-lista { max-height: 46vh; }
+    .pop-busca { font-size: 16px; }
 
     /* lista */
     .list-toolbar { gap: 8px; }
@@ -272,6 +321,7 @@
     .toolbar-right label { display: none; }
     .sort-sel { flex: 1; font-size: 16px; }
     .toolbar-right .btn-primary { display: none; }
+    .btn-filtros { flex: 1; }
     /* A tabela deixa de ser tabela: cada linha vira um bloco, com a empresa
        de título e o valor em destaque. Tabela de 9 colunas espremida em
        390px quebra palavra no meio e fica ilegível. */
@@ -336,7 +386,6 @@
   }
 
   @media (max-width: 380px) {
-    .filters-grid { grid-template-columns: 1fr; }
     .mb-btn { font-size: 11.5px; padding: 11px 4px; }
   }
 </style>
@@ -361,68 +410,91 @@
 </header>
 
 <main>
-  <!-- FILTROS -->
-  <div class="panel">
-    <div class="panel-head" onclick="toggleFiltros(event)">
-      <div class="panel-title">🔎 Buscar contratos <span class="only-mobile caret up" id="caretFiltros">▾</span></div>
-      <div class="chips" id="chipsAtivos"></div>
-    </div>
-    <div class="panel-body" id="filtrosBody">
-      <div class="filters-grid">
-        <div class="f-field">
-          <label>Busca livre (empresa, objeto, nº, palavra-chave...)</label>
-          <input type="text" id="fBusca" placeholder="Digite para buscar..." oninput="aplicarFiltros()">
-        </div>
-        <div class="f-field">
-          <label>Secretaria</label>
-          <select id="fSec" onchange="aplicarFiltros()"><option value="">Todas</option></select>
-        </div>
-        <div class="f-field">
-          <label>Fiscal</label>
-          <input type="text" id="fFiscal" list="listaFiscais" placeholder="Todos" oninput="aplicarFiltros()">
-          <datalist id="listaFiscais"></datalist>
-        </div>
-        <div class="f-field">
-          <label>Tipo</label>
-          <select id="fTipo" onchange="aplicarFiltros()"><option value="">Todos</option></select>
-        </div>
-        <div class="f-field">
-          <label>Ano</label>
-          <select id="fAno" onchange="aplicarFiltros()"><option value="">Todos</option></select>
-        </div>
-        <div class="f-field">
-          <label>Vencimento</label>
-          <select id="fVenc" onchange="aplicarFiltros()">
-            <option value="">Todos</option>
-            <option value="vencidos">Vencidos</option>
-            <option value="30">Vence em até 30 dias</option>
-            <option value="60">Vence em até 60 dias</option>
-            <option value="90">Vence em até 90 dias</option>
-            <option value="180">Vence em até 180 dias</option>
-            <option value="ano">Vence este ano</option>
-            <option value="semdata">Sem data</option>
-          </select>
-        </div>
-        <div class="f-field">
-          <label>Palavra-chave</label>
-          <select id="fPalavra" onchange="aplicarFiltros()"><option value="">Todas</option></select>
-        </div>
-      </div>
-      <div class="filters-actions">
-        <button class="filter-btn" data-sit="" onclick="setSituacao(this)">Todos</button>
-        <button class="filter-btn active" data-sit="ATIVOS" onclick="setSituacao(this)">✅ Ativos</button>
-        <button class="filter-btn" data-sit="ATIVO-PARALIZADO" onclick="setSituacao(this)">⏸️ Paralisados</button>
-        <button class="filter-btn" data-sit="INATIVO" onclick="setSituacao(this)">📦 Inativos</button>
-        <button class="link-clear" onclick="limparFiltros()">✕ Limpar todos os filtros</button>
-      </div>
+  <!-- BUSCA ÚNICA: procura em tudo. Os filtros ficam dentro da tabela. -->
+  <div class="busca-wrap">
+    <div class="busca-box" id="buscaBox">
+      <span class="busca-ico">🔎</span>
+      <input type="text" id="fBusca" autocomplete="off" spellcheck="false"
+             placeholder="Pesquisar em tudo — empresa, objeto, nº, fiscal, secretaria, valor…"
+             oninput="aplicarFiltros()">
+      <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
     </div>
   </div>
 
   <!-- LISTA -->
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
+    <div class="chips" id="chipsAtivos"></div>
     <div class="toolbar-right">
-      <label style="font-size:12px;color:var(--muted);font-weight:700">ORDENAR:</label>
+      <button class="btn-ghost btn-filtros only-mobile" onclick="abrirFiltrosMobile()">⚙️ Filtros e ordem</button>
+      <button class="link-clear" onclick="limparFiltros()">✕ Limpar filtros</button>
+      <button class="btn-primary" onclick="pdfDoFiltro()" title="Gera um PDF exatamente com os contratos filtrados abaixo">🖨️ PDF do filtro atual</button>
+    </div>
+  </div>
+
+  <div class="tab-box">
+    <table class="tab">
+      <thead>
+        <tr class="th-titulos">
+          <th data-ord="num"   onclick="ordenarPor('num')">Contrato</th>
+          <th data-ord="emp"   onclick="ordenarPor('emp')">Empresa</th>
+          <th data-ord="obj"   onclick="ordenarPor('obj')">Objeto</th>
+          <th data-ord="sec"   onclick="ordenarPor('sec')">Secretaria</th>
+          <th data-ord="tipo"  onclick="ordenarPor('tipo')">Tipo</th>
+          <th data-ord="fis"   onclick="ordenarPor('fis')">Fiscais</th>
+          <th data-ord="sit"   onclick="ordenarPor('sit')">Situação</th>
+          <th data-ord="venc"  onclick="ordenarPor('venc')">Vencimento</th>
+          <th data-ord="valor" onclick="ordenarPor('valor')" class="r">Valor</th>
+        </tr>
+        <!-- Cada coluna abre o próprio menu de opções, como o filtro de uma planilha -->
+        <tr class="th-filtros">
+          <th><button class="cf" data-col="num"   onclick="abrirFiltroCol(event,'num')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="emp"   onclick="abrirFiltroCol(event,'emp')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="obj"   onclick="abrirFiltroCol(event,'obj')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="sec"   onclick="abrirFiltroCol(event,'sec')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="tipo"  onclick="abrirFiltroCol(event,'tipo')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="fis"   onclick="abrirFiltroCol(event,'fis')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="sit"   onclick="abrirFiltroCol(event,'sit')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="venc"  onclick="abrirFiltroCol(event,'venc')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="valor" onclick="abrirFiltroCol(event,'valor')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+        </tr>
+      </thead>
+      <tbody id="corpo"></tbody>
+    </table>
+    <div id="vazio"></div>
+  </div>
+  <div class="load-wrap" id="loadWrap" style="display:none">
+    <button class="btn-ghost" onclick="renderMais()" id="btnMais">Carregar mais contratos ↓</button>
+  </div>
+</main>
+
+<!-- MENU DE FILTRO DA COLUNA (um só, reaproveitado por todas as colunas) -->
+<div class="pop" id="popFiltro">
+  <div class="pop-head">
+    <span class="pop-tit" id="popTit">Coluna</span>
+    <button class="pop-x" onclick="fecharPop()" title="Fechar">✕</button>
+  </div>
+  <div class="pop-ord">
+    <button id="popOrdAsc"  onclick="popOrdenar('asc')">↑ A–Z</button>
+    <button id="popOrdDesc" onclick="popOrdenar('desc')">↓ Z–A</button>
+  </div>
+  <input class="pop-busca" id="popBusca" autocomplete="off" spellcheck="false"
+         placeholder="Buscar nesta coluna…" oninput="popDigitou()">
+  <div class="pop-lista" id="popLista"></div>
+  <div class="pop-pe">
+    <button class="link-clear" onclick="popLimpar()">✕ Limpar esta coluna</button>
+    <span class="pop-info" id="popInfo"></span>
+  </div>
+</div>
+
+<!-- FILTROS NO CELULAR: sem cabeçalho de tabela, as colunas viram uma lista -->
+<div class="overlay" id="ovFiltros" onclick="if(event.target===this)fecharFiltrosMobile()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><h2>⚙️ Filtros e ordem</h2><button class="modal-close" onclick="fecharFiltrosMobile()">✕</button></div>
+    <div class="modal-body">
+      <div class="fm-secao">Filtrar por coluna</div>
+      <div id="fmLista"></div>
+      <div class="fm-secao">Ordenar por</div>
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
         <optgroup label="Vencimento">
           <option value="venc-asc" selected>Vencimento — mais próximo primeiro</option>
@@ -444,44 +516,13 @@
           <option value="sit-asc">Situação (A–Z)</option>
         </optgroup>
       </select>
-      <button class="btn-primary" onclick="pdfDoFiltro()" title="Gera um PDF exatamente com os contratos filtrados acima">🖨️ PDF do filtro atual</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px">
+        <button class="link-clear" onclick="limparFiltros()">✕ Limpar todos os filtros</button>
+        <button class="btn-primary" id="fmVer" onclick="fecharFiltrosMobile()">Ver resultados</button>
+      </div>
     </div>
   </div>
-
-  <div class="tab-box">
-    <table class="tab">
-      <thead>
-        <tr class="th-titulos">
-          <th data-ord="num"   onclick="ordenarPor('num')">Contrato</th>
-          <th data-ord="emp"   onclick="ordenarPor('emp')">Empresa</th>
-          <th data-ord="obj"   onclick="ordenarPor('obj')">Objeto</th>
-          <th data-ord="sec"   onclick="ordenarPor('sec')">Secretaria</th>
-          <th data-ord="tipo"  onclick="ordenarPor('tipo')">Tipo</th>
-          <th data-ord="fis"   onclick="ordenarPor('fis')">Fiscais</th>
-          <th data-ord="sit"   onclick="ordenarPor('sit')">Situação</th>
-          <th data-ord="venc"  onclick="ordenarPor('venc')">Vencimento</th>
-          <th data-ord="valor" onclick="ordenarPor('valor')" class="r">Valor</th>
-        </tr>
-        <tr class="th-filtros">
-          <th><input class="cf" data-col="num"   placeholder="nº, modalidade…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="emp"   placeholder="empresa…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="obj"   placeholder="buscar no objeto…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="sec"   placeholder="secretaria…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="tipo"  placeholder="tipo…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="fis"   placeholder="fiscal…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="sit"   placeholder="situação…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="venc"  placeholder="data…" oninput="aplicarFiltros()"></th>
-          <th><input class="cf" data-col="valor" placeholder="valor…" oninput="aplicarFiltros()"></th>
-        </tr>
-      </thead>
-      <tbody id="corpo"></tbody>
-    </table>
-    <div id="vazio"></div>
-  </div>
-  <div class="load-wrap" id="loadWrap" style="display:none">
-    <button class="btn-ghost" onclick="renderMais()" id="btnMais">Carregar mais contratos ↓</button>
-  </div>
-</main>
+</div>
 
 <!-- Barra de ações fixa (apenas no celular) -->
 <div class="mobile-bar">
@@ -614,11 +655,16 @@ function fiscais(c){ return [...c.fiscalAdm, ...c.fiscalTec]; }
 
 
 /* ══════════════ ESTADO ══════════════ */
-const F = { busca:'', sec:'', fiscal:'', tipo:'', ano:'', venc:'', palavra:'', sit:'ATIVOS', sort:'venc-asc' };
-/* Um filtro por coluna, casando com o texto que a coluna mostra. */
-const COL = { num:'', emp:'', obj:'', sec:'', tipo:'', fis:'', sit:'', venc:'', valor:'' };
+/* Uma busca só, que varre tudo — e o resto do filtro mora dentro da tabela:
+   cada coluna guarda o texto digitado no menu dela e as opções marcadas. */
+const F = { busca:'', sort:'venc-asc' };
+const COLF = {};   /* col -> { txt:'', sel:{ grupo: Set(valores marcados) } } */
 let filtrados = [], mostrando = 0;
 const LOTE = 100;
+
+const NOME_COL = {num:'Contrato', emp:'Empresa', obj:'Objeto', sec:'Secretaria', tipo:'Tipo',
+                  fis:'Fiscais', sit:'Situação', venc:'Vencimento', valor:'Valor'};
+const COLUNAS = Object.keys(NOME_COL);
 
 /* O texto de cada coluna do jeito que aparece na tela — é sobre ele que a
    busca da coluna casa, então procurar "2.226" acha "R$ 2.226.275,67" e
@@ -652,70 +698,107 @@ const VALOR_ORD = {
 /* Nestas o primeiro clique mostra o MAIOR primeiro; nas de texto, A→Z. */
 const ORD_DESC_PRIMEIRO = ['valor','num'];
 
-/* ══════════════ POPULAR SELECTS ══════════════ */
-function initSelects(){
-  const secs = new Set(), tipos = new Set(), anos = new Set(), pals = new Set(), fis = new Set();
-  CONTRATOS.forEach(c => {
-    c.secretarias.forEach(s=>secs.add(s));
-    if(c.tipo) tipos.add(c.tipo);
-    if(c.ano) anos.add(c.ano);
-    if(c.palavra) pals.add(c.palavra);
-    fiscais(c).forEach(f=>fis.add(f));
+/* ══════════════ OPÇÕES DE CADA COLUNA ══════════════
+   As opções que o menu da coluna oferece para marcar. Vencimento e Valor não
+   listam o valor em si (seria uma data e um número diferentes por contrato):
+   oferecem faixas, que é o recorte que alguém realmente pede. */
+const FAIXAS_PRAZO = [
+  ['Vencidos',              c => c._d !== null && c._d < 0],
+  ['Vence em até 30 dias',  c => c._d !== null && c._d >= 0 && c._d <= 30],
+  ['Vence em até 60 dias',  c => c._d !== null && c._d >= 0 && c._d <= 60],
+  ['Vence em até 90 dias',  c => c._d !== null && c._d >= 0 && c._d <= 90],
+  ['Vence em até 180 dias', c => c._d !== null && c._d >= 0 && c._d <= 180],
+  ['Vence este ano',        c => { const d = parseD(c.vencimento); return !!d && d >= HOJE && d.getFullYear() === HOJE.getFullYear(); }],
+  ['Sem data',              c => c._d === null],
+];
+const FAIXAS_VALOR = [
+  ['Até R$ 50 mil',            v => v <= 5e4],
+  ['R$ 50 mil a R$ 100 mil',   v => v >  5e4 && v <= 1e5],
+  ['R$ 100 mil a R$ 500 mil',  v => v >  1e5 && v <= 5e5],
+  ['R$ 500 mil a R$ 1 milhão', v => v >  5e5 && v <= 1e6],
+  ['R$ 1 milhão a R$ 5 milhões', v => v > 1e6 && v <= 5e6],
+  ['Acima de R$ 5 milhões',    v => v >  5e6],
+];
+function faixasPrazo(c){ return FAIXAS_PRAZO.filter(f => f[1](c)).map(f => f[0]); }
+function faixaValor(c){
+  const v = c.valor;
+  if(v == null || isNaN(v)) return ['(sem valor)'];
+  const f = FAIXAS_VALOR.find(x => x[1](v));
+  return [f ? f[0] : '(sem valor)'];
+}
+/* "CONC. 02/2008" → "CONC"; "PE 168/2022" → "PE". A modalidade inteira daria
+   mil opções diferentes (uma por contrato); a sigla é o que agrupa. */
+function siglaModalidade(c){
+  const s = String(c.modalidade || '').toUpperCase().split(/\d/)[0].replace(/[.,\-/\s]+$/,'').trim();
+  return s || '(sem modalidade)';
+}
+function anoVencimento(c){ const d = parseD(c.vencimento); return [d ? String(d.getFullYear()) : '(sem data)']; }
+
+const FACETAS = {
+  num:   [ {k:'ano',   t:'Ano do contrato', v:c=>[c.ano ? String(c.ano) : '(sem ano)'], desc:true},
+           {k:'mod',   t:'Modalidade',      v:c=>[siglaModalidade(c)]} ],
+  emp:   [ {k:'emp',   t:'Empresa',         v:c=>[c.empresa || '(sem empresa)']} ],
+  obj:   [ {k:'pal',   t:'Palavra-chave',   v:c=>[c.palavra || '(sem palavra-chave)']} ],
+  sec:   [ {k:'sec',   t:'Secretaria',      v:c=>c.secretarias.length ? c.secretarias : ['(sem secretaria)']} ],
+  tipo:  [ {k:'tipo',  t:'Tipo',            v:c=>[c.tipo || '(sem tipo)']} ],
+  fis:   [ {k:'fis',   t:'Fiscal',          v:c=>fiscais(c).length ? fiscais(c) : ['(sem fiscal)']} ],
+  sit:   [ {k:'sit',   t:'Situação',        v:c=>[c.situacao || '(sem situação)']} ],
+  venc:  [ {k:'prazo', t:'Prazo',           v:faixasPrazo, ordemFixa:FAIXAS_PRAZO.map(f=>f[0])},
+           {k:'anoV',  t:'Ano do vencimento', v:anoVencimento, desc:true} ],
+  valor: [ {k:'faixa', t:'Faixa de valor',  v:faixaValor, ordemFixa:FAIXAS_VALOR.map(f=>f[0]).concat('(sem valor)')} ],
+};
+
+/* Tudo o que um contrato tem, em uma linha só — é onde a busca de cima procura. */
+function textoTudo(c){
+  if(c._txt === undefined){
+    c._txt = normalizar([c.contr+'/'+c.ano, c.empresa, c.objeto, c.palavra, c.modalidade,
+              (c.secretarias||[]).join(' '), fiscais(c).join(' '), c.tipo, c.situacao,
+              c.obs, fmtD(c.vencimento), money(c.valor)].join(' '));
+  }
+  return c._txt;
+}
+/* Sem acento e em minúsculas: quem digita "servico" acha "SERVIÇO". */
+function normalizar(s){
+  return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+
+function initFiltros(){
+  COLUNAS.forEach(col => {
+    COLF[col] = {txt:'', sel:{}};
+    (FACETAS[col] || []).forEach(g => { COLF[col].sel[g.k] = new Set(); });
   });
-  const fill = (id, arr) => { const el=document.getElementById(id); [...arr].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR')).forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; el.appendChild(o); }); };
-  fill('fSec', secs); fill('fTipo', tipos); fill('fPalavra', pals);
-  const anoEl=document.getElementById('fAno'); [...anos].sort((a,b)=>b-a).forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; anoEl.appendChild(o); });
-  fill('listaFiscais', fis);
+  /* A tela abre nos contratos que ainda valem — inativo é histórico. */
+  COLF.sit.sel.sit = new Set(['ATIVO','ATIVO-PARALIZADO']);
 }
 
 /* ══════════════ FILTRAGEM ══════════════ */
-function passaVenc(c, modo){
-  const d = c._d;
-  switch(modo){
-    case 'vencidos': return d!==null && d<0;
-    case '30': return d!==null && d>=0 && d<=30;
-    case '60': return d!==null && d>=0 && d<=60;
-    case '90': return d!==null && d>=0 && d<=90;
-    case '180': return d!==null && d>=0 && d<=180;
-    case 'ano': { const dt=parseD(c.vencimento); return dt && dt>=HOJE && dt.getFullYear()===HOJE.getFullYear(); }
-    case 'semdata': return d===null;
-    default: return true;
+/* A busca de cima: cada palavra digitada tem de aparecer em algum lugar do
+   contrato — objeto, empresa, fiscal, secretaria, data, valor, observação. */
+function passaBusca(c){
+  if(!F.busca) return true;
+  const alvo = textoTudo(c);
+  for(const termo of F.busca.split(/\s+/)) if(!alvo.includes(termo)) return false;
+  return true;
+}
+/* Uma coluna deixa o contrato passar quando o texto digitado no menu dela casa
+   E ele está entre as opções marcadas. Nenhuma opção marcada = não filtra. */
+function passaColuna(c, col){
+  const f = COLF[col];
+  if(!f) return true;
+  if(f.txt && !normalizar(TEXTO_COL[col](c)).includes(f.txt)) return false;
+  for(const g of (FACETAS[col] || [])){
+    const sel = f.sel[g.k];
+    if(sel && sel.size && !g.v(c).some(v => sel.has(v))) return false;
   }
+  return true;
 }
 function aplicarFiltros(sortForcado){
-  F.busca = document.getElementById('fBusca').value.trim().toLowerCase();
-  F.sec = document.getElementById('fSec').value;
-  F.fiscal = document.getElementById('fFiscal').value.trim().toLowerCase();
-  F.tipo = document.getElementById('fTipo').value;
-  F.ano = document.getElementById('fAno').value;
-  F.venc = document.getElementById('fVenc').value;
-  F.palavra = document.getElementById('fPalavra').value;
+  F.busca = normalizar(document.getElementById('fBusca').value.trim());
   /* sortForcado só chega pelo clique no cabeçalho, quando a combinação não
      existe no seletor (aí ele fica em branco e quem manda é este valor) */
   F.sort = sortForcado || document.getElementById('fSort').value || F.sort;
-  document.querySelectorAll('.cf').forEach(i => { COL[i.dataset.col] = i.value.trim().toLowerCase(); });
-  /* só as colunas realmente preenchidas entram na conta */
-  const colsAtivas = Object.keys(COL).filter(k => COL[k]);
 
-  filtrados = CONTRATOS.filter(c => {
-    if(F.sit==='ATIVOS' && !isAtivo(c)) return false;
-    if(F.sit==='INATIVO' && c.situacao!=='INATIVO') return false;
-    if(F.sit==='ATIVO-PARALIZADO' && c.situacao!=='ATIVO-PARALIZADO') return false;
-    if(F.sec && !c.secretarias.includes(F.sec)) return false;
-    if(F.tipo && c.tipo!==F.tipo) return false;
-    if(F.ano && String(c.ano)!==F.ano) return false;
-    if(F.palavra && c.palavra!==F.palavra) return false;
-    if(F.venc && !passaVenc(c, F.venc)) return false;
-    if(F.fiscal && !fiscais(c).some(f=>f.toLowerCase().includes(F.fiscal))) return false;
-    if(F.busca){
-      const alvo = (c.contr+'/'+c.ano+' '+c.empresa+' '+c.objeto+' '+c.palavra+' '+c.modalidade+' '+c.secretarias.join(' ')+' '+fiscais(c).join(' ')).toLowerCase();
-      for(const termo of F.busca.split(/\s+/)) if(!alvo.includes(termo)) return false;
-    }
-    for(const k of colsAtivas){
-      if(!TEXTO_COL[k](c).toLowerCase().includes(COL[k])) return false;
-    }
-    return true;
-  });
+  filtrados = CONTRATOS.filter(c => passaBusca(c) && COLUNAS.every(col => passaColuna(c, col)));
 
   ordenar();
   mostrando = 0;
@@ -724,6 +807,8 @@ function aplicarFiltros(sortForcado){
   renderMais();
   renderChips();
   marcarSetas();
+  marcarBotoesColuna();
+  document.getElementById('buscaBox').classList.toggle('tem-texto', !!document.getElementById('fBusca').value);
 }
 function ordenar(){
   const [campo, dir] = String(F.sort).split('-');
@@ -739,10 +824,11 @@ function ordenar(){
 /* Clique no cabeçalho: ordena por aquela coluna; clicar de novo inverte. O
    seletor "ORDENAR" acompanha, para os dois nunca mostrarem coisas
    diferentes (e para o celular, onde não há cabeçalho para clicar). */
-function ordenarPor(campo){
+function ordenarPor(campo, dirForcada){
   const [atual, dir] = String(F.sort).split('-');
   let nova;
-  if(atual === campo) nova = campo + (dir === 'asc' ? '-desc' : '-asc');
+  if(dirForcada) nova = campo + '-' + dirForcada;
+  else if(atual === campo) nova = campo + (dir === 'asc' ? '-desc' : '-asc');
   else nova = campo + (ORD_DESC_PRIMEIRO.indexOf(campo) >= 0 ? '-desc' : '-asc');
   const sel = document.getElementById('fSort');
   if([...sel.options].some(o => o.value === nova)) sel.value = nova;
@@ -756,59 +842,224 @@ function marcarSetas(){
     if(th.dataset.ord === campo) th.classList.add(dir === 'asc' ? 'ord-asc' : 'ord-desc');
   });
 }
-function setSituacao(btn){
-  document.querySelectorAll('[data-sit]').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  F.sit = btn.dataset.sit;
+function limparBusca(){
+  document.getElementById('fBusca').value = '';
   aplicarFiltros();
+  document.getElementById('fBusca').focus();
 }
 function limparFiltros(){
-  ['fBusca','fFiscal'].forEach(id=>document.getElementById(id).value='');
-  ['fSec','fTipo','fAno','fVenc','fPalavra'].forEach(id=>document.getElementById(id).value='');
-  document.querySelectorAll('.cf').forEach(i => i.value='');   /* inclusive os de coluna */
-  document.querySelectorAll('[data-sit]').forEach(b=>b.classList.toggle('active', b.dataset.sit==='ATIVOS'));
-  F.sit='ATIVOS';
+  document.getElementById('fBusca').value = '';
+  initFiltros();
   aplicarFiltros();
+  if(popCol) renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
 }
-/* ══════════════ CHIPS DE FILTROS ATIVOS ══════════════ */
-const VENC_LABEL = {vencidos:'Vencidos','30':'≤ 30 dias','60':'≤ 60 dias','90':'≤ 90 dias','180':'≤ 180 dias',ano:'Vence este ano',semdata:'Sem data'};
+/* Zera um pedaço do filtro de uma coluna — o texto, um grupo de opções, ou
+   (sem `parte`) a coluna inteira. */
+function limparColuna(col, parte){
+  const f = COLF[col];
+  if(!f) return;
+  const tudo = !parte;
+  if(tudo || parte === 'txt'){
+    f.txt = '';
+    if(popCol === col) document.getElementById('popBusca').value = '';
+  }
+  Object.keys(f.sel).forEach(k => { if(tudo || parte === k) f.sel[k].clear(); });
+  aplicarFiltros();
+  if(popCol) renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
+}
+
+/* ══════════════ O QUE CADA COLUNA MOSTRA NO BOTÃO E NOS CHIPS ══════════════ */
+const COL_FEMININA = ['emp','sec','sit'];   /* "Todas" em vez de "Todos" */
+function resumoColuna(col){
+  const f = COLF[col], partes = [];
+  if(f.txt) partes.push('“'+f.txt+'”');
+  (FACETAS[col] || []).forEach(g => {
+    const sel = f.sel[g.k];
+    if(!sel || !sel.size) return;
+    partes.push(sel.size === 1 ? [...sel][0] : sel.size + ' opções');
+  });
+  return partes.join(' · ');
+}
+function marcarBotoesColuna(){
+  document.querySelectorAll('.cf').forEach(b => {
+    const col = b.dataset.col, r = resumoColuna(col);
+    b.classList.toggle('ativo', !!r);
+    b.querySelector('.cf-txt').textContent = r || (COL_FEMININA.includes(col) ? 'Todas' : 'Todos');
+    b.title = r ? NOME_COL[col]+': '+r : 'Filtrar por '+NOME_COL[col];
+  });
+}
 function renderChips(){
-  const c=[];
-  const mk=(txt,fn)=>`<span class="chip">${esc(txt)} <b onclick="${fn}">✕</b></span>`;
-  if(F.busca) c.push(mk('“'+F.busca+'”',"document.getElementById('fBusca').value='';aplicarFiltros()"));
-  if(F.sec) c.push(mk(F.sec,"document.getElementById('fSec').value='';aplicarFiltros()"));
-  if(F.fiscal) c.push(mk('Fiscal: '+document.getElementById('fFiscal').value,"document.getElementById('fFiscal').value='';aplicarFiltros()"));
-  if(F.tipo) c.push(mk(F.tipo,"document.getElementById('fTipo').value='';aplicarFiltros()"));
-  if(F.ano) c.push(mk('Ano '+F.ano,"document.getElementById('fAno').value='';aplicarFiltros()"));
-  if(F.venc) c.push(mk(VENC_LABEL[F.venc]||F.venc,"document.getElementById('fVenc').value='';aplicarFiltros()"));
-  if(F.palavra) c.push(mk(F.palavra,"document.getElementById('fPalavra').value='';aplicarFiltros()"));
-  /* Os filtros de coluna também viram chip: no celular o cabeçalho da tabela
-     não existe, e sem isso um filtro digitado no computador continuaria
-     valendo sem nada na tela dizendo que ele está lá. */
-  const NOME_COL = {num:'Contrato', emp:'Empresa', obj:'Objeto', sec:'Secretaria', tipo:'Tipo',
-                    fis:'Fiscais', sit:'Situação', venc:'Vencimento', valor:'Valor'};
-  Object.keys(COL).forEach(k => {
-    if(!COL[k]) return;
-    c.push(mk(NOME_COL[k]+': '+COL[k], "limparColuna('"+k+"')"));
+  const c = [];
+  const mk = (txt, fn) => `<span class="chip">${esc(txt)} <b onclick="${fn}">✕</b></span>`;
+  COLUNAS.forEach(col => {
+    const f = COLF[col];
+    if(f.txt) c.push(mk(NOME_COL[col]+': '+f.txt, `limparColuna('${col}','txt')`));
+    (FACETAS[col] || []).forEach(g => {
+      const sel = f.sel[g.k];
+      if(!sel || !sel.size) return;
+      const vals = [...sel];
+      c.push(mk(g.t+': '+(vals.length <= 2 ? vals.join(', ') : vals.length+' selecionadas'),
+                `limparColuna('${col}','${g.k}')`));
+    });
   });
   document.getElementById('chipsAtivos').innerHTML = c.join('');
 }
-function limparColuna(col){
-  const i = document.querySelector('.cf[data-col="'+col+'"]');
-  if(i) i.value = '';
-  aplicarFiltros();
-}
 
-/* ══════════════ PAINEL DINÂMICO ══════════════ */
+/* ══════════════ MENU DE FILTRO DA COLUNA ══════════════
+   Um único menu, reaproveitado por todas as colunas: lista as opções que
+   aquela coluna tem, com quantos contratos cada uma traz considerando os
+   filtros já aplicados nas outras colunas — como o filtro de uma planilha. */
+let popCol = null;
 function isMobile(){ return window.matchMedia ? window.matchMedia('(max-width: 860px)').matches : (window.innerWidth||999) <= 860; }
 
-function toggleFiltros(ev){
-  if(!isMobile()) return;                                  /* só recolhe no celular */
-  if(ev && ev.target.closest('.chip')) return;             /* clique no X do chip não recolhe */
-  const b = document.getElementById('filtrosBody');
-  b.classList.toggle('hide');
-  document.getElementById('caretFiltros').classList.toggle('up', !b.classList.contains('hide'));
+function abrirFiltroCol(ev, col, alvo){
+  if(ev) ev.stopPropagation();
+  if(popCol === col){ fecharPop(); return; }
+  popCol = col;
+  document.getElementById('popFiltro').classList.add('open');
+  document.getElementById('popTit').textContent = NOME_COL[col];
+  const busca = document.getElementById('popBusca');
+  busca.value = COLF[col].txt;
+  busca.placeholder = 'Buscar em '+NOME_COL[col].toLowerCase()+'…';
+  renderPop();
+  posicionarPop(alvo || (ev && ev.currentTarget));
+  if(!isMobile()) busca.focus();
 }
+function fecharPop(){
+  popCol = null;
+  document.getElementById('popFiltro').classList.remove('open');
+}
+function posicionarPop(alvo){
+  if(isMobile() || !alvo || !alvo.getBoundingClientRect) return;  /* no celular vira folha embaixo */
+  const pop = document.getElementById('popFiltro');
+  const r = alvo.getBoundingClientRect();
+  const larg = pop.offsetWidth || 292;
+  const maxEsq = document.documentElement.clientWidth - larg - 10;
+  pop.style.left = (Math.max(8, Math.min(r.left, maxEsq)) + window.scrollX) + 'px';
+  pop.style.top  = (r.bottom + window.scrollY + 5) + 'px';
+}
+/* Quantos contratos cada opção traria — contando com os filtros das OUTRAS
+   colunas, mas não com o desta, senão a lista se apagaria sozinha. */
+function contarOpcoes(col){
+  const base = CONTRATOS.filter(c => passaBusca(c) && COLUNAS.every(o => o === col || passaColuna(c, o)));
+  const mapa = {};
+  (FACETAS[col] || []).forEach(g => {
+    const m = new Map();
+    base.forEach(c => g.v(c).forEach(v => m.set(v, (m.get(v) || 0) + 1)));
+    mapa[g.k] = m;
+  });
+  return mapa;
+}
+function ordenarValores(vals, g){
+  if(g.ordemFixa) return g.ordemFixa.filter(v => vals.indexOf(v) >= 0);
+  const s = vals.sort((a,b) => String(a).localeCompare(String(b), 'pt-BR'));
+  return g.desc ? s.reverse() : s;
+}
+/* As opções visíveis de um grupo: as que existem hoje mais as já marcadas
+   (senão uma opção que zerou não teria como ser desmarcada). */
+function opcoesGrupo(col, g, mapa, busca){
+  const sel = COLF[col].sel[g.k];
+  const vals = ordenarValores([...new Set([...mapa.keys(), ...sel])], g);
+  return busca ? vals.filter(v => normalizar(v).includes(busca)) : vals;
+}
+function renderPop(){
+  const col = popCol;
+  if(!col) return;
+  const busca = normalizar(document.getElementById('popBusca').value);
+  const mapa = contarOpcoes(col);
+  const grupos = FACETAS[col] || [];
+  let html = '';
+  grupos.forEach(g => {
+    const sel = COLF[col].sel[g.k];
+    const vis = opcoesGrupo(col, g, mapa[g.k], busca);
+    if(grupos.length > 1) html += `<div class="pop-grupo">${esc(g.t)}</div>`;
+    if(!vis.length){ html += '<div class="pop-vazio">Nenhuma opção com esse texto.</div>'; return; }
+    const todasOn = vis.every(v => sel.has(v));
+    html += opHTML(g.k, '__todas__', todasOn ? 'Desmarcar todas' : 'Selecionar todas', null, todasOn, ' todos');
+    vis.forEach(v => html += opHTML(g.k, v, v, mapa[g.k].get(v) || 0, sel.has(v), ''));
+  });
+  document.getElementById('popLista').innerHTML = html || '<div class="pop-vazio">Esta coluna não tem opções.</div>';
+  document.getElementById('popInfo').textContent = filtrados.length + ' de ' + CONTRATOS.length;
+  const [campo, dir] = String(F.sort).split('-');
+  document.getElementById('popOrdAsc').classList.toggle('on', campo === col && dir === 'asc');
+  document.getElementById('popOrdDesc').classList.toggle('on', campo === col && dir === 'desc');
+}
+/* O valor vai num data-attribute, não dentro de um onclick: nome de empresa
+   tem aspas e apóstrofo, e montar código com isso dentro quebra. */
+function opHTML(gk, valor, texto, n, marcada, extra){
+  return '<label class="pop-op'+extra+'">'
+    + '<input type="checkbox" data-g="'+esc(gk)+'" data-v="'+esc(valor)+'"'+(marcada ? ' checked' : '')+'>'
+    + '<span class="op-txt">'+esc(texto)+'</span>'
+    + (n === null ? '' : '<span class="op-n">'+n+'</span>')
+    + '</label>';
+}
+function popMarcar(gk, valor){
+  const col = popCol;
+  if(!col) return;
+  const g = (FACETAS[col] || []).find(x => x.k === gk);
+  const sel = COLF[col].sel[gk];
+  if(!g || !sel) return;
+  if(valor === '__todas__'){
+    const vis = opcoesGrupo(col, g, contarOpcoes(col)[gk], normalizar(document.getElementById('popBusca').value));
+    const todasOn = vis.every(v => sel.has(v));
+    vis.forEach(v => todasOn ? sel.delete(v) : sel.add(v));
+  } else {
+    if(sel.has(valor)) sel.delete(valor); else sel.add(valor);
+  }
+  aplicarFiltros();
+  renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
+}
+function popDigitou(){
+  if(!popCol) return;
+  COLF[popCol].txt = normalizar(document.getElementById('popBusca').value.trim());
+  aplicarFiltros();
+  renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
+}
+function popLimpar(){ if(popCol) limparColuna(popCol); }
+function popOrdenar(dir){ if(popCol){ ordenarPor(popCol, dir); renderPop(); } }
+
+/* ══════════════ FILTROS NO CELULAR ══════════════
+   Lá o cabeçalho da tabela não existe (cada contrato vira um bloco), então as
+   colunas viram uma lista que abre o mesmo menu. */
+function sheetAberta(){ return document.getElementById('ovFiltros').classList.contains('open'); }
+function abrirFiltrosMobile(){
+  document.getElementById('ovFiltros').classList.add('open');
+  renderFiltrosMobile();
+}
+function fecharFiltrosMobile(){
+  fecharPop();
+  document.getElementById('ovFiltros').classList.remove('open');
+}
+function renderFiltrosMobile(){
+  document.getElementById('fmLista').innerHTML = COLUNAS.map(col => {
+    const r = resumoColuna(col);
+    return '<button class="fm-linha" data-col="'+col+'">'
+      + '<span class="fm-nome">'+esc(NOME_COL[col])+'</span>'
+      + '<span class="fm-val'+(r ? ' on' : '')+'">'+esc(r || (COL_FEMININA.includes(col) ? 'Todas' : 'Todos'))+'</span>'
+      + '</button>';
+  }).join('');
+  document.getElementById('fmVer').textContent = 'Ver '+filtrados.length+' contrato'+(filtrados.length === 1 ? '' : 's');
+}
+
+document.getElementById('popLista').addEventListener('change', e => {
+  const inp = e.target.closest('input[type=checkbox]');
+  if(inp) popMarcar(inp.dataset.g, inp.dataset.v);
+});
+document.getElementById('fmLista').addEventListener('click', e => {
+  const linha = e.target.closest('.fm-linha');
+  if(linha) abrirFiltroCol(e, linha.dataset.col, linha);
+});
+/* Clicar fora fecha o menu — menos nos botões que o abrem. */
+document.addEventListener('click', e => {
+  if(!popCol) return;
+  if(e.target.closest('#popFiltro') || e.target.closest('.cf') || e.target.closest('.fm-linha')) return;
+  fecharPop();
+});
+window.addEventListener('resize', () => { if(popCol) fecharPop(); });
 /* ══════════════ RENDER DA TABELA ══════════════ */
 function badgeSit(c){
   if(c.situacao==='ATIVO') return '<span class="badge badge-ativo">✅ ATIVO</span>';
@@ -1051,14 +1302,17 @@ function scopeLabel(sc){
   sc = sc || repScope;
   if(sc!=='filtro') return sc==='ativos' ? 'Todos os contratos ativos' : 'Todos os contratos cadastrados';
   const p = [];
-  if(F.sit==='ATIVOS') p.push('ativos'); else if(F.sit==='INATIVO') p.push('inativos'); else if(F.sit==='ATIVO-PARALIZADO') p.push('paralisados');
-  if(F.sec) p.push(F.sec);
-  if(F.tipo) p.push(F.tipo);
-  if(F.ano) p.push('ano '+F.ano);
-  if(F.venc) p.push(VENC_LABEL[F.venc]||F.venc);
-  if(F.fiscal) p.push('fiscal '+document.getElementById('fFiscal').value);
-  if(F.palavra) p.push(F.palavra);
-  if(F.busca) p.push('"'+F.busca+'"');
+  if(F.busca) p.push('busca "'+document.getElementById('fBusca').value.trim()+'"');
+  COLUNAS.forEach(col => {
+    const f = COLF[col];
+    if(f.txt) p.push(NOME_COL[col]+' com "'+f.txt+'"');
+    (FACETAS[col] || []).forEach(g => {
+      const sel = f.sel[g.k];
+      if(!sel || !sel.size) return;
+      const vals = [...sel];
+      p.push(g.t+': '+(vals.length <= 3 ? vals.join(', ') : vals.slice(0,3).join(', ')+' +'+(vals.length-3)));
+    });
+  });
   return `Filtro da tela: ${filtrados.length} contrato(s)` + (p.length? ' — '+p.join(' · ') : '');
 }
 function gerarRelatorio(tipoForce, scopeForce){
@@ -1186,9 +1440,13 @@ function pdfContratoAtual(){
 }
 
 /* ══════════════ INICIALIZAÇÃO ══════════════ */
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ fecharDet(); fecharRep(); } });
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape') return;
+  if(popCol){ fecharPop(); return; }        /* Esc fecha primeiro o menu da coluna */
+  fecharDet(); fecharRep(); fecharFiltrosMobile();
+});
 /* fecha os modais com o botão voltar do celular */
-window.addEventListener('popstate', ()=>{ fecharDet(); fecharRep(); });
+window.addEventListener('popstate', ()=>{ fecharPop(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
 
 /* A tarja do cabeçalho diz de onde vieram os dados — sem ela não dá para
    saber, olhando a tela, se o Firestore respondeu ou se caiu no arquivo. */
@@ -1202,11 +1460,11 @@ function marcarFonte(){
 function iniciar(){
   CONTRATOS.forEach(c => { c._d = dias(c.vencimento); });   /* pré-processa datas */
   marcarFonte();
-  initSelects();
+  initFiltros();
   aplicarFiltros();
-  /* A busca começa ABERTA também no celular: procurar é o motivo de a página
-     existir, e esconder o campo atrás de um toque atrasava quem chegou para
-     procurar alguma coisa. Mesma escolha do módulo licitacon. */
+  /* A busca fica sempre à vista, também no celular: procurar é o motivo de a
+     página existir. Os recortes por coluna ficam a um clique, no cabeçalho da
+     tabela (no celular, no botão "Filtros e ordem"). */
 }
 
 carregarContratos().then(d => { CONTRATOS = d; iniciar(); }).catch(e => {

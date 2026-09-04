@@ -45,18 +45,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     comData:CONTRATOS.filter(c=>c._d!==undefined).length,
     chip:(document.querySelector('.proto-chip')||{}).textContent,
     linhas:document.querySelectorAll('.tab tbody tr').length,
-    secs:document.getElementById('fSec').options.length,
-    anos:document.getElementById('fAno').options.length,
   }));
   t('os 1.264 contratos chegaram na página', est.total===1264, est);
   t('a fonte é o arquivo local (sem Firebase configurado)', est.fonte==='arquivo', est);
   t('o vencimento foi pré-processado em todos', est.comData===1264, est);
   t('a tarja do cabeçalho diz de onde vieram', /1264 CONTRATOS · ARQUIVO LOCAL/.test(est.chip||''), est.chip);
   t('as linhas da tabela foram renderizadas', est.linhas>0 && est.linhas<=100, est);
-  t('o select de secretarias foi preenchido', est.secs>5, est);
-  t('o select de anos foi preenchido', est.anos>5, est);
 
-  console.log('\n2b) A lista é UMA tabela, no mesmo estilo do licitacon');
+  console.log('\n2b) Uma busca só em cima; os filtros moram dentro da tabela');
   const forma=await pg.evaluate(()=>({
     tabelas: document.querySelectorAll('table').length,
     linhasCabecalho: document.querySelectorAll('.tab thead tr').length,
@@ -65,66 +61,162 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     semDash: !document.getElementById('painelDash') && typeof window.renderDash==='undefined',
     colunas: [...document.querySelectorAll('.tab .th-titulos th')].map(th=>th.textContent.trim()),
     filtrosColuna: [...document.querySelectorAll('.cf')].map(i=>i.dataset.col),
+    /* o painel de filtros de cima deixou de existir */
+    semPainel: !document.querySelector('.panel') && !document.getElementById('filtrosBody'),
+    camposSoltos: ['fSec','fFiscal','fTipo','fAno','fVenc','fPalavra'].filter(id=>document.getElementById(id)),
+    buscas: document.querySelectorAll('.busca-box input').length,
+    ph: document.getElementById('fBusca').placeholder,
   }));
   console.log('   colunas:', forma.colunas.join(' | '));
   t('existe exatamente 1 tabela', forma.tabelas===1, forma);
-  t('o cabeçalho tem 2 linhas: títulos e busca por coluna', forma.linhasCabecalho===2, forma);
+  t('o cabeçalho tem 2 linhas: títulos e filtro por coluna', forma.linhasCabecalho===2, forma);
   t('não há mais cards', forma.cards===0, forma);
   t('a barra de números saiu', forma.semStats, forma);
   t('o painel dinâmico saiu', forma.semDash, forma);
+  t('o painel de filtros de cima saiu', forma.semPainel, forma);
+  t('os campos soltos de filtro sumiram junto', forma.camposSoltos.length===0, forma.camposSoltos);
+  t('sobrou UMA barra de busca', forma.buscas===1, forma);
+  t('ela diz que procura em tudo', /Pesquisar em tudo/.test(forma.ph), forma.ph);
   t('as 9 colunas são as esperadas',
     forma.colunas.join('|')==='Contrato|Empresa|Objeto|Secretaria|Tipo|Fiscais|Situação|Vencimento|Valor', forma.colunas);
-  t('todas as colunas têm busca própria',
+  t('todas as colunas têm o próprio menu de filtro',
     forma.filtrosColuna.join('|')==='num|emp|obj|sec|tipo|fis|sit|venc|valor', forma.filtrosColuna);
 
-  console.log('\n3) Os filtros continuam filtrando');
+  console.log('\n3) A busca única procura em qualquer informação');
   const ativos=await pg.evaluate(()=>filtrados.length);
-  t('o filtro padrão (Ativos) traz os 436 ativos e paralisados', ativos===436, ativos);
+  t('a tela abre nos 436 contratos que ainda valem', ativos===436, ativos);
 
-  const porTipo=await pg.evaluate(()=>{
-    document.getElementById('fTipo').value='OBRA';
+  const buscar = termo => pg.evaluate(async q=>{
+    document.getElementById('fBusca').value=q;
     aplicarFiltros();
-    return {n:filtrados.length, sóObra:filtrados.every(c=>c.tipo==='OBRA')};
+    return {n:filtrados.length, achou:filtrados[0]};
+  }, termo);
+
+  const bEmpresa=await buscar('bripav');
+  t('acha pela empresa', bEmpresa.n>0 && /BRIPAV/i.test(bEmpresa.achou.empresa), bEmpresa.n);
+  const bObjeto=await buscar('pavimentacao');
+  t('acha pelo objeto mesmo digitando sem acento', bObjeto.n>0, bObjeto.n);
+  const bAcento=await buscar('pavimentação');
+  t('com acento dá o mesmo resultado', bAcento.n===bObjeto.n, [bAcento.n, bObjeto.n]);
+  const bData=await buscar('16/05/2017');
+  t('acha pela data de vencimento', bData.n>0 && bData.achou.vencimento==='2017-05-16', bData.n);
+  const bValor=await buscar('86.069.210');
+  t('acha pelo valor', bValor.n>0 && bValor.achou.valor===86069210.4, bValor.n);
+  const bDuas=await buscar('pavimenta bripav');
+  t('duas palavras exigem as duas', bDuas.n>0 && bDuas.n<bObjeto.n, {duas:bDuas.n, uma:bObjeto.n});
+  const bNada=await buscar('bicicleta ergométrica');
+  t('termo sem resultado não quebra a tela', bNada.n===0, bNada.n);
+
+  const todos=await pg.evaluate(()=>{ limparFiltros(); return {n:filtrados.length, busca:document.getElementById('fBusca').value}; });
+  t('limpar os filtros zera a busca e volta aos ativos', todos.n===436 && todos.busca==='', todos);
+
+  console.log('\n3b) Menu da coluna: as opções para marcar, como numa planilha');
+  const abrir = col => pg.evaluate(c=>{
+    document.querySelector('.cf[data-col="'+c+'"]').click();
+    return {
+      aberto: document.getElementById('popFiltro').classList.contains('open'),
+      titulo: document.getElementById('popTit').textContent,
+      grupos: [...document.querySelectorAll('#popLista .pop-grupo')].map(g=>g.textContent),
+      opcoes: [...document.querySelectorAll('#popLista .pop-op:not(.todos) .op-txt')].map(o=>o.textContent),
+      contagens: [...document.querySelectorAll('#popLista .pop-op:not(.todos) .op-n')].map(o=>+o.textContent),
+    };
+  }, col);
+
+  const mTipo=await abrir('tipo');
+  t('o menu da coluna abre com as opções dela', mTipo.aberto && mTipo.opcoes.length>3, mTipo);
+  t('as opções são os tipos que existem', mTipo.opcoes.includes('OBRA') && mTipo.opcoes.includes('SERVIÇO'), mTipo.opcoes);
+  t('cada opção mostra quantos contratos traz', mTipo.contagens.every(n=>n>0), mTipo.contagens);
+  t('a soma das contagens fecha com a tela',
+    mTipo.contagens.reduce((a,x)=>a+x,0)===436, mTipo.contagens);
+
+  const marcar = (col, valor) => pg.evaluate(([c,v])=>{
+    document.querySelector('.cf[data-col="'+c+'"]').click();          /* garante aberto */
+    if(!document.getElementById('popFiltro').classList.contains('open')) document.querySelector('.cf[data-col="'+c+'"]').click();
+    const alvo=[...document.querySelectorAll('#popLista .pop-op:not(.todos)')].find(o=>o.querySelector('.op-txt').textContent===v);
+    alvo.querySelector('input').click();
+    return {n:filtrados.length, botao:document.querySelector('.cf[data-col="'+c+'"] .cf-txt').textContent,
+            aceso:document.querySelector('.cf[data-col="'+c+'"]').classList.contains('ativo'),
+            chips:document.getElementById('chipsAtivos').textContent.trim()};
+  }, [col, valor]);
+
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
+  const soObra=await marcar('tipo','OBRA');
+  const conferObra=await pg.evaluate(()=>filtrados.every(c=>c.tipo==='OBRA'));
+  t('marcar OBRA deixa só as obras', soObra.n>0 && conferObra, soObra);
+  t('o botão da coluna passa a mostrar a escolha', soObra.botao==='OBRA' && soObra.aceso, soObra);
+  t('a escolha vira chip', /Tipo: OBRA/.test(soObra.chips), soObra.chips);
+
+  const duasSecs=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros();
+    document.querySelector('.cf[data-col="sec"]').click();
+    ['SMMA','SMED'].forEach(s=>{
+      [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
+        .find(o=>o.querySelector('.op-txt').textContent===s).querySelector('input').click();
+    });
+    return {n:filtrados.length, botao:document.querySelector('.cf[data-col="sec"] .cf-txt').textContent,
+            todas:filtrados.every(c=>c.secretarias.includes('SMMA')||c.secretarias.includes('SMED'))};
   });
-  t('filtrar por tipo OBRA devolve só obras', porTipo.sóObra && porTipo.n>0, porTipo);
+  t('dá para marcar mais de uma opção (SMMA ou SMED)', duasSecs.n>0 && duasSecs.todas, duasSecs);
+  t('o botão resume quantas foram marcadas', duasSecs.botao==='2 opções', duasSecs.botao);
 
-  const busca=await pg.evaluate(()=>{
-    document.getElementById('fTipo').value='';
-    document.getElementById('fBusca').value='PAVIMENTA';
-    aplicarFiltros();
-    return {n:filtrados.length, bate:filtrados.every(c=>
-      (c.objeto+' '+c.empresa+' '+c.palavra+' '+c.modalidade).toLowerCase().indexOf('pavimenta')>=0)};
-  });
-  t('a busca por texto encontra e só traz o que bate', busca.n>0 && busca.bate, busca);
-
-  const todos=await pg.evaluate(()=>{ limparFiltros(); return filtrados.length; });
-  t('limpar os filtros volta para os ativos', todos===436, todos);
-
-  console.log('\n3b) Busca por coluna e ordenação no cabeçalho');
-  const porEmpresa=await pg.evaluate(()=>{
-    limparFiltros();
-    document.querySelector('.cf[data-col="emp"]').value='bripav';
-    aplicarFiltros();
-    return {n:filtrados.length, todas:filtrados.every(c=>c.empresa.toLowerCase().includes('bripav')),
+  const digitado=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros();
+    document.querySelector('.cf[data-col="obj"]').click();
+    document.getElementById('popBusca').value='pavimenta';
+    popDigitou();
+    return {n:filtrados.length, todas:filtrados.every(c=>c.objeto.toLowerCase().includes('pavimenta')),
             chips:document.getElementById('chipsAtivos').textContent.trim()};
   });
-  t('buscar na coluna Empresa filtra de verdade', porEmpresa.n>0 && porEmpresa.todas, porEmpresa);
-  t('o filtro de coluna vira chip', /Empresa: bripav/.test(porEmpresa.chips), porEmpresa.chips);
+  t('digitar no menu da coluna filtra por aquela coluna', digitado.n>0 && digitado.todas, digitado);
+  t('o texto digitado também vira chip', /Objeto: pavimenta/.test(digitado.chips), digitado.chips);
 
-  const porObjeto=await pg.evaluate(()=>{
-    limparFiltros();
-    document.querySelector('.cf[data-col="obj"]').value='pavimenta';
-    aplicarFiltros();
-    return {n:filtrados.length, todas:filtrados.every(c=>c.objeto.toLowerCase().includes('pavimenta'))};
+  const faixa=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros();
+    document.querySelector('.cf[data-col="valor"]').click();
+    [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
+      .find(o=>/Acima de R\$ 5/.test(o.querySelector('.op-txt').textContent)).querySelector('input').click();
+    return {n:filtrados.length, todas:filtrados.every(c=>c.valor>5e6)};
   });
-  t('buscar na coluna Objeto só traz o que bate', porObjeto.n>0 && porObjeto.todas, porObjeto);
+  t('Valor filtra por faixa, não por texto', faixa.n>0 && faixa.todas, faixa);
+
+  const prazo=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros();
+    document.querySelector('.cf[data-col="venc"]').click();
+    [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
+      .find(o=>o.querySelector('.op-txt').textContent==='Vencidos').querySelector('input').click();
+    return {n:filtrados.length, todos:filtrados.every(c=>c._d!==null && c._d<0),
+            grupos:[...document.querySelectorAll('#popLista .pop-grupo')].map(g=>g.textContent)};
+  });
+  t('Vencimento filtra por prazo', prazo.n>0 && prazo.todos, prazo);
+  t('e ainda oferece o ano do vencimento em outro grupo',
+    prazo.grupos.join('|')==='Prazo|Ano do vencimento', prazo.grupos);
+
+  const contagemViva=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros();
+    document.querySelector('.cf[data-col="tipo"]').click();
+    const antes=[...document.querySelectorAll('#popLista .pop-op:not(.todos) .op-n')].map(o=>+o.textContent);
+    fecharPop();
+    document.querySelector('.cf[data-col="sec"]').click();
+    [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
+      .find(o=>o.querySelector('.op-txt').textContent==='SMMA').querySelector('input').click();
+    fecharPop();
+    document.querySelector('.cf[data-col="tipo"]').click();
+    const depois=[...document.querySelectorAll('#popLista .pop-op:not(.todos) .op-n')].map(o=>+o.textContent);
+    return {antes:antes.reduce((a,x)=>a+x,0), depois:depois.reduce((a,x)=>a+x,0)};
+  });
+  t('as contagens acompanham os filtros das outras colunas',
+    contagemViva.depois<contagemViva.antes && contagemViva.depois>0, contagemViva);
 
   const limpou=await pg.evaluate(()=>{
-    limparFiltros();
-    return {campos:[...document.querySelectorAll('.cf')].every(i=>i.value===''), n:filtrados.length};
+    fecharPop(); limparFiltros();
+    return {acesos:[...document.querySelectorAll('.cf')].filter(b=>b.classList.contains('ativo')).map(b=>b.dataset.col),
+            n:filtrados.length, chips:document.getElementById('chipsAtivos').textContent.trim()};
   });
-  t('limpar filtros esvazia também os campos de coluna', limpou.campos && limpou.n===436, limpou);
+  t('limpar filtros apaga os menus de coluna', limpou.acesos.join('|')==='sit', limpou);
+  t('e volta aos 436 (a situação padrão continua marcada)', limpou.n===436, limpou);
+  t('o chip que sobra é o da situação padrão', /Situação/.test(limpou.chips), limpou.chips);
 
+  console.log('\n3c) Ordenação pelo cabeçalho e pelo menu');
   const clique = campo => pg.evaluate(c=>{
     ordenarPor(c);
     const th=document.querySelector('.th-titulos th[data-ord="'+c+'"]');
@@ -144,6 +236,18 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('coluna de texto começa em A–Z', e1.sort==='emp-asc' && e1.emp1.localeCompare(e1.emp2,'pt-BR')<=0, e1);
   const soUma=await pg.evaluate(()=>document.querySelectorAll('.th-titulos th.ord-asc, .th-titulos th.ord-desc').length);
   t('só uma coluna fica marcada por vez', soUma===1, soUma);
+
+  const ordMenu=await pg.evaluate(()=>{
+    fecharPop();
+    document.querySelector('.cf[data-col="valor"]').click();
+    document.getElementById('popOrdDesc').click();
+    return {sort:F.sort, p:filtrados[0].valor, s:filtrados[1].valor,
+            on:document.getElementById('popOrdDesc').classList.contains('on'),
+            seta:document.querySelector('.th-titulos th[data-ord="valor"]').className};
+  });
+  t('o menu da coluna também ordena', ordMenu.sort==='valor-desc' && ordMenu.p>=ordMenu.s, ordMenu);
+  t('e mostra qual ordem está valendo', ordMenu.on && /ord-desc/.test(ordMenu.seta), ordMenu);
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
 
   console.log('\n4) A ficha do contrato abre pelo id numérico');
   const ficha=await pg.evaluate(()=>{
@@ -180,7 +284,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a ficha do contrato em PDF gera arquivo', /^contrato_137-2008/.test(pdfs.ficha||''), pdfs);
   t('o relatório geral gera arquivo', /^contratos_geral_/.test(pdfs.geral||''), pdfs);
 
-  console.log('\n6) No celular a tabela vira blocos e a busca já vem aberta');
+  console.log('\n6) No celular a tabela vira blocos e a busca fica à vista');
   const cel=await b.newPage({viewport:{width:390,height:844}});
   await cel.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await cel.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
@@ -188,21 +292,54 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const noCel=await cel.evaluate(()=>{
     const tr=document.querySelector('.tab tbody tr');
     const px=c=>parseFloat(getComputedStyle(tr.querySelector('.'+c)).fontSize);
+    const btn=document.querySelector('.btn-filtros');
     return {
-      escondido: document.getElementById('filtrosBody').classList.contains('hide'),
+      buscaVisivel: document.getElementById('fBusca').offsetParent!==null,
       colunas: getComputedStyle(document.querySelector('.tab thead')).display,
       linha: getComputedStyle(tr).display,
+      btnFiltros: !!btn && btn.offsetParent!==null,
       fEmp: px('c-emp'), fValor: px('c-valor'), fNum: px('c-num'),
       larguraPagina: document.documentElement.scrollWidth,
       larguraTela: document.documentElement.clientWidth,
     };
   });
   console.log('  ', noCel);
-  t('a busca NÃO começa recolhida', !noCel.escondido, noCel);
+  t('a busca fica à vista, sem precisar abrir nada', noCel.buscaVisivel, noCel);
   t('a tabela vira blocos (não tabela espremida)', noCel.linha==='flex' && noCel.colunas==='none', noCel);
   t('o valor é o número em destaque do bloco', noCel.fValor>noCel.fEmp && noCel.fValor>=18, noCel);
   t('a empresa vem em segundo, acima do resto', noCel.fEmp>noCel.fNum, noCel);
   t('a página não estoura para os lados', noCel.larguraPagina<=noCel.larguraTela, noCel);
+  /* Sem cabeçalho de tabela para clicar, os filtros de coluna precisam de
+     outra porta de entrada — senão no celular só sobraria a busca. */
+  t('existe o botão "Filtros e ordem"', noCel.btnFiltros, noCel);
+
+  const folha=await cel.evaluate(()=>{
+    document.querySelector('.btn-filtros').click();
+    return {aberta:document.getElementById('ovFiltros').classList.contains('open'),
+            colunas:[...document.querySelectorAll('.fm-linha')].map(l=>l.dataset.col),
+            temOrdem:!!document.getElementById('fSort'),
+            ver:document.getElementById('fmVer').textContent};
+  });
+  t('a folha de filtros abre com as 9 colunas',
+    folha.aberta && folha.colunas.join('|')==='num|emp|obj|sec|tipo|fis|sit|venc|valor', folha);
+  t('e traz a ordenação junto', folha.temOrdem, folha);
+  t('o botão de fechar diz quantos contratos ficaram', /Ver 436 contratos/.test(folha.ver), folha.ver);
+
+  const menuCel=await cel.evaluate(()=>{
+    document.querySelector('.fm-linha[data-col="tipo"]').click();
+    const pop=document.getElementById('popFiltro');
+    const r=pop.getBoundingClientRect();
+    const alvo=[...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
+      .find(o=>o.querySelector('.op-txt').textContent==='OBRA');
+    alvo.querySelector('input').click();
+    return {aberto:pop.classList.contains('open'), n:filtrados.length,
+            sóObra:filtrados.every(c=>c.tipo==='OBRA'),
+            cabe:r.left>=0 && r.right<=window.innerWidth,
+            resumo:document.querySelector('.fm-linha[data-col="tipo"] .fm-val').textContent};
+  });
+  t('tocar numa coluna abre o mesmo menu de opções', menuCel.aberto && menuCel.cabe, menuCel);
+  t('e marcar OBRA filtra igual ao computador', menuCel.n>0 && menuCel.sóObra, menuCel);
+  t('a folha passa a mostrar o que ficou marcado', menuCel.resumo==='OBRA', menuCel.resumo);
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
