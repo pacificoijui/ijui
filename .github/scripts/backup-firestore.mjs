@@ -16,12 +16,13 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-// Sao dois projetos Firebase separados de proposito (ver contratos/LEIA-ME.md):
-// as licitacoes nao alcancam os contratos e vice-versa. O backup e o unico
-// lugar que le os dois — de fora, so para guardar.
+// Cada modulo tem o seu projeto Firebase, separado de proposito (ver
+// contratos/LEIA-ME.md): um nao alcanca o outro. O backup e o unico lugar que
+// le todos — de fora, so para guardar.
 //
 // As colecoes de cada um precisam estar listadas aqui: a API REST nao lista
-// colecoes sem credencial de admin.
+// colecoes sem credencial de admin. Modulo que ganhar projeto e nao entrar
+// nesta tabela NAO e copiado, e nada avisa — foi o que aconteceu com editais.
 const LICITACOES = [
   "processos",
   "rankings",
@@ -37,29 +38,31 @@ const LICITACOES = [
   "email_config",
 ];
 
-const CONTRATOS = ["contratos"];
+// Um modulo por linha: onde esta o HTML que guarda a configuracao do Firebase
+// dele, e quais colecoes aquele projeto tem. `exigido` marca o banco que nao
+// pode faltar — se a chave dele sumir do HTML, o backup para em vez de gravar
+// pela metade.
+const MODULOS = [
+  { nome: "licitacoes", html: ["pregoeiro", "index.html"], exigido: true, colecoes: LICITACOES },
+  { nome: "contratos",  html: ["contratos", "index.html"], colecoes: ["contratos"] },
+  { nome: "editais",    html: ["editais", "index.html"],   colecoes: ["editais"] },
+];
 
-// A chave sai do proprio HTML do sistema, para nao existirem duas fontes de
-// verdade: se ela for trocada la, o backup acompanha sozinho.
-function lerChaveWeb() {
-  const html = readFileSync(join(RAIZ, "pregoeiro", "index.html"), "utf8");
-  const m = html.match(/apiKey:\s*"([^"]+)"/);
-  if (!m) throw new Error("nao achei a apiKey em pregoeiro/index.html");
-  return m[1];
-}
-
-// O modulo de contratos ainda pode estar sem projeto proprio: enquanto o
-// FIREBASE_CONFIG estiver vazio, ele le de contratos/dados/contratos.json, que
-// ja esta versionado aqui e nao precisa de backup. Nesse caso devolve null e o
-// backup segue so com as licitacoes.
-function lerConfigContratos() {
-  const html = readFileSync(join(RAIZ, "contratos", "index.html"), "utf8");
-  const bloco = html.match(/const FIREBASE_CONFIG = (\{[\s\S]*?\});/);
-  if (!bloco) return null;
-  const chave = bloco[1].match(/apiKey:\s*["\']([^"\']+)["\']/);
-  const projeto = bloco[1].match(/projectId:\s*["\']([^"\']+)["\']/);
-  if (!chave || !projeto) return null;
-  return { projeto: projeto[1], chave: chave[1], colecoes: CONTRATOS };
+// A chave e o id do projeto saem do proprio HTML que os usa, para nao
+// existirem duas fontes de verdade: trocou la, o backup acompanha sozinho.
+// Modulo ainda sem projeto (config vazio) devolve null e e apenas pulado — os
+// dados dele nao estao no Firestore, entao nao ha o que copiar.
+function lerModulo(mod) {
+  const html = readFileSync(join(RAIZ, ...mod.html), "utf8");
+  const chave = html.match(/apiKey:\s*["\']([^"\']+)["\']/);
+  const projeto = html.match(/projectId:\s*["\']([^"\']+)["\']/);
+  if (!chave || !projeto) {
+    if (mod.exigido) {
+      throw new Error(`nao achei apiKey/projectId em ${mod.html.join("/")}`);
+    }
+    return null;
+  }
+  return { projeto: projeto[1], chave: chave[1], colecoes: mod.colecoes };
 }
 
 // Converte o formato tipado do Firestore ({stringValue:"x"}) em JSON comum.
@@ -144,12 +147,13 @@ async function main() {
   const saida = process.argv[2] || join(RAIZ, "backup");
   const dia = dataBrasilia();
 
-  const fontes = [
-    { projeto: "processos-ijui", chave: lerChaveWeb(), colecoes: LICITACOES },
-  ];
-  const contratos = lerConfigContratos();
-  if (contratos) fontes.push(contratos);
-  else console.log("contratos: sem projeto proprio ainda — nada a baixar\n");
+  const fontes = [];
+  for (const mod of MODULOS) {
+    const fonte = lerModulo(mod);
+    if (fonte) fontes.push(fonte);
+    else console.log(`${mod.nome}: sem projeto proprio ainda — nada a baixar`);
+  }
+  console.log("");
 
   const porProjeto = {};
   const vazias = [];

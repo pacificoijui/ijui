@@ -116,12 +116,44 @@ todo de uma vez.
 
 Sem `--confirmar` o script apenas simula, então é seguro rodar para conferir.
 
-## Se aparecer uma coleção nova
+## Se aparecer uma coleção ou um módulo novo
 
-A lista de coleções fica no topo de `backup-firestore.mjs`, na constante
-`COLECOES`. Ela é escrita à mão porque a API do Firestore não lista coleções sem
-credencial de administrador — uma coleção nova que não entrar nessa lista
-**não é copiada**.
+A tabela `MODULOS`, no topo de `backup-firestore.mjs`, diz de quais projetos
+copiar e quais coleções cada um tem. Ela é escrita à mão porque a API do
+Firestore não lista coleções sem credencial de administrador — **coleção que não
+estiver nessa tabela não é copiada, e nada avisa.**
+
+Hoje ela cobre três módulos: licitações (`pregoeiro/index.html`, 12 coleções),
+contratos (`contratos/index.html`) e editais (`editais/index.html`). Os dois
+últimos ainda não têm projeto Firebase: enquanto o `FIREBASE_CONFIG` deles
+estiver vazio o backup apenas os pula, e no dia em que forem preenchidos passa a
+copiá-los sozinho, cada um na sua pasta.
+
+Módulo novo = mais uma linha nessa tabela. É a única manutenção que este backup
+pede, e esquecer dela é a falha mais provável — foi o que aconteceu com editais,
+que existiu por um tempo fora da lista.
+
+## O que este backup NÃO cobre
+
+Vale saber de antemão, para ninguém descobrir na hora do aperto:
+
+- **As regras do Firestore.** Não são copiadas. Se o projeto for apagado, elas
+  vão junto e precisam ser reescritas à mão no console.
+- **O projeto do Firebase em si.** Apagou, o `projectId` não volta: um projeto
+  novo tem outro id e outra chave, e aí o `apiKey`/`projectId` do HTML tem de ser
+  atualizado antes de restaurar.
+- **Até 24 horas de alterações.** O backup roda uma vez por dia; o que mudou
+  depois da última execução não está em lugar nenhum.
+- **O próprio GitHub.** Se a conta for comprometida, o repositório de backups
+  está lá dentro. Baixar uma cópia para fora de tempos em tempos (o artifact ou
+  um `git clone` do repositório privado) é o que cobre esse caso.
+
+Um detalhe que é os dois lados da mesma moeda: o sistema grava direto do
+navegador, sem autenticação do Firebase, então a regra de escrita do Firestore
+está necessariamente aberta. É por isso que a restauração funciona só com a
+chave pública — e é também por isso que o cenário "alguém apagou tudo" é
+plausível. Se um dia a regra de escrita for fechada, a restauração passa a
+precisar de credencial de administrador.
 
 ## Por que não precisa de senha nenhuma
 

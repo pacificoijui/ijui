@@ -24,32 +24,33 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-// Cada projeto tem a sua chave web, e ela sai do HTML que o usa — assim nao ha
-// como restaurar contratos com a chave das licitacoes.
+// Cada modulo tem o seu HTML e, dentro dele, a chave web do seu projeto. O
+// nome da PASTA do backup diz para onde restaurar, e so vale se algum desses
+// HTMLs apontar para esse mesmo projeto — assim nao ha como despejar o backup
+// de um banco por cima do outro.
+const HTMLS = [
+  ["pregoeiro", "index.html"],
+  ["contratos", "index.html"],
+  ["editais", "index.html"],
+];
 function fonteDe(projeto) {
-  if (projeto === "processos-ijui") {
-    const html = readFileSync(join(RAIZ, "pregoeiro", "index.html"), "utf8");
-    const m = html.match(/apiKey:\s*"([^"]+)"/);
-    if (!m) throw new Error("nao achei a apiKey em pregoeiro/index.html");
-    return { projeto, chave: m[1] };
+  const vistos = [];
+  for (const caminho of HTMLS) {
+    const html = readFileSync(join(RAIZ, ...caminho), "utf8");
+    const chave = html.match(/apiKey:\s*["\']([^"\']+)["\']/);
+    const id = html.match(/projectId:\s*["\']([^"\']+)["\']/);
+    if (!chave || !id) continue;
+    if (id[1] === projeto) return { projeto, chave: chave[1] };
+    vistos.push(`${id[1]} (${caminho.join("/")})`);
   }
-  const html = readFileSync(join(RAIZ, "contratos", "index.html"), "utf8");
-  const bloco = html.match(/const FIREBASE_CONFIG = (\{[\s\S]*?\});/);
-  const chave = bloco && bloco[1].match(/apiKey:\s*["\']([^"\']+)["\']/);
-  const id = bloco && bloco[1].match(/projectId:\s*["\']([^"\']+)["\']/);
-  if (!chave || !id) {
-    throw new Error(
-      `nao sei a chave do projeto "${projeto}".\n` +
-      "Se e o de contratos, preencha o FIREBASE_CONFIG em contratos/index.html."
-    );
-  }
-  if (id[1] !== projeto) {
-    throw new Error(
-      `a pasta diz "${projeto}" mas o contratos/index.html aponta para "${id[1]}" — ` +
-      "confira se e mesmo esse backup que voce quer restaurar."
-    );
-  }
-  return { projeto, chave: chave[1] };
+  throw new Error(
+    `nao sei a chave do projeto "${projeto}".\n` +
+    (vistos.length
+      ? `Os projetos configurados hoje sao: ${vistos.join(", ")}.\n` +
+        "Se a pasta do backup e de um deles, confira o nome; se e de um modulo\n" +
+        "ainda sem projeto, preencha o FIREBASE_CONFIG do HTML dele primeiro."
+      : "Nenhum HTML tem FIREBASE_CONFIG preenchido.")
+  );
 }
 
 function args() {
