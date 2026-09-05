@@ -12,10 +12,70 @@ coleções e guarda o resultado.
 3. Abra a execução do dia
 4. No fim da página, em **Artifacts**, baixe `backup-firestore-AAAA-MM-DD`
 
-O GitHub guarda **90 dias** de backups. Passado esse prazo ele apaga sozinho.
+O GitHub guarda **90 dias** de backups. Passado esse prazo ele apaga sozinho —
+por isso existe também a cópia permanente descrita abaixo.
 
 Para rodar um backup na hora, sem esperar as 03:00: mesma tela, botão
 **Run workflow**.
+
+## Cópia permanente, num repositório privado
+
+O artifact morre em 90 dias, e o dump **não pode** ser commitado neste
+repositório: ele é público e vira o site ijui.net — publicaria o banco inteiro,
+inclusive a coleção `usuarios`, numa URL fixa. A cópia de longa duração vai para
+um repositório **privado**, um commit por dia, sempre nos mesmos arquivos: o
+estado atual é o backup de hoje, o histórico do git guarda todos os dias
+anteriores, e o diff de cada dia mostra o que mudou no banco.
+
+Enquanto o secret `BACKUP_TOKEN` não existir, esse passo é pulado e o backup
+diário continua funcionando normalmente pelo artifact.
+
+### Como ligar (uma vez só, tudo pelo site do GitHub)
+
+1. **Criar o repositório privado.** Em <https://github.com/new>: nome
+   `ijui-backups`, dono a mesma conta do repositório do site, marcar
+   **Private** e marcar **Add a README file**. Se usar outro nome, crie depois
+   a variável `BACKUP_REPO` (passo 3) com `dono/nome`.
+
+2. **Criar o token que dá acesso a ele.** Em
+   <https://github.com/settings/personal-access-tokens/new> (token *fine-grained*):
+   - Token name: `backup-ijui`
+   - Expiration: **No expiration** (se puser prazo, no dia em que vencer o
+     backup para de subir para o repositório privado)
+   - Repository access: **Only select repositories** → `ijui-backups`
+   - Permissions → Repository permissions → **Contents: Read and write**
+   - **Generate token** e copiar o valor (começa com `github_pat_`); ele só
+     aparece uma vez.
+
+3. **Guardar o token neste repositório.** Em
+   `Settings → Secrets and variables → Actions` do repositório do site, aba
+   **Secrets**, botão **New repository secret**:
+   - Name: `BACKUP_TOKEN` (exatamente assim)
+   - Secret: colar o token
+
+   Só se o repositório privado tiver outro nome: na aba **Variables**, criar
+   `BACKUP_REPO` com `dono/nome`.
+
+4. **Conferir.** Aba **Actions** → *Backup diário do Firestore* → **Run
+   workflow**. Ao terminar, o repositório privado deve ter o commit
+   `Backup de AAAA-MM-DD` e a pasta `atual/`.
+
+O token dá acesso de escrita **só** ao repositório de backups: mesmo vazado, não
+alcança o repositório do site nem o Firebase.
+
+### Restaurar a partir dele
+
+A pasta `atual/` tem o mesmo formato do artifact, então o comando é o mesmo,
+apontando para dentro do clone do repositório privado:
+
+```bash
+git clone git@github.com:pacificoijui/ijui-backups.git
+node .github/scripts/restaurar-firestore.mjs ../ijui-backups/atual/processos-ijui --colecao processos
+```
+
+Para voltar a um dia anterior, é o git que guarda: `git log` no repositório de
+backups mostra um commit por dia; `git checkout <commit>` deixa `atual/` com o
+conteúdo daquele dia, e daí o comando acima é igual.
 
 ## O que tem dentro
 

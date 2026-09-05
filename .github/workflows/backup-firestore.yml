@@ -13,6 +13,11 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
+    env:
+      # Enquanto o secret não existir, isto fica vazio e o passo de envio para o
+      # repositório privado é pulado — o backup diário segue pelo artifact.
+      BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
+      BACKUP_REPO: ${{ vars.BACKUP_REPO }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,3 +39,36 @@ jobs:
           path: backup/
           retention-days: 90
           if-no-files-found: error
+
+      # Cópia permanente. O artifact acima morre em 90 dias, e ESTE repositório é
+      # público (vira o site ijui.net), então o dump não pode ser commitado aqui:
+      # publicaria o banco inteiro, inclusive a coleção usuarios. Vai para um
+      # repositório PRIVADO, sempre nos mesmos arquivos, um commit por dia — o
+      # estado atual é o backup de hoje e o histórico do git guarda os anteriores,
+      # com a vantagem de o diff de cada dia mostrar o que mudou no banco.
+      #
+      # Pulado enquanto o secret BACKUP_TOKEN não existir (ver .github/scripts/README.md).
+      - name: Enviar para o repositório privado
+        if: env.BACKUP_TOKEN != ''
+        env:
+          DIA: ${{ steps.nome.outputs.dia }}
+        run: |
+          set -euo pipefail
+          REPO="${BACKUP_REPO:-pacificoijui/ijui-backups}"
+          echo "Enviando para $REPO"
+          git clone --depth 1 "https://x-access-token:${BACKUP_TOKEN}@github.com/${REPO}.git" destino
+          # o backup do dia é o único diretório criado sob backup/
+          ORIGEM="$(ls -d backup/*/ | head -1)"
+          rm -rf destino/atual
+          mkdir -p destino/atual
+          cp -r "$ORIGEM." destino/atual/
+          cd destino
+          git config user.name "Backup automático"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nada mudou desde o último backup."
+            exit 0
+          fi
+          git commit -m "Backup de ${DIA}"
+          git push origin HEAD
