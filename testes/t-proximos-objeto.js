@@ -26,6 +26,7 @@ async function abrir(b, viewport, mobile){
   await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pg.addInitScript(()=>localStorage.setItem('copam_auth',JSON.stringify({u:'teste',nome:'QA'})));
   await pg.addInitScript((sd)=>{ window.__SEED=sd; }, SEED);
+  await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'teste-admin', email:'pedrohhpacifico@gmail.com', displayName:'QA', photoURL:''});
   await pg.goto('http://127.0.0.1:8099/index.html',{waitUntil:'networkidle'});
   await pg.waitForTimeout(900);
   return pg;

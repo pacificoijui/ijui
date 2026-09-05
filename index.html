@@ -15,6 +15,7 @@
 
 <!-- Firebase (MESMA configuração do index.html — comunicação 100%) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
@@ -618,6 +619,16 @@
   .auth-btn:disabled{opacity:.6;cursor:default}
   .auth-err{color:#c0392b;font-size:12.5px;margin-top:12px;text-align:center;min-height:16px;line-height:1.4}
   .auth-chip{font-size:12px;font-weight:700;color:var(--navy);background:#EEF2FB;border:1px solid var(--border);padding:7px 11px;border-radius:8px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .auth-btn-google{background:#fff;color:#3c4043;border:1.5px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:0}
+  .auth-btn-google:hover{background:#f8f9fa}
+  .auth-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#9aa5bd;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  .auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:#e3e8f2}
+  .auth-links{display:flex;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .auth-link-btn{background:none;border:none;color:#1a3a6b;font-size:12.5px;font-weight:700;cursor:pointer;padding:2px 0;text-decoration:underline}
+  .auth-pendente-perfil{display:flex;align-items:center;gap:12px;background:#f4f7fc;border-radius:10px;padding:12px;margin:6px 0 14px}
+  .auth-pend-foto{width:44px;height:44px;border-radius:50%;background:#dde4f0;object-fit:cover;flex-shrink:0}
+  .auth-pend-nome{font-weight:700;color:#1c2433;font-size:14px}
+  .auth-pend-email{font-size:12px;color:#8590a8;margin-top:1px}
   .auth-sair-btn{flex-shrink:0;height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;transition:all .14s}
   .auth-sair-btn:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
   .auth-admin-link{flex-shrink:0;height:34px;padding:0 12px;border-radius:9px;border:1px solid var(--border);background:#fff;color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;margin-left:auto}
@@ -682,28 +693,55 @@
     <h1 class="auth-title">Agenda de Licitações</h1>
     <p class="auth-sub">Município de Ijuí · COPAM</p>
 
-    <div id="authLoginBox" style="display:none">
-      <label class="auth-label">Usuário</label>
-      <input id="authUser" class="auth-input" autocomplete="username" placeholder="usuário">
+    <div id="authEntradaBox">
+      <button id="authBtnGoogle" class="auth-btn auth-btn-google" type="button" onclick="authGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18" style="flex-shrink:0"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62Z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.9v2.33A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.03l3.05-2.33Z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .9 4.97l3.05 2.33C4.66 5.17 6.65 3.58 9 3.58Z"/></svg>
+        Entrar com Google
+      </button>
+      <div class="auth-divider"><span>ou</span></div>
+      <label class="auth-label">E-mail</label>
+      <input id="authEmail" class="auth-input" type="email" autocomplete="email" placeholder="seu@email.com">
       <label class="auth-label">Senha</label>
       <input id="authPass" type="password" class="auth-input" autocomplete="current-password" placeholder="senha">
-      <button id="authBtnEntrar" class="auth-btn" type="button" onclick="authEntrar()">Entrar</button>
+      <button id="authBtnEntrar" class="auth-btn" type="button" onclick="authEntrarSenha()">Entrar</button>
+      <div class="auth-links">
+        <button class="auth-link-btn" type="button" onclick="authSetModo('criar')">Criar uma conta</button>
+        <button class="auth-link-btn" type="button" onclick="authEsqueciSenha()">Esqueci minha senha</button>
+      </div>
     </div>
 
-    <div id="authCreateBox" style="display:none">
-      <p class="auth-first">Primeiro acesso — crie o usuário administrador.</p>
-      <label class="auth-label">Nome</label>
-      <input id="authNome" class="auth-input" placeholder="Seu nome">
-      <label class="auth-label">Usuário</label>
-      <input id="authUserC" class="auth-input" placeholder="usuário de acesso">
+    <div id="authCriarBox" style="display:none">
+      <p class="auth-first">Crie sua conta para pedir acesso ao sistema. Depois de criar, um administrador precisa liberar o que você vai poder ver.</p>
+      <label class="auth-label">Nome completo</label>
+      <input id="authNomeC" class="auth-input" placeholder="Seu nome">
+      <label class="auth-label">E-mail</label>
+      <input id="authEmailC" class="auth-input" type="email" autocomplete="email" placeholder="seu@email.com">
       <label class="auth-label">Senha</label>
-      <input id="authPassC" type="password" class="auth-input" placeholder="senha">
+      <input id="authPassC" type="password" class="auth-input" autocomplete="new-password" placeholder="mínimo 6 caracteres">
       <label class="auth-label">Confirmar senha</label>
-      <input id="authPass2" type="password" class="auth-input" placeholder="repita a senha">
-      <button id="authBtnCriar" class="auth-btn" type="button" onclick="authCriarPrimeiro()">Criar e entrar</button>
+      <input id="authPass2" type="password" class="auth-input" autocomplete="new-password" placeholder="repita a senha">
+      <button id="authBtnCriar" class="auth-btn" type="button" onclick="authCriarConta()">Criar conta</button>
+      <div class="auth-links">
+        <button class="auth-link-btn" type="button" onclick="authSetModo('entrar')">Já tenho conta — entrar</button>
+      </div>
     </div>
 
     <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <!-- Tela de espera: a conta existe, mas nenhum painel foi liberado ainda -->
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img class="auth-logo" id="authLogoPend" alt="">
+    <h1 class="auth-title">Aguardando liberação</h1>
+    <div class="auth-pendente-perfil">
+      <img id="authPendFoto" class="auth-pend-foto" alt="">
+      <div>
+        <div class="auth-pend-nome" id="authPendNome"></div>
+        <div class="auth-pend-email" id="authPendEmail"></div>
+      </div>
+    </div>
+    <p class="auth-first" id="authPendMsg">Sua conta foi criada. Peça para um administrador liberar o seu acesso.</p>
+    <button class="auth-btn" type="button" onclick="authLogout()" style="background:#8590a8">Sair</button>
   </div>
 </div>
 
@@ -973,178 +1011,165 @@
 
 /* ════════════════════════════════════════════════════════════════
    LOGIN / CONTROLE DE ACESSO
-   Mesmo portão de acesso do sistema de Pregões — reaproveita a MESMA
-   coleção "usuarios" do Firestore e a MESMA chave de sessão no
-   localStorage ("copam_auth"), então logar aqui também loga lá (e
-   vice-versa). Cadastro de novos usuários só é feito pelo painel de
-   Usuários dentro de /pregoeiro/, e só aparece pra quem for admin.
+   Mesma conta do sistema de Pregões — reaproveita a MESMA coleção
+   "usuarios_v2" do Firestore, e o Firebase Auth já mantém a sessão entre
+   /  e /pregoeiro/ sozinho, por serem a mesma origem e o mesmo projeto
+   (não precisa mais copiar nada em localStorage). O cadastro é sozinho
+   (Google ou e-mail/senha) e o aprovar/liberar painel é feito só no painel
+   de Usuários dentro de /pregoeiro/, por quem for admin. Ver
+   pregoeiro/index.html para os comentários completos deste mecanismo.
    ════════════════════════════════════════════════════════════════ */
-var usuariosColRef = db.collection("usuarios");
-var AUTH_SALT = "copam-ijui-v1";
-var AUTH_KEY  = "copam_auth";
-var authCurrentUser = null;
-var authMode = "login";
-var AUTH_BOOTSTRAP_ADMIN = "pacifico";
+var usuariosV2ColRef = db.collection("usuarios_v2");
+var AUTH_BOOTSTRAP_ADMIN_EMAIL = "pedrohhpacifico@gmail.com";
+var authCurrentUser  = null;
+var authFirebaseUser = null;
+var authModo = "entrar";
+var authPerfilUnsub = null;
 function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
-
-/* SHA-256 compacto (funciona em https e file://, sem dependências) */
-function authUtf8(s){ try{ return unescape(encodeURIComponent(s)); }catch(e){ return s; } }
-function authSha256(ascii){
-  function rightRotate(value, amount){ return (value>>>amount)|(value<<(32-amount)); }
-  var mathPow=Math.pow, maxWord=mathPow(2,32), result="";
-  var words=[], asciiBitLength=ascii.length*8;
-  var hash=authSha256.h=authSha256.h||[];
-  var k=authSha256.k=authSha256.k||[];
-  var primeCounter=k.length;
-  var isComposite={};
-  for(var candidate=2; primeCounter<64; candidate++){
-    if(!isComposite[candidate]){
-      for(var i=0;i<313;i+=candidate){ isComposite[i]=candidate; }
-      hash[primeCounter]=(mathPow(candidate,0.5)*maxWord)|0;
-      k[primeCounter++]=(mathPow(candidate,1/3)*maxWord)|0;
-    }
-  }
-  ascii+="\x80";
-  while(ascii.length%64-56) ascii+="\x00";
-  for(i=0;i<ascii.length;i++){
-    var j=ascii.charCodeAt(i);
-    if(j>>8){ return ""; }
-    words[i>>2]|=j<<((3-i)%4)*8;
-  }
-  words[words.length]=((asciiBitLength/maxWord)|0);
-  words[words.length]=(asciiBitLength);
-  for(j=0;j<words.length;){
-    var w=words.slice(j,j+=16);
-    var oldHash=hash;
-    hash=hash.slice(0,8);
-    for(i=0;i<64;i++){
-      var w15=w[i-15], w2=w[i-2];
-      var a=hash[0], e=hash[4];
-      var temp1=hash[7]
-        +(rightRotate(e,6)^rightRotate(e,11)^rightRotate(e,25))
-        +((e&hash[5])^((~e)&hash[6]))
-        +k[i]
-        +(w[i]=(i<16)?w[i]:(
-            w[i-16]
-            +(rightRotate(w15,7)^rightRotate(w15,18)^(w15>>>3))
-            +w[i-7]
-            +(rightRotate(w2,17)^rightRotate(w2,19)^(w2>>>10))
-          )|0
-        );
-      var temp2=(rightRotate(a,2)^rightRotate(a,13)^rightRotate(a,22))
-        +((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
-      hash=[(temp1+temp2)|0].concat(hash);
-      hash[4]=(hash[4]+temp1)|0;
-    }
-    for(i=0;i<8;i++){ hash[i]=(hash[i]+oldHash[i])|0; }
-  }
-  for(i=0;i<8;i++){
-    for(j=3;j+1;j--){
-      var b=(hash[i]>>(j*8))&255;
-      result+=((b<16)?0:"")+b.toString(16);
-    }
-  }
-  return result;
+function authTemAcesso(painel){
+  return !!(authCurrentUser && authCurrentUser.status==="aprovado" &&
+    (authCurrentUser.isAdmin || (authCurrentUser.acessos && authCurrentUser.acessos[painel])));
 }
-function authHash(senha, usuario){ return authSha256(authUtf8(AUTH_SALT+":"+(usuario||"").toLowerCase()+":"+senha)); }
-
-/* Sessão (localStorage) */
-function authGetSession(){ try{ var r=localStorage.getItem(AUTH_KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
-function authSetSession(o){ try{ localStorage.setItem(AUTH_KEY, JSON.stringify(o)); }catch(e){} }
-function authClearSession(){ try{ localStorage.removeItem(AUTH_KEY); }catch(e){} }
-function authLogout(){ if(!confirm("Deseja sair do sistema?")) return; authClearSession(); window.location.reload(); }
 
 function authErr(msg){ var e=document.getElementById("authErr"); if(e) e.textContent=msg||""; }
-function authSetMode(m){
-  authMode=m;
-  var lb=document.getElementById("authLoginBox"), cb=document.getElementById("authCreateBox");
-  if(lb) lb.style.display=(m==="login")?"block":"none";
-  if(cb) cb.style.display=(m==="create")?"block":"none";
+function authSetModo(m){
+  authModo=m;
+  document.getElementById("authEntradaBox").style.display=(m==="entrar")?"block":"none";
+  document.getElementById("authCriarBox").style.display=(m==="criar")?"block":"none";
   authErr("");
 }
-/* Garante que sempre exista pelo menos um administrador: se ninguém estiver
-   marcado, promove o usuário de resgate (AUTH_BOOTSTRAP_ADMIN), caso exista.
-   Mesma lógica do sistema de Pregões — roda dos dois lados, é inofensivo
-   rodar duas vezes porque vira no-op assim que existir algum admin.        */
-function authGarantirAdmin(){
-  usuariosColRef.get().then(function(snap){
-    var temAdmin=false, alvoId=null;
-    snap.docs.forEach(function(d){
-      var v=d.data();
-      if(v.isAdmin) temAdmin=true;
-      if(!alvoId && (v.usuario||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN) alvoId=d.id;
-    });
-    if(!temAdmin && alvoId){
-      usuariosColRef.doc(alvoId).update({isAdmin:true}).then(function(){
-        if(authCurrentUser && authCurrentUser.u===AUTH_BOOTSTRAP_ADMIN){
-          authCurrentUser.isAdmin=true; authSetSession(authCurrentUser);
-          var lnk=document.getElementById("authAdminLink"); if(lnk) lnk.style.display="inline-flex";
-        }
-      }).catch(function(){});
-    }
-  }).catch(function(){});
+function authBtnCarregando(id, texto){
+  var b=document.getElementById(id); if(!b) return function(){};
+  var original=b.textContent;
+  b.disabled=true; b.textContent=texto;
+  return function(){ b.disabled=false; b.textContent=original; };
 }
-function authShowApp(){
-  var g=document.getElementById("authGate"); if(g) g.style.display="none";
-  var chip=document.getElementById("authUserChip");
-  if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.u); chip.style.display="inline-flex"; }
-  var lnk=document.getElementById("authAdminLink");
-  if(lnk) lnk.style.display = authIsAdmin() ? "inline-flex" : "none";
-  authGarantirAdmin();
-}
-function authStartGate(){
-  var g=document.getElementById("authGate"); if(g) g.style.display="flex";
-  try{
-    var lg=document.getElementById("authLogo"), brandImg=document.querySelector(".side-brand-logo");
-    if(lg && brandImg) lg.src=brandImg.src;
-  }catch(e){}
-  usuariosColRef.limit(1).get().then(function(snap){
-    authSetMode(snap.empty ? "create" : "login");
-  }).catch(function(e){
-    authSetMode("login");
-    authErr("Não foi possível verificar usuários. Verifique a regra da coleção \"usuarios\" no Firestore.");
-  });
-  ["authUser","authPass","authNome","authUserC","authPassC","authPass2"].forEach(function(id){
-    var i=document.getElementById(id);
-    if(i) i.addEventListener("keydown", function(e){ if(e.key==="Enter"){ (authMode==="create")?authCriarPrimeiro():authEntrar(); } });
-  });
+function authMsgErro(e){
+  var m={
+    "auth/invalid-email":"E-mail inválido.",
+    "auth/user-not-found":"Não existe conta com esse e-mail.",
+    "auth/wrong-password":"Senha incorreta.",
+    "auth/invalid-login-credentials":"E-mail ou senha incorretos.",
+    "auth/invalid-credential":"E-mail ou senha incorretos.",
+    "auth/email-already-in-use":"Já existe conta com esse e-mail. Tente entrar em vez de criar.",
+    "auth/weak-password":"Senha muito fraca (mínimo 6 caracteres).",
+    "auth/too-many-requests":"Muitas tentativas. Aguarde um pouco e tente de novo."
+  };
+  return m[e.code] || ("Erro: "+e.message);
 }
 
-function authEntrar(){
-  var u=(document.getElementById("authUser").value||"").trim().toLowerCase();
-  var p=document.getElementById("authPass").value||"";
-  if(!u||!p){ authErr("Informe usuário e senha."); return; }
-  var btn=document.getElementById("authBtnEntrar"); btn.disabled=true; btn.textContent="Entrando...";
-  var hash=authHash(p,u);
-  usuariosColRef.where("usuario","==",u).limit(1).get().then(function(snap){
-    if(snap.empty) throw new Error("nf");
-    var d=snap.docs[0].data();
-    if(d.senhaHash!==hash) throw new Error("nf");
-    authCurrentUser={u:u, nome:d.nome||u, isAdmin:!!d.isAdmin};
-    authSetSession(authCurrentUser);
-    authShowApp();
-  }).catch(function(e){
-    authErr(e.message==="nf" ? "Usuário ou senha incorretos." : ("Erro ao entrar: "+e.message));
-  }).finally(function(){ btn.disabled=false; btn.textContent="Entrar"; });
+function authGoogle(){
+  authErr("");
+  var provider=new firebase.auth.GoogleAuthProvider();
+  var restaurar=authBtnCarregando("authBtnGoogle","Entrando...");
+  firebase.auth().signInWithPopup(provider).catch(function(e){
+    restaurar();
+    if(e.code==="auth/popup-closed-by-user") return;
+    if(e.code==="auth/popup-blocked"){ authErr("O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo."); return; }
+    authErr("Não foi possível entrar com o Google: "+e.message);
+  });
 }
-function authCriarPrimeiro(){
-  var nome=(document.getElementById("authNome").value||"").trim();
-  var u=(document.getElementById("authUserC").value||"").trim().toLowerCase();
-  var p=document.getElementById("authPassC").value||"";
-  var p2=document.getElementById("authPass2").value||"";
-  if(!nome||!u||!p){ authErr("Preencha todos os campos."); return; }
-  if(p.length<4){ authErr("A senha deve ter ao menos 4 caracteres."); return; }
-  if(p!==p2){ authErr("As senhas não conferem."); return; }
-  var btn=document.getElementById("authBtnCriar"); btn.disabled=true; btn.textContent="Criando...";
-  usuariosColRef.add({usuario:u, nome:nome, senhaHash:authHash(p,u), isAdmin:true, criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){
-      authCurrentUser={u:u, nome:nome, isAdmin:true};
-      authSetSession(authCurrentUser);
-      authShowApp();
-      toast("Usuário criado. Bem-vindo, "+nome+"!");
-    }).catch(function(e){ authErr("Erro ao criar usuário: "+e.message); })
-    .finally(function(){ btn.disabled=false; btn.textContent="Criar e entrar"; });
+function authEntrarSenha(){
+  var email=(document.getElementById("authEmail").value||"").trim().toLowerCase();
+  var senha=document.getElementById("authPass").value||"";
+  if(!email||!senha){ authErr("Informe e-mail e senha."); return; }
+  authErr("");
+  var restaurar=authBtnCarregando("authBtnEntrar","Entrando...");
+  firebase.auth().signInWithEmailAndPassword(email,senha).catch(function(e){
+    restaurar(); authErr(authMsgErro(e));
+  });
 }
+function authCriarConta(){
+  var nome=(document.getElementById("authNomeC").value||"").trim();
+  var email=(document.getElementById("authEmailC").value||"").trim().toLowerCase();
+  var senha=document.getElementById("authPassC").value||"";
+  var senha2=document.getElementById("authPass2").value||"";
+  if(!nome||!email||!senha){ authErr("Preencha todos os campos."); return; }
+  if(senha.length<6){ authErr("A senha deve ter ao menos 6 caracteres."); return; }
+  if(senha!==senha2){ authErr("As senhas não conferem."); return; }
+  authErr("");
+  var restaurar=authBtnCarregando("authBtnCriar","Criando...");
+  firebase.auth().createUserWithEmailAndPassword(email,senha)
+    .then(function(cred){ return cred.user.updateProfile({displayName:nome}); })
+    .catch(function(e){ restaurar(); authErr(authMsgErro(e)); });
+}
+function authEsqueciSenha(){
+  var email=(document.getElementById("authEmail").value||"").trim().toLowerCase();
+  if(!email){ authErr("Digite seu e-mail no campo acima primeiro."); return; }
+  authErr("");
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function(){ alert("Enviamos um e-mail para "+email+" com um link para redefinir a senha."); })
+    .catch(function(e){ authErr(authMsgErro(e)); });
+}
+function authLogout(){
+  if(!confirm("Deseja sair do sistema?")) return;
+  firebase.auth().signOut();
+}
+
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email||"").toLowerCase(),
+    nome:  user.displayName || (user.email||"").split("@")[0],
+    foto:  user.photoURL || "",
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
+    status: "pendente",
+    isAdmin: false,
+    acessos: {agenda:false, pregoeiro:false},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra||{});
+}
+function authAoAutenticar(user){
+  authFirebaseUser=user;
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub=null; }
+  if(!user){ authCurrentUser=null; authStartGate(); return; }
+
+  var ref=usuariosV2ColRef.doc(user.uid);
+  ref.get().then(function(doc){
+    if(doc.exists) return;
+    var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:"aprovado", isAdmin:true, acessos:{agenda:true,pregoeiro:true}
+    } : {}));
+  }).then(function(){
+    authPerfilUnsub=ref.onSnapshot(function(doc){
+      if(!doc.exists) return;
+      authCurrentUser=Object.assign({uid:user.uid}, doc.data());
+      if(authTemAcesso("agenda")) authShowApp(); else authShowPendente();
+    }, function(e){ console.warn("perfil: sem permissão de leitura ("+e.message+")"); });
+  }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
+}
+
+function authShowApp(){
+  document.getElementById("authGate").style.display="none";
+  var chip=document.getElementById("authUserChip");
+  if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
+}
+function authShowPendente(){
+  document.getElementById("authGate").style.display="flex";
+  document.getElementById("authEntradaBox").style.display="none";
+  document.getElementById("authCriarBox").style.display="none";
+  authErr("");
+  document.getElementById("authPendenteCard").style.display="block";
+  document.getElementById("authPendNome").textContent=authCurrentUser.nome||"";
+  document.getElementById("authPendEmail").textContent=authCurrentUser.email||"";
+  var foto=document.getElementById("authPendFoto");
+  foto.src=authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  var msg=document.getElementById("authPendMsg");
+  if(authCurrentUser.status==="bloqueado") msg.textContent="Seu acesso foi bloqueado por um administrador.";
+  else if(authCurrentUser.acessos && authCurrentUser.acessos.pregoeiro && !authCurrentUser.acessos.agenda) msg.textContent="Sua conta tem acesso só ao Sistema Interno. Peça a um administrador para liberar a Agenda, se precisar dela.";
+  else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
+}
+function authStartGate(){
+  document.getElementById("authGate").style.display="flex";
+  document.getElementById("authPendenteCard").style.display="none";
+  authSetModo("entrar");
+  try{ ["authLogo","authLogoPend"].forEach(function(id){ var lg=document.getElementById(id); if(lg && typeof LOGO_B64_PDF!=="undefined") lg.src=LOGO_B64_PDF; }); }catch(e){}
+  ["authEmail","authPass","authNomeC","authEmailC","authPassC","authPass2"].forEach(function(id){
+    var i=document.getElementById(id);
+    if(i && !i._authEnterBound){ i._authEnterBound=true; i.addEventListener("keydown", function(e){ if(e.key==="Enter"){ (authModo==="criar")?authCriarConta():authEntrarSenha(); } }); }
+  });
+}
+firebase.auth().onAuthStateChanged(authAoAutenticar);
 
 var STATUS_DEFAULT=[
   {id:"em-andamento",       nome:"Em Andamento",        cor:"amber", ordem:0},
@@ -2743,12 +2768,9 @@ function pnDelAniv(id){
   document.getElementById(id).addEventListener("click", function(e){ if(e.target===this) this.classList.remove("open"); });
 });
 
-/* Inicialização do portão de acesso */
-(function(){
-  var sess=authGetSession();
-  if(sess && sess.u){ authCurrentUser=sess; authShowApp(); return; }
-  authStartGate();
-})();
+/* O portão de acesso já se inicializa sozinho: firebase.auth().onAuthStateChanged
+   (registrado lá em cima, no bloco LOGIN / CONTROLE DE ACESSO) dispara assim
+   que o Firebase confirma quem está (ou não) autenticado. */
 </script>
 </body>
 </html>

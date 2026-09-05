@@ -1,0 +1,144 @@
+// Regras do Firestore do projeto "processos-ijui" (Agenda + Sistema Interno /
+// pregoeiro). Cole isto em: Firebase Console → processos-ijui → Firestore
+// Database → Regras → colar → Publicar.
+//
+// Ver CONTROLE-DE-ACESSO.md na raiz do repositório para o desenho completo:
+// por que cada coleção está do jeito que está, e quais links continuam
+// deliberadamente públicos (compartilhamento sem login).
+//
+// Este arquivo é a fonte da verdade do que as regras DEVERIAM ser — não é
+// aplicado automaticamente (não há deploy por CI aqui, só o console mesmo).
+// Se editar este arquivo, publique a mudança no console também.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Funções auxiliares ──────────────────────────────────────────────
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios_v2/$(request.auth.uid)).data;
+    }
+    function autenticado() { return request.auth != null; }
+    function aprovado()    { return autenticado() && perfil().status == 'aprovado'; }
+    function admin()       { return autenticado() && perfil().isAdmin == true; }
+    // Admin sempre tem acesso a tudo — é o próprio propósito do cargo.
+    function temAcesso(painel) { return aprovado() && (admin() || perfil().acessos[painel] == true); }
+    function agenda()    { return temAcesso('agenda'); }
+    function pregoeiro() { return temAcesso('pregoeiro'); }
+    function algum()     { return agenda() || pregoeiro(); }
+
+    // ── Contas e permissões ──────────────────────────────────────────────
+    // Documento por pessoa, ID = uid do Firebase Auth. Cada um só cria o
+    // PRÓPRIO documento, e só de duas formas: o e-mail de resgate nasce
+    // administrador com tudo liberado (garante que nunca falte alguém
+    // capaz de aprovar os demais); qualquer outro e-mail só nasce
+    // "pendente" e sem nenhum acesso. Liberar de verdade é sempre um
+    // update feito por quem já é admin — nunca o próprio auto-cadastro.
+    //
+    // Se trocar o e-mail de resgate aqui, troque também a constante
+    // AUTH_BOOTSTRAP_ADMIN_EMAIL em index.html e pregoeiro/index.html.
+    match /usuarios_v2/{uid} {
+      allow get: if autenticado() && (request.auth.uid == uid || admin());
+      allow list: if admin();
+      allow create: if autenticado() && request.auth.uid == uid &&
+        request.resource.data.email == request.auth.token.email.lower() && (
+          (request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
+           request.resource.data.status == 'aprovado' &&
+           request.resource.data.isAdmin == true &&
+           request.resource.data.acessos.agenda == true &&
+           request.resource.data.acessos.pregoeiro == true)
+          ||
+          (request.resource.data.status == 'pendente' &&
+           request.resource.data.isAdmin == false &&
+           request.resource.data.acessos.agenda == false &&
+           request.resource.data.acessos.pregoeiro == false)
+        );
+      allow update: if admin();
+      allow delete: if admin();
+    }
+
+    // Pré-cadastro por e-mail: um lembrete pro admin, nada mais. Não dá
+    // acesso sozinho a ninguém — quem aplica é sempre o admin, com a
+    // permissão que ele já tem sobre usuarios_v2 acima.
+    match /usuarios_v2_convites/{id} {
+      allow read, write: if admin();
+    }
+
+    // Cadastro antigo (usuário/senha). Não autentica mais ninguém — fica
+    // só de leitura pro admin acompanhar quem falta migrar.
+    match /usuarios/{id} {
+      allow read: if admin();
+      allow write: if false;
+    }
+
+    // ── Licitações ───────────────────────────────────────────────────────
+    // "get" público em processos/rankings/habilitacoes preserva os links de
+    // compartilhamento existentes (?venc=, ?ranking=, ?hab=) — cada um abre
+    // UM documento específico, cujo id é essencialmente um segredo longo;
+    // "list" (percorrer a coleção inteira) continua fechado, então não dá
+    // pra descobrir nenhum desses ids sem já ter recebido o link.
+    match /processos/{id} {
+      allow get: if true;
+      allow list: if algum();
+      allow create, update: if algum();
+      allow delete: if pregoeiro();
+    }
+
+    // "get" público preserva o link "?assinatura=ID" (o pregoeiro assina uma
+    // vez pelo celular, sem conta, e a assinatura passa a valer nas
+    // decisões futuras). O "update" público fica restrito aos 3 campos que
+    // esse link realmente grava — o resto do cadastro do agente não muda
+    // por ali.
+    match /agentes/{id} {
+      allow get: if true;
+      allow list: if algum();
+      allow create: if algum();
+      allow update: if algum() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinaturaImg','assinaturaEm','updatedAt']);
+      allow delete: if pregoeiro();
+    }
+
+    match /status/{id}               { allow read: if algum(); allow write: if pregoeiro(); }
+    match /pontos_facultativos/{id}  { allow read, write: if algum(); }
+    match /aniversarios/{id}         { allow read, write: if algum(); }
+    match /observacoes/{id}          { allow read, write: if algum(); }
+    match /email_config/{id}         { allow read: if algum(); allow write: if pregoeiro(); }
+
+    // Rankings e Habilitações têm um link de colaboração sem login (o
+    // pregoeiro manda "?ranking=ID" ou "?hab=ID" para quem está no comitê
+    // — ver "Modo Compartilhado" no HTML). Por isso ficam deliberadamente
+    // abertos, exatamente como hoje: quem tem o link vê e edita AQUELE
+    // documento específico. "list" continua fechado.
+    match /rankings/{id} {
+      allow get, create, update: if true;
+      allow list: if pregoeiro();
+      allow delete: if pregoeiro();
+    }
+    match /habilitacoes/{id} {
+      allow get, create, update: if true;
+      allow list: if pregoeiro();
+      allow delete: if pregoeiro();
+    }
+
+    // Decisões e diligências têm o mesmo tipo de link ("?assinar=ID") para
+    // quem PRECISA ASSINAR um documento sem ter conta no sistema. Ali a
+    // pessoa só deveria mudar a lista de assinaturas — nunca o texto da
+    // decisão. affectedKeys() trava isso: o link de assinatura só consegue
+    // alterar os campos "assinantes" e "updatedAt", nunca o resto do
+    // documento.
+    match /decisoes/{id} {
+      allow get: if true;
+      allow list: if pregoeiro();
+      allow create, delete: if pregoeiro();
+      allow update: if pregoeiro() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinantes','updatedAt']);
+    }
+    match /diligencias/{id} {
+      allow get: if true;
+      allow list: if pregoeiro();
+      allow create, delete: if pregoeiro();
+      allow update: if pregoeiro() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinantes','updatedAt']);
+    }
+  }
+}

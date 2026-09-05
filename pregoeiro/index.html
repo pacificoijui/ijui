@@ -17,6 +17,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- Firebase SDK compat (funciona como arquivo local e em qualquer host) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
   firebase.initializeApp({
@@ -1148,13 +1149,33 @@
   .auth-btn:disabled{opacity:.6;cursor:default}
   .auth-err{color:#c0392b;font-size:12.5px;margin-top:12px;text-align:center;min-height:16px;line-height:1.4}
   .auth-chip{font-size:12px;font-weight:700;color:var(--navy);background:var(--blue-bg);border:1px solid var(--border);padding:7px 11px;border-radius:8px;white-space:nowrap;display:inline-flex;align-items:center}
-  .usr-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fafbfd}
-  .usr-row .usr-info{min-width:0}
+  .auth-btn-google{background:#fff;color:#3c4043;border:1.5px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:0}
+  .auth-btn-google:hover{background:#f8f9fa}
+  .auth-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:#9aa5bd;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  .auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:#e3e8f2}
+  .auth-links{display:flex;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .auth-link-btn{background:none;border:none;color:#1a3a6b;font-size:12.5px;font-weight:700;cursor:pointer;padding:2px 0;text-decoration:underline}
+  .auth-pendente-perfil{display:flex;align-items:center;gap:12px;background:#f4f7fc;border-radius:10px;padding:12px;margin:6px 0 14px}
+  .auth-pend-foto{width:44px;height:44px;border-radius:50%;background:#dde4f0;object-fit:cover;flex-shrink:0}
+  .auth-pend-nome{font-weight:700;color:#1c2433;font-size:14px}
+  .auth-pend-email{font-size:12px;color:#8590a8;margin-top:1px}
+  .usr-secao{display:flex;flex-direction:column;gap:8px}
+  .usr-secao-tit{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .usr-lista{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+  .usr-vazio{font-size:12.5px;color:var(--muted);text-align:center;padding:10px 0}
+  .usr-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fafbfd}
+  .usr-row.usr-bloqueado{background:#fdf0f0;border-color:#f0cccc}
+  .usr-row .usr-info{min-width:0;flex:1}
   .usr-row .usr-nome{font-weight:700;color:var(--navy);font-size:14px}
   .usr-row .usr-login{font-size:12px;color:var(--muted);margin-top:1px}
-  .usr-row .usr-acts{display:flex;gap:6px;flex-shrink:0}
+  .usr-row .usr-acts{display:flex;gap:6px;flex-shrink:0;padding-top:1px}
   .usr-btn{border:1px solid #cfd6e4;background:#fff;border-radius:7px;padding:6px 9px;font-size:13px;cursor:pointer;color:var(--navy)}
   .usr-btn.del{border-color:#e3b3b3;color:#c0392b}
+  .usr-btn.ok{border-color:#a8d9b4;color:#1b7a34}
+  .usr-chks{display:flex;gap:14px;margin-top:7px;flex-wrap:wrap}
+  .usr-chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);cursor:pointer;user-select:none}
+  .usr-chk input{width:14px;height:14px;accent-color:var(--navy-light);margin:0}
+  .usr-convite-match{font-size:11.5px;font-weight:700;color:#8a6d1f;background:#fbf5e6;border:1px solid #ecd9a4;border-radius:7px;padding:5px 8px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
   /* ═══════════════════════════════════════════════════════════════════════
      RESPONSIVIDADE DOS PAINÉIS (Ranking / Habilitação) + USO MULTITELA
@@ -1509,28 +1530,55 @@
     <h1 class="auth-title">Gestão de Processos Licitatórios</h1>
     <p class="auth-sub">Município de Ijuí · COPAM</p>
 
-    <div id="authLoginBox" style="display:none">
-      <label class="auth-label">Usuário</label>
-      <input id="authUser" class="auth-input" autocomplete="username" placeholder="usuário">
+    <div id="authEntradaBox">
+      <button id="authBtnGoogle" class="auth-btn auth-btn-google" type="button" onclick="authGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18" style="flex-shrink:0"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62Z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.9v2.33A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.03l3.05-2.33Z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .9 4.97l3.05 2.33C4.66 5.17 6.65 3.58 9 3.58Z"/></svg>
+        Entrar com Google
+      </button>
+      <div class="auth-divider"><span>ou</span></div>
+      <label class="auth-label">E-mail</label>
+      <input id="authEmail" class="auth-input" type="email" autocomplete="email" placeholder="seu@email.com">
       <label class="auth-label">Senha</label>
       <input id="authPass" type="password" class="auth-input" autocomplete="current-password" placeholder="senha">
-      <button id="authBtnEntrar" class="auth-btn" type="button" onclick="authEntrar()">Entrar</button>
+      <button id="authBtnEntrar" class="auth-btn" type="button" onclick="authEntrarSenha()">Entrar</button>
+      <div class="auth-links">
+        <button class="auth-link-btn" type="button" onclick="authSetModo('criar')">Criar uma conta</button>
+        <button class="auth-link-btn" type="button" onclick="authEsqueciSenha()">Esqueci minha senha</button>
+      </div>
     </div>
 
-    <div id="authCreateBox" style="display:none">
-      <p class="auth-first">Primeiro acesso — crie o usuário administrador.</p>
-      <label class="auth-label">Nome</label>
-      <input id="authNome" class="auth-input" placeholder="Seu nome">
-      <label class="auth-label">Usuário</label>
-      <input id="authUserC" class="auth-input" placeholder="usuário de acesso">
+    <div id="authCriarBox" style="display:none">
+      <p class="auth-first">Crie sua conta para pedir acesso ao sistema. Depois de criar, um administrador precisa liberar o que você vai poder ver.</p>
+      <label class="auth-label">Nome completo</label>
+      <input id="authNomeC" class="auth-input" placeholder="Seu nome">
+      <label class="auth-label">E-mail</label>
+      <input id="authEmailC" class="auth-input" type="email" autocomplete="email" placeholder="seu@email.com">
       <label class="auth-label">Senha</label>
-      <input id="authPassC" type="password" class="auth-input" placeholder="senha">
+      <input id="authPassC" type="password" class="auth-input" autocomplete="new-password" placeholder="mínimo 6 caracteres">
       <label class="auth-label">Confirmar senha</label>
-      <input id="authPass2" type="password" class="auth-input" placeholder="repita a senha">
-      <button id="authBtnCriar" class="auth-btn" type="button" onclick="authCriarPrimeiro()">Criar e entrar</button>
+      <input id="authPass2" type="password" class="auth-input" autocomplete="new-password" placeholder="repita a senha">
+      <button id="authBtnCriar" class="auth-btn" type="button" onclick="authCriarConta()">Criar conta</button>
+      <div class="auth-links">
+        <button class="auth-link-btn" type="button" onclick="authSetModo('entrar')">Já tenho conta — entrar</button>
+      </div>
     </div>
 
     <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <!-- Tela de espera: a conta existe, mas nenhum painel foi liberado ainda -->
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img class="auth-logo" id="authLogoPend" alt="">
+    <h1 class="auth-title">Aguardando liberação</h1>
+    <div class="auth-pendente-perfil">
+      <img id="authPendFoto" class="auth-pend-foto" alt="">
+      <div>
+        <div class="auth-pend-nome" id="authPendNome"></div>
+        <div class="auth-pend-email" id="authPendEmail"></div>
+      </div>
+    </div>
+    <p class="auth-first" id="authPendMsg">Sua conta foi criada. Peça para um administrador liberar o seu acesso.</p>
+    <button class="auth-btn" type="button" onclick="authLogout()" style="background:#8590a8">Sair</button>
   </div>
 </div>
 
@@ -2081,34 +2129,47 @@
 
 
 <div class="overlay" id="modalUsuarios">
-  <div class="modal" style="max-width:520px">
+  <div class="modal" style="max-width:600px">
     <div class="modal-header">
       <h2>Usuários do Sistema</h2>
       <button class="modal-close" onclick="fecharModalUsuarios()">&#10005;</button>
     </div>
-    <div class="modal-body" style="gap:12px">
-      <div style="background:#f0f4fb;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;border:1.5px solid var(--border)">
-        <div style="font-size:13px;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.5px">Cadastrar Usuário</div>
-        <div class="row">
-          <div class="field">
-            <label>Nome</label>
-            <input type="text" id="usrNome" placeholder="Nome da pessoa">
-          </div>
-          <div class="field">
-            <label>Usuário</label>
-            <input type="text" id="usrLogin" placeholder="usuário de acesso">
-          </div>
-        </div>
-        <div class="field">
-          <label>Senha</label>
-          <input type="password" id="usrSenha" placeholder="senha de acesso">
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button class="btn-cancel" onclick="usuariosLimparForm()" style="padding:8px 16px;font-size:13px">Limpar</button>
-          <button class="btn-save" id="btnSalvarUsuario" onclick="usuariosSalvar()" style="padding:8px 20px;font-size:13px">Salvar Usuário</button>
-        </div>
+    <div class="modal-body" style="gap:18px">
+      <div style="background:#f1f9f3;border:1.5px solid #bfe3c6;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1b5e20;line-height:1.5">
+        As pessoas se cadastram sozinhas (Google ou e-mail/senha) e entram como <b>pendentes</b>, sem acesso a nada.
+        Aprove aqui e marque a quais painéis cada uma tem acesso.
       </div>
-      <div id="listaUsuarios" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto"></div>
+
+      <div class="usr-secao">
+        <div class="usr-secao-tit">Aguardando aprovação</div>
+        <div id="usrPendentesLista" class="usr-lista"></div>
+      </div>
+
+      <div class="usr-secao">
+        <div class="usr-secao-tit">Usuários</div>
+        <div id="usrAprovadosLista" class="usr-lista"></div>
+      </div>
+
+      <div class="usr-secao">
+        <div class="usr-secao-tit">Convites preparados por e-mail</div>
+        <div style="display:flex;flex-direction:column;gap:8px;background:#f7f9fd;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+          <div class="row">
+            <div class="field"><label>Nome</label><input type="text" id="cvNome" placeholder="Nome da pessoa"></div>
+            <div class="field"><label>E-mail</label><input type="email" id="cvEmail" placeholder="pessoa@gmail.com"></div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center">
+            <label class="usr-chk"><input type="checkbox" id="cvAg"> Agenda</label>
+            <label class="usr-chk"><input type="checkbox" id="cvPr"> Sistema Interno</label>
+            <button class="btn-save" onclick="convitesSalvar()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">Preparar convite</button>
+          </div>
+        </div>
+        <div id="usrConvitesLista" class="usr-lista"></div>
+      </div>
+
+      <details class="usr-secao">
+        <summary class="usr-secao-tit" style="cursor:pointer">Contas antigas (usuário/senha, ainda não migraram)</summary>
+        <div id="usrAntigosLista" class="usr-lista" style="margin-top:10px"></div>
+      </details>
     </div>
     <div class="modal-footer">
       <button class="btn-cancel" onclick="fecharModalUsuarios()">Fechar</button>
@@ -10899,249 +10960,377 @@ function copiarLinkConsulta(){
 })();
 
 
+
 /* ════════════════════════════════════════════════════════════════
    LOGIN / CONTROLE DE ACESSO
-   Portão de acesso no cliente. Usuários ficam na coleção "usuarios"
-   do Firestore (senha guardada apenas como hash SHA-256 + salt).
-   A sessão fica salva por dispositivo (localStorage) até o logout.
-   Links externos (?ranking=, ?hab=, ?assinar=) NÃO exigem login.
-   IMPORTANTE: adicione a regra da coleção "usuarios" no Firestore.
+   Contas de verdade pelo Firebase Authentication (Google ou e-mail/senha).
+   Cada pessoa se cadastra sozinha; a conta nasce "pendente", sem acesso a
+   nenhum painel. Só um administrador, no painel "Usuários", decide o que
+   ela vai poder ver — Agenda, Sistema Interno (este arquivo), ou os dois.
+
+   Perfil de permissão: coleção "usuarios_v2", um documento por pessoa, com
+   o ID do documento IGUAL ao uid do Firebase Auth (nunca um id aleatório) —
+   é o que permite a regra do Firestore dizer "só o dono deste uid lê/edita
+   este documento" sem precisar de nenhuma consulta.
+
+   O cadastro antigo (usuário/senha, coleção "usuarios") fica só de
+   referência, pra acompanhar quem ainda não migrou — não autentica mais
+   ninguém, porque manter aquele mecanismo exigia a coleção aberta pra
+   leitura pública (inclusive os hashes de senha). Ver ../FIRESTORE-RULES.md.
+
+   Links externos que continuam sem exigir login (ver comentário nas
+   regras): ?ranking=, ?assinar=, ?assinatura=, ?hab=, ?venc=, ?consulta=.
    ════════════════════════════════════════════════════════════════ */
-var usuariosColRef = db.collection("usuarios");
-var AUTH_SALT = "copam-ijui-v1";
-var AUTH_KEY  = "copam_auth";
-var authCurrentUser = null;
-var authMode = "login";
-/* Usuário de resgate: se, por qualquer motivo, ninguém estiver marcado como
-   administrador, este login (quando existir) é promovido automaticamente —
-   evita que o sistema fique sem ninguém capaz de cadastrar novos usuários. */
-var AUTH_BOOTSTRAP_ADMIN = "pacifico";
+var usuariosV2ColRef   = db.collection("usuarios_v2");
+var convitesColRef     = db.collection("usuarios_v2_convites");
+var usuariosAntigosRef = db.collection("usuarios");           /* só leitura, cadastro pré-migração */
+var AUTH_BOOTSTRAP_ADMIN_EMAIL = "pedrohhpacifico@gmail.com";
+var authCurrentUser  = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+var authFirebaseUser = null;   /* objeto de firebase.auth().currentUser */
+var authModo = "entrar";
+var authPerfilUnsub = null;
+var AUTH_MODO_COMPARTILHADO = false;   /* link público (?ranking=, ?assinar=...): portão nem entra em cena */
+
 function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
-
-/* SHA-256 compacto (funciona em https e file://, sem dependências) */
-function authUtf8(s){ try{ return unescape(encodeURIComponent(s)); }catch(e){ return s; } }
-function authSha256(ascii){
-  function rightRotate(value, amount){ return (value>>>amount)|(value<<(32-amount)); }
-  var mathPow=Math.pow, maxWord=mathPow(2,32), result="";
-  var words=[], asciiBitLength=ascii.length*8;
-  var hash=authSha256.h=authSha256.h||[];
-  var k=authSha256.k=authSha256.k||[];
-  var primeCounter=k.length;
-  var isComposite={};
-  for(var candidate=2; primeCounter<64; candidate++){
-    if(!isComposite[candidate]){
-      for(var i=0;i<313;i+=candidate){ isComposite[i]=candidate; }
-      hash[primeCounter]=(mathPow(candidate,0.5)*maxWord)|0;
-      k[primeCounter++]=(mathPow(candidate,1/3)*maxWord)|0;
-    }
-  }
-  ascii+="\x80";
-  while(ascii.length%64-56) ascii+="\x00";
-  for(i=0;i<ascii.length;i++){
-    var j=ascii.charCodeAt(i);
-    if(j>>8){ return ""; }
-    words[i>>2]|=j<<((3-i)%4)*8;
-  }
-  words[words.length]=((asciiBitLength/maxWord)|0);
-  words[words.length]=(asciiBitLength);
-  for(j=0;j<words.length;){
-    var w=words.slice(j,j+=16);
-    var oldHash=hash;
-    hash=hash.slice(0,8);
-    for(i=0;i<64;i++){
-      var w15=w[i-15], w2=w[i-2];
-      var a=hash[0], e=hash[4];
-      var temp1=hash[7]
-        +(rightRotate(e,6)^rightRotate(e,11)^rightRotate(e,25))
-        +((e&hash[5])^((~e)&hash[6]))
-        +k[i]
-        +(w[i]=(i<16)?w[i]:(
-            w[i-16]
-            +(rightRotate(w15,7)^rightRotate(w15,18)^(w15>>>3))
-            +w[i-7]
-            +(rightRotate(w2,17)^rightRotate(w2,19)^(w2>>>10))
-          )|0
-        );
-      var temp2=(rightRotate(a,2)^rightRotate(a,13)^rightRotate(a,22))
-        +((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
-      hash=[(temp1+temp2)|0].concat(hash);
-      hash[4]=(hash[4]+temp1)|0;
-    }
-    for(i=0;i<8;i++){ hash[i]=(hash[i]+oldHash[i])|0; }
-  }
-  for(i=0;i<8;i++){
-    for(j=3;j+1;j--){
-      var b=(hash[i]>>(j*8))&255;
-      result+=((b<16)?0:"")+b.toString(16);
-    }
-  }
-  return result;
+function authTemAcesso(painel){
+  return !!(authCurrentUser && authCurrentUser.status==="aprovado" &&
+    (authCurrentUser.isAdmin || (authCurrentUser.acessos && authCurrentUser.acessos[painel])));
 }
-function authHash(senha, usuario){ return authSha256(authUtf8(AUTH_SALT+":"+(usuario||"").toLowerCase()+":"+senha)); }
-
-/* Sessão (localStorage) */
-function authGetSession(){ try{ var r=localStorage.getItem(AUTH_KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
-function authSetSession(o){ try{ localStorage.setItem(AUTH_KEY, JSON.stringify(o)); }catch(e){} }
-function authClearSession(){ try{ localStorage.removeItem(AUTH_KEY); }catch(e){} }
-function authLogout(){ if(!confirm("Deseja sair do sistema?")) return; authClearSession(); window.location.reload(); }
 
 function authErr(msg){ var e=document.getElementById("authErr"); if(e) e.textContent=msg||""; }
-function authSetMode(m){
-  authMode=m;
-  var lb=document.getElementById("authLoginBox"), cb=document.getElementById("authCreateBox");
-  if(lb) lb.style.display=(m==="login")?"block":"none";
-  if(cb) cb.style.display=(m==="create")?"block":"none";
+function authSetModo(m){
+  authModo=m;
+  document.getElementById("authEntradaBox").style.display=(m==="entrar")?"block":"none";
+  document.getElementById("authCriarBox").style.display=(m==="criar")?"block":"none";
   authErr("");
 }
-/* Garante que sempre exista pelo menos um administrador: se ningu\u00E9m estiver
-   marcado, promove o usu\u00E1rio de resgate (AUTH_BOOTSTRAP_ADMIN), caso exista.
-   Roda toda vez que o app abre; vira no-op assim que houver um admin.        */
-function authGarantirAdmin(){
-  usuariosColRef.get().then(function(snap){
-    var temAdmin=false, alvoId=null;
-    snap.docs.forEach(function(d){
-      var v=d.data();
-      if(v.isAdmin) temAdmin=true;
-      if(!alvoId && (v.usuario||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN) alvoId=d.id;
-    });
-    if(!temAdmin && alvoId){
-      usuariosColRef.doc(alvoId).update({isAdmin:true}).then(function(){
-        if(authCurrentUser && authCurrentUser.u===AUTH_BOOTSTRAP_ADMIN){
-          authCurrentUser.isAdmin=true; authSetSession(authCurrentUser);
-          var btn=document.getElementById("btnUsuarios"); if(btn) btn.style.display="";
-        }
-      }).catch(function(){});
-    }
-  }).catch(function(){});
+function authBtnCarregando(id, texto){
+  var b=document.getElementById(id); if(!b) return function(){};
+  var original=b.textContent;
+  b.disabled=true; b.textContent=texto;
+  return function(){ b.disabled=false; b.textContent=original; };
 }
+function authMsgErro(e){
+  var m={
+    "auth/invalid-email":"E-mail inválido.",
+    "auth/user-not-found":"Não existe conta com esse e-mail.",
+    "auth/wrong-password":"Senha incorreta.",
+    "auth/invalid-login-credentials":"E-mail ou senha incorretos.",
+    "auth/invalid-credential":"E-mail ou senha incorretos.",
+    "auth/email-already-in-use":"Já existe conta com esse e-mail. Tente entrar em vez de criar.",
+    "auth/weak-password":"Senha muito fraca (mínimo 6 caracteres).",
+    "auth/too-many-requests":"Muitas tentativas. Aguarde um pouco e tente de novo."
+  };
+  return m[e.code] || ("Erro: "+e.message);
+}
+
+/* ── Entrada ── */
+function authGoogle(){
+  if(AUTH_MODO_COMPARTILHADO) return;
+  authErr("");
+  var provider=new firebase.auth.GoogleAuthProvider();
+  var restaurar=authBtnCarregando("authBtnGoogle","Entrando...");
+  firebase.auth().signInWithPopup(provider).catch(function(e){
+    restaurar();
+    if(e.code==="auth/popup-closed-by-user") return;
+    if(e.code==="auth/popup-blocked"){ authErr("O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo."); return; }
+    authErr("Não foi possível entrar com o Google: "+e.message);
+  });
+}
+function authEntrarSenha(){
+  var email=(document.getElementById("authEmail").value||"").trim().toLowerCase();
+  var senha=document.getElementById("authPass").value||"";
+  if(!email||!senha){ authErr("Informe e-mail e senha."); return; }
+  authErr("");
+  var restaurar=authBtnCarregando("authBtnEntrar","Entrando...");
+  firebase.auth().signInWithEmailAndPassword(email,senha).catch(function(e){
+    restaurar(); authErr(authMsgErro(e));
+  });
+}
+function authCriarConta(){
+  var nome=(document.getElementById("authNomeC").value||"").trim();
+  var email=(document.getElementById("authEmailC").value||"").trim().toLowerCase();
+  var senha=document.getElementById("authPassC").value||"";
+  var senha2=document.getElementById("authPass2").value||"";
+  if(!nome||!email||!senha){ authErr("Preencha todos os campos."); return; }
+  if(senha.length<6){ authErr("A senha deve ter ao menos 6 caracteres."); return; }
+  if(senha!==senha2){ authErr("As senhas não conferem."); return; }
+  authErr("");
+  var restaurar=authBtnCarregando("authBtnCriar","Criando...");
+  firebase.auth().createUserWithEmailAndPassword(email,senha)
+    .then(function(cred){ return cred.user.updateProfile({displayName:nome}); })
+    .catch(function(e){ restaurar(); authErr(authMsgErro(e)); });
+}
+function authEsqueciSenha(){
+  var email=(document.getElementById("authEmail").value||"").trim().toLowerCase();
+  if(!email){ authErr("Digite seu e-mail no campo acima primeiro."); return; }
+  authErr("");
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function(){ alert("Enviamos um e-mail para "+email+" com um link para redefinir a senha."); })
+    .catch(function(e){ authErr(authMsgErro(e)); });
+}
+function authLogout(){
+  if(!confirm("Deseja sair do sistema?")) return;
+  firebase.auth().signOut();
+}
+
+/* ── Perfil (coleção usuarios_v2) ──
+   Roda toda vez que o Firebase confirma quem está autenticado. Garante que
+   o documento de permissão exista (criando-o na primeira vez, "pendente" e
+   sem nenhum acesso — exceto o e-mail de resgate, que já nasce admin com
+   tudo liberado, pra nunca faltar alguém capaz de aprovar os outros) e
+   passa a ouvir esse documento ao vivo: se um admin mudar o acesso de
+   alguém, a tela dessa pessoa atualiza sozinha, sem precisar relogar. */
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email||"").toLowerCase(),
+    nome:  user.displayName || (user.email||"").split("@")[0],
+    foto:  user.photoURL || "",
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
+    status: "pendente",
+    isAdmin: false,
+    acessos: {agenda:false, pregoeiro:false},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra||{});
+}
+function authAoAutenticar(user){
+  if(AUTH_MODO_COMPARTILHADO) return;
+  authFirebaseUser=user;
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub=null; }
+  if(!user){ authCurrentUser=null; authStartGate(); return; }
+
+  var ref=usuariosV2ColRef.doc(user.uid);
+  ref.get().then(function(doc){
+    if(doc.exists) return;
+    var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:"aprovado", isAdmin:true, acessos:{agenda:true,pregoeiro:true}
+    } : {}));
+  }).then(function(){
+    authPerfilUnsub=ref.onSnapshot(function(doc){
+      if(!doc.exists) return;   /* excluído por um admin enquanto a pessoa estava logada */
+      authCurrentUser=Object.assign({uid:user.uid}, doc.data());
+      if(authTemAcesso("pregoeiro")) authShowApp(); else authShowPendente();
+    }, function(e){ console.warn("perfil: sem permissão de leitura ("+e.message+")"); });
+  }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
+}
+
 function authShowApp(){
-  var g=document.getElementById("authGate"); if(g) g.style.display="none";
+  if(AUTH_MODO_COMPARTILHADO) return;
+  document.getElementById("authGate").style.display="none";
   var chip=document.getElementById("authUserChip");
-  if(chip && authCurrentUser){ chip.textContent="\uD83D\uDC64 "+(authCurrentUser.nome||authCurrentUser.u); chip.style.display="inline-flex"; }
+  if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
   var btn=document.getElementById("btnUsuarios");
   if(btn) btn.style.display = authIsAdmin() ? "" : "none";
-  authGarantirAdmin();
+}
+function authShowPendente(){
+  if(AUTH_MODO_COMPARTILHADO) return;
+  document.getElementById("authGate").style.display="flex";
+  document.getElementById("authEntradaBox").style.display="none";
+  document.getElementById("authCriarBox").style.display="none";
+  authErr("");
+  document.getElementById("authPendenteCard").style.display="block";
+  document.getElementById("authPendNome").textContent=authCurrentUser.nome||"";
+  document.getElementById("authPendEmail").textContent=authCurrentUser.email||"";
+  var foto=document.getElementById("authPendFoto");
+  foto.src=authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  var msg=document.getElementById("authPendMsg");
+  if(authCurrentUser.status==="bloqueado") msg.textContent="Seu acesso foi bloqueado por um administrador.";
+  else if(authCurrentUser.acessos && authCurrentUser.acessos.agenda && !authCurrentUser.acessos.pregoeiro) msg.textContent="Sua conta tem acesso só à Agenda. Peça a um administrador para liberar o Sistema Interno, se precisar dele.";
+  else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
 }
 function authStartGate(){
-  var g=document.getElementById("authGate"); if(g) g.style.display="flex";
-  try{ var lg=document.getElementById("authLogo"); if(lg && typeof LOGO_B64_PDF!=="undefined") lg.src=LOGO_B64_PDF; }catch(e){}
-  usuariosColRef.limit(1).get().then(function(snap){
-    authSetMode(snap.empty ? "create" : "login");
-  }).catch(function(e){
-    authSetMode("login");
-    authErr("Não foi possível verificar usuários. Verifique a regra da coleção \"usuarios\" no Firestore.");
-  });
-  ["authUser","authPass","authNome","authUserC","authPassC","authPass2"].forEach(function(id){
+  if(AUTH_MODO_COMPARTILHADO) return;
+  document.getElementById("authGate").style.display="flex";
+  document.getElementById("authPendenteCard").style.display="none";
+  authSetModo("entrar");
+  try{ ["authLogo","authLogoPend"].forEach(function(id){ var lg=document.getElementById(id); if(lg && typeof LOGO_B64_PDF!=="undefined") lg.src=LOGO_B64_PDF; }); }catch(e){}
+  ["authEmail","authPass","authNomeC","authEmailC","authPassC","authPass2"].forEach(function(id){
     var i=document.getElementById(id);
-    if(i) i.addEventListener("keydown", function(e){ if(e.key==="Enter"){ (authMode==="create")?authCriarPrimeiro():authEntrar(); } });
+    if(i && !i._authEnterBound){ i._authEnterBound=true; i.addEventListener("keydown", function(e){ if(e.key==="Enter"){ (authModo==="criar")?authCriarConta():authEntrarSenha(); } }); }
   });
 }
+firebase.auth().onAuthStateChanged(authAoAutenticar);
 
-function authEntrar(){
-  var u=(document.getElementById("authUser").value||"").trim().toLowerCase();
-  var p=document.getElementById("authPass").value||"";
-  if(!u||!p){ authErr("Informe usuário e senha."); return; }
-  var btn=document.getElementById("authBtnEntrar"); btn.disabled=true; btn.textContent="Entrando...";
-  var hash=authHash(p,u);
-  usuariosColRef.where("usuario","==",u).limit(1).get().then(function(snap){
-    if(snap.empty) throw new Error("nf");
-    var d=snap.docs[0].data();
-    if(d.senhaHash!==hash) throw new Error("nf");
-    authCurrentUser={u:u, nome:d.nome||u, isAdmin:!!d.isAdmin};
-    authSetSession(authCurrentUser);
-    authShowApp();
-  }).catch(function(e){
-    authErr(e.message==="nf" ? "Usuário ou senha incorretos." : ("Erro ao entrar: "+e.message));
-  }).finally(function(){ btn.disabled=false; btn.textContent="Entrar"; });
-}
-function authCriarPrimeiro(){
-  var nome=(document.getElementById("authNome").value||"").trim();
-  var u=(document.getElementById("authUserC").value||"").trim().toLowerCase();
-  var p=document.getElementById("authPassC").value||"";
-  var p2=document.getElementById("authPass2").value||"";
-  if(!nome||!u||!p){ authErr("Preencha todos os campos."); return; }
-  if(p.length<4){ authErr("A senha deve ter ao menos 4 caracteres."); return; }
-  if(p!==p2){ authErr("As senhas não conferem."); return; }
-  var btn=document.getElementById("authBtnCriar"); btn.disabled=true; btn.textContent="Criando...";
-  usuariosColRef.add({usuario:u, nome:nome, senhaHash:authHash(p,u), isAdmin:true, criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){
-      authCurrentUser={u:u, nome:nome, isAdmin:true};
-      authSetSession(authCurrentUser);
-      authShowApp();
-      toast("Usuário criado. Bem-vindo, "+nome+"!");
-    }).catch(function(e){ authErr("Erro ao criar usuário: "+e.message); })
-    .finally(function(){ btn.disabled=false; btn.textContent="Criar e entrar"; });
-}
-
-/* ── Gerenciamento de usuários (modal) ── */
+/* ── Painel "Usuários" (admin) ──
+   Três listas: quem está esperando aprovação, quem já está aprovado (com os
+   toggles de acesso) e os convites preparados por e-mail antes da pessoa
+   sequer entrar. Mais uma lista de só-leitura com o cadastro antigo, pra
+   acompanhar quem ainda falta migrar. */
+var _usuariosV2Cache=[], _convitesCache=[];
 function abrirModalUsuarios(){
-  if(!authIsAdmin()){ alert("Só o administrador pode gerenciar usuários."); return; }
+  if(!authIsAdmin()){ alert("Só administradores podem gerenciar usuários."); return; }
   document.getElementById("modalUsuarios").classList.add("open");
-  usuariosLimparForm();
-  usuariosListar();
+  convitesLimparForm();
+  usuariosV2Renderizar();
 }
 function fecharModalUsuarios(){ document.getElementById("modalUsuarios").classList.remove("open"); }
-function usuariosLimparForm(){
-  ["usrNome","usrLogin","usrSenha"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
-}
-function usuariosListar(){
-  var box=document.getElementById("listaUsuarios");
-  if(box) box.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:8px">Carregando...</div>';
-  usuariosColRef.get().then(function(snap){
-    var arr=snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
-    arr.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||""); });
-    if(!arr.length){ box.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:8px">Nenhum usuário cadastrado.</div>'; return; }
-    var html="";
-    arr.forEach(function(u){
-      var euMesmo=authCurrentUser && authCurrentUser.u===u.usuario;
-      html+='<div class="usr-row"><div class="usr-info">'
-        +'<div class="usr-nome">'+escHtml(u.nome||u.usuario)+(euMesmo?' <span style="font-size:11px;color:var(--muted);font-weight:400">(você)</span>':'')+'</div>'
-        +'<div class="usr-login">'+escHtml(u.usuario)+'</div></div>'
-        +'<div class="usr-acts">'
-        +'<button class="usr-btn" title="Redefinir senha" onclick="usuariosRedefinirSenha(\''+u.id+'\',\''+escHtml(escJs(u.usuario))+'\')">&#128273;</button>'
-        +'<button class="usr-btn del" title="Excluir" onclick="usuariosExcluir(\''+u.id+'\',\''+escHtml(escJs(u.usuario))+'\','+arr.length+')">&#128465;</button>'
-        +'</div></div>';
-    });
-    box.innerHTML=html;
+
+function usuariosV2Renderizar(){
+  Promise.all([
+    usuariosV2ColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({uid:d.id}, d.data()); }); }),
+    convitesColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); }),
+    usuariosAntigosRef.get().then(function(s){ return s.docs.map(function(d){ return d.data(); }); }).catch(function(){ return []; })
+  ]).then(function(r){
+    _usuariosV2Cache=r[0]; _convitesCache=r[1];
+    usuariosRenderPendentes(r[0], r[1]);
+    usuariosRenderAprovados(r[0]);
+    convitesRenderLista(r[1], r[0]);
+    usuariosRenderAntigos(r[2]);
   }).catch(function(e){
-    if(box) box.innerHTML='<div style="color:#c0392b;font-size:13px;text-align:center;padding:8px">Erro ao listar: '+escHtml(e.message)+'</div>';
+    document.getElementById("usrPendentesLista").innerHTML='<div class="usr-vazio">Erro ao carregar: '+escHtml(e.message)+'</div>';
   });
 }
-function usuariosSalvar(){
-  if(!authIsAdmin()){ alert("Só o administrador pode cadastrar usuários."); return; }
-  var nome=(document.getElementById("usrNome").value||"").trim();
-  var u=(document.getElementById("usrLogin").value||"").trim().toLowerCase();
-  var p=document.getElementById("usrSenha").value||"";
-  if(!nome||!u||!p){ alert("Preencha nome, usuário e senha."); return; }
-  if(p.length<4){ alert("A senha deve ter ao menos 4 caracteres."); return; }
-  var btn=document.getElementById("btnSalvarUsuario"); btn.disabled=true; btn.textContent="Salvando...";
-  usuariosColRef.where("usuario","==",u).limit(1).get().then(function(snap){
-    if(!snap.empty) throw new Error("dup");
-    return usuariosColRef.add({usuario:u, nome:nome, senhaHash:authHash(p,u), criadoEm:firebase.firestore.FieldValue.serverTimestamp()});
-  }).then(function(){
-    toast("Usuário cadastrado!"); usuariosLimparForm(); usuariosListar();
-  }).catch(function(e){
-    alert(e.message==="dup" ? "Já existe um usuário com esse login." : ("Erro ao salvar: "+e.message));
-  }).finally(function(){ btn.disabled=false; btn.textContent="Salvar Usuário"; });
+function usrChipsAcesso(u, prefixo){
+  return '<label class="usr-chk"><input type="checkbox" id="'+prefixo+'Ag_'+u.uid+'"'+(u.acessos&&u.acessos.agenda?' checked':'')+'> Agenda</label>'
+       + '<label class="usr-chk"><input type="checkbox" id="'+prefixo+'Pr_'+u.uid+'"'+(u.acessos&&u.acessos.pregoeiro?' checked':'')+'> Sistema Interno</label>';
 }
-function usuariosRedefinirSenha(id, usuario){
-  if(!authIsAdmin()){ alert("Só o administrador pode redefinir senhas."); return; }
-  var p=prompt("Nova senha para \""+usuario+"\":");
-  if(p===null) return;
-  if(p.length<4){ alert("A senha deve ter ao menos 4 caracteres."); return; }
-  usuariosColRef.doc(id).update({senhaHash:authHash(p,usuario)})
-    .then(function(){ toast("Senha redefinida."); })
+function usuariosRenderPendentes(usuarios, convites){
+  var box=document.getElementById("usrPendentesLista");
+  var pendentes=usuarios.filter(function(u){ return u.status==="pendente"; });
+  if(!pendentes.length){ box.innerHTML='<div class="usr-vazio">Ninguém esperando aprovação.</div>'; return; }
+  box.innerHTML=pendentes.map(function(u){
+    var convite=convites.find(function(c){ return (c.email||"").toLowerCase()===(u.email||"").toLowerCase(); });
+    var avisoConvite = convite
+      ? '<div class="usr-convite-match">★ convite preparado: '+[convite.acessos&&convite.acessos.agenda?'Agenda':null, convite.acessos&&convite.acessos.pregoeiro?'Sistema Interno':null].filter(Boolean).join(', ')+
+        ' <button class="usr-btn" onclick="usuariosAplicarConvite(\''+u.uid+'\',\''+convite.id+'\')">Aplicar</button></div>'
+      : '';
+    return '<div class="usr-row usr-row-col"><div class="usr-info">'
+      +'<div class="usr-nome">'+escHtml(u.nome||u.email)+'</div>'
+      +'<div class="usr-login">'+escHtml(u.email)+'</div>'
+      + avisoConvite
+      +'<div class="usr-chks">'+usrChipsAcesso(u,'pend')+'</div>'
+      +'</div><div class="usr-acts">'
+      +'<button class="usr-btn ok" onclick="usuariosAprovar(\''+u.uid+'\')">Aprovar</button>'
+      +'<button class="usr-btn del" onclick="usuariosRecusar(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\')">Recusar</button>'
+      +'</div></div>';
+  }).join('');
+}
+function usuariosAprovar(uid){
+  var ag=document.getElementById('pendAg_'+uid), pr=document.getElementById('pendPr_'+uid);
+  usuariosV2ColRef.doc(uid).update({
+    status:"aprovado", acessos:{agenda:!!(ag&&ag.checked), pregoeiro:!!(pr&&pr.checked)}
+  }).then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
-function usuariosExcluir(id, usuario, total){
-  if(!authIsAdmin()){ alert("Só o administrador pode excluir usuários."); return; }
-  if(total<=1){ alert("Não é possível excluir o único usuário do sistema. Cadastre outro antes."); return; }
-  if(!confirm("Excluir o usuário \""+usuario+"\"? Ele não conseguirá mais entrar.")) return;
-  usuariosColRef.doc(id).delete().then(function(){
+function usuariosRecusar(uid, nome){
+  if(!confirm('Recusar o pedido de "'+nome+'"? A conta é apagada; a pessoa pode se cadastrar de novo se for engano.')) return;
+  usuariosV2ColRef.doc(uid).delete().then(function(){ toast("Pedido recusado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosAplicarConvite(uid, conviteId){
+  var convite=_convitesCache.find(function(c){ return c.id===conviteId; });
+  if(!convite) return;
+  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:convite.acessos||{agenda:false,pregoeiro:false}})
+    .then(function(){ return convitesColRef.doc(conviteId).delete(); })
+    .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+
+function usuariosRenderAprovados(usuarios){
+  var box=document.getElementById("usrAprovadosLista");
+  var aprovados=usuarios.filter(function(u){ return u.status==="aprovado"||u.status==="bloqueado"; });
+  aprovados.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||"",'pt-BR'); });
+  if(!aprovados.length){ box.innerHTML='<div class="usr-vazio">Nenhum usuário aprovado ainda.</div>'; return; }
+  var totalAdmins=usuarios.filter(function(u){ return u.isAdmin; }).length;
+  box.innerHTML=aprovados.map(function(u){
+    var euMesmo=authCurrentUser && authCurrentUser.uid===u.uid;
+    var bloqueado=u.status==="bloqueado";
+    return '<div class="usr-row usr-row-col'+(bloqueado?' usr-bloqueado':'')+'"><div class="usr-info">'
+      +'<div class="usr-nome">'+escHtml(u.nome||u.email)+(euMesmo?' <span style="font-weight:400;color:var(--muted);font-size:11px">(você)</span>':'')+(u.isAdmin?' <span class="badge-tipo" style="font-size:10px;padding:2px 7px;border-radius:8px">admin</span>':'')+(bloqueado?' <span style="color:var(--red);font-size:11px;font-weight:700">BLOQUEADO</span>':'')+'</div>'
+      +'<div class="usr-login">'+escHtml(u.email)+'</div>'
+      +'<div class="usr-chks">'+usrChipsAcesso(u,'apr')+'<label class="usr-chk"><input type="checkbox" id="aprAdmin_'+u.uid+'"'+(u.isAdmin?' checked':'')+'> Administrador</label></div>'
+      +'</div><div class="usr-acts">'
+      +'<button class="usr-btn" title="Salvar alterações" onclick="usuariosSalvarAcessos(\''+u.uid+'\','+totalAdmins+')">&#128190;</button>'
+      +(u.provedor==="password" ? '<button class="usr-btn" title="Enviar redefinição de senha" onclick="usuariosEnviarReset(\''+escHtml(escJs(u.email))+'\')">&#128273;</button>' : '')
+      +(bloqueado
+        ? '<button class="usr-btn ok" title="Reativar" onclick="usuariosReativar(\''+u.uid+'\')">&#10003;</button>'
+        : '<button class="usr-btn del" title="Bloquear" onclick="usuariosBloquear(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">&#128683;</button>')
+      +'<button class="usr-btn del" title="Excluir" onclick="usuariosExcluirV2(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">&#128465;</button>'
+      +'</div></div>';
+  }).join('');
+}
+function usuariosSalvarAcessos(uid, totalAdmins){
+  var ag=document.getElementById('aprAg_'+uid), pr=document.getElementById('aprPr_'+uid), ad=document.getElementById('aprAdmin_'+uid);
+  var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
+  if(u && u.isAdmin && !ad.checked && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
+  usuariosV2ColRef.doc(uid).update({
+    acessos:{agenda:!!(ag&&ag.checked), pregoeiro:!!(pr&&pr.checked)},
+    isAdmin: !!(ad&&ad.checked)
+  }).then(function(){ toast("Acessos atualizados."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosBloquear(uid, nome, totalAdmins, ehAdmin){
+  if(ehAdmin && totalAdmins<=1){ alert("Não é possível bloquear o único administrador."); return; }
+  if(!confirm('Bloquear o acesso de "'+nome+'"? A pessoa continua com a conta, mas não entra em nada até ser reativada.')) return;
+  usuariosV2ColRef.doc(uid).update({status:"bloqueado"}).then(function(){ toast("Usuário bloqueado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosReativar(uid){
+  usuariosV2ColRef.doc(uid).update({status:"aprovado"}).then(function(){ toast("Usuário reativado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosExcluirV2(uid, nome, totalAdmins, ehAdmin){
+  if(ehAdmin && totalAdmins<=1){ alert("Não é possível excluir o único administrador."); return; }
+  if(!confirm('Excluir "'+nome+'"? A pessoa precisaria se cadastrar de novo (e ser aprovada de novo) para voltar a entrar.')) return;
+  usuariosV2ColRef.doc(uid).delete().then(function(){
     toast("Usuário excluído.");
-    if(authCurrentUser && authCurrentUser.u===usuario){ authClearSession(); window.location.reload(); return; }
-    usuariosListar();
+    if(authCurrentUser && authCurrentUser.uid===uid){ firebase.auth().signOut(); return; }
+    usuariosV2Renderizar();
   }).catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosEnviarReset(email){
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function(){ toast("E-mail de redefinição enviado para "+email+"."); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+
+/* ── Convites (pré-cadastro por e-mail) ──
+   Não dá acesso sozinho: é só um lembrete. Quando a pessoa se cadastrar com
+   esse e-mail, o convite aparece destacado na lista de pendentes, e um
+   clique aplica exatamente o acesso preparado aqui. */
+function convitesLimparForm(){
+  ["cvNome","cvEmail"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+  ["cvAg","cvPr"].forEach(function(id){ var e=document.getElementById(id); if(e) e.checked=false; });
+}
+function convitesSalvar(){
+  var nome=(document.getElementById("cvNome").value||"").trim();
+  var email=(document.getElementById("cvEmail").value||"").trim().toLowerCase();
+  if(!email){ alert("Informe o e-mail."); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
+  var acessos={agenda:document.getElementById("cvAg").checked, pregoeiro:document.getElementById("cvPr").checked};
+  convitesColRef.add({nome:nome, email:email, acessos:acessos, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function convitesRenderLista(convites, usuarios){
+  var box=document.getElementById("usrConvitesLista");
+  if(!convites.length){ box.innerHTML='<div class="usr-vazio">Nenhum convite preparado.</div>'; return; }
+  box.innerHTML=convites.map(function(c){
+    var jaEntrou=usuarios.some(function(u){ return (u.email||"").toLowerCase()===(c.email||"").toLowerCase(); });
+    return '<div class="usr-row"><div class="usr-info">'
+      +'<div class="usr-nome">'+escHtml(c.nome||c.email)+'</div>'
+      +'<div class="usr-login">'+escHtml(c.email)+' — '+[c.acessos&&c.acessos.agenda?'Agenda':null,c.acessos&&c.acessos.pregoeiro?'Sistema Interno':null].filter(Boolean).join(', ')+(jaEntrou?' <b style="color:var(--green)">· já se cadastrou, veja em Pendentes</b>':'')+'</div>'
+      +'</div><div class="usr-acts"><button class="usr-btn del" onclick="convitesCancelar(\''+c.id+'\')">&#128465;</button></div></div>';
+  }).join('');
+}
+function convitesCancelar(id){
+  convitesColRef.doc(id).delete().then(function(){ toast("Convite cancelado."); usuariosV2Renderizar(); });
+}
+
+/* ── Contas antigas (usuário/senha, pré-migração) ──
+   Só leitura: mostra quem ainda não recriou a conta, pra saber quem falta
+   avisar. Não autentica mais ninguém — a coleção "usuarios" ficou fechada. */
+function usuariosRenderAntigos(antigos){
+  var box=document.getElementById("usrAntigosLista");
+  if(!box) return;
+  if(!antigos.length){ box.innerHTML='<div class="usr-vazio">Nenhuma conta antiga registrada.</div>'; return; }
+  box.innerHTML=antigos.map(function(a){
+    return '<div class="usr-row"><div class="usr-info">'
+      +'<div class="usr-nome">'+escHtml(a.nome||a.usuario)+'</div>'
+      +'<div class="usr-login">login antigo: '+escHtml(a.usuario)+'</div>'
+      +'</div></div>';
+  }).join('');
 }
 
 /* ══ MODO COMPARTILHADO VENCEDORES (?venc=ID) ═══════════════════════════════
@@ -11325,16 +11514,17 @@ document.addEventListener("keydown", function(e){
   }
 });
 
-/* Inicialização do portão de acesso */
+/* Inicialização do portão de acesso — em link público, o portão nem entra
+   em cena (o firebase.auth().onAuthStateChanged registrado lá em cima vira
+   no-op por causa da flag). Fora isso, ele mesmo decide sozinho: mostra o
+   app, a tela de "aguardando liberação" ou o login, conforme o estado do
+   Firebase Auth e do perfil em usuarios_v2. */
 (function(){
   var params=new URLSearchParams(window.location.search);
   if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("assinatura")||params.has("venc")||params.has("consulta")){
+    AUTH_MODO_COMPARTILHADO=true;
     var g0=document.getElementById("authGate"); if(g0) g0.style.display="none";
-    return;
   }
-  var sess=authGetSession();
-  if(sess && sess.u){ authCurrentUser=sess; authShowApp(); return; }
-  authStartGate();
 })();
 
 </script>

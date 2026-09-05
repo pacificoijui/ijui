@@ -29,9 +29,12 @@ no console, e o backup precisa saber dos dois — o que ele já sabe. O plano
 gratuito (Spark) vale por projeto, então o segundo projeto não custa nada.
 
 **Isso não é um substituto para as regras.** Separar limita o estrago; não
-impede. O banco das licitações hoje está aberto para leitura com a chave pública
-— inclusive `usuarios`, que guarda hash de senha. Ao criar o projeto dos
-contratos, vale já nascer com regra restritiva em vez de repetir o problema.
+impede. O banco das licitações tinha as regras abertas para leitura com a
+chave pública — inclusive a antiga coleção `usuarios`, com hash de senha — até
+a introdução do login por Firebase Authentication e do fechamento das regras
+(ver `CONTROLE-DE-ACESSO.md` na raiz do repositório). Ao criar o projeto dos
+contratos, vale já nascer com regra restritiva e o mesmo modelo de conta e
+aprovação por painel, em vez de repetir o problema.
 
 ## Como está hoje
 
