@@ -79,6 +79,30 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('ela diz que procura em tudo', /Pesquisar em tudo/.test(forma.ph), forma.ph);
   t('as 9 colunas são as esperadas',
     forma.colunas.join('|')==='Contrato|Empresa|Objeto|Secretaria|Tipo|Fiscais|Situação|Vencimento|Valor', forma.colunas);
+
+  /* A leitura da lista é o que mais se faz aqui: letra preta e o Objeto com
+     espaço, que é o texto que realmente precisa ser lido. */
+  const leitura=await pg.evaluate(()=>{
+    const tr=document.querySelector('.tab tbody tr');
+    const cor=c=>getComputedStyle(tr.querySelector('.'+c)).color;
+    const larg=c=>tr.querySelector('.'+c).getBoundingClientRect().width;
+    const outras=['c-num','c-emp','c-sec','c-tipo','c-fis','c-sit','c-venc','c-valor'].map(larg);
+    return {cores:['c-num','c-emp','c-obj','c-sec','c-tipo','c-fis','c-valor'].map(cor),
+            corSelo:getComputedStyle(tr.querySelector('.badge')).color,
+            objeto:larg('c-obj'), empresa:larg('c-emp'), maiorOutra:Math.max(...outras),
+            alturaLinha:tr.getBoundingClientRect().height,
+            padding:getComputedStyle(tr.querySelector('.c-obj')).padding};
+  });
+  t('o texto da tabela é preto', leitura.cores.every(c=>c==='rgb(0, 0, 0)'), leitura.cores);
+  t('os selos seguem coloridos (neles a cor é a informação)',
+    leitura.corSelo!=='rgb(0, 0, 0)', leitura.corSelo);
+  /* O Vencimento é a segunda mais larga e não encolhe (o selo é uma linha só,
+     "VENCIDO há 3399d · 16/05/2017"); o que dá para exigir é que o Objeto
+     passe dela e sobre o dobro da Empresa. */
+  t('o Objeto é a coluna mais larga, com o dobro da Empresa',
+    leitura.objeto>leitura.maiorOutra && leitura.objeto>leitura.empresa*2, leitura);
+  t('as linhas estão compactas (pouco respiro por célula)',
+    leitura.padding==='5px 6px', leitura.padding);
   t('todas as colunas têm o próprio menu de filtro',
     forma.filtrosColuna.join('|')==='num|emp|obj|sec|tipo|fis|sit|venc|valor', forma.filtrosColuna);
 
@@ -340,6 +364,157 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('tocar numa coluna abre o mesmo menu de opções', menuCel.aberto && menuCel.cabe, menuCel);
   t('e marcar OBRA filtra igual ao computador', menuCel.n>0 && menuCel.sóObra, menuCel);
   t('a folha passa a mostrar o que ficou marcado', menuCel.resumo==='OBRA', menuCel.resumo);
+
+  console.log('\n7) Cadastrar, editar e aditivar contratos');
+  /* Sem o Firebase dos contratos ligado não existe onde gravar de verdade: o
+     que se salva fica no navegador e a tela precisa dizer isso. */
+  const cadastrou=await pg.evaluate(()=>{
+    novoContrato();
+    const set=(id,v)=>{ document.getElementById(id).value=v; };
+    set('fcContr','900'); set('fcAno','2026'); set('fcModalidade','PE 12/2026');
+    set('fcEmpresa','teste engenharia ltda'); set('fcObjeto','Reforma da praça central.');
+    set('fcTipo','obra'); set('fcSecretarias','SMMA, SMED'); set('fcFiscalAdm','Ana, Bruno');
+    set('fcVencimento','2027-03-31'); set('fcValor','250000'); set('fcPalavra','reforma praça');
+    const avisoNoForm=document.getElementById('formAviso').textContent;
+    salvarForm();
+    return {avisoNoForm};
+  });
+  await pg.waitForTimeout(400);
+  const novo=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
+    return {achou:!!c, id:c&&c.id, empresa:c&&c.empresa, secs:c&&c.secretarias.join('|'),
+            fis:c&&c.fiscalAdm.join('|'), total:CONTRATOS.length,
+            fechou:!document.getElementById('ovForm').classList.contains('open'),
+            aviso:document.getElementById('avisoRascunho').textContent,
+            naBusca:(()=>{ document.getElementById('fBusca').value='teste engenharia'; aplicarFiltros(); return filtrados.length; })()};
+  });
+  t('o formulário avisa que sem o Firebase a alteração fica só no navegador',
+    /só neste navegador/.test(cadastrou.avisoNoForm), cadastrou.avisoNoForm.slice(0,80));
+  t('o contrato novo entrou na lista', novo.achou && novo.total===1265, novo);
+  t('ganhou id próprio, sem pisar em ninguém', novo.id===1265, novo.id);
+  t('empresa e tipo entram em maiúsculas, como o resto do cadastro', novo.empresa==='TESTE ENGENHARIA LTDA', novo.empresa);
+  t('secretarias e fiscais viram lista pela vírgula', novo.secs==='SMMA|SMED' && novo.fis==='Ana|Bruno', novo);
+  t('o formulário fecha ao salvar', novo.fechou, novo);
+  t('a tela avisa que a alteração é só deste navegador', /só neste navegador/.test(novo.aviso), novo.aviso.slice(0,60));
+  t('o contrato novo já aparece na busca', novo.naBusca===1, novo.naBusca);
+
+  const editou=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900);
+    abrirDet(c.id); editarContrato();
+    document.getElementById('fcValor').value='300000';
+    document.getElementById('fcSituacao').value='ATIVO-PARALIZADO';
+    salvarForm();
+    return true;
+  });
+  await pg.waitForTimeout(400);
+  const depoisEdicao=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900);
+    return {valor:c.valor, sit:c.situacao, total:CONTRATOS.length,
+            fichaAberta:document.getElementById('ovDet').classList.contains('open'),
+            fichaMostra:document.getElementById('detBody').textContent.includes('300.000')};
+  });
+  t('editar altera o contrato em vez de criar outro', depoisEdicao.valor===300000 && depoisEdicao.total===1265, depoisEdicao);
+  t('a situação também muda', depoisEdicao.sit==='ATIVO-PARALIZADO', depoisEdicao);
+  t('a ficha aberta se atualiza sozinha', depoisEdicao.fichaAberta && depoisEdicao.fichaMostra, depoisEdicao);
+
+  const aditivou=await pg.evaluate(()=>{
+    novoAditivo();
+    const nSugerido=document.getElementById('faN').value;
+    document.getElementById('faTipo').value='PRAZO E VALOR';
+    document.getElementById('faData').value='2026-10-01';
+    document.getElementById('faVenc').value='2028-03-31';
+    document.getElementById('faValor').value='50000';
+    document.getElementById('faObs').value='Prorrogação de 12 meses.';
+    aditNota();
+    const nota=document.getElementById('faNota').textContent;
+    salvarAdit();
+    return {nSugerido, nota};
+  });
+  await pg.waitForTimeout(400);
+  const comAditivo=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900);
+    const tr=[...document.querySelectorAll('.tab tbody tr')].find(t=>t.textContent.includes('TESTE ENGENHARIA'));
+    return {n:c.aditivos.length, valor:c.valor, valorBase:c.valorBase, venc:c.vencimento,
+            vencBase:c.vencimentoBase, dias:c._d,
+            linha:tr?tr.textContent.replace(/\s+/g,' '):'',
+            ficha:document.getElementById('detBody').textContent.replace(/\s+/g,' ')};
+  });
+  t('o número do aditivo já vem sugerido', aditivou.nSugerido==='1', aditivou.nSugerido);
+  t('antes de salvar, o formulário diz o que vai mudar no contrato',
+    /vencimento passa de 31\/03\/2027 para 31\/03\/2028/.test(aditivou.nota) &&
+    /valor passa de R\$\s300.000,00 para R\$\s350.000,00/.test(aditivou.nota), aditivou.nota);
+  t('o aditivo foi registrado', comAditivo.n===1, comAditivo);
+  t('o valor do contrato passa a ser o original + o aditivo',
+    comAditivo.valor===350000 && comAditivo.valorBase===300000, comAditivo);
+  t('e o vencimento passa a ser o do aditivo, guardando o original',
+    comAditivo.venc==='2028-03-31' && comAditivo.vencBase==='2027-03-31', comAditivo);
+  t('a lista mostra o valor e o vencimento já com o aditivo',
+    /R\$\s350.000,00/.test(comAditivo.linha) && /31\/03\/2028/.test(comAditivo.linha), comAditivo.linha.slice(0,140));
+  t('a ficha mostra a conta aberta (contrato + aditivos)',
+    /contrato R\$\s300.000,00 \+ aditivos R\$\s50.000,00/.test(comAditivo.ficha), comAditivo.ficha.slice(0,300));
+  t('e lista o aditivo com o que ele mudou',
+    /Aditivo nº 1/.test(comAditivo.ficha) && /Prorrogação de 12 meses/.test(comAditivo.ficha), comAditivo.ficha.slice(0,400));
+
+  const reeditou=await pg.evaluate(()=>{
+    abrirAdit(0);
+    document.getElementById('faValor').value='80000';
+    salvarAdit();
+    return true;
+  });
+  await pg.waitForTimeout(400);
+  const depoisReedicao=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900);
+    return {valor:c.valor, n:c.aditivos.length};
+  });
+  t('editar o aditivo recalcula o contrato, sem somar duas vezes',
+    depoisReedicao.valor===380000 && depoisReedicao.n===1, depoisReedicao);
+
+  pg.on('dialog', d=>d.accept());
+  await pg.evaluate(()=>{ abrirAdit(0); excluirAditivo(); });
+  await pg.waitForTimeout(400);
+  const semAditivo=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900);
+    return {valor:c.valor, venc:c.vencimento, n:(c.aditivos||[]).length,
+            base:c.valorBase===undefined && c.vencimentoBase===undefined};
+  });
+  t('excluir o aditivo devolve o valor e o prazo de origem',
+    semAditivo.valor===300000 && semAditivo.venc==='2027-03-31' && semAditivo.n===0, semAditivo);
+  t('e não deixa resto de "valor original" para trás', semAditivo.base, semAditivo);
+
+  const exportado=await pg.evaluate(()=>{
+    const txt=textoJSON();
+    const lista=JSON.parse(txt);
+    const c=lista.find(x=>x.contr===900);
+    return {linhas:txt.split('\n').length, itens:lista.length,
+            campos:Object.keys(c).join(','), temInterno:/"_/.test(txt)};
+  });
+  t('o JSON exportado tem todos os contratos, um por linha',
+    exportado.itens===1265 && exportado.linhas===1265+3, exportado);
+  t('e não leva os campos internos da tela', !exportado.temInterno, exportado.campos);
+
+  const recarregou=await (async()=>{
+    await pg.reload({waitUntil:'networkidle'});
+    await pg.waitForTimeout(800);
+    return pg.evaluate(()=>{
+      const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
+      return {achou:!!c, valor:c&&c.valor, total:CONTRATOS.length,
+              aviso:document.getElementById('avisoRascunho').textContent};
+    });
+  })();
+  t('o que foi salvo sobrevive ao recarregar a página',
+    recarregou.achou && recarregou.valor===300000 && recarregou.total===1265, recarregou);
+  t('e o aviso continua na tela', /só neste navegador/.test(recarregou.aviso), recarregou.aviso.slice(0,60));
+
+  /* descartar recarrega a página: deixa o evaluate voltar antes do reload */
+  await pg.evaluate(()=>{ setTimeout(descartarRascunho, 0); });
+  await pg.waitForLoadState('networkidle');
+  await pg.waitForFunction(()=>typeof CONTRATOS!=='undefined' && CONTRATOS.length>0, null, {timeout:15000});
+  const limpo=await pg.evaluate(()=>({
+    total:CONTRATOS.length, sumiu:!CONTRATOS.find(x=>x.contr===900),
+    aviso:document.getElementById('avisoRascunho').textContent.trim()
+  }));
+  t('descartar os rascunhos devolve a lista do arquivo',
+    limpo.total===1264 && limpo.sumiu && limpo.aviso==='', limpo);
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

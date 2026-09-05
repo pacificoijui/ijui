@@ -37,16 +37,47 @@ contratos, vale já nascer com regra restritiva em vez de repetir o problema.
 
 `FIREBASE_CONFIG` em `contratos/index.html` está **vazio**. Enquanto estiver, a
 tela carrega de `dados/contratos.json` — os mesmos 1.264 contratos, versionados
-aqui no repositório. Tudo funciona: filtros, painel, relatórios em PDF. O que não
-existe ainda é alteração ao vivo. A tarja do cabeçalho diz qual das duas fontes
-está no ar.
+aqui no repositório. Tudo funciona: busca, filtros, relatórios em PDF. A tarja do
+cabeçalho diz qual das duas fontes está no ar.
+
+## Cadastro, edição e aditivos
+
+A tela cadastra contrato novo, edita contrato existente e registra aditivos
+(prazo, valor, ou os dois). **Onde isso é gravado depende do `FIREBASE_CONFIG`:**
+
+- **com o config preenchido**, salvar escreve no Firestore dos contratos e todo
+  mundo passa a ver;
+- **com ele vazio** — a situação de hoje —, não existe onde gravar: a alteração
+  fica guardada no `localStorage` **daquele navegador**, e a tela avisa isso numa
+  tarja amarela permanente. Para virar cadastro de verdade, o botão
+  **Exportar JSON** gera o `dados/contratos.json` novo (mesmo formato, um
+  contrato por linha), que substitui o arquivo do repositório. O botão
+  **Descartar** joga os rascunhos fora.
+
+O valor e o vencimento que a lista mostra são sempre os **vigentes**. Quando um
+contrato ganha aditivo, o valor e o prazo de origem passam a morar em
+`valorBase`/`vencimentoBase` e os campos `valor`/`vencimento` viram conta:
+valor de origem + soma dos aditivos, e o prazo do aditivo assinado mais
+recentemente. Assim a lista, os filtros e os relatórios continuam lendo
+`valor` e `vencimento` sem saber que aditivo existe — e editar ou apagar um
+aditivo refaz a conta sem somar duas vezes.
+
+### Quem pode editar
+
+A tela é pública e não tem login: os botões de cadastro aparecem para quem
+abrir a página. **Esconder botão não é controle de acesso** — enquanto o
+Firestore não estiver ligado isso não tem consequência (não há onde gravar),
+mas, ao ligar, quem decide quem grava são as **regras do Firestore**. Nascer com
+regra de escrita fechada é parte do passo 2 abaixo, não um detalhe posterior.
 
 ## Como ligar o Firestore
 
 1. No console do Firebase, **criar um projeto novo** (ex.: `contratos-ijui`).
    Não reaproveitar o `processos-ijui`.
 2. Criar o Firestore. Nas regras, começar fechado e abrir só o necessário — não
-   copiar as regras das licitações.
+   copiar as regras das licitações. Como a tela agora grava (cadastro, edição e
+   aditivos), a regra de **escrita** é o que de fato protege o cadastro: deixá-la
+   aberta é deixar qualquer visitante alterar contrato.
 3. Registrar um app Web e copiar o objeto de configuração.
 4. Colar em `FIREBASE_CONFIG`, em `contratos/index.html`.
 5. Subir os dados:
@@ -68,7 +99,7 @@ ele lê o `FIREBASE_CONFIG` daqui e, enquanto estiver vazio, simplesmente pula.
 
 | | |
 |---|---|
-| `index.html` | a tela: uma busca que varre tudo + uma tabela única, com o filtro de cada coluna no próprio cabeçalho |
+| `index.html` | a tela: busca que varre tudo, tabela única com filtro em cada coluna, e o cadastro de contratos e aditivos |
 | `dados/contratos.json` | os 1.264 contratos, um por linha |
 | `ferramentas/importar.mjs` | sobe o JSON para o Firestore dos contratos |
 | `../testes/t-contratos.js` | confere que a tela continua fazendo o que fazia |

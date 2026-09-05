@@ -140,7 +140,7 @@
      linha. Mesma lição aprendida no licitacon. */
   .tab th {
     background: #eef2fa; border-bottom: 1.5px solid var(--border);
-    padding: 10px 9px; font-size: 10.5px; font-weight: 800; color: var(--navy);
+    padding: 7px 6px; font-size: 10.5px; font-weight: 800; color: var(--navy);
     text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap;
   }
   .tab th.r { text-align: right; }
@@ -153,7 +153,7 @@
   .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #dfe8f8; }
   /* Filtro por coluna, no estilo do filtro de planilha: o botão abre um menu
      com as opções que aquela coluna tem, para marcar as que interessam. */
-  .tab .th-filtros th { padding: 0 5px 8px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
+  .tab .th-filtros th { padding: 0 4px 6px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
   .cf {
     display: flex; align-items: center; justify-content: space-between; gap: 4px;
     width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px;
@@ -209,24 +209,29 @@
     letter-spacing: .7px; margin: 16px 0 2px; }
   .fm-voltar { border: none; background: none; color: var(--navy); font-family: inherit; font-size: 13px;
     font-weight: 700; cursor: pointer; padding: 0 0 10px; }
-  .tab td { padding: 9px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.42; }
+  /* Texto preto na tabela inteira: só os selos (situação, vencimento) seguem
+     coloridos, porque neles a cor é a informação. O que separa uma coluna da
+     outra é o tamanho e o peso da letra, não o tom de cinza. */
+  .tab td { padding: 5px 6px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.36; color: #000; }
   .tab tbody tr:last-child td { border-bottom: none; }
   .tab tbody tr:nth-child(even) td { background: #fafbfe; }
   .tab tbody tr { cursor: pointer; }
   .tab tbody tr:hover td { background: var(--blue-bg); }
 
-  .c-num { width: 10%; }
-  .n-num { display: block; font-weight: 800; color: var(--navy); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .n-mod { display: block; font-size: 10.5px; color: var(--muted); line-height: 1.35; margin-top: 2px; }
-  .c-emp { width: 16%; font-weight: 600; word-break: break-word; }
-  .c-obj { width: 26%; word-break: break-word; }
-  .c-sec { width: 9%; color: var(--muted); word-break: break-word; }
-  .c-tipo { width: 7%; color: var(--muted); }
-  .c-fis { width: 9%; color: var(--muted); word-break: break-word; }
-  .c-sit { width: 7%; white-space: nowrap; }
+  /* As larguras são só uma dica (a tabela é auto): o que sobra das colunas
+     estreitas vai para o Objeto, que é o texto que precisa de espaço. */
+  .c-num { width: 8%; }
+  .n-num { display: block; font-weight: 800; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .n-mod { display: block; font-size: 10.5px; color: #000; line-height: 1.3; margin-top: 1px; }
+  .c-emp { width: 13%; font-weight: 600; word-break: break-word; }
+  .c-obj { width: 38%; word-break: break-word; }
+  .c-sec { width: 6%; word-break: break-word; }
+  .c-tipo { width: 6%; }
+  .c-fis { width: 7%; word-break: break-word; }
+  .c-sit { width: 5%; white-space: nowrap; }
   .c-venc { width: 8%; white-space: nowrap; font-variant-numeric: tabular-nums; }
   /* O valor é o número que se compara entre contratos — é o destaque da linha */
-  .c-valor { width: 9%; text-align: right; white-space: nowrap; font-size: 13.5px; font-weight: 800; color: var(--navy); font-variant-numeric: tabular-nums; }
+  .c-valor { width: 7%; text-align: right; white-space: nowrap; font-size: 13.5px; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
   .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
   .badge-num { background: var(--navy); color: #fff; }
   .badge-sec { background: var(--blue-bg); color: var(--blue-text); }
@@ -257,6 +262,46 @@
   .det-row .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
   .det-row .v { color: var(--text); line-height: 1.5; }
   .det-hr { border: none; border-top: 1px solid var(--border); }
+
+  /* ══ Formulários de cadastro (contrato e aditivo) ══ */
+  .fgrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 13px; }
+  .fcampo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .fcampo.s3 { grid-column: span 3; } .fcampo.s4 { grid-column: span 4; }
+  .fcampo.s6 { grid-column: span 6; } .fcampo.s8 { grid-column: span 8; }
+  .fcampo.s12 { grid-column: span 12; }
+  .fcampo label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .fcampo .dica { font-size: 11px; color: var(--muted); }
+  .fcampo input, .fcampo select, .fcampo textarea {
+    width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 9px;
+    font-family: inherit; font-size: 13.5px; color: #000; background: #fbfcff; outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .fcampo input:focus, .fcampo select:focus, .fcampo textarea:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
+  .fcampo textarea { resize: vertical; line-height: 1.5; }
+
+  .aviso { border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 15px; }
+  .aviso-amarelo { background: var(--amber-bg); color: #7a5b00; border: 1.5px solid #f0dca3; }
+  .aviso-azul { background: var(--blue-bg); color: var(--blue-text); border: 1.5px solid #c9d9f5; }
+  .aviso .acao { color: inherit; font-weight: 800; text-decoration: underline; background: none; border: none;
+    font-family: inherit; font-size: inherit; cursor: pointer; padding: 0; margin-left: 8px; }
+
+  /* ══ Aditivos dentro da ficha do contrato ══ */
+  .adit-lista { display: flex; flex-direction: column; gap: 8px; }
+  .adit { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: #fbfcff;
+    cursor: pointer; text-align: left; font-family: inherit; width: 100%; }
+  .adit:hover { border-color: var(--navy-light); background: #fff; }
+  .adit-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .adit-n { font-size: 13px; font-weight: 800; color: #000; }
+  .adit-info { font-size: 12.5px; color: #000; line-height: 1.5; margin-top: 3px; }
+  .adit-obs { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+  .adit-vazio { font-size: 12.5px; color: var(--muted); }
+
+  /* Recado curto de "salvou", no rodapé da tela */
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+    background: var(--navy-dark); color: #fff; padding: 12px 22px; border-radius: 30px; font-size: 13.5px;
+    font-weight: 600; box-shadow: var(--shadow-lg); z-index: 900; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   /* Modal relatórios */
   .rep-opt { display: flex; gap: 12px; align-items: flex-start; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
   .rep-opt:hover { border-color: var(--navy-light); background: var(--blue-bg); }
@@ -370,6 +415,9 @@
     .modal-footer { padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); }
     .modal-footer button { flex: 1; padding: 13px 16px; justify-content: center; }
     .det-row { grid-template-columns: 1fr; gap: 2px; }
+    /* no celular cada campo ocupa a linha inteira */
+    .fgrid .fcampo { grid-column: span 12; }
+    .fcampo input, .fcampo select, .fcampo textarea { font-size: 16px; }
     .rep-opt { padding: 13px 12px; }
     .sel-list { max-height: 168px; }
     .sel-item { padding: 9px 13px; font-size: 13px; }
@@ -404,6 +452,7 @@
     </div>
     <div class="header-actions">
       <span class="proto-chip">PROTÓTIPO · DADOS LOCAIS</span>
+      <button class="btn-ghost" onclick="novoContrato()">＋ Novo contrato</button>
       <button class="btn-gold" onclick="abrirModalRelatorio()">🖨️ Relatórios PDF</button>
     </div>
   </div>
@@ -420,6 +469,8 @@
       <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
     </div>
   </div>
+
+  <div id="avisoRascunho"></div>
 
   <!-- LISTA -->
   <div class="list-toolbar">
@@ -526,7 +577,8 @@
 
 <!-- Barra de ações fixa (apenas no celular) -->
 <div class="mobile-bar">
-  <button class="mb-btn mb-primary" onclick="pdfDoFiltro()">🖨️ PDF do filtro</button>
+  <button class="mb-btn mb-primary" onclick="novoContrato()">＋ Contrato</button>
+  <button class="mb-btn mb-primary" onclick="pdfDoFiltro()">🖨️ PDF</button>
   <button class="mb-btn mb-gold" onclick="abrirModalRelatorio()">📄 Relatórios</button>
 </div>
 
@@ -537,10 +589,91 @@
     <div class="modal-body" id="detBody"></div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
+      <button class="btn-ghost" onclick="novoAditivo()">＋ Aditivo</button>
+      <button class="btn-primary" onclick="editarContrato()">✏️ Editar</button>
       <button class="btn-primary" onclick="pdfContratoAtual()">🖨️ Ficha em PDF</button>
     </div>
   </div>
 </div>
+
+<!-- MODAL CADASTRO / EDIÇÃO DE CONTRATO -->
+<div class="overlay" id="ovForm" onclick="if(event.target===this)fecharForm()">
+  <div class="modal" style="max-width:820px">
+    <div class="modal-header"><h2 id="formTitulo">Novo contrato</h2><button class="modal-close" onclick="fecharForm()">✕</button></div>
+    <div class="modal-body">
+      <div id="formAviso"></div>
+      <div class="fgrid">
+        <div class="fcampo s3"><label>Nº do contrato *</label><input type="number" id="fcContr" inputmode="numeric"></div>
+        <div class="fcampo s3"><label>Ano *</label><input type="number" id="fcAno" inputmode="numeric"></div>
+        <div class="fcampo s6"><label>Modalidade</label><input type="text" id="fcModalidade" placeholder="Ex: CONC. 02/2026"></div>
+        <div class="fcampo s12"><label>Empresa *</label><input type="text" id="fcEmpresa" list="listaEmpresas"></div>
+        <div class="fcampo s12"><label>Objeto</label><textarea id="fcObjeto" rows="3"></textarea></div>
+        <div class="fcampo s4"><label>Tipo</label><input type="text" id="fcTipo" list="listaTipos"></div>
+        <div class="fcampo s4"><label>Situação</label>
+          <select id="fcSituacao">
+            <option value="ATIVO">ATIVO</option>
+            <option value="ATIVO-PARALIZADO">ATIVO-PARALIZADO</option>
+            <option value="INATIVO">INATIVO</option>
+          </select>
+        </div>
+        <div class="fcampo s4"><label>Palavra-chave</label><input type="text" id="fcPalavra" list="listaPalavras"></div>
+        <div class="fcampo s12"><label>Secretaria(s)</label><input type="text" id="fcSecretarias" list="listaSecs"><span class="dica">Mais de uma, separe por vírgula.</span></div>
+        <div class="fcampo s6"><label>Fiscal administrativo</label><input type="text" id="fcFiscalAdm" list="listaFiscais"><span class="dica">Mais de um, separe por vírgula.</span></div>
+        <div class="fcampo s6"><label>Fiscal técnico</label><input type="text" id="fcFiscalTec" list="listaFiscais"><span class="dica">Mais de um, separe por vírgula.</span></div>
+        <div class="fcampo s6"><label id="fcLabelVenc">Vencimento</label><input type="date" id="fcVencimento"></div>
+        <div class="fcampo s6"><label id="fcLabelValor">Valor (R$)</label><input type="number" id="fcValor" step="0.01" inputmode="decimal"></div>
+        <div class="fcampo s12"><label>Observações</label><textarea id="fcObs" rows="2"></textarea></div>
+      </div>
+      <div class="aviso aviso-azul" id="fcNota" style="display:none;margin:15px 0 0"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="fecharForm()">Cancelar</button>
+      <button class="btn-primary" id="btnSalvarContrato" onclick="salvarForm()">Salvar contrato</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADITIVO -->
+<div class="overlay" id="ovAdit" onclick="if(event.target===this)fecharAdit()">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header"><h2 id="aditTitulo">Novo aditivo</h2><button class="modal-close" onclick="fecharAdit()">✕</button></div>
+    <div class="modal-body">
+      <div id="aditAviso"></div>
+      <div class="fgrid">
+        <div class="fcampo s4"><label>Nº do aditivo</label><input type="text" id="faN" placeholder="Ex: 1"></div>
+        <div class="fcampo s8"><label>O que o aditivo muda</label>
+          <select id="faTipo" onchange="aditNota()">
+            <option value="PRAZO">Prazo</option>
+            <option value="VALOR">Valor</option>
+            <option value="PRAZO E VALOR">Prazo e valor</option>
+            <option value="REEQUILÍBRIO">Reequilíbrio</option>
+            <option value="SUPRESSÃO">Supressão</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+        </div>
+        <div class="fcampo s6"><label>Data de assinatura</label><input type="date" id="faData" onchange="aditNota()"></div>
+        <div class="fcampo s6"><label>Novo vencimento</label><input type="date" id="faVenc" onchange="aditNota()"><span class="dica">Deixe vazio se não muda o prazo.</span></div>
+        <div class="fcampo s6"><label>Valor acrescido (R$)</label><input type="number" id="faValor" step="0.01" inputmode="decimal" oninput="aditNota()"><span class="dica">Negativo em caso de supressão.</span></div>
+        <div class="fcampo s12"><label>Observação</label><textarea id="faObs" rows="2"></textarea></div>
+      </div>
+      <div class="aviso aviso-azul" id="faNota" style="margin:15px 0 0"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="link-clear" id="faExcluir" onclick="excluirAditivo()" style="display:none">✕ Excluir este aditivo</button>
+      <div style="display:flex;gap:10px;margin-left:auto">
+        <button class="btn-ghost" onclick="fecharAdit()">Cancelar</button>
+        <button class="btn-primary" onclick="salvarAdit()">Salvar aditivo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<datalist id="listaEmpresas"></datalist>
+<datalist id="listaTipos"></datalist>
+<datalist id="listaSecs"></datalist>
+<datalist id="listaFiscais"></datalist>
+<datalist id="listaPalavras"></datalist>
+<div class="toast" id="toast"></div>
 
 <!-- MODAL RELATÓRIOS -->
 <div class="overlay" id="ovRep" onclick="if(event.target===this)fecharRep()">
@@ -639,7 +772,95 @@ function carregarContratos(){
     if(!Array.isArray(d) || !d.length) throw new Error('lista de contratos vazia');
     /* os campos de lista precisam existir: fiscais() e os filtros contam com isso */
     return d.map(c => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
+  }).then(aplicarRascunho);
+}
+
+/* ══════════════ GRAVAÇÃO ══════════════
+   Com o FIREBASE_CONFIG preenchido, salvar escreve no Firestore dos contratos
+   e todo mundo enxerga. Enquanto ele estiver vazio não existe onde gravar: a
+   lista vem de dados/contratos.json, que é arquivo do repositório. Para o
+   cadastro não ficar refém disso, o que se altera fica guardado NESTE
+   navegador e é aplicado por cima da lista ao abrir — sempre com aviso na
+   tela, porque rascunho de navegador não é cadastro: só vira arquivo pelo
+   botão "Exportar JSON". Ver contratos/LEIA-ME.md. */
+const CHAVE_RASCUNHO = 'contratos_ijui_rascunho';
+let RASCUNHO = {};
+
+function lerRascunho(){
+  try{
+    const j = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || '{}');
+    return (j && typeof j === 'object') ? j : {};
+  }catch(e){ return {}; }
+}
+function gravarRascunho(){
+  try{ localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(RASCUNHO)); return true; }
+  catch(e){ return false; }
+}
+function contarRascunho(){ return Object.keys(RASCUNHO).length; }
+function aplicarRascunho(lista){
+  RASCUNHO = lerRascunho();
+  /* com o banco ligado quem manda é o banco; o rascunho vira só um aviso */
+  if(FONTE_DADOS === 'firestore' || !contarRascunho()) return lista;
+  const porId = new Map(lista.map(c => [c.id, c]));
+  Object.keys(RASCUNHO).forEach(k => {
+    const c = RASCUNHO[k];
+    porId.set(c.id, Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
   });
+  return [...porId.values()];
+}
+/* Campos que começam com _ são conta da tela (dias até vencer, texto da
+   busca): não vão para o arquivo nem para o banco. */
+function paraGravar(c){
+  const out = {};
+  Object.keys(c).sort().forEach(k => { if(k[0] !== '_') out[k] = c[k]; });
+  return out;
+}
+function salvarContrato(c){
+  if(FONTE_DADOS === 'firestore'){
+    return firebase.firestore().collection('contratos').doc(String(c.id)).set(paraGravar(c));
+  }
+  RASCUNHO[c.id] = paraGravar(c);
+  return gravarRascunho() ? Promise.resolve()
+    : Promise.reject(new Error('o navegador não deixou guardar (espaço cheio ou aba anônima)'));
+}
+function descartarRascunho(){
+  if(!confirm('Descartar as '+contarRascunho()+' alteração(ões) guardadas neste navegador?\nA lista volta a ser exatamente a do arquivo.')) return;
+  RASCUNHO = {};
+  gravarRascunho();
+  location.reload();
+}
+/* Gera o dados/contratos.json novo, no mesmo formato do que está no
+   repositório (um contrato por linha, campos em ordem alfabética). */
+function textoJSON(){
+  return '[\n' + CONTRATOS.map(c => '  '+JSON.stringify(paraGravar(c))).join(',\n') + '\n]\n';
+}
+function exportarJSON(){
+  const txt = textoJSON();
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(new Blob([txt], {type:'application/json'}));
+  a.href = url; a.download = 'contratos.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+function avisoRascunho(){
+  const box = document.getElementById('avisoRascunho');
+  const n = contarRascunho();
+  if(!n){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="aviso aviso-amarelo">'
+    + '<b>'+n+(n>1 ? ' contratos alterados' : ' contrato alterado')+' só neste navegador.</b> '
+    + (FONTE_DADOS === 'firestore'
+        ? 'São rascunhos de antes de o banco ser ligado — não estão valendo para mais ninguém.'
+        : 'Enquanto o Firebase dos contratos não estiver ligado, a alteração não chega a mais ninguém: exporte e substitua <b>dados/contratos.json</b>.')
+    + '<button class="acao" onclick="exportarJSON()">Exportar JSON</button>'
+    + '<button class="acao" onclick="descartarRascunho()">Descartar</button>'
+    + '</div>';
+}
+/* O mesmo recado, dentro dos formulários — é lá que a pessoa aperta salvar. */
+function avisoGravacao(){
+  if(FONTE_DADOS === 'firestore') return '';
+  return '<div class="aviso aviso-amarelo">O Firebase dos contratos ainda não está ligado, então o que for salvo '
+    + 'aqui fica <b>guardado só neste navegador</b>. Para virar cadastro de verdade, use <b>Exportar JSON</b> '
+    + 'no aviso da tela e substitua o arquivo <b>dados/contratos.json</b>.</div>';
 }
 
 /* ══════════════ UTILIDADES ══════════════ */
@@ -652,6 +873,47 @@ function dias(s){ const d=parseD(s); return d===null ? null : Math.round((d-HOJE
 function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function isAtivo(c){ return c.situacao==='ATIVO' || c.situacao==='ATIVO-PARALIZADO'; }
 function fiscais(c){ return [...c.fiscalAdm, ...c.fiscalTec]; }
+let toastT = null;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* O valor e o vencimento que valem hoje são os do contrato somados ao que os
+   aditivos mudaram. Guardar o de origem em valorBase/vencimentoBase é o que
+   permite editar ou apagar um aditivo depois sem perder de onde se partiu —
+   e mantém uma única verdade para a lista, os filtros e os relatórios, que
+   continuam lendo c.valor e c.vencimento sem saber de aditivo nenhum. */
+function recalcularContrato(c){
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  if(!adits.length){
+    if(c.valorBase !== undefined){ c.valor = c.valorBase; delete c.valorBase; }
+    if(c.vencimentoBase !== undefined){ c.vencimento = c.vencimentoBase; delete c.vencimentoBase; }
+    return c;
+  }
+  if(c.valorBase === undefined) c.valorBase = c.valor;
+  if(c.vencimentoBase === undefined) c.vencimentoBase = c.vencimento;
+  const soma = adits.reduce((t,a) => t + (Number(a.valor) || 0), 0);
+  const base = Number(c.valorBase);
+  c.valor = (c.valorBase == null || isNaN(base)) ? (soma || null) : base + soma;
+  /* o prazo vigente é o do aditivo assinado mais recentemente que mexeu nele */
+  const comPrazo = adits.filter(a => a.vencNovo)
+    .sort((x,y) => String(x.data||'').localeCompare(String(y.data||'')));
+  c.vencimento = comPrazo.length ? comPrazo[comPrazo.length-1].vencNovo : c.vencimentoBase;
+  return c;
+}
+function somaAditivos(c){
+  return (Array.isArray(c.aditivos) ? c.aditivos : []).reduce((t,a) => t + (Number(a.valor)||0), 0);
+}
+function prepararContrato(c){
+  recalcularContrato(c);
+  c._d = dias(c.vencimento);
+  delete c._txt;                 /* a busca reindexa este contrato */
+  return c;
+}
 
 
 /* ══════════════ ESTADO ══════════════ */
@@ -1120,6 +1382,11 @@ function abrirDet(id){
   detAtual = c;
   document.getElementById('detTitle').textContent = `Contrato nº ${c.contr}/${c.ano}`;
   const row = (k,v)=> v ? `<div class="det-row"><div class="k">${k}</div><div class="v">${v}</div></div>` : '';
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  const detalheValor = adits.length
+    ? ` <span style="font-size:12.5px;color:var(--muted)">(contrato ${money(c.valorBase)} + aditivos ${money(somaAditivos(c))})</span>` : '';
+  const detalheVenc = adits.some(a=>a.vencNovo)
+    ? ` <span style="font-size:12.5px;color:var(--muted)">(original ${fmtD(c.vencimentoBase)}, alterado por aditivo)</span>` : '';
   document.getElementById('detBody').innerHTML =
     `<div style="display:flex;gap:8px;flex-wrap:wrap">${badgeSit(c)} ${badgeVenc(c)} <span class="badge badge-tipo">${esc(c.tipo)}</span></div>` +
     row('Empresa', '<b>'+esc(c.empresa)+'</b>') +
@@ -1127,15 +1394,219 @@ function abrirDet(id){
     row('Modalidade', esc(c.modalidade)) +
     row('Objeto', esc(c.objeto)) +
     '<hr class="det-hr">' +
-    row('Valor total (cont + adit)', '<b style="color:var(--navy);font-size:16px">'+money(c.valor)+'</b>') +
-    row('Vencimento', fmtD(c.vencimento) + (isAtivo(c)&&c._d!==null ? (c._d<0?` — <b style="color:var(--red)">vencido há ${-c._d} dias</b>`:` — faltam <b>${c._d} dias</b>`):'')) +
+    row('Valor total', '<b style="font-size:16px">'+money(c.valor)+'</b>'+detalheValor) +
+    row('Vencimento', fmtD(c.vencimento) + (isAtivo(c)&&c._d!==null ? (c._d<0?` — <b style="color:var(--red)">vencido há ${-c._d} dias</b>`:` — faltam <b>${c._d} dias</b>`):'') + detalheVenc) +
     row('Fiscal administrativo', esc(c.fiscalAdm.join(', '))) +
     row('Fiscal técnico', esc(c.fiscalTec.join(', '))) +
     row('Palavra-chave', esc(c.palavra)) +
-    (c.obs ? '<hr class="det-hr">'+row('⚠️ Observações', '<b style="color:var(--amber)">'+esc(c.obs)+'</b>') : '');
+    (c.obs ? '<hr class="det-hr">'+row('⚠️ Observações', '<b style="color:var(--amber)">'+esc(c.obs)+'</b>') : '') +
+    aditivosHTML(c);
   document.getElementById('ovDet').classList.add('open');
 }
+/* Os aditivos ficam na própria ficha: cada um abre para edição no clique. */
+function aditivosHTML(c){
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  let miolo;
+  if(!adits.length){
+    miolo = '<div class="adit-vazio">Nenhum aditivo registrado. Use <b>＋ Aditivo</b> aqui embaixo.</div>';
+  } else {
+    miolo = '<div class="adit-lista">' + adits.map((a,i) => {
+      const info = [];
+      if(a.data) info.push('assinado em '+fmtD(a.data));
+      if(a.vencNovo) info.push('novo vencimento <b>'+fmtD(a.vencNovo)+'</b>');
+      if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'supressão')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
+      return '<button class="adit" onclick="abrirAdit('+i+')">'
+        + '<div class="adit-topo"><span class="adit-n">Aditivo '+(a.n ? 'nº '+esc(a.n) : (i+1))+'</span>'
+        + '<span class="badge badge-tipo">'+esc(a.tipo||'OUTRO')+'</span></div>'
+        + (info.length ? '<div class="adit-info">'+info.join(' · ')+'</div>' : '')
+        + (a.obs ? '<div class="adit-obs">'+esc(a.obs)+'</div>' : '')
+        + '</button>';
+    }).join('') + '</div>';
+  }
+  return '<hr class="det-hr"><div class="det-row"><div class="k">Aditivos ('+adits.length+')</div><div class="v">'+miolo+'</div></div>';
+}
 function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
+
+/* ══════════════ CADASTRO E EDIÇÃO DE CONTRATO ══════════════ */
+let formId = null;                       /* null = contrato novo */
+function novoContrato(){ abrirForm(null); }
+function editarContrato(){ if(detAtual) abrirForm(detAtual.id); }
+function fecharForm(){ document.getElementById('ovForm').classList.remove('open'); }
+function proximoId(){ return CONTRATOS.reduce((m,c) => Math.max(m, Number(c.id)||0), 0) + 1; }
+function lerLista(txt){ return String(txt||'').split(',').map(s => s.trim()).filter(Boolean); }
+function valCampo(id){ return document.getElementById(id).value.trim(); }
+function numCampo(id){ const s = valCampo(id); return s === '' ? null : Number(s); }
+
+function abrirForm(id){
+  formId = id;
+  const c = id != null ? CONTRATOS.find(x => x.id === id) : null;
+  const adits = (c && Array.isArray(c.aditivos)) ? c.aditivos : [];
+  document.getElementById('formTitulo').textContent = c ? `Editar contrato nº ${c.contr}/${c.ano}` : 'Novo contrato';
+  const set = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  set('fcContr', c && c.contr);
+  set('fcAno', c ? c.ano : new Date().getFullYear());
+  set('fcModalidade', c && c.modalidade);
+  set('fcEmpresa', c && c.empresa);
+  set('fcObjeto', c && c.objeto);
+  set('fcTipo', c && c.tipo);
+  set('fcPalavra', c && c.palavra);
+  set('fcObs', c && c.obs);
+  document.getElementById('fcSituacao').value = (c && c.situacao) || 'ATIVO';
+  set('fcSecretarias', c ? (c.secretarias||[]).join(', ') : '');
+  set('fcFiscalAdm', c ? (c.fiscalAdm||[]).join(', ') : '');
+  set('fcFiscalTec', c ? (c.fiscalTec||[]).join(', ') : '');
+  /* com aditivos, o que se edita aqui é o de ORIGEM: o vigente é conta */
+  set('fcVencimento', c ? (adits.length ? c.vencimentoBase : c.vencimento) : '');
+  set('fcValor', c ? (adits.length ? c.valorBase : c.valor) : '');
+  document.getElementById('fcLabelVenc').textContent  = adits.length ? 'Vencimento original' : 'Vencimento';
+  document.getElementById('fcLabelValor').textContent = adits.length ? 'Valor original (R$)' : 'Valor (R$)';
+  const nota = document.getElementById('fcNota');
+  nota.style.display = adits.length ? '' : 'none';
+  if(adits.length) nota.innerHTML = 'Este contrato tem <b>'+adits.length+' aditivo(s)</b>. Aqui se edita o valor e o '
+    + 'prazo de origem — o que a lista mostra é o resultado com os aditivos somados: hoje <b>'+fmtD(c.vencimento)
+    + '</b> e <b>'+money(c.valor)+'</b>.';
+  document.getElementById('formAviso').innerHTML = avisoGravacao();
+  document.getElementById('ovForm').classList.add('open');
+  setTimeout(() => document.getElementById(c ? 'fcEmpresa' : 'fcContr').focus(), 60);
+}
+function salvarForm(){
+  const contr = numCampo('fcContr'), ano = numCampo('fcAno');
+  if(!contr || !ano){ alert('Informe o número e o ano do contrato.'); return; }
+  if(!valCampo('fcEmpresa')){ alert('Informe a empresa.'); return; }
+  const repetido = CONTRATOS.find(x => x.contr === contr && x.ano === ano && x.id !== formId);
+  if(repetido && !confirm('Já existe o contrato nº '+contr+'/'+ano+' ('+repetido.empresa+').\nCadastrar assim mesmo?')) return;
+  const base = formId != null ? CONTRATOS.find(x => x.id === formId) : {id: proximoId()};
+  const c = Object.assign({}, base, {
+    contr: contr, ano: ano,
+    modalidade: valCampo('fcModalidade').toUpperCase(),
+    empresa:    valCampo('fcEmpresa').toUpperCase(),
+    objeto:     valCampo('fcObjeto'),
+    tipo:       valCampo('fcTipo').toUpperCase(),
+    situacao:   document.getElementById('fcSituacao').value,
+    palavra:    valCampo('fcPalavra').toUpperCase(),
+    obs:        valCampo('fcObs'),
+    secretarias: lerLista(valCampo('fcSecretarias')).map(s => s.toUpperCase()),
+    fiscalAdm:   lerLista(valCampo('fcFiscalAdm')),
+    fiscalTec:   lerLista(valCampo('fcFiscalTec'))
+  });
+  if(Array.isArray(c.aditivos) && c.aditivos.length){
+    c.vencimentoBase = valCampo('fcVencimento') || null;
+    c.valorBase = numCampo('fcValor');
+  } else {
+    c.vencimento = valCampo('fcVencimento') || null;
+    c.valor = numCampo('fcValor');
+  }
+  gravar(c, formId == null ? 'Contrato cadastrado.' : 'Contrato atualizado.');
+}
+/* Grava, encaixa o contrato na lista em memória e redesenha a tela. */
+function gravar(c, msg){
+  prepararContrato(c);
+  return salvarContrato(c).then(() => {
+    const i = CONTRATOS.findIndex(x => x.id === c.id);
+    if(i >= 0) CONTRATOS[i] = c; else CONTRATOS.push(c);
+    fecharForm(); fecharAdit();
+    avisoRascunho(); marcarFonte(); popularDatalists(); aplicarFiltros();
+    if(document.getElementById('ovDet').classList.contains('open')) abrirDet(c.id);
+    toast(msg);
+  }).catch(e => alert('Não consegui salvar: '+e.message));
+}
+/* Sugestões dos campos: o que já existe no cadastro, para não nascer
+   "SMMA" e "S.M.M.A." como se fossem secretarias diferentes. */
+function popularDatalists(){
+  const emp = new Set(), tip = new Set(), sec = new Set(), fis = new Set(), pal = new Set();
+  CONTRATOS.forEach(c => {
+    if(c.empresa) emp.add(c.empresa);
+    if(c.tipo) tip.add(c.tipo);
+    if(c.palavra) pal.add(c.palavra);
+    (c.secretarias||[]).forEach(s => sec.add(s));
+    fiscais(c).forEach(f => fis.add(f));
+  });
+  const enche = (id, valores) => {
+    document.getElementById(id).innerHTML = [...valores]
+      .sort((a,b) => String(a).localeCompare(String(b), 'pt-BR'))
+      .map(v => '<option value="'+esc(v)+'"></option>').join('');
+  };
+  enche('listaEmpresas', emp); enche('listaTipos', tip); enche('listaSecs', sec);
+  enche('listaFiscais', fis);  enche('listaPalavras', pal);
+}
+
+/* ══════════════ ADITIVOS ══════════════ */
+let aditIdx = null;                      /* posição do aditivo em edição; null = novo */
+function fecharAdit(){ document.getElementById('ovAdit').classList.remove('open'); }
+function novoAditivo(){ if(detAtual) abrirAdit(null); }
+function proximoNumeroAditivo(c){
+  const ns = (c.aditivos||[]).map(a => parseInt(a.n, 10)).filter(n => !isNaN(n));
+  return String(ns.length ? Math.max.apply(null, ns) + 1 : 1);
+}
+function abrirAdit(i){
+  if(!detAtual) return;
+  aditIdx = i;
+  const a = (i != null && Array.isArray(detAtual.aditivos)) ? detAtual.aditivos[i] : null;
+  document.getElementById('aditTitulo').textContent =
+    (a ? 'Aditivo'+(a.n ? ' nº '+a.n : '') : 'Novo aditivo') + ' — contrato nº '+detAtual.contr+'/'+detAtual.ano;
+  const set = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  set('faN', a ? a.n : proximoNumeroAditivo(detAtual));
+  document.getElementById('faTipo').value = (a && a.tipo) || 'PRAZO';
+  set('faData', a && a.data);
+  set('faVenc', a && a.vencNovo);
+  set('faValor', a && a.valor);
+  set('faObs', a && a.obs);
+  document.getElementById('faExcluir').style.display = a ? '' : 'none';
+  document.getElementById('aditAviso').innerHTML = avisoGravacao();
+  aditNota();
+  document.getElementById('ovAdit').classList.add('open');
+}
+function lerAditivoDoForm(){
+  return {
+    n: valCampo('faN'),
+    tipo: document.getElementById('faTipo').value,
+    data: valCampo('faData') || null,
+    vencNovo: valCampo('faVenc') || null,
+    valor: numCampo('faValor'),
+    obs: valCampo('faObs')
+  };
+}
+/* Copia o contrato, aplica o aditivo que está no formulário e recalcula, sem
+   tocar no original — é assim que a nota diz a verdade antes de salvar. */
+function simularAditivo(){
+  const c = JSON.parse(JSON.stringify(paraGravar(detAtual)));
+  c.aditivos = Array.isArray(c.aditivos) ? c.aditivos : [];
+  if(aditIdx != null) c.aditivos[aditIdx] = lerAditivoDoForm();
+  else c.aditivos.push(lerAditivoDoForm());
+  return recalcularContrato(c);
+}
+function aditNota(){
+  if(!detAtual) return;
+  const s = simularAditivo(), partes = [];
+  if(s.vencimento !== detAtual.vencimento)
+    partes.push('o vencimento passa de <b>'+fmtD(detAtual.vencimento)+'</b> para <b>'+fmtD(s.vencimento)+'</b>');
+  if(Number(s.valor||0) !== Number(detAtual.valor||0))
+    partes.push('o valor passa de <b>'+money(detAtual.valor)+'</b> para <b>'+money(s.valor)+'</b>');
+  document.getElementById('faNota').innerHTML = partes.length
+    ? 'Ao salvar: '+partes.join(' e ')+'.'
+    : 'Fica registrado no histórico do contrato, sem mexer no prazo nem no valor.';
+}
+function salvarAdit(){
+  if(!detAtual) return;
+  const a = lerAditivoDoForm();
+  if(!a.data && !a.vencNovo && a.valor == null && !a.obs){
+    alert('Preencha ao menos a data, o novo vencimento, o valor ou uma observação.');
+    return;
+  }
+  const c = Object.assign({}, detAtual);
+  c.aditivos = (Array.isArray(detAtual.aditivos) ? detAtual.aditivos : []).slice();
+  if(aditIdx != null) c.aditivos[aditIdx] = a; else c.aditivos.push(a);
+  gravar(c, aditIdx != null ? 'Aditivo atualizado.' : 'Aditivo cadastrado.');
+}
+function excluirAditivo(){
+  if(!detAtual || aditIdx == null) return;
+  const a = detAtual.aditivos[aditIdx];
+  if(!confirm('Excluir o aditivo'+(a.n ? ' nº '+a.n : '')+'?\nO prazo e o valor do contrato voltam ao que eram sem ele.')) return;
+  const c = Object.assign({}, detAtual);
+  c.aditivos = detAtual.aditivos.slice();
+  c.aditivos.splice(aditIdx, 1);
+  gravar(c, 'Aditivo excluído.');
+}
 
 /* ══════════════ RELATÓRIOS PDF (jsPDF) ══════════════ */
 let repScope = 'filtro';
@@ -1427,12 +1898,23 @@ function pdfContratoAtual(){
   item('Modalidade', c.modalidade);
   item('Tipo de contrato', c.tipo);
   item('Objeto', c.objeto);
-  item('Valor total (contrato + aditivos)', money(c.valor));
-  item('Vencimento', fmtD(c.vencimento));
+  const aditsPdf = Array.isArray(c.aditivos) ? c.aditivos : [];
+  item('Valor total', money(c.valor) + (aditsPdf.length ? '  (contrato '+money(c.valorBase)+' + aditivos '+money(somaAditivos(c))+')' : ''));
+  item('Vencimento', fmtD(c.vencimento) + (aditsPdf.some(a=>a.vencNovo) ? '  (original '+fmtD(c.vencimentoBase)+', alterado por aditivo)' : ''));
   item('Fiscal administrativo', c.fiscalAdm.join(', '));
   item('Fiscal técnico', c.fiscalTec.join(', '));
   item('Palavra-chave', c.palavra);
   item('Observações', c.obs);
+  if(aditsPdf.length){
+    item('Aditivos', aditsPdf.map((a,i) => {
+      const p = ['Aditivo '+(a.n ? 'nº '+a.n : (i+1))];
+      if(a.tipo) p.push(a.tipo.toLowerCase());
+      if(a.data) p.push('assinado em '+fmtD(a.data));
+      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
+      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'supressão')+' de '+money(Math.abs(Number(a.valor))));
+      return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
+    }).join('\n'));
+  }
   doc.setDrawColor(200,208,225); doc.line(L,287,W-15,287);
   doc.setFontSize(7.5); doc.setTextColor(120,130,155);
   doc.text('Emitido em ' + new Date().toLocaleString('pt-BR') + ' · Sistema de Gestão de Contratos (protótipo)', L, 292);
@@ -1443,10 +1925,14 @@ function pdfContratoAtual(){
 document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
   if(popCol){ fecharPop(); return; }        /* Esc fecha primeiro o menu da coluna */
+  /* de dentro para fora: aditivo, formulário, e só então a ficha */
+  const ovAdit=document.getElementById('ovAdit'), ovForm=document.getElementById('ovForm');
+  if(ovAdit.classList.contains('open')){ fecharAdit(); return; }
+  if(ovForm.classList.contains('open')){ fecharForm(); return; }
   fecharDet(); fecharRep(); fecharFiltrosMobile();
 });
 /* fecha os modais com o botão voltar do celular */
-window.addEventListener('popstate', ()=>{ fecharPop(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
+window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharForm(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
 
 /* A tarja do cabeçalho diz de onde vieram os dados — sem ela não dá para
    saber, olhando a tela, se o Firestore respondeu ou se caiu no arquivo. */
@@ -1458,8 +1944,10 @@ function marcarFonte(){
 }
 
 function iniciar(){
-  CONTRATOS.forEach(c => { c._d = dias(c.vencimento); });   /* pré-processa datas */
+  CONTRATOS.forEach(prepararContrato);   /* datas, aditivos somados, índice da busca */
   marcarFonte();
+  avisoRascunho();
+  popularDatalists();
   initFiltros();
   aplicarFiltros();
   /* A busca fica sempre à vista, também no celular: procurar é o motivo de a
