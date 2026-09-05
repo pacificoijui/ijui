@@ -1,9 +1,14 @@
 # Backup do sistema
 
-O banco do sistema é o Firestore do projeto `processos-ijui`. Todo dia às **03:00
-da manhã (horário de Brasília)** o GitHub roda sozinho o workflow
-[`backup-firestore.yml`](../workflows/backup-firestore.yml), que baixa as 12
-coleções e guarda o resultado.
+O banco do sistema é o Firestore do projeto `processos-ijui`. Todo dia o GitHub
+roda sozinho o workflow [`backup-firestore.yml`](../workflows/backup-firestore.yml),
+que baixa as 12 coleções e guarda o resultado.
+
+O agendamento é para as **03:00 da manhã (horário de Brasília)**, mas o GitHub
+atrasa execuções agendadas quando os runners estão concorridos: na prática as
+últimas rodaram entre 07:50 e 10:00. Não há o que ajustar — é assim que o cron
+do Actions funciona, e o que importa é rodar uma vez por dia, longe do horário
+de expediente.
 
 ## Onde está o backup de hoje
 
