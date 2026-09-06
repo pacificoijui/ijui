@@ -9,6 +9,14 @@
 // Este arquivo é a fonte da verdade do que as regras DEVERIAM ser — não é
 // aplicado automaticamente (não há deploy por CI aqui, só o console mesmo).
 // Se editar este arquivo, publique a mudança no console também.
+//
+// "impugnacoes", "ferias", "reequilibrios" e "reequilibrio_tramites"
+// existiam nas regras antigas (abertas, se não fosse pra tirar não faria
+// diferença) mas não são lidas nem escritas por nenhum código atual do
+// site — busca no repositório inteiro não achou nenhuma referência. Ficam
+// de fora de propósito: sem regra nenhuma, uma coleção fica fechada por
+// padrão, que é o comportamento certo pra dado que ninguém mais acessa. Se
+// algum dia alguma delas voltar a ser usada, é só adicionar aqui.
 
 rules_version = '2';
 service cloud.firestore {
