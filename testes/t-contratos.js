@@ -215,6 +215,46 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e ainda oferece o ano do vencimento em outro grupo',
     prazo.grupos.join('|')==='Prazo|Ano do vencimento', prazo.grupos);
 
+  console.log('\n3d) Fiscal Administrativo e Fiscal Técnico são grupos separados no mesmo menu');
+  /* pega a opção pelo NOME dentro de um grupo específico — os dois grupos
+     podem ter a mesma pessoa (ex.: alguém que já foi fiscal dos dois tipos),
+     então procurar em todas as opções sem saber o grupo pegaria a errada */
+  const marcarNoGrupo = (indiceGrupo, nome) => pg.evaluate(([i,n])=>{
+    const grupos=[...document.querySelectorAll('#popLista .pop-grupo')];
+    let el=grupos[i].nextElementSibling; const ops=[];
+    while(el && !el.classList.contains('pop-grupo')){ if(el.classList.contains('pop-op') && !el.classList.contains('todos')) ops.push(el); el=el.nextElementSibling; }
+    const alvo=ops.find(o=>o.querySelector('.op-txt').textContent===n);
+    if(!alvo) return {achou:false, opcoes:ops.map(o=>o.querySelector('.op-txt').textContent)};
+    alvo.querySelector('input').click();
+    return {achou:true, n:filtrados.length, botao:document.querySelector('.cf[data-col="fis"] .cf-txt').textContent};
+  }, [indiceGrupo, nome]);
+
+  const menuFiscal=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros();
+    document.querySelector('.cf[data-col="fis"]').click();
+    return {titulo:document.getElementById('popTit').textContent,
+            grupos:[...document.querySelectorAll('#popLista .pop-grupo')].map(g=>g.textContent)};
+  });
+  t('o menu continua único ("Fiscais"), com dois grupos dentro', menuFiscal.titulo==='Fiscais', menuFiscal.titulo);
+  t('um grupo para Fiscal Administrativo e outro para Fiscal Técnico',
+    menuFiscal.grupos.join('|')==='Fiscal Administrativo|Fiscal Técnico', menuFiscal.grupos);
+
+  const soAdm=await marcarNoGrupo(0,'Erlon');
+  const confereAdm=await pg.evaluate(()=>filtrados.every(c=>c.fiscalAdm.includes('Erlon')));
+  t('marcar "Erlon" no grupo Administrativo filtra só quem tem ele como fiscal ADMINISTRATIVO',
+    soAdm.achou && soAdm.n>0 && confereAdm, {soAdm, confereAdm});
+  t('não filtra por quem tem "Erlon" só como fiscal técnico',
+    !(await pg.evaluate(()=>filtrados.some(c=>!c.fiscalAdm.includes('Erlon') && c.fiscalTec.includes('Erlon'))))
+  );
+
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); document.querySelector('.cf[data-col="fis"]').click(); });
+  const soTec=await marcarNoGrupo(1,'Erlon');
+  const confereTec=await pg.evaluate(()=>filtrados.every(c=>c.fiscalTec.includes('Erlon')));
+  t('marcar "Erlon" no grupo Técnico filtra só quem tem ele como fiscal TÉCNICO',
+    soTec.achou && soTec.n>0 && confereTec, {soTec, confereTec});
+  t('e é um resultado diferente do filtro por Administrativo (são papéis distintos)',
+    soTec.n!==soAdm.n, {administrativo:soAdm.n, tecnico:soTec.n});
+
   const contagemViva=await pg.evaluate(()=>{
     fecharPop(); limparFiltros();
     document.querySelector('.cf[data-col="tipo"]').click();
