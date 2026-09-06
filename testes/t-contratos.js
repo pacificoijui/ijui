@@ -106,9 +106,30 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('todas as colunas têm o próprio menu de filtro',
     forma.filtrosColuna.join('|')==='num|emp|obj|sec|tipo|fis|sit|venc|valor', forma.filtrosColuna);
 
-  console.log('\n3) A busca única procura em qualquer informação');
-  const ativos=await pg.evaluate(()=>filtrados.length);
-  t('a tela abre nos 436 contratos que ainda valem', ativos===436, ativos);
+  console.log('\n3) Ao abrir, mostra o que precisa de atenção agora: ativo, vencendo em 30 dias, mais próximo primeiro');
+  const padraoAbertura=await pg.evaluate(()=>{
+    const esperado=CONTRATOS.filter(c=>c.situacao==='ATIVO' && c._d!==null && c._d>=0 && c._d<=30);
+    const vencimentosNaTela=filtrados.map(c=>c.vencimento);
+    const ordenado=vencimentosNaTela.every((v,i)=>i===0||v>=vencimentosNaTela[i-1]);
+    return {
+      n:filtrados.length, esperado:esperado.length,
+      todosAtivos:filtrados.every(c=>c.situacao==='ATIVO'),
+      todosDentroDe30d:filtrados.every(c=>c._d!==null && c._d>=0 && c._d<=30),
+      ordenadoPorVencimento:ordenado,
+      chips:document.getElementById('chipsAtivos').textContent.trim(),
+      sort:F.sort
+    };
+  });
+  t('mostra exatamente os contratos ativos vencendo em até 30 dias',
+    padraoAbertura.n===padraoAbertura.esperado && padraoAbertura.todosAtivos && padraoAbertura.todosDentroDe30d, padraoAbertura);
+  t('do vencimento mais próximo pro mais distante', padraoAbertura.sort==='venc-asc' && padraoAbertura.ordenadoPorVencimento, padraoAbertura);
+  t('e os dois filtros aparecem como chip, pra ficar claro que a tela não está mostrando tudo',
+    /Situação: ATIVO/.test(padraoAbertura.chips) && /Prazo: Vence em até 30 dias/.test(padraoAbertura.chips), padraoAbertura.chips);
+  const N_PADRAO = padraoAbertura.esperado;   /* quantos contratos o padrão de abertura traz hoje */
+
+  console.log('\n4) A busca única procura em qualquer informação (sem os filtros do padrão de abertura atrapalhando)');
+  const ativos=await pg.evaluate(()=>{ limparColuna('sit'); limparColuna('venc'); return filtrados.length; });
+  t('sem filtro de situação nem de prazo, mostra os 1264 contratos', ativos===1264, ativos);
 
   const buscar = termo => pg.evaluate(async q=>{
     document.getElementById('fBusca').value=q;
@@ -132,7 +153,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('termo sem resultado não quebra a tela', bNada.n===0, bNada.n);
 
   const todos=await pg.evaluate(()=>{ limparFiltros(); return {n:filtrados.length, busca:document.getElementById('fBusca').value}; });
-  t('limpar os filtros zera a busca e volta aos ativos', todos.n===436 && todos.busca==='', todos);
+  t('limpar os filtros zera a busca e volta ao padrão de abertura', todos.n===N_PADRAO && todos.busca==='', {todos, N_PADRAO});
 
   console.log('\n3b) Menu da coluna: as opções para marcar, como numa planilha');
   const abrir = col => pg.evaluate(c=>{
@@ -151,7 +172,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('as opções são os tipos que existem', mTipo.opcoes.includes('OBRA') && mTipo.opcoes.includes('SERVIÇO'), mTipo.opcoes);
   t('cada opção mostra quantos contratos traz', mTipo.contagens.every(n=>n>0), mTipo.contagens);
   t('a soma das contagens fecha com a tela',
-    mTipo.contagens.reduce((a,x)=>a+x,0)===436, mTipo.contagens);
+    mTipo.contagens.reduce((a,x)=>a+x,0)===N_PADRAO, {contagens:mTipo.contagens, N_PADRAO});
 
   const marcar = (col, valor) => pg.evaluate(([c,v])=>{
     document.querySelector('.cf[data-col="'+c+'"]').click();          /* garante aberto */
@@ -163,7 +184,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             chips:document.getElementById('chipsAtivos').textContent.trim()};
   }, [col, valor]);
 
-  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc'); });
   const soObra=await marcar('tipo','OBRA');
   const conferObra=await pg.evaluate(()=>filtrados.every(c=>c.tipo==='OBRA'));
   t('marcar OBRA deixa só as obras', soObra.n>0 && conferObra, soObra);
@@ -171,7 +192,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a escolha vira chip', /Tipo: OBRA/.test(soObra.chips), soObra.chips);
 
   const duasSecs=await pg.evaluate(()=>{
-    fecharPop(); limparFiltros();
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="sec"]').click();
     ['SMMA','SMED'].forEach(s=>{
       [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
@@ -184,7 +205,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('o botão resume quantas foram marcadas', duasSecs.botao==='2 opções', duasSecs.botao);
 
   const digitado=await pg.evaluate(()=>{
-    fecharPop(); limparFiltros();
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="obj"]').click();
     document.getElementById('popBusca').value='pavimenta';
     popDigitou();
@@ -195,7 +216,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('o texto digitado também vira chip', /Objeto: pavimenta/.test(digitado.chips), digitado.chips);
 
   const faixa=await pg.evaluate(()=>{
-    fecharPop(); limparFiltros();
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="valor"]').click();
     [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
       .find(o=>/Acima de R\$ 5/.test(o.querySelector('.op-txt').textContent)).querySelector('input').click();
@@ -204,7 +225,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('Valor filtra por faixa, não por texto', faixa.n>0 && faixa.todas, faixa);
 
   const prazo=await pg.evaluate(()=>{
-    fecharPop(); limparFiltros();
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="venc"]').click();
     [...document.querySelectorAll('#popLista .pop-op:not(.todos)')]
       .find(o=>o.querySelector('.op-txt').textContent==='Vencidos').querySelector('input').click();
@@ -230,7 +251,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }, [indiceGrupo, nome]);
 
   const menuFiscal=await pg.evaluate(()=>{
-    fecharPop(); limparFiltros();
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="fis"]').click();
     return {titulo:document.getElementById('popTit').textContent,
             grupos:[...document.querySelectorAll('#popLista .pop-grupo')].map(g=>g.textContent)};
@@ -247,7 +268,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     !(await pg.evaluate(()=>filtrados.some(c=>!c.fiscalAdm.includes('Erlon') && c.fiscalTec.includes('Erlon'))))
   );
 
-  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); document.querySelector('.cf[data-col="fis"]').click(); });
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc'); document.querySelector('.cf[data-col="fis"]').click(); });
   const soTec=await marcarNoGrupo(1,'Erlon');
   const confereTec=await pg.evaluate(()=>filtrados.every(c=>c.fiscalTec.includes('Erlon')));
   t('marcar "Erlon" no grupo Técnico filtra só quem tem ele como fiscal TÉCNICO',
@@ -256,7 +277,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     soTec.n!==soAdm.n, {administrativo:soAdm.n, tecnico:soTec.n});
 
   const contagemViva=await pg.evaluate(()=>{
-    fecharPop(); limparFiltros();
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="tipo"]').click();
     const antes=[...document.querySelectorAll('#popLista .pop-op:not(.todos) .op-n')].map(o=>+o.textContent);
     fecharPop();
@@ -276,9 +297,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     return {acesos:[...document.querySelectorAll('.cf')].filter(b=>b.classList.contains('ativo')).map(b=>b.dataset.col),
             n:filtrados.length, chips:document.getElementById('chipsAtivos').textContent.trim()};
   });
-  t('limpar filtros apaga os menus de coluna', limpou.acesos.join('|')==='sit', limpou);
-  t('e volta aos 436 (a situação padrão continua marcada)', limpou.n===436, limpou);
-  t('o chip que sobra é o da situação padrão', /Situação/.test(limpou.chips), limpou.chips);
+  t('limpar filtros apaga os outros menus de coluna, mantendo só o padrão de abertura',
+    limpou.acesos.join('|')==='sit|venc', limpou);
+  t('e volta ao padrão de abertura (ativo, vencendo em 30 dias)', limpou.n===N_PADRAO, {limpou, N_PADRAO});
+  t('os chips que sobram são os do padrão (Situação e Prazo)',
+    /Situação/.test(limpou.chips) && /Prazo/.test(limpou.chips), limpou.chips);
 
   console.log('\n3c) Ordenação pelo cabeçalho e pelo menu');
   const clique = campo => pg.evaluate(c=>{
@@ -311,7 +334,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   });
   t('o menu da coluna também ordena', ordMenu.sort==='valor-desc' && ordMenu.p>=ordMenu.s, ordMenu);
   t('e mostra qual ordem está valendo', ordMenu.on && /ord-desc/.test(ordMenu.seta), ordMenu);
-  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc'); });
 
   console.log('\n4) A ficha do contrato abre pelo id numérico');
   const ficha=await pg.evaluate(()=>{
@@ -387,7 +410,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a folha de filtros abre com as 9 colunas',
     folha.aberta && folha.colunas.join('|')==='num|emp|obj|sec|tipo|fis|sit|venc|valor', folha);
   t('e traz a ordenação junto', folha.temOrdem, folha);
-  t('o botão de fechar diz quantos contratos ficaram', /Ver 436 contratos/.test(folha.ver), folha.ver);
+  const nPadraoCel=await cel.evaluate(()=>filtrados.length);
+  t('o botão de fechar diz quantos contratos ficaram', folha.ver==='Ver '+nPadraoCel+' contratos', {folha:folha.ver, nPadraoCel});
 
   const menuCel=await cel.evaluate(()=>{
     document.querySelector('.fm-linha[data-col="tipo"]').click();

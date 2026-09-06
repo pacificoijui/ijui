@@ -225,11 +225,15 @@
   .n-mod { display: block; font-size: 10.5px; color: #000; line-height: 1.3; margin-top: 1px; }
   .c-emp { width: 13%; font-weight: 600; word-break: break-word; }
   .c-obj { width: 38%; word-break: break-word; }
-  .c-sec { width: 6%; word-break: break-word; }
+  .c-sec { width: 8%; word-break: break-word; }
   .c-tipo { width: 6%; }
   .c-fis { width: 7%; word-break: break-word; }
   .c-sit { width: 5%; white-space: nowrap; }
-  .c-venc { width: 8%; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* Estreita e deixa quebrar em duas linhas — "VENCIDO há 3399d" numa,
+     a data na outra — em vez de forçar a linha inteira numa largura só
+     e empurrar o resto da tabela pro lado. */
+  .c-venc { width: 4%; font-variant-numeric: tabular-nums; }
+  .c-venc .badge { white-space: normal; text-align: center; line-height: 1.35; }
   /* O valor é o número que se compara entre contratos — é o destaque da linha */
   .c-valor { width: 7%; text-align: right; white-space: nowrap; font-size: 13.5px; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
   .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
@@ -1030,8 +1034,11 @@ function initFiltros(){
     COLF[col] = {txt:'', sel:{}};
     (FACETAS[col] || []).forEach(g => { COLF[col].sel[g.k] = new Set(); });
   });
-  /* A tela abre nos contratos que ainda valem — inativo é histórico. */
-  COLF.sit.sel.sit = new Set(['ATIVO','ATIVO-PARALIZADO']);
+  /* A tela abre no que precisa de atenção agora: contrato ativo (não
+     paralisado, não histórico) e vencendo nos próximos 30 dias, do mais
+     próximo pro mais distante — é o que alguém abre a tela pra ver. */
+  COLF.sit.sel.sit = new Set(['ATIVO']);
+  COLF.venc.sel.prazo = new Set(['Vence em até 30 dias']);
 }
 
 /* ══════════════ FILTRAGEM ══════════════ */
@@ -1113,6 +1120,8 @@ function limparBusca(){
 function limparFiltros(){
   document.getElementById('fBusca').value = '';
   initFiltros();
+  F.sort = 'venc-asc';
+  document.getElementById('fSort').value = 'venc-asc';
   aplicarFiltros();
   if(popCol) renderPop();
   if(sheetAberta()) renderFiltrosMobile();
@@ -1333,9 +1342,12 @@ function badgeVenc(c){
   const d=c._d;
   if(d===null) return '<span class="badge badge-venc bv-gray">Sem data</span>';
   if(!isAtivo(c)) return `<span class="badge badge-venc bv-gray">📅 ${fmtD(c.vencimento)}</span>`;
-  if(d<0) return `<span class="badge badge-venc bv-red">⚠️ VENCIDO há ${-d}d · ${fmtD(c.vencimento)}</span>`;
-  if(d<=30) return `<span class="badge badge-venc bv-red">⏰ Vence em ${d}d · ${fmtD(c.vencimento)}</span>`;
-  if(d<=90) return `<span class="badge badge-venc bv-amber">⏰ Vence em ${d}d · ${fmtD(c.vencimento)}</span>`;
+  /* <br> em vez de " · ": com a coluna estreita, a quebra é sempre no
+     mesmo lugar (o texto numa linha, a data na outra), em vez do
+     navegador escolher um espaço qualquer pra quebrar. */
+  if(d<0) return `<span class="badge badge-venc bv-red">⚠️ VENCIDO há ${-d}d<br>${fmtD(c.vencimento)}</span>`;
+  if(d<=30) return `<span class="badge badge-venc bv-red">⏰ Vence em ${d}d<br>${fmtD(c.vencimento)}</span>`;
+  if(d<=90) return `<span class="badge badge-venc bv-amber">⏰ Vence em ${d}d<br>${fmtD(c.vencimento)}</span>`;
   return `<span class="badge badge-venc bv-green">📅 ${fmtD(c.vencimento)}</span>`;
 }
 function linhaHTML(c){
