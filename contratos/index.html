@@ -228,6 +228,9 @@
   .c-sec { width: 8%; word-break: break-word; }
   .c-tipo { width: 6%; }
   .c-fis { width: 7%; word-break: break-word; }
+  .fis-linha { display: block; }
+  .fis-linha + .fis-linha { margin-top: 3px; }
+  .fis-rot { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
   .c-sit { width: 5%; white-space: nowrap; }
   /* Estreita e deixa quebrar em duas linhas — "VENCIDO há 3399d" numa,
      a data na outra — em vez de forçar a linha inteira numa largura só
@@ -402,7 +405,6 @@
     .tab .c-sec { order: 6; flex: 0 0 100%; margin-top: 9px; font-size: 11px; }
     .tab .c-sec::before { content: "secretaria "; }
     .tab .c-fis { order: 7; flex: 0 0 100%; font-size: 11px; }
-    .tab .c-fis::before { content: "fiscais "; }
     .tab .c-num { order: 8; flex: 1 1 auto; margin-top: 8px; font-size: 11px; }
     .tab .c-num .n-num, .tab .c-num .n-mod { display: inline; font-size: 11px; }
     .tab .c-num .n-num { color: var(--navy); }
@@ -1350,20 +1352,31 @@ function badgeVenc(c){
   if(d<=90) return `<span class="badge badge-venc bv-amber">⏰ Vence em ${d}d<br>${fmtD(c.vencimento)}</span>`;
   return `<span class="badge badge-venc bv-green">📅 ${fmtD(c.vencimento)}</span>`;
 }
+/* Uma linha por papel — "Adm" e "Téc" — em vez de misturar os nomes numa
+   lista só. Mesma largura de coluna de sempre; só o conteúdo passa a dizer
+   quem é quem, do mesmo jeito que Contrato já mostra número numa linha e
+   modalidade na outra. */
+function fiscaisCelulaHTML(c){
+  const linha = (rotulo, nomes) => {
+    if(!nomes.length) return '';
+    const txt = nomes.slice(0,2).join(', ') + (nomes.length>2 ? ' +'+(nomes.length-2) : '');
+    return `<span class="fis-linha"><span class="fis-rot">${rotulo}</span> ${esc(txt)}</span>`;
+  };
+  return linha('Adm', c.fiscalAdm) + linha('Téc', c.fiscalTec);
+}
 function linhaHTML(c){
   /* Célula sem conteúdo não leva rótulo: no celular os rótulos viram texto
      visível (::before), e um "fiscais" solto sem nome seria ruído. */
   const cel = (classe, valor, rotulo) => valor
     ? `<td class="${classe}" data-label="${rotulo}">${valor}</td>`
     : `<td class="${classe} vazia"></td>`;
-  const fis = fiscais(c);
   return `<tr onclick="abrirDet(${c.id})">
     <td class="c-num"><span class="n-num">Nº ${esc(c.contr)}/${esc(c.ano)}</span>${c.modalidade?`<span class="n-mod">${esc(c.modalidade)}</span>`:''}</td>
     <td class="c-emp">${esc(c.empresa)||'—'}</td>
     <td class="c-obj">${esc(c.objeto)}</td>
     ${cel('c-sec', esc((c.secretarias||[]).join(', ')), 'Secretaria')}
     ${cel('c-tipo', esc(c.tipo), 'Tipo')}
-    ${cel('c-fis', esc(fis.slice(0,3).join(', '))+(fis.length>3?' +'+(fis.length-3):''), 'Fiscais')}
+    ${cel('c-fis', fiscaisCelulaHTML(c), 'Fiscais')}
     <td class="c-sit">${badgeSit(c)}</td>
     <td class="c-venc">${badgeVenc(c)}</td>
     <td class="c-valor">${money(c.valor)}</td>

@@ -276,6 +276,28 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e é um resultado diferente do filtro por Administrativo (são papéis distintos)',
     soTec.n!==soAdm.n, {administrativo:soAdm.n, tecnico:soTec.n});
 
+  /* A tabela em si também separa os dois — não só o filtro. Mesma coluna,
+     mas cada papel na sua linha, pra não virar uma lista de nomes solta
+     onde não dá pra saber quem é administrativo e quem é técnico. */
+  const celulaFiscal=await pg.evaluate(()=>{
+    fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
+    const alvo=CONTRATOS.find(c=>c.fiscalAdm.length && c.fiscalTec.length);
+    document.getElementById('fBusca').value=alvo.empresa;
+    aplicarFiltros();
+    const td=document.querySelector('.tab tbody tr .c-fis');
+    const r={
+      linhas: [...td.querySelectorAll('.fis-linha')].map(el=>el.textContent.trim()),
+      admEsperado: alvo.fiscalAdm[0], tecEsperado: alvo.fiscalTec[0]
+    };
+    document.getElementById('fBusca').value=''; aplicarFiltros();
+    return r;
+  });
+  t('a célula mostra o Administrativo e o Técnico em linhas separadas',
+    celulaFiscal.linhas.length===2 &&
+    new RegExp('Adm.*'+celulaFiscal.admEsperado.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(celulaFiscal.linhas[0]) &&
+    new RegExp('Téc.*'+celulaFiscal.tecEsperado.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(celulaFiscal.linhas[1]),
+    celulaFiscal);
+
   const contagemViva=await pg.evaluate(()=>{
     fecharPop(); limparFiltros(); limparColuna('sit'); limparColuna('venc');
     document.querySelector('.cf[data-col="tipo"]').click();
