@@ -21,10 +21,37 @@ aquele painel específico** — em vez de abertas por necessidade técnica.
    nada — nem à Agenda, nem ao Sistema Interno. A tela mostra "Aguardando
    liberação" com o nome, foto e e-mail de quem entrou.
 3. Um administrador abre **Usuários** (dentro do Sistema Interno) e vê o
-   pedido esperando. Marca ali mesmo quais painéis a pessoa vai ter —
-   Agenda, Sistema Interno, ou os dois — e aprova.
+   pedido esperando. Marca ali mesmo, painel por painel (Agenda, Sistema
+   Interno), um de três níveis — **Sem acesso**, **Visualizar** ou
+   **Editar** — e aprova.
 4. A liberação chega **na hora**, sem precisar relogar: quem estava com a
    aba aberta na tela de espera vê o sistema abrir sozinho.
+
+## Três níveis por painel: Sem acesso / Visualizar / Editar
+
+Além de dar ou não acesso a um painel, o administrador escolhe **o quanto**
+essa pessoa pode fazer nele:
+
+- **Sem acesso** — nem entra no painel.
+- **Visualizar** — entra, vê tudo (processos, status, decisões, contratos
+  quando existir), mas qualquer botão de salvar/editar/excluir é barrado.
+  Aparece um aviso fixo no topo da tela ("👁 Modo somente visualização")
+  pra nunca confundir com um erro qualquer.
+- **Editar** — acesso completo, igual ao que existia antes desta mudança.
+
+A trava não é só visual: o próprio `db.collection(...)` do Firestore é
+interceptado no carregamento da página (ver o comentário "Trava de escrita
+por painel" no topo de `index.html` e `pregoeiro/index.html`), então uma
+tentativa de gravar por quem só tem "Visualizar" é rejeitada **no
+navegador**, antes mesmo de tentar a rede — e, por trás dela, as regras do
+Firestore (`firestore-processos-ijui.rules`) exigem o nível `'editar'` da
+mesma forma, então mesmo alguém mexendo direto no console do navegador não
+consegue contornar a trava do cliente.
+
+Contas aprovadas antes desta mudança guardavam só `true`/`false` (liberado
+ou não) — não precisaram de nenhuma migração: o sistema trata `true` como
+"Editar" e `false`/ausente como "Sem acesso" automaticamente, nos dois
+lados (JavaScript e regras do Firestore).
 
 O e-mail `pedrohhpacifico@gmail.com` é o **e-mail de resgate**: a primeira
 vez que ele entra, já nasce administrador com os dois painéis liberados —
@@ -36,13 +63,14 @@ qualquer um poderia digitar.
 ## Pré-cadastro por e-mail (opcional)
 
 No painel Usuários também dá para **preparar um convite**: nome, e-mail e
-os painéis que a pessoa vai ter, antes mesmo de ela entrar pela primeira
-vez. Isso **não dá acesso sozinho** — é só um lembrete. Quando a pessoa
-efetivamente se cadastra com aquele e-mail, o pedido dela aparece destacado
-("★ convite preparado: Agenda, Sistema Interno") e um clique aplica
-exatamente o que foi preparado. A liberação continua sendo sempre uma ação
-do administrador, nunca algo que o próprio cadastro força sozinho — é isso
-que torna seguro deixar o cadastro em si aberto ao público.
+o nível (Sem acesso/Visualizar/Editar) de cada painel que a pessoa vai ter,
+antes mesmo de ela entrar pela primeira vez. Isso **não dá acesso sozinho**
+— é só um lembrete. Quando a pessoa efetivamente se cadastra com aquele
+e-mail, o pedido dela aparece destacado ("★ convite preparado: Agenda
+(editar), Sistema Interno (visualizar)") e um clique aplica exatamente o
+que foi preparado. A liberação continua sendo sempre uma ação do
+administrador, nunca algo que o próprio cadastro força sozinho — é isso que
+torna seguro deixar o cadastro em si aberto ao público.
 
 ## As 15 contas de hoje (usuário/senha)
 
@@ -142,10 +170,21 @@ rápido) e aprove cada uma no painel **Usuários**.
 
 ## Contratos e Editais
 
-Esses dois módulos ainda não têm projeto Firebase próprio (ver
-`contratos/LEIA-ME.md`) — continuam funcionando com dados locais/arquivo. O
-mesmo modelo (Firebase Authentication + `usuarios_v2` + painel de
-aprovação por painel) deve ser repetido quando cada um ganhar o próprio
-projeto, com o próprio arquivo de regras — nunca compartilhando o projeto
-das licitações, pelo mesmo motivo de isolamento já documentado em
-`contratos/LEIA-ME.md`.
+O módulo de Editais ainda não tem projeto Firebase próprio — continua
+funcionando com dados locais/arquivo.
+
+O módulo de **Contratos** já tem o código do mesmo modelo pronto (Firebase
+Authentication + coleção própria `usuarios_contratos` + painel de aprovação
+com os três níveis Sem acesso/Visualizar/Editar), num projeto Firebase
+totalmente separado do `processos-ijui` — nunca compartilhando projeto,
+pelo mesmo motivo de isolamento documentado em `contratos/LEIA-ME.md`. Falta
+só o projeto existir de verdade: os passos exatos (criar o projeto, ativar
+o login, publicar `contratos/firestore-contratos-ijui.rules`, colar o
+`FIREBASE_CONFIG`) estão em `contratos/LEIA-ME.md` → "Como ligar o
+Firestore". Diferença importante em relação às licitações: em Contratos,
+**ler continua público, sem conta nenhuma** — só gravar exige login com
+nível "Editar" — porque a tela de contratos já era pública antes desta
+mudança, e exigir login para ler seria piorar o que existe hoje, não
+proteger nada de novo. É esse projeto, quando existir, que também habilita
+duas pessoas editarem contratos ao mesmo tempo com atualização em tempo
+real (a tela passa a ouvir o Firestore ao vivo, não só ler uma vez).

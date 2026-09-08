@@ -28,6 +28,61 @@
     appId: "1:385308750932:web:65e94a26e71451995fe9c1"
   });
   const db        = firebase.firestore();
+
+  /* ── Trava de escrita por painel (ver LOGIN / CONTROLE DE ACESSO mais
+     abaixo para authPodeEditar, authNivel etc.) ──
+     Mesmo mecanismo do pregoeiro/index.html: quem tem só "visualização"
+     consegue ler tudo, mas qualquer tentativa de GRAVAR é barrada aqui
+     também (não só nas regras do Firestore), pra dar um aviso claro na
+     hora. Instalada ANTES de qualquer db.collection(...) do arquivo,
+     porque intercepta o próprio db.collection — toda referência criada
+     depois já sai protegida. */
+  var PAINEL_DA_COLECAO = {
+    processos:           {escrever:"algum", excluir:"pregoeiro"},
+    agentes:             {escrever:"algum", excluir:"pregoeiro"},
+    observacoes:         {escrever:"algum", excluir:"algum"},
+    pontos_facultativos: {escrever:"algum", excluir:"algum"},
+    aniversarios:        {escrever:"algum", excluir:"algum"}
+  };
+  function authNivelExigidoOk(nivelExigido){
+    return nivelExigido==="algum"
+      ? (authPodeEditar("agenda") || authPodeEditar("pregoeiro"))
+      : authPodeEditar(nivelExigido);
+  }
+  function authPodeNaColecao(nome, acao){
+    var regra=PAINEL_DA_COLECAO[nome];
+    if(!regra) return true;
+    return authNivelExigidoOk(regra[acao] || regra.escrever);
+  }
+  function authEscritaBloqueada(nome){
+    console.warn('Escrita bloqueada em "'+nome+'": modo somente visualização.');
+    try{ toast("Você está em modo só visualização — peça a um administrador para poder editar."); }catch(e){}
+    return Promise.reject(new Error("Modo somente visualização: sem permissão para editar."));
+  }
+  (function(){
+    var collectionOriginal = db.collection.bind(db);
+    db.collection = function(nome){
+      var ref = collectionOriginal(nome);
+      if(!(nome in PAINEL_DA_COLECAO)) return ref;
+      var addOriginal = ref.add ? ref.add.bind(ref) : null;
+      if(addOriginal) ref.add = function(){
+        return authPodeNaColecao(nome,"escrever") ? addOriginal.apply(ref,arguments) : authEscritaBloqueada(nome);
+      };
+      var docOriginal = ref.doc.bind(ref);
+      ref.doc = function(){
+        var docRef = docOriginal.apply(ref,arguments);
+        ["set","update"].forEach(function(m){
+          var original=docRef[m].bind(docRef);
+          docRef[m]=function(){ return authPodeNaColecao(nome,"escrever") ? original.apply(docRef,arguments) : authEscritaBloqueada(nome); };
+        });
+        var delOriginal=docRef.delete.bind(docRef);
+        docRef.delete=function(){ return authPodeNaColecao(nome,"excluir") ? delOriginal.apply(docRef,arguments) : authEscritaBloqueada(nome); };
+        return docRef;
+      };
+      return ref;
+    };
+  })();
+
   const colRef    = db.collection("processos");
   const agColRef  = db.collection("agentes");
 
@@ -1025,11 +1080,27 @@ var authCurrentUser  = null;
 var authFirebaseUser = null;
 var authModo = "entrar";
 var authPerfilUnsub = null;
-function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
-function authTemAcesso(painel){
-  return !!(authCurrentUser && authCurrentUser.status==="aprovado" &&
-    (authCurrentUser.isAdmin || (authCurrentUser.acessos && authCurrentUser.acessos[painel])));
+/* ── Nível de acesso por painel: "nenhum" | "ver" | "editar" ──
+   Ver o comentário completo (e o painel de administração) em
+   pregoeiro/index.html — este arquivo só consome a mesma coleção
+   usuarios_v2, quem gerencia os níveis é sempre o painel Usuários de lá. */
+function authNormalizaNivel(v){
+  if(v===true) return "editar";
+  if(v==="ver"||v==="editar") return v;
+  return "nenhum";
 }
+function authNivelDe(u, painel){
+  if(!u) return "nenhum";
+  if(u.isAdmin) return "editar";
+  return authNormalizaNivel(u.acessos && u.acessos[painel]);
+}
+function authNivel(painel){
+  return (authCurrentUser && authCurrentUser.status==="aprovado") ? authNivelDe(authCurrentUser, painel) : "nenhum";
+}
+function authPodeVer(painel){ var n=authNivel(painel); return n==="ver"||n==="editar"; }
+function authPodeEditar(painel){ return authNivel(painel)==="editar"; }
+function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
+function authTemAcesso(painel){ return authPodeVer(painel); }
 
 function authErr(msg){ var e=document.getElementById("authErr"); if(e) e.textContent=msg||""; }
 function authSetModo(m){
@@ -1114,7 +1185,7 @@ function authPerfilPadrao(user, extra){
     provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
     status: "pendente",
     isAdmin: false,
-    acessos: {agenda:false, pregoeiro:false},
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum"},
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }, extra||{});
 }
@@ -1128,7 +1199,7 @@ function authAoAutenticar(user){
     if(doc.exists) return;
     var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
     return ref.set(authPerfilPadrao(user, ehResgate ? {
-      status:"aprovado", isAdmin:true, acessos:{agenda:true,pregoeiro:true}
+      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar"}
     } : {}));
   }).then(function(){
     authPerfilUnsub=ref.onSnapshot(function(doc){
@@ -1139,10 +1210,26 @@ function authAoAutenticar(user){
   }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
 }
 
+function authAtualizarBannerSoLeitura(painel){
+  var id="authBannerSoLeitura";
+  var el=document.getElementById(id);
+  var soLeitura = authPodeVer(painel) && !authPodeEditar(painel);
+  if(soLeitura){
+    if(!el){
+      el=document.createElement("div");
+      el.id=id;
+      el.style.cssText="position:fixed;left:0;right:0;top:0;z-index:9999;background:#fff3cd;color:#7a5b00;text-align:center;font-size:12.5px;font-weight:700;padding:6px 10px;border-bottom:1px solid #f0d98c;box-shadow:0 1px 4px rgba(0,0,0,.08)";
+      el.textContent="👁 Modo somente visualização — peça a um administrador para liberar edição, se precisar.";
+      document.body.appendChild(el);
+    }
+    el.style.display="block";
+  } else if(el){ el.style.display="none"; }
+}
 function authShowApp(){
   document.getElementById("authGate").style.display="none";
   var chip=document.getElementById("authUserChip");
   if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
+  authAtualizarBannerSoLeitura("agenda");
 }
 function authShowPendente(){
   document.getElementById("authGate").style.display="flex";
@@ -1156,7 +1243,7 @@ function authShowPendente(){
   foto.src=authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
   var msg=document.getElementById("authPendMsg");
   if(authCurrentUser.status==="bloqueado") msg.textContent="Seu acesso foi bloqueado por um administrador.";
-  else if(authCurrentUser.acessos && authCurrentUser.acessos.pregoeiro && !authCurrentUser.acessos.agenda) msg.textContent="Sua conta tem acesso só ao Sistema Interno. Peça a um administrador para liberar a Agenda, se precisar dela.";
+  else if(authNivelDe(authCurrentUser,"pregoeiro")!=="nenhum") msg.textContent="Sua conta tem acesso só ao Sistema Interno. Peça a um administrador para liberar a Agenda, se precisar dela.";
   else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
 }
 function authStartGate(){

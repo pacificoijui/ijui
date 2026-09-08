@@ -29,6 +29,71 @@
     appId: "1:385308750932:web:65e94a26e71451995fe9c1"
   });
   const db         = firebase.firestore();
+
+  /* ── Trava de escrita por painel (ver LOGIN / CONTROLE DE ACESSO mais
+     abaixo para authPodeEditar, authNivel etc.) ──
+     Quem tem só "visualização" consegue ler tudo — as regras do Firestore
+     permitem — mas qualquer tentativa de GRAVAR precisa ser barrada aqui
+     também, não só no servidor, pra dar um aviso claro na hora, em vez de
+     um erro genérico de permissão vindo do Firestore. Instalada ANTES de
+     qualquer db.collection(...) do arquivo (inclusive as constantes logo
+     abaixo), porque intercepta o próprio db.collection: toda referência
+     criada depois — mesmo guardada numa variável — já sai protegida.
+     Funciona porque authPodeEditar/AUTH_MODO_COMPARTILHADO/toast só
+     PRECISAM existir na hora em que alguém realmente tenta gravar (um
+     clique do usuário, sempre depois do script inteiro já ter rodado),
+     não na hora em que esta função é definida. */
+  var PAINEL_DA_COLECAO = {
+    processos:    {escrever:"algum",     excluir:"pregoeiro"},
+    agentes:      {escrever:"algum",     excluir:"pregoeiro"},
+    status:       {escrever:"pregoeiro", excluir:"pregoeiro"},
+    email_config: {escrever:"pregoeiro", excluir:"pregoeiro"},
+    decisoes:     {escrever:"pregoeiro", excluir:"pregoeiro"},
+    diligencias:  {escrever:"pregoeiro", excluir:"pregoeiro"}
+    /* rankings/habilitacoes ficam de fora de propósito: são de colaboração
+       aberta por link (ver comentário nas regras do Firestore) — quem tem
+       o link grava aquele documento específico mesmo sem conta nenhuma. */
+  };
+  function authNivelExigidoOk(nivelExigido){
+    return nivelExigido==="algum"
+      ? (authPodeEditar("agenda") || authPodeEditar("pregoeiro"))
+      : authPodeEditar(nivelExigido);
+  }
+  function authPodeNaColecao(nome, acao){
+    var regra=PAINEL_DA_COLECAO[nome];
+    if(!regra) return true;   /* coleção fora da lista: sem trava extra aqui */
+    return authNivelExigidoOk(regra[acao] || regra.escrever);
+  }
+  function authEscritaBloqueada(nome){
+    console.warn('Escrita bloqueada em "'+nome+'": modo somente visualização.');
+    try{ toast("Você está em modo só visualização — peça a um administrador para poder editar."); }catch(e){}
+    return Promise.reject(new Error("Modo somente visualização: sem permissão para editar."));
+  }
+  (function(){
+    var collectionOriginal = db.collection.bind(db);
+    db.collection = function(nome){
+      var ref = collectionOriginal(nome);
+      if(typeof AUTH_MODO_COMPARTILHADO!=="undefined" && AUTH_MODO_COMPARTILHADO) return ref;
+      if(!(nome in PAINEL_DA_COLECAO)) return ref;
+      var addOriginal = ref.add ? ref.add.bind(ref) : null;
+      if(addOriginal) ref.add = function(){
+        return authPodeNaColecao(nome,"escrever") ? addOriginal.apply(ref,arguments) : authEscritaBloqueada(nome);
+      };
+      var docOriginal = ref.doc.bind(ref);
+      ref.doc = function(){
+        var docRef = docOriginal.apply(ref,arguments);
+        ["set","update"].forEach(function(m){
+          var original=docRef[m].bind(docRef);
+          docRef[m]=function(){ return authPodeNaColecao(nome,"escrever") ? original.apply(docRef,arguments) : authEscritaBloqueada(nome); };
+        });
+        var delOriginal=docRef.delete.bind(docRef);
+        docRef.delete=function(){ return authPodeNaColecao(nome,"excluir") ? delOriginal.apply(docRef,arguments) : authEscritaBloqueada(nome); };
+        return docRef;
+      };
+      return ref;
+    };
+  })();
+
   const colRef     = db.collection("processos");
   const agColRef   = db.collection("agentes");
   const habColRef  = db.collection("habilitacoes");
@@ -1175,6 +1240,7 @@
   .usr-chks{display:flex;gap:14px;margin-top:7px;flex-wrap:wrap}
   .usr-chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);cursor:pointer;user-select:none}
   .usr-chk input{width:14px;height:14px;accent-color:var(--navy-light);margin:0}
+  .usr-chk-sel select{font-size:11.5px;padding:3px 6px;border-radius:6px;border:1.5px solid var(--border);color:var(--navy);background:#fff;cursor:pointer}
   .usr-convite-match{font-size:11.5px;font-weight:700;color:#8a6d1f;background:#fbf5e6;border:1px solid #ecd9a4;border-radius:7px;padding:5px 8px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -2157,9 +2223,9 @@
             <div class="field"><label>Nome</label><input type="text" id="cvNome" placeholder="Nome da pessoa"></div>
             <div class="field"><label>E-mail</label><input type="email" id="cvEmail" placeholder="pessoa@gmail.com"></div>
           </div>
-          <div style="display:flex;gap:16px;align-items:center">
-            <label class="usr-chk"><input type="checkbox" id="cvAg"> Agenda</label>
-            <label class="usr-chk"><input type="checkbox" id="cvPr"> Sistema Interno</label>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+            <label class="usr-chk usr-chk-sel">Agenda <select id="cvAg"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
+            <label class="usr-chk usr-chk-sel">Sistema Interno <select id="cvPr"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
             <button class="btn-save" onclick="convitesSalvar()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">Preparar convite</button>
           </div>
         </div>
@@ -2723,7 +2789,8 @@ db.collection("status").onSnapshot(function(snap){
   if(snap.empty){
     /* First time: seed defaults into Firestore */
     STATUS_DEFAULT.forEach(function(s){
-      db.collection("status").doc(s.id).set({nome:s.nome,cor:s.cor,ordem:s.ordem,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      db.collection("status").doc(s.id).set({nome:s.nome,cor:s.cor,ordem:s.ordem,createdAt:firebase.firestore.FieldValue.serverTimestamp()})
+        .catch(function(e){ console.warn("semear status padrão: "+e.message); });
     });
     statusList = STATUS_DEFAULT.slice();
     statusListAll = STATUS_DEFAULT.slice();
@@ -4122,6 +4189,7 @@ function salvarProcesso(){
 /* Exclui o processo e os documentos vinculados (rankings/habilitacoes usam o
    mesmo id do processo). Batch atômico: ou tudo é excluído, ou nada é.       */
 function excluirProcessoCompleto(id){
+  if(!authPodeEditar("pregoeiro")) return authEscritaBloqueada("processos");
   var batch=db.batch();
   batch.delete(colRef.doc(id));
   batch.delete(db.collection("rankings").doc(id));
@@ -4322,6 +4390,7 @@ function limparStatusDuplicados(){
     +"\n"+exclusoes.length+" status duplicado(s) serão excluídos do Firestore."
     +"\n\nEsta ação não pode ser desfeita. Continuar?";
   if(!confirm(msg)) return;
+  if(!authPodeEditar("pregoeiro")){ authEscritaBloqueada("status"); return; }
   var batch=db.batch();
   migracoes.forEach(function(m){ batch.update(colRef.doc(m.proc.id),{status:m.paraId}); });
   exclusoes.forEach(function(s){ batch.delete(db.collection("status").doc(s.id)); });
@@ -4333,6 +4402,7 @@ function limparStatusDuplicados(){
 function moverStatus(idx, dir){
   var newIdx=idx+dir;
   if(newIdx<0||newIdx>=statusList.length)return;
+  if(!authPodeEditar("pregoeiro")){ authEscritaBloqueada("status"); return; }
   /* Swap */
   var tmp=statusList[idx]; statusList[idx]=statusList[newIdx]; statusList[newIdx]=tmp;
   /* Reflete na hora; persiste a nova ordem (0..n) no Firestore */
@@ -10991,10 +11061,37 @@ var authModo = "entrar";
 var authPerfilUnsub = null;
 var AUTH_MODO_COMPARTILHADO = false;   /* link público (?ranking=, ?assinar=...): portão nem entra em cena */
 
+/* ── Nível de acesso por painel: "nenhum" | "ver" | "editar" ──
+   acessos.agenda/acessos.pregoeiro guardam um desses três textos. Contas
+   aprovadas ANTES desta mudança guardam "true"/"false" (o modelo antigo, só
+   liberado/bloqueado) — authNormalizaNivel trata os dois formatos igual,
+   pra não precisar migrar nada: true vira "editar", false/ausente vira
+   "nenhum". Administrador sempre edita tudo, senão não teria como aprovar
+   ninguém. */
+function authNormalizaNivel(v){
+  if(v===true) return "editar";
+  if(v==="ver"||v==="editar") return v;
+  return "nenhum";
+}
+function authNivelDe(u, painel){
+  if(!u) return "nenhum";
+  if(u.isAdmin) return "editar";
+  return authNormalizaNivel(u.acessos && u.acessos[painel]);
+}
+function authNivel(painel){
+  return (authCurrentUser && authCurrentUser.status==="aprovado") ? authNivelDe(authCurrentUser, painel) : "nenhum";
+}
+function authPodeVer(painel){ var n=authNivel(painel); return n==="ver"||n==="editar"; }
+function authPodeEditar(painel){ return authNivel(painel)==="editar"; }
 function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
-function authTemAcesso(painel){
-  return !!(authCurrentUser && authCurrentUser.status==="aprovado" &&
-    (authCurrentUser.isAdmin || (authCurrentUser.acessos && authCurrentUser.acessos[painel])));
+function authTemAcesso(painel){ return authPodeVer(painel); }
+function authResumoAcessos(acessos){
+  var nomes={agenda:"Agenda", pregoeiro:"Sistema Interno"};
+  var partes=["agenda","pregoeiro"].map(function(p){
+    var n=authNormalizaNivel(acessos && acessos[p]);
+    return n==="nenhum" ? null : nomes[p]+" ("+(n==="editar"?"editar":"visualizar")+")";
+  }).filter(Boolean);
+  return partes.length ? partes.join(", ") : "nenhum acesso";
 }
 
 function authErr(msg){ var e=document.getElementById("authErr"); if(e) e.textContent=msg||""; }
@@ -11089,7 +11186,7 @@ function authPerfilPadrao(user, extra){
     provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
     status: "pendente",
     isAdmin: false,
-    acessos: {agenda:false, pregoeiro:false},
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum"},
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }, extra||{});
 }
@@ -11104,7 +11201,7 @@ function authAoAutenticar(user){
     if(doc.exists) return;
     var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
     return ref.set(authPerfilPadrao(user, ehResgate ? {
-      status:"aprovado", isAdmin:true, acessos:{agenda:true,pregoeiro:true}
+      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar"}
     } : {}));
   }).then(function(){
     authPerfilUnsub=ref.onSnapshot(function(doc){
@@ -11115,6 +11212,21 @@ function authAoAutenticar(user){
   }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
 }
 
+function authAtualizarBannerSoLeitura(painel){
+  var id="authBannerSoLeitura";
+  var el=document.getElementById(id);
+  var soLeitura = authPodeVer(painel) && !authPodeEditar(painel);
+  if(soLeitura){
+    if(!el){
+      el=document.createElement("div");
+      el.id=id;
+      el.style.cssText="position:fixed;left:0;right:0;top:0;z-index:9999;background:#fff3cd;color:#7a5b00;text-align:center;font-size:12.5px;font-weight:700;padding:6px 10px;border-bottom:1px solid #f0d98c;box-shadow:0 1px 4px rgba(0,0,0,.08)";
+      el.textContent="👁 Modo somente visualização — peça a um administrador para liberar edição, se precisar.";
+      document.body.appendChild(el);
+    }
+    el.style.display="block";
+  } else if(el){ el.style.display="none"; }
+}
 function authShowApp(){
   if(AUTH_MODO_COMPARTILHADO) return;
   document.getElementById("authGate").style.display="none";
@@ -11122,6 +11234,7 @@ function authShowApp(){
   if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
   var btn=document.getElementById("btnUsuarios");
   if(btn) btn.style.display = authIsAdmin() ? "" : "none";
+  authAtualizarBannerSoLeitura("pregoeiro");
 }
 function authShowPendente(){
   if(AUTH_MODO_COMPARTILHADO) return;
@@ -11136,7 +11249,7 @@ function authShowPendente(){
   foto.src=authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
   var msg=document.getElementById("authPendMsg");
   if(authCurrentUser.status==="bloqueado") msg.textContent="Seu acesso foi bloqueado por um administrador.";
-  else if(authCurrentUser.acessos && authCurrentUser.acessos.agenda && !authCurrentUser.acessos.pregoeiro) msg.textContent="Sua conta tem acesso só à Agenda. Peça a um administrador para liberar o Sistema Interno, se precisar dele.";
+  else if(authNivelDe(authCurrentUser,"agenda")!=="nenhum") msg.textContent="Sua conta tem acesso só à Agenda. Peça a um administrador para liberar o Sistema Interno, se precisar dele.";
   else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
 }
 function authStartGate(){
@@ -11181,9 +11294,14 @@ function usuariosV2Renderizar(){
     document.getElementById("usrPendentesLista").innerHTML='<div class="usr-vazio">Erro ao carregar: '+escHtml(e.message)+'</div>';
   });
 }
+function authOpcoesNivel(atual){
+  return [["nenhum","Sem acesso"],["ver","Visualizar"],["editar","Editar"]].map(function(o){
+    return '<option value="'+o[0]+'"'+(atual===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  }).join('');
+}
 function usrChipsAcesso(u, prefixo){
-  return '<label class="usr-chk"><input type="checkbox" id="'+prefixo+'Ag_'+u.uid+'"'+(u.acessos&&u.acessos.agenda?' checked':'')+'> Agenda</label>'
-       + '<label class="usr-chk"><input type="checkbox" id="'+prefixo+'Pr_'+u.uid+'"'+(u.acessos&&u.acessos.pregoeiro?' checked':'')+'> Sistema Interno</label>';
+  return '<label class="usr-chk usr-chk-sel">Agenda <select id="'+prefixo+'Ag_'+u.uid+'">'+authOpcoesNivel(authNivelDe(u,"agenda"))+'</select></label>'
+       + '<label class="usr-chk usr-chk-sel">Sistema Interno <select id="'+prefixo+'Pr_'+u.uid+'">'+authOpcoesNivel(authNivelDe(u,"pregoeiro"))+'</select></label>';
 }
 function usuariosRenderPendentes(usuarios, convites){
   var box=document.getElementById("usrPendentesLista");
@@ -11192,7 +11310,7 @@ function usuariosRenderPendentes(usuarios, convites){
   box.innerHTML=pendentes.map(function(u){
     var convite=convites.find(function(c){ return (c.email||"").toLowerCase()===(u.email||"").toLowerCase(); });
     var avisoConvite = convite
-      ? '<div class="usr-convite-match">★ convite preparado: '+[convite.acessos&&convite.acessos.agenda?'Agenda':null, convite.acessos&&convite.acessos.pregoeiro?'Sistema Interno':null].filter(Boolean).join(', ')+
+      ? '<div class="usr-convite-match">★ convite preparado: '+authResumoAcessos(convite.acessos)+
         ' <button class="usr-btn" onclick="usuariosAplicarConvite(\''+u.uid+'\',\''+convite.id+'\')">Aplicar</button></div>'
       : '';
     return '<div class="usr-row usr-row-col"><div class="usr-info">'
@@ -11209,7 +11327,7 @@ function usuariosRenderPendentes(usuarios, convites){
 function usuariosAprovar(uid){
   var ag=document.getElementById('pendAg_'+uid), pr=document.getElementById('pendPr_'+uid);
   usuariosV2ColRef.doc(uid).update({
-    status:"aprovado", acessos:{agenda:!!(ag&&ag.checked), pregoeiro:!!(pr&&pr.checked)}
+    status:"aprovado", acessos:{agenda:(ag&&ag.value)||"nenhum", pregoeiro:(pr&&pr.value)||"nenhum"}
   }).then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
@@ -11221,7 +11339,7 @@ function usuariosRecusar(uid, nome){
 function usuariosAplicarConvite(uid, conviteId){
   var convite=_convitesCache.find(function(c){ return c.id===conviteId; });
   if(!convite) return;
-  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:convite.acessos||{agenda:false,pregoeiro:false}})
+  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:convite.acessos||{agenda:"nenhum",pregoeiro:"nenhum"}})
     .then(function(){ return convitesColRef.doc(conviteId).delete(); })
     .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -11255,7 +11373,7 @@ function usuariosSalvarAcessos(uid, totalAdmins){
   var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
   if(u && u.isAdmin && !ad.checked && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
   usuariosV2ColRef.doc(uid).update({
-    acessos:{agenda:!!(ag&&ag.checked), pregoeiro:!!(pr&&pr.checked)},
+    acessos:{agenda:(ag&&ag.value)||"nenhum", pregoeiro:(pr&&pr.value)||"nenhum"},
     isAdmin: !!(ad&&ad.checked)
   }).then(function(){ toast("Acessos atualizados."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -11291,14 +11409,14 @@ function usuariosEnviarReset(email){
    clique aplica exatamente o acesso preparado aqui. */
 function convitesLimparForm(){
   ["cvNome","cvEmail"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
-  ["cvAg","cvPr"].forEach(function(id){ var e=document.getElementById(id); if(e) e.checked=false; });
+  ["cvAg","cvPr"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value="nenhum"; });
 }
 function convitesSalvar(){
   var nome=(document.getElementById("cvNome").value||"").trim();
   var email=(document.getElementById("cvEmail").value||"").trim().toLowerCase();
   if(!email){ alert("Informe o e-mail."); return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
-  var acessos={agenda:document.getElementById("cvAg").checked, pregoeiro:document.getElementById("cvPr").checked};
+  var acessos={agenda:document.getElementById("cvAg").value, pregoeiro:document.getElementById("cvPr").value};
   convitesColRef.add({nome:nome, email:email, acessos:acessos, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -11310,7 +11428,7 @@ function convitesRenderLista(convites, usuarios){
     var jaEntrou=usuarios.some(function(u){ return (u.email||"").toLowerCase()===(c.email||"").toLowerCase(); });
     return '<div class="usr-row"><div class="usr-info">'
       +'<div class="usr-nome">'+escHtml(c.nome||c.email)+'</div>'
-      +'<div class="usr-login">'+escHtml(c.email)+' — '+[c.acessos&&c.acessos.agenda?'Agenda':null,c.acessos&&c.acessos.pregoeiro?'Sistema Interno':null].filter(Boolean).join(', ')+(jaEntrou?' <b style="color:var(--green)">· já se cadastrou, veja em Pendentes</b>':'')+'</div>'
+      +'<div class="usr-login">'+escHtml(c.email)+' — '+authResumoAcessos(c.acessos)+(jaEntrou?' <b style="color:var(--green)">· já se cadastrou, veja em Pendentes</b>':'')+'</div>'
       +'</div><div class="usr-acts"><button class="usr-btn del" onclick="convitesCancelar(\''+c.id+'\')">&#128465;</button></div></div>';
   }).join('');
 }

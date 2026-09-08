@@ -1,0 +1,71 @@
+// Regras do Firestore do projeto de CONTRATOS (separado do "processos-ijui"
+// das licitações — ver "Por que projeto separado" em contratos/LEIA-ME.md).
+// Cole isto em: Firebase Console → <projeto dos contratos> → Firestore
+// Database → Regras → colar → Publicar.
+//
+// Este arquivo é a fonte da verdade do que as regras DEVERIAM ser — não é
+// aplicado automaticamente (não há deploy por CI aqui, só o console mesmo).
+// Se editar este arquivo, publique a mudança no console também.
+//
+// Desenho, resumido (ver CONTROLE-DE-ACESSO.md na raiz do repositório para
+// o mesmo modelo aplicado às licitações, do qual este é uma versão menor):
+//   - LER contratos continua público, sem conta nenhuma — é assim hoje
+//     (dados/contratos.json é um arquivo público neste mesmo repositório),
+//     então exigir login só para ler seria uma regressão, não um reforço.
+//   - GRAVAR (novo contrato, edição, aditivo) exige conta aprovada com
+//     nível "editar". Conta aprovada só com "ver", ou sem conta nenhuma,
+//     continua lendo à vontade mas nunca grava.
+//   - Um único painel (não como nas licitações, que têm Agenda + Sistema
+//     Interno) — por isso o perfil guarda um "nivel" direto, sem precisar
+//     de um mapa "acessos" por painel.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios_contratos/$(request.auth.uid)).data;
+    }
+    function autenticado() { return request.auth != null; }
+    function aprovado()    { return autenticado() && perfil().status == 'aprovado'; }
+    function admin()       { return autenticado() && perfil().isAdmin == true; }
+    // Admin sempre edita tudo — é o próprio propósito do cargo.
+    function podeEditar()  { return aprovado() && (admin() || perfil().nivel == 'editar'); }
+
+    // Documento por pessoa, ID = uid do Firebase Auth. Mesmo desenho do
+    // usuarios_v2 das licitações: o e-mail de resgate nasce administrador
+    // com edição liberada (garante que sempre exista alguém capaz de
+    // aprovar os demais); qualquer outro e-mail só nasce "pendente" e sem
+    // nenhum acesso — liberar de verdade é sempre um update feito por quem
+    // já é admin, nunca o próprio auto-cadastro.
+    //
+    // Se trocar o e-mail de resgate aqui, troque também a constante
+    // AUTH_BOOTSTRAP_ADMIN_EMAIL_CONTRATOS em contratos/index.html.
+    match /usuarios_contratos/{uid} {
+      allow get: if autenticado() && (request.auth.uid == uid || admin());
+      allow list: if admin();
+      allow create: if autenticado() && request.auth.uid == uid &&
+        request.resource.data.email == request.auth.token.email.lower() && (
+          (request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
+           request.resource.data.status == 'aprovado' &&
+           request.resource.data.isAdmin == true &&
+           request.resource.data.nivel == 'editar')
+          ||
+          (request.resource.data.status == 'pendente' &&
+           request.resource.data.isAdmin == false &&
+           request.resource.data.nivel == 'nenhum')
+        );
+      allow update: if admin();
+      allow delete: if admin();
+    }
+
+    // Ler é público, de propósito (ver comentário no topo). Só grava quem
+    // tem nível "editar". Nunca existe exclusão de contrato inteiro pela
+    // tela — fica fechada por padrão.
+    match /contratos/{id} {
+      allow get, list: if true;
+      allow create, update: if podeEditar();
+      allow delete: if false;
+    }
+  }
+}

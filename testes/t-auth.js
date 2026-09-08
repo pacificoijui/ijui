@@ -62,14 +62,16 @@ async function entrarComGoogle(pg, user){
   }));
   t('cria o perfil em usuarios_v2 na hora que loga', pendente.perfilCriado, pendente);
   t('nasce como "pendente"', pendente.status==='pendente', pendente.status);
-  t('sem nenhum acesso liberado', pendente.acessos.agenda===false && pendente.acessos.pregoeiro===false, pendente.acessos);
+  t('sem nenhum acesso liberado', pendente.acessos.agenda==='nenhum' && pendente.acessos.pregoeiro==='nenhum', pendente.acessos);
   t('mostra a tela de "aguardando liberação"', pendente.telaPendente, pendente);
   t('com o nome e e-mail de quem acabou de entrar', pendente.nomeMostrado==='Julio Novo' && pendente.emailMostrado==='julio.novo@gmail.com', pendente);
   t('o sistema continua bloqueado', pendente.appEscondido, pendente);
 
   /* Simula "um admin aprovou em outro lugar, só com Agenda": grava direto
      no mesmo Firestore falso desta página. O onSnapshot do Julio (que já
-     está com a aba aberta) tem que reagir sozinho, sem F5. */
+     está com a aba aberta) tem que reagir sozinho, sem F5. Usa o formato
+     antigo (true/false) de propósito, pra testar que contas aprovadas
+     antes do modelo de 3 níveis continuam funcionando sem migração. */
   await pg.evaluate(()=>usuariosV2ColRef.doc('g-julio').update({status:'aprovado', acessos:{agenda:true,pregoeiro:false}}));
   await pg.waitForTimeout(400);
   const aoVivo=await pg.evaluate(()=>({
@@ -90,7 +92,7 @@ async function entrarComGoogle(pg, user){
   }));
   t('mesmo em maiúsculas, o e-mail de resgate é reconhecido', admin.perfil && admin.perfil.status==='aprovado', admin.perfil);
   t('nasce administrador', admin.perfil && admin.perfil.isAdmin===true, admin.perfil);
-  t('com acesso à Agenda e ao Sistema Interno', admin.perfil && admin.perfil.acessos.agenda && admin.perfil.acessos.pregoeiro, admin.perfil);
+  t('com acesso de editar à Agenda e ao Sistema Interno', admin.perfil && admin.perfil.acessos.agenda==='editar' && admin.perfil.acessos.pregoeiro==='editar', admin.perfil);
   t('entra direto no sistema, sem esperar aprovação', admin.appAberto, admin);
   t('e vê o botão de gerenciar usuários', admin.botaoUsuarios==='', admin.botaoUsuarios);
 
@@ -98,11 +100,11 @@ async function entrarComGoogle(pg, user){
   let pg3=await b.newPage({viewport:{width:1300,height:900}});
   await abrirPregoeiro(pg3, {
     usuarios_v2:{
-      'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true, acessos:{agenda:true,pregoeiro:true}, provedor:'google.com'},
-      'g-bianca':{email:'bianca.nova@gmail.com', nome:'Bianca', status:'pendente', isAdmin:false, acessos:{agenda:false,pregoeiro:false}, provedor:'google.com'}
+      'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true, acessos:{agenda:'editar',pregoeiro:'editar'}, provedor:'google.com'},
+      'g-bianca':{email:'bianca.nova@gmail.com', nome:'Bianca', status:'pendente', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'nenhum'}, provedor:'google.com'}
     },
     usuarios_v2_convites:{
-      cv1:{nome:'Bianca', email:'bianca.nova@gmail.com', acessos:{agenda:true,pregoeiro:true}}
+      cv1:{nome:'Bianca', email:'bianca.nova@gmail.com', acessos:{agenda:'editar',pregoeiro:'ver'}}
     }
   }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
   await pg3.evaluate(()=>abrirModalUsuarios());
@@ -110,7 +112,7 @@ async function entrarComGoogle(pg, user){
 
   const comConvite=await pg3.evaluate(()=>document.getElementById('usrPendentesLista').innerHTML);
   t('o pedido da Bianca aparece esperando aprovação', /Bianca/.test(comConvite), comConvite.slice(0,200));
-  t('com o convite preparado destacado ao lado', /convite preparado/.test(comConvite) && /Agenda, Sistema Interno/.test(comConvite), comConvite.slice(0,400));
+  t('com o convite preparado destacado ao lado, mostrando os níveis', /convite preparado/.test(comConvite) && /Agenda \(editar\)/.test(comConvite) && /Sistema Interno \(visualizar\)/.test(comConvite), comConvite.slice(0,400));
 
   await pg3.evaluate(()=>{
     var btn=[...document.querySelectorAll('#usrPendentesLista button')].find(function(x){ return /Aplicar/.test(x.textContent); });
@@ -121,7 +123,7 @@ async function entrarComGoogle(pg, user){
     perfil: window.__STORE.usuarios_v2['g-bianca'],
     conviteSobrou: Object.keys(window.__STORE.usuarios_v2_convites).length
   }));
-  t('aplicar o convite aprova com exatamente o que foi preparado', biancaFinal.perfil.status==='aprovado' && biancaFinal.perfil.acessos.agenda && biancaFinal.perfil.acessos.pregoeiro, biancaFinal.perfil);
+  t('aplicar o convite aprova com exatamente o nível que foi preparado', biancaFinal.perfil.status==='aprovado' && biancaFinal.perfil.acessos.agenda==='editar' && biancaFinal.perfil.acessos.pregoeiro==='ver', biancaFinal.perfil);
   t('e o convite é consumido (não fica repetido pra sempre)', biancaFinal.conviteSobrou===0, biancaFinal.conviteSobrou);
 
   const protegido=await pg3.evaluate(()=>{
@@ -167,7 +169,7 @@ async function entrarComGoogle(pg, user){
   await pgA.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
   await pgA.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pgA.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase({
-    usuarios_v2:{'g-julio':{email:'julio.novo@gmail.com', nome:'Julio Novo', status:'aprovado', isAdmin:false, acessos:{agenda:true,pregoeiro:false}, provedor:'google.com'}}
+    usuarios_v2:{'g-julio':{email:'julio.novo@gmail.com', nome:'Julio Novo', status:'aprovado', isAdmin:false, acessos:{agenda:'editar',pregoeiro:'nenhum'}, provedor:'google.com'}}
   }));
   await pgA.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-julio', email:'julio.novo@gmail.com', displayName:'Julio Novo', photoURL:''});
   await pgA.goto('http://127.0.0.1:8099/index.html',{waitUntil:'networkidle'});
@@ -180,13 +182,39 @@ async function entrarComGoogle(pg, user){
   await pgB.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
   await pgB.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pgB.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase({
-    usuarios_v2:{'g-serli':{email:'serli@example.com', nome:'Serli', status:'pendente', isAdmin:false, acessos:{agenda:false,pregoeiro:false}, provedor:'password'}}
+    usuarios_v2:{'g-serli':{email:'serli@example.com', nome:'Serli', status:'pendente', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'nenhum'}, provedor:'password'}}
   }));
   await pgB.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-serli', email:'serli@example.com', displayName:'Serli', photoURL:''});
   await pgB.goto('http://127.0.0.1:8099/index.html',{waitUntil:'networkidle'});
   await pgB.waitForTimeout(900);
   const pendenteNaAgenda=await pgB.evaluate(()=>document.getElementById('authGate').style.display==='flex');
   t('quem não tem nenhum acesso fica bloqueado também na Agenda', pendenteNaAgenda, pendenteNaAgenda);
+
+  console.log('\n6) "Visualizar" entra e lê, mas não consegue gravar (trava do lado do cliente)');
+  let pg6=await b.newPage({viewport:{width:1300,height:900}});
+  await abrirPregoeiro(pg6, {
+    usuarios_v2:{'g-vera':{email:'vera@example.com', nome:'Vera', status:'aprovado', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'ver'}, provedor:'google.com'}},
+    processos:{p1:{numero:'PE 75/2026', objeto:'Teste', status:'em-andamento', dataLicit:'2026-08-01', horarioAbertura:'09:00', link:'', responsavel:'PEDRO', contato:''}}
+  }, {uid:'g-vera', email:'vera@example.com', displayName:'Vera', photoURL:''});
+  const somenteView=await pg6.evaluate(()=>({
+    appAberto: document.getElementById('authGate').style.display==='none',
+    banner: document.getElementById('authBannerSoLeitura') && document.getElementById('authBannerSoLeitura').style.display==='block'
+  }));
+  t('entra no sistema mesmo só com "visualizar"', somenteView.appAberto, somenteView);
+  t('e vê o aviso de modo somente visualização', somenteView.banner, somenteView);
+
+  const tentativaGravar=await pg6.evaluate(()=>
+    colRef.doc('p1').update({numero:'ALTERADO'}).then(function(){ return {bloqueou:false}; })
+      .catch(function(e){ return {bloqueou:true, msg:e.message}; })
+  );
+  t('a gravação é rejeitada no cliente, sem nem chegar a tentar o servidor', tentativaGravar.bloqueou, tentativaGravar);
+  const numeroIntacto=await pg6.evaluate(()=>window.__STORE.processos.p1.numero);
+  t('o dado não muda de verdade', numeroIntacto==='PE 75/2026', numeroIntacto);
+
+  const tentativaExcluir=await pg6.evaluate(()=>
+    excluirProcessoCompleto('p1').then(function(){ return {bloqueou:false}; }).catch(function(){ return {bloqueou:true}; })
+  );
+  t('excluir também é bloqueado pra quem só visualiza', tentativaExcluir.bloqueou, tentativaExcluir);
 
   console.log('\nerros JS (pregoeiro, página 1):', errs1.length?errs1:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

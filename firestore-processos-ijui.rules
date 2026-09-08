@@ -29,11 +29,28 @@ service cloud.firestore {
     function autenticado() { return request.auth != null; }
     function aprovado()    { return autenticado() && perfil().status == 'aprovado'; }
     function admin()       { return autenticado() && perfil().isAdmin == true; }
-    // Admin sempre tem acesso a tudo — é o próprio propósito do cargo.
-    function temAcesso(painel) { return aprovado() && (admin() || perfil().acessos[painel] == true); }
+    // Nível de acesso por painel: 'nenhum' | 'ver' | 'editar'. Contas
+    // aprovadas antes deste modelo guardam "true"/"false" (o formato
+    // antigo, só liberado/bloqueado) — nivel() trata os dois formatos
+    // igual, sem precisar migrar nenhum documento: true equivale a
+    // 'editar', false/ausente equivale a 'nenhum'.
+    function nivel(painel) {
+      return perfil().acessos[painel] == true ? 'editar'
+           : (perfil().acessos[painel] == 'ver' || perfil().acessos[painel] == 'editar') ? perfil().acessos[painel]
+           : 'nenhum';
+    }
+    // Admin sempre edita tudo — é o próprio propósito do cargo.
+    function temAcesso(painel)  { return aprovado() && (admin() || nivel(painel) != 'nenhum'); }
+    function podeEditar(painel) { return aprovado() && (admin() || nivel(painel) == 'editar'); }
     function agenda()    { return temAcesso('agenda'); }
     function pregoeiro() { return temAcesso('pregoeiro'); }
     function algum()     { return agenda() || pregoeiro(); }
+    // As mesmas três, mas exigindo nível 'editar' — usadas em toda regra de
+    // escrita, pra quem está em "somente visualização" nunca conseguir
+    // gravar nada, nem contornando a trava do lado do cliente.
+    function agendaEdit()    { return podeEditar('agenda'); }
+    function pregoeiroEdit() { return podeEditar('pregoeiro'); }
+    function algumEdit()     { return agendaEdit() || pregoeiroEdit(); }
 
     // ── Contas e permissões ──────────────────────────────────────────────
     // Documento por pessoa, ID = uid do Firebase Auth. Cada um só cria o
@@ -53,13 +70,13 @@ service cloud.firestore {
           (request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
            request.resource.data.status == 'aprovado' &&
            request.resource.data.isAdmin == true &&
-           request.resource.data.acessos.agenda == true &&
-           request.resource.data.acessos.pregoeiro == true)
+           request.resource.data.acessos.agenda == 'editar' &&
+           request.resource.data.acessos.pregoeiro == 'editar')
           ||
           (request.resource.data.status == 'pendente' &&
            request.resource.data.isAdmin == false &&
-           request.resource.data.acessos.agenda == false &&
-           request.resource.data.acessos.pregoeiro == false)
+           request.resource.data.acessos.agenda == 'nenhum' &&
+           request.resource.data.acessos.pregoeiro == 'nenhum')
         );
       allow update: if admin();
       allow delete: if admin();
@@ -88,8 +105,8 @@ service cloud.firestore {
     match /processos/{id} {
       allow get: if true;
       allow list: if algum();
-      allow create, update: if algum();
-      allow delete: if pregoeiro();
+      allow create, update: if algumEdit();
+      allow delete: if pregoeiroEdit();
     }
 
     // "get" público preserva o link "?assinatura=ID" (o pregoeiro assina uma
@@ -100,17 +117,17 @@ service cloud.firestore {
     match /agentes/{id} {
       allow get: if true;
       allow list: if algum();
-      allow create: if algum();
-      allow update: if algum() ||
+      allow create: if algumEdit();
+      allow update: if algumEdit() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinaturaImg','assinaturaEm','updatedAt']);
-      allow delete: if pregoeiro();
+      allow delete: if pregoeiroEdit();
     }
 
-    match /status/{id}               { allow read: if algum(); allow write: if pregoeiro(); }
-    match /pontos_facultativos/{id}  { allow read, write: if algum(); }
-    match /aniversarios/{id}         { allow read, write: if algum(); }
-    match /observacoes/{id}          { allow read, write: if algum(); }
-    match /email_config/{id}         { allow read: if algum(); allow write: if pregoeiro(); }
+    match /status/{id}               { allow read: if algum(); allow write: if pregoeiroEdit(); }
+    match /pontos_facultativos/{id}  { allow read: if algum(); allow write: if algumEdit(); }
+    match /aniversarios/{id}         { allow read: if algum(); allow write: if algumEdit(); }
+    match /observacoes/{id}          { allow read: if algum(); allow write: if algumEdit(); }
+    match /email_config/{id}         { allow read: if algum(); allow write: if pregoeiroEdit(); }
 
     // Rankings e Habilitações têm um link de colaboração sem login (o
     // pregoeiro manda "?ranking=ID" ou "?hab=ID" para quem está no comitê
@@ -120,12 +137,12 @@ service cloud.firestore {
     match /rankings/{id} {
       allow get, create, update: if true;
       allow list: if pregoeiro();
-      allow delete: if pregoeiro();
+      allow delete: if pregoeiroEdit();
     }
     match /habilitacoes/{id} {
       allow get, create, update: if true;
       allow list: if pregoeiro();
-      allow delete: if pregoeiro();
+      allow delete: if pregoeiroEdit();
     }
 
     // Decisões e diligências têm o mesmo tipo de link ("?assinar=ID") para
@@ -137,15 +154,15 @@ service cloud.firestore {
     match /decisoes/{id} {
       allow get: if true;
       allow list: if pregoeiro();
-      allow create, delete: if pregoeiro();
-      allow update: if pregoeiro() ||
+      allow create, delete: if pregoeiroEdit();
+      allow update: if pregoeiroEdit() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinantes','updatedAt']);
     }
     match /diligencias/{id} {
       allow get: if true;
       allow list: if pregoeiro();
-      allow create, delete: if pregoeiro();
-      allow update: if pregoeiro() ||
+      allow create, delete: if pregoeiroEdit();
+      allow update: if pregoeiroEdit() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinantes','updatedAt']);
     }
   }

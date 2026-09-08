@@ -67,23 +67,37 @@ aditivo refaz a conta sem somar duas vezes.
 
 ### Quem pode editar
 
-A tela é pública e não tem login: os botões de cadastro aparecem para quem
-abrir a página. **Esconder botão não é controle de acesso** — enquanto o
-Firestore não estiver ligado isso não tem consequência (não há onde gravar),
-mas, ao ligar, quem decide quem grava são as **regras do Firestore**. Nascer com
-regra de escrita fechada é parte do passo 2 abaixo, não um detalhe posterior.
+Ler continua público, sem login nenhum — igual a hoje. **Gravar** (cadastro
+novo, edição, aditivo) já está pronto no código para exigir conta aprovada
+com nível **"Editar"**, no mesmo modelo de `CONTROLE-DE-ACESSO.md`: conta
+nasce pendente sem nenhum acesso, um administrador aprova escolhendo **Sem
+acesso / Visualizar / Editar** no botão **Usuários** (aparece no cabeçalho
+assim que alguém loga), e o e-mail `pedrohhpacifico@gmail.com` já nasce
+administrador com edição liberada. Isso já está implementado em
+`contratos/index.html` (procure por "CONTAS E PERMISSÕES") e em
+`contratos/firestore-contratos-ijui.rules` — só falta o passo abaixo, que só
+você consegue fazer, porque exige a sua conta do Firebase.
+
+Enquanto `FIREBASE_CONFIG` estiver vazio (a situação de hoje), nada disso
+entra em cena: não existe conta, e salvar cai direto no rascunho do
+navegador — exatamente o comportamento de sempre, sem nenhuma mudança.
 
 ## Como ligar o Firestore
 
 1. No console do Firebase, **criar um projeto novo** (ex.: `contratos-ijui`).
    Não reaproveitar o `processos-ijui`.
-2. Criar o Firestore. Nas regras, começar fechado e abrir só o necessário — não
-   copiar as regras das licitações. Como a tela agora grava (cadastro, edição e
-   aditivos), a regra de **escrita** é o que de fato protege o cadastro: deixá-la
-   aberta é deixar qualquer visitante alterar contrato.
-3. Registrar um app Web e copiar o objeto de configuração.
-4. Colar em `FIREBASE_CONFIG`, em `contratos/index.html`.
-5. Subir os dados:
+2. **Authentication** → **Sign-in method** → ativar **Google** (e, se quiser,
+   **E-mail/senha** também) — é o mesmo tipo de login do sistema de
+   licitações, mas com conta separada, porque o projeto é outro.
+3. Criar o Firestore. Colar o conteúdo de
+   [`contratos/firestore-contratos-ijui.rules`](firestore-contratos-ijui.rules)
+   em **Firestore Database** → **Regras** → **Publicar**. Esse arquivo já
+   deixa a leitura de `contratos` pública (como hoje) e a escrita restrita a
+   quem tiver nível "Editar" — não precisa (nem deve) copiar as regras das
+   licitações.
+4. Registrar um app Web e copiar o objeto de configuração.
+5. Colar em `FIREBASE_CONFIG`, em `contratos/index.html`.
+6. Subir os dados:
 
    ```bash
    node contratos/ferramentas/importar.mjs              # ensaio, não grava nada
@@ -93,7 +107,14 @@ regra de escrita fechada é parte do passo 2 abaixo, não um detalhe posterior.
    O id de cada documento é o `id` numérico do contrato em texto, então rodar de
    novo atualiza os mesmos documentos em vez de duplicar.
 
-6. Conferir: a tarja do cabeçalho deve passar a dizer `DADOS AO VIVO`.
+7. Conferir: a tarja do cabeçalho deve passar a dizer `DADOS AO VIVO`.
+8. Abrir a tela e entrar com **pedrohhpacifico@gmail.com** pelo Google — nasce
+   administrador na hora, com edição liberada. No botão **Usuários** que
+   aparece no cabeçalho, aprove as duas pessoas que vão editar contratos,
+   escolhendo o nível **Editar** para cada uma. A partir daí, as duas
+   conseguem estar na tela ao mesmo tempo: quem salva um contrato ou aditivo
+   aparece para a outra pessoa na hora, sem precisar atualizar a página — a
+   tela ouve o Firestore ao vivo (`onSnapshot`), não só na hora de abrir.
 
 A partir daí o backup diário passa a incluir o projeto de contratos sozinho —
 ele lê o `FIREBASE_CONFIG` daqui e, enquanto estiver vazio, simplesmente pula.
@@ -102,7 +123,8 @@ ele lê o `FIREBASE_CONFIG` daqui e, enquanto estiver vazio, simplesmente pula.
 
 | | |
 |---|---|
-| `index.html` | a tela: busca que varre tudo, tabela única com filtro em cada coluna, e o cadastro de contratos e aditivos |
+| `index.html` | a tela: busca que varre tudo, tabela única com filtro em cada coluna, o cadastro de contratos e aditivos, e as contas/permissões (bloco "CONTAS E PERMISSÕES") |
 | `dados/contratos.json` | os 1.264 contratos, um por linha |
 | `ferramentas/importar.mjs` | sobe o JSON para o Firestore dos contratos |
+| `firestore-contratos-ijui.rules` | as regras do Firestore do projeto de contratos (colar no console, quando o projeto existir) |
 | `../testes/t-contratos.js` | confere que a tela continua fazendo o que fazia |
