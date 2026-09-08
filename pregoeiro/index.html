@@ -30,24 +30,24 @@
   });
   const db         = firebase.firestore();
 
-  /* ── Espera o primeiro estado de autenticação antes de ouvir coleções
-     protegidas ──
-     Bug real, encontrado em produção: os listeners abaixo (processos,
-     agentes, status...) são ligados assim que o script roda, MUITO antes
-     de firebase.auth().onAuthStateChanged ser registrado lá embaixo. O
-     Firestore manda o pedido de listar na hora, usando o que tiver de
-     token NAQUELE instante — e como o Firebase Auth ainda está
-     restaurando a sessão salva (assíncrono, lê IndexedDB), o pedido quase
-     sempre sai sem login nenhum. Como as regras exigem estar autenticado
-     pra listar processos/agentes/status, o Firestore nega ("Missing or
-     insufficient permissions") — e um onSnapshot que toma esse erro NÃO
-     tenta de novo sozinho depois: o listener morre pro resto da visita,
-     mesmo a pessoa tendo conta aprovada e a tela do app já aberta.
-     authPronto resolve assim que o primeiro estado (logado ou não) fica
-     conhecido; os listeners protegidos esperam por ele antes de sair. */
-  var authPronto = new Promise(function(resolve){
-    var pararDeEscutar = firebase.auth().onAuthStateChanged(function(u){ pararDeEscutar(); resolve(u); });
-  });
+  /* ── Coleções protegidas só começam a ser ouvidas depois de confirmado
+     acesso (ver iniciarListenersProtegidos, chamada de dentro de
+     authShowApp lá embaixo) ──
+     Dois bugs reais, encontrados em produção, resolvidos pelo mesmo
+     ajuste: (1) ouvir processos/agentes/status assim que o script roda
+     manda o pedido ANTES de o Firebase Auth terminar de restaurar a
+     sessão salva — o pedido sai sem login, as regras negam ("Missing or
+     insufficient permissions"), e um onSnapshot que toma esse erro NÃO
+     tenta de novo sozinho depois; (2) mesmo esperando o login, ligar de
+     uma vez só na carga da página não resolve pra quem entra "pendente"
+     e é aprovado com a aba já aberta — o pedido inicial nega (ainda sem
+     acesso), o listener morre, e a aprovação que chega depois não
+     reativa nada: a tela fica com processos/agentes vazios pra sempre,
+     mesmo com o acesso já liberado. Por isso os listeners só são
+     ligados de dentro de authShowApp(), que roda exatamente quando o
+     perfil confirma acesso aprovado — seja na entrada, seja numa
+     aprovação ao vivo — e nunca antes disso. */
+  var _listenersProtegidosIniciados = false;
 
   const colRef     = db.collection("processos");
   const agColRef   = db.collection("agentes");
@@ -2708,7 +2708,7 @@ setTimeout(function(){
   }
 }, 8000);
 
-authPronto.then(function(){
+function _iniciarListenerProcessos(){
   colRef.onSnapshot(function(snap){
     processos = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
     document.getElementById("loadingOverlay").classList.add("hide");
@@ -2718,10 +2718,10 @@ authPronto.then(function(){
     document.getElementById("loadingOverlay").classList.add("hide");
     document.getElementById("grid").innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div><h3>Erro de conexão</h3><p>'+escHtml(err.message)+'</p></div>';
   });
-});
+}
 
 var _agUrlAplicado=false;
-authPronto.then(function(){
+function _iniciarListenerAgentes(){
   agColRef.onSnapshot(function(snap){
     agentes = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
       .sort(function(a,b){ return (a.nomeAbrev||"").localeCompare(b.nomeAbrev||""); });
@@ -2741,9 +2741,9 @@ authPronto.then(function(){
       }
     }
   }, function(err){ console.error("Agentes:", err); });
-});
+}
 
-authPronto.then(function(){
+function _iniciarListenerStatus(){
 db.collection("status").onSnapshot(function(snap){
   if(snap.empty){
     /* First time: seed defaults into Firestore */
@@ -2782,7 +2782,7 @@ db.collection("status").onSnapshot(function(snap){
   if(processos.length) renderizar();
   if(typeof consultaAtivo!=="undefined" && consultaAtivo) renderConsulta();
 }, function(err){ console.error("Status:", err); statusList=STATUS_DEFAULT.slice(); statusListAll=STATUS_DEFAULT.slice(); renderSelectStatus(); });
-});
+}
 
 /* ── Delegação de eventos nos cards ──────────────────────────────────────────── */
 document.addEventListener("click", function(e){
@@ -3034,7 +3034,7 @@ function copiarFallbackWa(txt,ok,falhou){
 var emailCfgRef = db.collection("email_config").doc("config");
 var emailCfg = {webAppUrl:"", token:"", auto:true, autoPublicacao:true, destinatarios:[]};
 var emDestTemp = [];
-authPronto.then(function(){
+function _iniciarListenerEmailConfig(){
 emailCfgRef.onSnapshot(function(doc){
   if(doc.exists){
     var d=doc.data()||{};
@@ -3045,7 +3045,7 @@ emailCfgRef.onSnapshot(function(doc){
   var m=document.getElementById("modalEmail");
   if(m && m.classList.contains("open")) emailPreencherForm();
 }, function(err){ console.warn("email_config: sem permissão de leitura ("+err.message+")"); });
-});
+}
 
 function hojeISO(){
   var d=new Date();
@@ -4450,7 +4450,7 @@ function atualizarURL(){
 var rkColRef = db.collection('rankings');
 
 /* Listeners em tempo real que alimentam o feed/progresso dos cards da tela inicial */
-authPronto.then(function(){
+function _iniciarListenerProcExtras(){
 rkColRef.onSnapshot(function(snap){
   snap.docChanges().forEach(function(ch){
     if(ch.type==="removed"){ if(procExtras[ch.doc.id]) delete procExtras[ch.doc.id].rk; }
@@ -4465,7 +4465,7 @@ habColRef.onSnapshot(function(snap){
   });
   renderizar();
 }, function(err){ console.error('procExtras habilitacoes:', err); });
-});
+}
 var rkProcessoAtual = null;
 var rkItens = [];
 var rkEstados = {};
@@ -8669,7 +8669,7 @@ function pdfFmtNum(d){
 }
 
 /* ── Tempo real (Firestore) ─────────────────────────────────────────────── */
-authPronto.then(function(){
+function _iniciarListenerDecisoes(){
 decColRef.onSnapshot(function(snap){
   decisoes = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
     .sort(function(a,b){
@@ -8679,7 +8679,7 @@ decColRef.onSnapshot(function(snap){
   decRenderFiltros();
   decRender();
 }, function(err){ console.error("Decisoes err:", err); });
-});
+}
 
 function abrirPainelDec(){ document.getElementById("painelDec").classList.add("open"); }
 function fecharPainelDec(){ document.getElementById("painelDec").classList.remove("open"); }
@@ -10111,7 +10111,7 @@ function dilResultadoCls(r){
 }
 
 /* ── Tempo real (Firestore) ─────────────────────────────────────────────── */
-authPronto.then(function(){
+function _iniciarListenerDiligencias(){
 dilColRef.onSnapshot(function(snap){
   diligenciasList = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
     .sort(function(a,b){
@@ -10121,7 +10121,7 @@ dilColRef.onSnapshot(function(snap){
   dilRenderFiltros();
   dilRender();
 }, function(err){ console.error("Diligencias err:", err); });
-});
+}
 
 function abrirPainelDil(){ document.getElementById("painelDil").classList.add("open"); }
 function fecharPainelDil(){ document.getElementById("painelDil").classList.remove("open"); }
@@ -11149,6 +11149,22 @@ function authAoAutenticar(user){
   }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
 }
 
+/* Liga as coleções protegidas exatamente na primeira vez em que o acesso é
+   confirmado — seja na entrada normal, seja numa aprovação que chega ao
+   vivo com a aba já aberta (ver o comentário completo lá em cima, perto
+   de "const db"). A guarda evita reanexar tudo de novo a cada chamada de
+   authShowApp (ex.: um admin trocando outro campo do próprio perfil). */
+function iniciarListenersProtegidos(){
+  if(_listenersProtegidosIniciados) return;
+  _listenersProtegidosIniciados=true;
+  _iniciarListenerProcessos();
+  _iniciarListenerAgentes();
+  _iniciarListenerStatus();
+  _iniciarListenerEmailConfig();
+  _iniciarListenerProcExtras();
+  _iniciarListenerDecisoes();
+  _iniciarListenerDiligencias();
+}
 function authShowApp(){
   if(AUTH_MODO_COMPARTILHADO) return;
   document.getElementById("authGate").style.display="none";
@@ -11156,6 +11172,7 @@ function authShowApp(){
   if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
   var btn=document.getElementById("btnUsuarios");
   if(btn) btn.style.display = authIsAdmin() ? "" : "none";
+  iniciarListenersProtegidos();
 }
 function authShowPendente(){
   if(AUTH_MODO_COMPARTILHADO) return;
