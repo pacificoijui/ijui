@@ -29,6 +29,26 @@
     appId: "1:385308750932:web:65e94a26e71451995fe9c1"
   });
   const db         = firebase.firestore();
+
+  /* ── Espera o primeiro estado de autenticação antes de ouvir coleções
+     protegidas ──
+     Bug real, encontrado em produção: os listeners abaixo (processos,
+     agentes, status...) são ligados assim que o script roda, MUITO antes
+     de firebase.auth().onAuthStateChanged ser registrado lá embaixo. O
+     Firestore manda o pedido de listar na hora, usando o que tiver de
+     token NAQUELE instante — e como o Firebase Auth ainda está
+     restaurando a sessão salva (assíncrono, lê IndexedDB), o pedido quase
+     sempre sai sem login nenhum. Como as regras exigem estar autenticado
+     pra listar processos/agentes/status, o Firestore nega ("Missing or
+     insufficient permissions") — e um onSnapshot que toma esse erro NÃO
+     tenta de novo sozinho depois: o listener morre pro resto da visita,
+     mesmo a pessoa tendo conta aprovada e a tela do app já aberta.
+     authPronto resolve assim que o primeiro estado (logado ou não) fica
+     conhecido; os listeners protegidos esperam por ele antes de sair. */
+  var authPronto = new Promise(function(resolve){
+    var pararDeEscutar = firebase.auth().onAuthStateChanged(function(u){ pararDeEscutar(); resolve(u); });
+  });
+
   const colRef     = db.collection("processos");
   const agColRef   = db.collection("agentes");
   const habColRef  = db.collection("habilitacoes");
@@ -2688,37 +2708,42 @@ setTimeout(function(){
   }
 }, 8000);
 
-colRef.onSnapshot(function(snap){
-  processos = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
-  document.getElementById("loadingOverlay").classList.add("hide");
-  renderizar();
-  if(typeof consultaAtivo!=="undefined" && consultaAtivo) renderConsulta();
-}, function(err){
-  document.getElementById("loadingOverlay").classList.add("hide");
-  document.getElementById("grid").innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div><h3>Erro de conexão</h3><p>'+escHtml(err.message)+'</p></div>';
+authPronto.then(function(){
+  colRef.onSnapshot(function(snap){
+    processos = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+    document.getElementById("loadingOverlay").classList.add("hide");
+    renderizar();
+    if(typeof consultaAtivo!=="undefined" && consultaAtivo) renderConsulta();
+  }, function(err){
+    document.getElementById("loadingOverlay").classList.add("hide");
+    document.getElementById("grid").innerHTML = '<div class="empty"><div class="empty-icon">&#9888;</div><h3>Erro de conexão</h3><p>'+escHtml(err.message)+'</p></div>';
+  });
 });
 
 var _agUrlAplicado=false;
-agColRef.onSnapshot(function(snap){
-  agentes = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
-    .sort(function(a,b){ return (a.nomeAbrev||"").localeCompare(b.nomeAbrev||""); });
-  renderFiltrosAgentes();
-  renderSelectAgentes();
-  renderListaAgentes();
-  /* Aplica o filtro vindo da URL ("agente=Pedro,Lucilda") UMA ÚNICA VEZ, na
-     primeira carga. Antes isso rodava a cada alteração em qualquer agente e
-     jogava o filtro de volta para o da URL no meio do trabalho.            */
-  if(!_agUrlAplicado){
-    _agUrlAplicado=true;
-    var _ag = new URLSearchParams(window.location.search).get("agente");
-    if(_ag){
-      filtroAgentes = _ag.split(",").map(function(s){return s.trim();}).filter(Boolean);
-      syncFiltroAgentesUI();
-      renderizar();
+authPronto.then(function(){
+  agColRef.onSnapshot(function(snap){
+    agentes = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
+      .sort(function(a,b){ return (a.nomeAbrev||"").localeCompare(b.nomeAbrev||""); });
+    renderFiltrosAgentes();
+    renderSelectAgentes();
+    renderListaAgentes();
+    /* Aplica o filtro vindo da URL ("agente=Pedro,Lucilda") UMA ÚNICA VEZ, na
+       primeira carga. Antes isso rodava a cada alteração em qualquer agente e
+       jogava o filtro de volta para o da URL no meio do trabalho.            */
+    if(!_agUrlAplicado){
+      _agUrlAplicado=true;
+      var _ag = new URLSearchParams(window.location.search).get("agente");
+      if(_ag){
+        filtroAgentes = _ag.split(",").map(function(s){return s.trim();}).filter(Boolean);
+        syncFiltroAgentesUI();
+        renderizar();
+      }
     }
-  }
-}, function(err){ console.error("Agentes:", err); });
+  }, function(err){ console.error("Agentes:", err); });
+});
 
+authPronto.then(function(){
 db.collection("status").onSnapshot(function(snap){
   if(snap.empty){
     /* First time: seed defaults into Firestore */
@@ -2757,6 +2782,7 @@ db.collection("status").onSnapshot(function(snap){
   if(processos.length) renderizar();
   if(typeof consultaAtivo!=="undefined" && consultaAtivo) renderConsulta();
 }, function(err){ console.error("Status:", err); statusList=STATUS_DEFAULT.slice(); statusListAll=STATUS_DEFAULT.slice(); renderSelectStatus(); });
+});
 
 /* ── Delegação de eventos nos cards ──────────────────────────────────────────── */
 document.addEventListener("click", function(e){
@@ -3008,6 +3034,7 @@ function copiarFallbackWa(txt,ok,falhou){
 var emailCfgRef = db.collection("email_config").doc("config");
 var emailCfg = {webAppUrl:"", token:"", auto:true, autoPublicacao:true, destinatarios:[]};
 var emDestTemp = [];
+authPronto.then(function(){
 emailCfgRef.onSnapshot(function(doc){
   if(doc.exists){
     var d=doc.data()||{};
@@ -3018,6 +3045,7 @@ emailCfgRef.onSnapshot(function(doc){
   var m=document.getElementById("modalEmail");
   if(m && m.classList.contains("open")) emailPreencherForm();
 }, function(err){ console.warn("email_config: sem permissão de leitura ("+err.message+")"); });
+});
 
 function hojeISO(){
   var d=new Date();
@@ -4422,6 +4450,7 @@ function atualizarURL(){
 var rkColRef = db.collection('rankings');
 
 /* Listeners em tempo real que alimentam o feed/progresso dos cards da tela inicial */
+authPronto.then(function(){
 rkColRef.onSnapshot(function(snap){
   snap.docChanges().forEach(function(ch){
     if(ch.type==="removed"){ if(procExtras[ch.doc.id]) delete procExtras[ch.doc.id].rk; }
@@ -4436,6 +4465,7 @@ habColRef.onSnapshot(function(snap){
   });
   renderizar();
 }, function(err){ console.error('procExtras habilitacoes:', err); });
+});
 var rkProcessoAtual = null;
 var rkItens = [];
 var rkEstados = {};
@@ -8639,6 +8669,7 @@ function pdfFmtNum(d){
 }
 
 /* ── Tempo real (Firestore) ─────────────────────────────────────────────── */
+authPronto.then(function(){
 decColRef.onSnapshot(function(snap){
   decisoes = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
     .sort(function(a,b){
@@ -8648,6 +8679,7 @@ decColRef.onSnapshot(function(snap){
   decRenderFiltros();
   decRender();
 }, function(err){ console.error("Decisoes err:", err); });
+});
 
 function abrirPainelDec(){ document.getElementById("painelDec").classList.add("open"); }
 function fecharPainelDec(){ document.getElementById("painelDec").classList.remove("open"); }
@@ -10079,6 +10111,7 @@ function dilResultadoCls(r){
 }
 
 /* ── Tempo real (Firestore) ─────────────────────────────────────────────── */
+authPronto.then(function(){
 dilColRef.onSnapshot(function(snap){
   diligenciasList = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); })
     .sort(function(a,b){
@@ -10088,6 +10121,7 @@ dilColRef.onSnapshot(function(snap){
   dilRenderFiltros();
   dilRender();
 }, function(err){ console.error("Diligencias err:", err); });
+});
 
 function abrirPainelDil(){ document.getElementById("painelDil").classList.add("open"); }
 function fecharPainelDil(){ document.getElementById("painelDil").classList.remove("open"); }

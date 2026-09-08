@@ -28,6 +28,22 @@
     appId: "1:385308750932:web:65e94a26e71451995fe9c1"
   });
   const db        = firebase.firestore();
+
+  /* ── Espera o primeiro estado de autenticação antes de ouvir coleções
+     protegidas ──
+     Bug real, encontrado em produção: os listeners abaixo (processos,
+     agentes, status...) são ligados assim que o script roda, antes de o
+     Firebase Auth terminar de restaurar a sessão salva (assíncrono, lê
+     IndexedDB). O Firestore manda o pedido na hora, sem login nenhum, as
+     regras negam ("Missing or insufficient permissions") e o Firestore
+     NÃO tenta de novo sozinho depois — o listener morre pro resto da
+     visita, mesmo pra quem tem conta aprovada. authPronto resolve assim
+     que o primeiro estado (logado ou não) fica conhecido; os listeners
+     protegidos esperam por ele antes de sair. */
+  var authPronto = new Promise(function(resolve){
+    var pararDeEscutar = firebase.auth().onAuthStateChanged(function(u){ pararDeEscutar(); resolve(u); });
+  });
+
   const colRef    = db.collection("processos");
   const agColRef  = db.collection("agentes");
 
@@ -35,14 +51,16 @@
      sistema interno em pregoeiro/index.html, mesma coleção/doc). */
   var emailCfgRef = db.collection("email_config").doc("config");
   var emailCfg = {webAppUrl:"", token:"", autoPublicacao:true, destinatarios:[]};
-  emailCfgRef.onSnapshot(function(doc){
-    if(doc.exists){
-      var d=doc.data()||{};
-      emailCfg={webAppUrl:d.webAppUrl||"", token:d.token||"",
-                autoPublicacao:(d.autoPublicacao!==false),
-                destinatarios:Array.isArray(d.destinatarios)?d.destinatarios:[]};
-    }
-  }, function(err){ console.warn("email_config: sem permissão de leitura ("+err.message+")"); });
+  authPronto.then(function(){
+    emailCfgRef.onSnapshot(function(doc){
+      if(doc.exists){
+        var d=doc.data()||{};
+        emailCfg={webAppUrl:d.webAppUrl||"", token:d.token||"",
+                  autoPublicacao:(d.autoPublicacao!==false),
+                  destinatarios:Array.isArray(d.destinatarios)?d.destinatarios:[]};
+      }
+    }, function(err){ console.warn("email_config: sem permissão de leitura ("+err.message+")"); });
+  });
 </script>
 
 <style>
@@ -1387,6 +1405,12 @@ try { pfColRef   = db.collection("pontos_facultativos"); } catch(e){ pfColRef   
 try { anivColRef = db.collection("aniversarios"); }       catch(e){ anivColRef = null; }
 
 /* ── Firestore em tempo real ────────────────────────────────────────────── */
+/* Os listeners abaixo só saem depois de authPronto (ver comentário lá em
+   cima): senão, eles tentam ler/listar antes do Firebase Auth terminar de
+   restaurar a sessão salva, tomam "Missing or insufficient permissions" e
+   o Firestore NÃO tenta de novo sozinho depois — o listener morre pro
+   resto da visita, mesmo pra quem tem conta aprovada. */
+authPronto.then(function(){
 try{ db.collection("status").onSnapshot(function(snap){
   if(!snap.empty){
     statusListAll = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); })
@@ -1442,6 +1466,7 @@ try{ if(anivColRef) anivColRef.onSnapshot(function(snap){
   anivList=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
   render(); refreshPainel();
 }); }catch(e){ console.warn("aniversarios onSnapshot:", e); }
+});
 
 /* ── Funções de observações ────────────────────────────────────────────────── */
 function salvarObs(iso, texto){
