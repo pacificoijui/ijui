@@ -84,11 +84,16 @@
   })();
 
   /* ── Espera o primeiro estado de autenticação antes de ouvir coleções
-     protegidas ── Ver o comentário completo em pregoeiro/index.html: sem
-     isso, os listeners abaixo tentam listar/ler ANTES do Firebase Auth
-     terminar de restaurar a sessão salva, tomam "Missing or insufficient
-     permissions" e morrem pro resto da visita — mesmo pra quem tem conta
-     aprovada. */
+     protegidas ──
+     Bug real, encontrado em produção: os listeners abaixo (processos,
+     agentes, status...) são ligados assim que o script roda, antes de o
+     Firebase Auth terminar de restaurar a sessão salva (assíncrono, lê
+     IndexedDB). O Firestore manda o pedido na hora, sem login nenhum, as
+     regras negam ("Missing or insufficient permissions") e o Firestore
+     NÃO tenta de novo sozinho depois — o listener morre pro resto da
+     visita, mesmo pra quem tem conta aprovada. authPronto resolve assim
+     que o primeiro estado (logado ou não) fica conhecido; os listeners
+     protegidos esperam por ele antes de sair. */
   var authPronto = new Promise(function(resolve){
     var pararDeEscutar = firebase.auth().onAuthStateChanged(function(u){ pararDeEscutar(); resolve(u); });
   });
