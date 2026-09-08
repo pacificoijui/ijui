@@ -83,20 +83,24 @@
     };
   })();
 
-  /* ── Espera o primeiro estado de autenticação antes de ouvir coleções
-     protegidas ──
-     Bug real, encontrado em produção: os listeners abaixo (processos,
-     agentes, status...) são ligados assim que o script roda, antes de o
-     Firebase Auth terminar de restaurar a sessão salva (assíncrono, lê
-     IndexedDB). O Firestore manda o pedido na hora, sem login nenhum, as
-     regras negam ("Missing or insufficient permissions") e o Firestore
-     NÃO tenta de novo sozinho depois — o listener morre pro resto da
-     visita, mesmo pra quem tem conta aprovada. authPronto resolve assim
-     que o primeiro estado (logado ou não) fica conhecido; os listeners
-     protegidos esperam por ele antes de sair. */
-  var authPronto = new Promise(function(resolve){
-    var pararDeEscutar = firebase.auth().onAuthStateChanged(function(u){ pararDeEscutar(); resolve(u); });
-  });
+  /* ── Coleções protegidas só começam a ser ouvidas depois de confirmado
+     acesso (ver iniciarListenersProtegidos, chamada de dentro de
+     authShowApp mais abaixo) ──
+     Dois bugs reais, encontrados em produção, resolvidos pelo mesmo
+     ajuste: (1) ouvir processos/agentes/status assim que o script roda
+     manda o pedido ANTES de o Firebase Auth terminar de restaurar a
+     sessão salva — o pedido sai sem login, as regras negam ("Missing or
+     insufficient permissions"), e um onSnapshot que toma esse erro NÃO
+     tenta de novo sozinho depois; (2) mesmo esperando o login, ligar de
+     uma vez só na carga da página não resolve pra quem entra "pendente"
+     e é aprovado com a aba já aberta — o pedido inicial nega (ainda sem
+     acesso), o listener morre, e a aprovação que chega depois não
+     reativa nada: a tela fica com processos/agentes vazios pra sempre,
+     mesmo com o acesso já liberado. Por isso os listeners só são
+     ligados de dentro de authShowApp(), que roda exatamente quando o
+     perfil confirma acesso aprovado — seja na entrada, seja numa
+     aprovação ao vivo — e nunca antes disso. */
+  var _listenersProtegidosIniciados = false;
 
   const colRef    = db.collection("processos");
   const agColRef  = db.collection("agentes");
@@ -105,7 +109,7 @@
      sistema interno em pregoeiro/index.html, mesma coleção/doc). */
   var emailCfgRef = db.collection("email_config").doc("config");
   var emailCfg = {webAppUrl:"", token:"", autoPublicacao:true, destinatarios:[]};
-  authPronto.then(function(){
+  function _iniciarListenerEmailConfig(){
     emailCfgRef.onSnapshot(function(doc){
       if(doc.exists){
         var d=doc.data()||{};
@@ -114,7 +118,7 @@
                   destinatarios:Array.isArray(d.destinatarios)?d.destinatarios:[]};
       }
     }, function(err){ console.warn("email_config: sem permissão de leitura ("+err.message+")"); });
-  });
+  }
 </script>
 
 <style>
@@ -1242,10 +1246,23 @@ function authAtualizarBannerSoLeitura(painel){
     el.style.display="block";
   } else if(el){ el.style.display="none"; }
 }
+
+/* Liga as coleções protegidas exatamente na primeira vez em que o acesso é
+   confirmado — seja na entrada normal, seja numa aprovação que chega ao
+   vivo com a aba já aberta (ver o comentário completo lá em cima, perto
+   de "const db"). A guarda evita reanexar tudo de novo a cada chamada de
+   authShowApp. */
+function iniciarListenersProtegidos(){
+  if(_listenersProtegidosIniciados) return;
+  _listenersProtegidosIniciados=true;
+  _iniciarListenerEmailConfig();
+  _iniciarListenersDados();
+}
 function authShowApp(){
   document.getElementById("authGate").style.display="none";
   var chip=document.getElementById("authUserChip");
   if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
+  iniciarListenersProtegidos();
   authAtualizarBannerSoLeitura("agenda");
 }
 function authShowPendente(){
@@ -1491,12 +1508,11 @@ try { pfColRef   = db.collection("pontos_facultativos"); } catch(e){ pfColRef   
 try { anivColRef = db.collection("aniversarios"); }       catch(e){ anivColRef = null; }
 
 /* ── Firestore em tempo real ────────────────────────────────────────────── */
-/* Os listeners abaixo só saem depois de authPronto (ver comentário lá em
-   cima): senão, eles tentam ler/listar antes do Firebase Auth terminar de
-   restaurar a sessão salva, tomam "Missing or insufficient permissions" e
-   o Firestore NÃO tenta de novo sozinho depois — o listener morre pro
-   resto da visita, mesmo pra quem tem conta aprovada. */
-authPronto.then(function(){
+/* Os listeners abaixo só são ligados de dentro de iniciarListenersProtegidos,
+   chamada por authShowApp() (ver comentário completo lá em cima, perto de
+   "const db"): só quando o acesso está de fato confirmado, seja na entrada,
+   seja numa aprovação que chega com a aba já aberta. */
+function _iniciarListenersDados(){
 try{ db.collection("status").onSnapshot(function(snap){
   if(!snap.empty){
     statusListAll = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); })
@@ -1552,7 +1568,7 @@ try{ if(anivColRef) anivColRef.onSnapshot(function(snap){
   anivList=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
   render(); refreshPainel();
 }); }catch(e){ console.warn("aniversarios onSnapshot:", e); }
-});
+}
 
 /* ── Funções de observações ────────────────────────────────────────────────── */
 function salvarObs(iso, texto){

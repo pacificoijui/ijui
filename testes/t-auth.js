@@ -216,6 +216,43 @@ async function entrarComGoogle(pg, user){
   );
   t('excluir também é bloqueado pra quem só visualiza', tentativaExcluir.bloqueou, tentativaExcluir);
 
+  console.log('\n7) Aprovar com a aba já aberta reanexa os dados (não fica "vazio pra sempre")');
+  const seedComDados={
+    processos:{p1:{numero:'PE 10/2026', objeto:'Teste', status:'em-andamento', dataLicit:'2026-08-01', horarioAbertura:'09:00', link:'', responsavel:'PEDRO', contato:''}},
+    agentes:{ag1:{nomeAbrev:'PEDRO', nomeCompleto:'Pedro', nomeCompleto2:''}}
+  };
+  let pg7=await b.newPage({viewport:{width:1300,height:900}});
+  await abrirPregoeiro(pg7, seedComDados);
+  await entrarComGoogle(pg7, {uid:'g-marli', email:'marli@example.com', displayName:'Marli', photoURL:''});
+  const antesAprovar=await pg7.evaluate(()=>({processos:(window.processos||[]).length, agentes:(window.agentes||[]).length}));
+  t('antes de aprovar, sem dado nenhum na tela (correto: ela não tem acesso ainda)', antesAprovar.processos===0 && antesAprovar.agentes===0, antesAprovar);
+  await pg7.evaluate(()=>usuariosV2ColRef.doc('g-marli').update({status:'aprovado', acessos:{agenda:'nenhum',pregoeiro:'editar'}}));
+  await pg7.waitForTimeout(600);
+  const depoisAprovar=await pg7.evaluate(()=>({
+    appAberto: document.getElementById('authGate').style.display==='none',
+    processos:(window.processos||[]).length, agentes:(window.agentes||[]).length
+  }));
+  t('depois de aprovada, o sistema abre', depoisAprovar.appAberto, depoisAprovar);
+  t('e os processos/agentes aparecem sozinhos, sem precisar recarregar a página', depoisAprovar.processos===1 && depoisAprovar.agentes===1, depoisAprovar);
+
+  let pg8=await b.newPage({viewport:{width:1300,height:950}});
+  await pg8.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:(r.request().url().includes('firestore')||r.request().url().includes('auth'))?stub:'/*noop*/'}));
+  await pg8.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pg8.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pg8.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase(seedComDados));
+  await pg8.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-marli', email:'marli@example.com', displayName:'Marli', photoURL:''});
+  await pg8.goto('http://127.0.0.1:8099/index.html',{waitUntil:'networkidle'});
+  await pg8.waitForTimeout(700);
+  const antesAprovarAgenda=await pg8.evaluate(()=>(window.processos||[]).length);
+  t('na Agenda, antes de aprovar, também sem dado nenhum', antesAprovarAgenda===0, antesAprovarAgenda);
+  await pg8.evaluate(()=>usuariosV2ColRef.doc('g-marli').update({status:'aprovado', acessos:{agenda:'ver',pregoeiro:'nenhum'}}));
+  await pg8.waitForTimeout(600);
+  const depoisAprovarAgenda=await pg8.evaluate(()=>({
+    appAberto: document.getElementById('authGate').style.display==='none',
+    processos:(window.processos||[]).length
+  }));
+  t('na Agenda, depois de aprovada (só visualizar), os processos aparecem sozinhos', depoisAprovarAgenda.appAberto && depoisAprovarAgenda.processos===1, depoisAprovarAgenda);
+
   console.log('\nerros JS (pregoeiro, página 1):', errs1.length?errs1:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
   await b.close();
