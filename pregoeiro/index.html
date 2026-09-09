@@ -11456,7 +11456,10 @@ function usuariosRenderAprovados(usuarios){
   var aprovados=usuarios.filter(function(u){ return u.status==="aprovado"||u.status==="bloqueado"; });
   aprovados.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||"",'pt-BR'); });
   if(!aprovados.length){ box.innerHTML='<div class="usr-vazio">Nenhum usuário aprovado ainda.</div>'; return; }
-  var totalAdmins=usuarios.filter(function(u){ return u.isAdmin; }).length;
+  /* Só conta quem realmente PODE administrar: um admin bloqueado não abre
+     o sistema, então deixá-lo no total permitiria bloquear ou rebaixar o
+     último admin em atividade e ninguém mais entraria no painel. */
+  var totalAdmins=usuarios.filter(function(u){ return u.isAdmin && u.status==="aprovado"; }).length;
   box.innerHTML=aprovados.map(function(u){
     var euMesmo=authCurrentUser && authCurrentUser.uid===u.uid;
     var bloqueado=u.status==="bloqueado";
@@ -11479,7 +11482,14 @@ function usuariosSalvarAcessos(uid, totalAdmins){
   var viraAdmin=!!(ad&&ad.checked);
   var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
   if(u && u.isAdmin && !viraAdmin && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
-  usuariosV2ColRef.doc(uid).update({ acessos:usrLerAcessos('apr', uid), isAdmin:viraAdmin })
+  var acessos=usrLerAcessos('apr', uid);
+  /* Mesmo cuidado da aprovação: deixar tudo em "Sem acesso" devolve a
+     pessoa para a tela de espera, e quem salvou não fica sabendo. Admin
+     não entra na conversa — ele abre tudo de qualquer jeito. */
+  if(!viraAdmin && usrNenhumAcesso(acessos) &&
+     !confirm("Nenhum painel ficou liberado (todos em \"Sem acesso\").\n\n"
+              +"A pessoa volta a ver \"aguardando liberação\".\n\nSalvar mesmo assim?")) return;
+  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin })
     .then(function(){ toast("Acessos atualizados."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }

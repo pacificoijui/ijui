@@ -737,6 +737,107 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     {esperado:N, veio:completou});
   t('e o aviso de faltando some', !/ainda não est/.test(completou.aviso), completou.aviso.slice(0,90));
 
+  console.log('\n12) Histórico de edições: quem mexeu, no quê, e o desfazer');
+  const pgHist=await b.newPage({viewport:{width:1280,height:900}});
+  const errsHist=[]; pgHist.on('pageerror',e=>errsHist.push(e.message));
+  await abrirContratos(pgHist, 'editar');
+  const alvo=dados[0].id;
+  const objetoAntigo=await pgHist.evaluate(a=>CONTRATOS.find(x=>x.id===a).objeto, alvo);
+  await pgHist.evaluate(a=>{
+    const c=Object.assign({}, CONTRATOS.find(x=>x.id===a), {objeto:'OBJETO TROCADO NO TESTE'});
+    return gravar(c, 'ok', 'editou');
+  }, alvo);
+  const reg=await pgHist.evaluate(()=>{
+    const h=Object.values(window.__STORE.contratos_historico||{});
+    return {quantos:h.length, primeiro:h[0]&&{acao:h[0].acao, nome:h[0].nome, uid:h[0].uid,
+      temAntes:!!h[0].antes, temDepois:!!h[0].depois, rotulo:h[0].rotulo,
+      objAntes:h[0].antes&&h[0].antes.objeto, objDepois:h[0].depois&&h[0].depois.objeto,
+      temExpira:!!(h[0].expiraEm&&h[0].expiraEm.toDate)}};
+  });
+  t('editar um contrato deixa registro no histórico', reg.quantos===1 && reg.primeiro.acao==='editou', reg);
+  t('o registro diz quem foi', reg.primeiro.nome==='Pedro' && reg.primeiro.uid==='g-pedro', reg.primeiro);
+  t('o registro guarda o antes e o depois', reg.primeiro.temAntes && reg.primeiro.temDepois
+    && reg.primeiro.objAntes===objetoAntigo && reg.primeiro.objDepois==='OBJETO TROCADO NO TESTE', reg.primeiro);
+  t('e nasce com data de validade (para sumir sozinho depois)', reg.primeiro.temExpira, reg.primeiro);
+
+  await pgHist.evaluate(()=>abrirHistorico());
+  await pgHist.waitForFunction(()=>document.querySelectorAll('.hist-linha').length>0,null,{timeout:15000});
+  const painel=await pgHist.evaluate(()=>({
+    linhas: document.querySelectorAll('.hist-linha').length,
+    texto: document.getElementById('histLista').textContent,
+    temDesfazer: !!document.querySelector('#histLista .usr-btn')
+  }));
+  t('o painel mostra a edição em português', /Pedro/.test(painel.texto)
+    && /editou o contrato/.test(painel.texto), painel.texto.slice(0,120));
+  t('e mostra o que mudou, de → para', /objeto/.test(painel.texto)
+    && painel.texto.includes('OBJETO TROCADO NO TESTE'), painel.texto.slice(0,200));
+  t('quem pode editar vê o botão de desfazer', painel.temDesfazer, painel);
+
+  await pgHist.evaluate(()=>{ window.confirm=()=>true; });
+  await pgHist.click('#histLista .usr-btn');
+  await pgHist.waitForFunction(o=>CONTRATOS.find(x=>x.objeto===o), objetoAntigo, {timeout:15000});
+  const desfeito=await pgHist.evaluate(a=>({
+    objeto: CONTRATOS.find(x=>x.id===a).objeto,
+    noBanco: window.__STORE.contratos[String(a)].objeto,
+    registros: Object.values(window.__STORE.contratos_historico).map(h=>h.acao)
+  }), alvo);
+  t('desfazer devolve o contrato ao que era', desfeito.objeto===objetoAntigo
+    && desfeito.noBanco===objetoAntigo, desfeito);
+  t('e o próprio desfazer entra no histórico', desfeito.registros.includes('desfez'), desfeito.registros);
+
+  console.log('\n13) O histórico se limpa sozinho e não serve de rascunho para apagar rastro');
+  const pgLimpa=await b.newPage({viewport:{width:1280,height:900}});
+  const ontem=Date.now()-86400000, daquiAUmAno=Date.now()+300*86400000;
+  await pgLimpa.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+  await pgLimpa.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pgLimpa.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pgLimpa.addInitScript((sd)=>{ window.__SEED=sd; }, Object.assign(seedCom('editar'), {
+    /* {__ts: ...} vira Timestamp dentro do stub — ver fbstub3.js */
+    contratos_historico:{
+      vencido:{acao:'editou', nome:'Serli', uid:'x', rotulo:'1/2020', contratoId:1, empresa:'',
+               quando:{__ts:ontem-365*86400000}, expiraEm:{__ts:ontem}, antes:{id:1}, depois:{id:1}},
+      dentroDoPrazo:{acao:'aditivo-criou', nome:'Julieta', uid:'y', rotulo:'2/2026', contratoId:2, empresa:'',
+               quando:{__ts:Date.now()}, expiraEm:{__ts:daquiAUmAno}, antes:{id:2}, depois:{id:2}}
+    }
+  }));
+  await pgLimpa.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pgLimpa.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgLimpa.waitForTimeout(900);
+  await pgLimpa.evaluate(()=>abrirHistorico());
+  await pgLimpa.waitForFunction(()=>!window.__STORE.contratos_historico.vencido,null,{timeout:15000});
+  const sobrou=await pgLimpa.evaluate(()=>({
+    ids: Object.keys(window.__STORE.contratos_historico),
+    texto: document.getElementById('histLista').textContent
+  }));
+  t('registro vencido (mais de 365 dias) é apagado ao abrir o painel',
+    !sobrou.ids.includes('vencido'), sobrou.ids);
+  t('registro dentro do prazo continua lá', sobrou.ids.includes('dentroDoPrazo'), sobrou.ids);
+  t('e o painel conta o aditivo em português', /Julieta/.test(sobrou.texto)
+    && /cadastrou um aditivo no contrato/.test(sobrou.texto), sobrou.texto.slice(0,140));
+
+  const regras=fs.readFileSync('../firestore-processos-ijui.rules','utf8');
+  t('as regras não deixam reescrever um registro de histórico',
+    /match \/contratos_historico\/\{id\}[\s\S]*?allow update: if false;/.test(regras));
+  t('as regras só deixam apagar registro já vencido',
+    /allow delete: if contratosEdit\(\) && resource\.data\.expiraEm < request\.time;/.test(regras));
+  t('as regras exigem que o registro saia em nome de quem está gravando',
+    /request\.resource\.data\.uid == request\.auth\.uid/.test(regras));
+
+  console.log('\n14) Só visualização: histórico é leitura, sem desfazer');
+  const pgHistVer=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgHistVer, 'ver');
+  await pgHistVer.evaluate(()=>abrirHistorico());
+  await pgHistVer.waitForTimeout(600);
+  const histSoVer=await pgHistVer.evaluate(()=>({
+    botaoVisivel: document.getElementById('btnHist').style.display!=='none',
+    temDesfazer: !!document.querySelector('#histLista .usr-btn')
+  }));
+  t('quem só visualiza também vê o histórico', histSoVer.botaoVisivel, histSoVer);
+  t('mas não recebe botão de desfazer', !histSoVer.temDesfazer, histSoVer);
+
+  console.log('\nerros do histórico:', errsHist.length?errsHist:'nenhum');
+  t('nenhum erro de JavaScript no histórico', errsHist.length===0, errsHist);
+
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
   await b.close();

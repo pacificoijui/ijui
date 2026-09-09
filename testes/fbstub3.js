@@ -1,9 +1,15 @@
 (function(){
   function clone(o){ return o?Object.assign({},o):o; }
-  function makeSnap(items){
+  function makeSnap(items, nomeCol){
+    /* doc.ref existe no Firestore de verdade e é por onde um batch apaga o
+       que a consulta encontrou (a limpeza do histórico faz assim). */
+    function mk(it){
+      return {id:it.id, data:function(){return clone(it.data);}, exists:true,
+              get ref(){ return collection(nomeCol).doc(it.id); }};
+    }
     return {
-      forEach: function(cb){ items.forEach(function(it){ cb({id:it.id, data:function(){return clone(it.data);}, exists:true}); }); },
-      docs: items.map(function(it){ return {id:it.id, data:function(){return clone(it.data);}, exists:true}; }),
+      forEach: function(cb){ items.forEach(function(it){ cb(mk(it)); }); },
+      docs: items.map(mk),
       empty: items.length===0,
       size: items.length,
       docChanges: function(){ return []; }
@@ -12,7 +18,7 @@
   var STORE={}, LISTENERS={};
   function notifyCollection(name){
     var items=Object.keys(STORE[name]||{}).map(function(id){ return {id:id, data:STORE[name][id]}; });
-    (LISTENERS[name]||[]).forEach(function(cb){ cb(makeSnap(items)); });
+    (LISTENERS[name]||[]).forEach(function(cb){ cb(makeSnap(items, name)); });
   }
   function collection(name){
     STORE[name]=STORE[name]||{};
@@ -32,16 +38,20 @@
       },
       get:function(){
         var items=Object.keys(STORE[name]).map(function(id){ return {id:id,data:STORE[name][id]}; });
-        return Promise.resolve(makeSnap(items));
+        return Promise.resolve(makeSnap(items, name));
       },
       add:function(data){
         var id='auto'+Math.random().toString(36).slice(2);
         STORE[name][id]=data; notifyCollection(name);
         return Promise.resolve({id:id});
       },
-      where:function(){ return colApi; },
-      limit:function(){ return colApi; },
-      orderBy:function(){ return colApi; },
+      /* where/orderBy/limit valem para o .get(): o histórico dos contratos
+         pede "as mais recentes" e "as que já venceram", e um stub que
+         devolvesse a coleção inteira faria o teste passar sem testar nada.
+         O onSnapshot segue entregando tudo, como antes. */
+      where:function(campo,op,valor){ return makeQuery(name,[{campo:campo,op:op,valor:valor}],null,0); },
+      orderBy:function(campo,dir){ return makeQuery(name,[],{campo:campo,dir:dir||'asc'},0); },
+      limit:function(n){ return makeQuery(name,[],null,n); },
       doc:function(id){
         id=id||('auto'+Math.random().toString(36).slice(2));
         return {
@@ -145,6 +155,51 @@
     }
   };
 
+  /* Consulta com where/orderBy/limit encadeáveis, resolvida no .get(). */
+  function makeQuery(name, filtros, ordem, lim){
+    function valorDe(v){ return (v && typeof v.toDate === 'function') ? v.toDate().getTime() : v; }
+    var api={
+      where:function(campo,op,valor){ return makeQuery(name, filtros.concat([{campo:campo,op:op,valor:valor}]), ordem, lim); },
+      orderBy:function(campo,dir){ return makeQuery(name, filtros, {campo:campo,dir:dir||'asc'}, lim); },
+      limit:function(n){ return makeQuery(name, filtros, ordem, n); },
+      get:function(){
+        STORE[name]=STORE[name]||{};
+        var items=Object.keys(STORE[name]).map(function(id){ return {id:id,data:STORE[name][id]}; });
+        filtros.forEach(function(f){
+          items=items.filter(function(it){
+            var a=valorDe(it.data[f.campo]), b=valorDe(f.valor);
+            if(f.op==='<')  return a<b;
+            if(f.op==='<=') return a<=b;
+            if(f.op==='>')  return a>b;
+            if(f.op==='>=') return a>=b;
+            return a===b;
+          });
+        });
+        if(ordem) items.sort(function(x,y){
+          var a=valorDe(x.data[ordem.campo]), b=valorDe(y.data[ordem.campo]);
+          var r = a<b ? -1 : a>b ? 1 : 0;
+          return ordem.dir==='desc' ? -r : r;
+        });
+        if(lim) items=items.slice(0,lim);
+        return Promise.resolve(makeSnap(items, name));
+      }
+    };
+    return api;
+  }
+
+  /* Transação (db.runTransaction). O contrato novo usa isso para não gravar
+     em cima de um id que outra pessoa acabou de ocupar. Aqui não há
+     concorrência de verdade: basta ler e escrever na ordem. */
+  function runTransaction(fn){
+    var t={
+      get:function(ref){ return ref.get(); },
+      set:function(ref,data,opts){ ref.set(data,opts); return t; },
+      update:function(ref,data){ ref.update(data); return t; },
+      delete:function(ref){ ref.delete(); return t; }
+    };
+    try{ return Promise.resolve(fn(t)); }catch(e){ return Promise.reject(e); }
+  }
+
   /* Lote de escritas (db.batch()). O Firestore real manda tudo de uma vez e
      desfaz se alguma falhar; aqui basta aplicar em ordem — os testes usam
      isso para a importação inicial dos contratos e para as operações de
@@ -164,11 +219,19 @@
 
   window.firebase={
     initializeApp:function(){},
-    firestore:function(){ return {collection:collection, batch:batch}; },
+    firestore:function(){ return {collection:collection, batch:batch, runTransaction:runTransaction}; },
     auth:function(){ return authApi; }
   };
   window.firebase.auth.GoogleAuthProvider=function(){};
   window.firebase.firestore.FieldValue={ serverTimestamp:function(){ return new Date(); } };
+  /* Timestamp com toDate(), que é como a tela lê a data do histórico. */
+  function MkTimestamp(d){ this._d=new Date(d); }
+  MkTimestamp.prototype.toDate=function(){ return new Date(this._d); };
+  MkTimestamp.prototype.valueOf=function(){ return this._d.getTime(); };
+  window.firebase.firestore.Timestamp={
+    fromDate:function(d){ return new MkTimestamp(d); },
+    now:function(){ return new MkTimestamp(new Date()); }
+  };
   /* window.__AUTH_SEED: {uid,email,displayName,photoURL,providerId} já logado ao carregar a página. */
   try{ if(window.__AUTH_SEED) authUser=authMkUser(window.__AUTH_SEED); }catch(e){}
 
@@ -185,5 +248,18 @@
     s1:{id:'em-andamento',nome:'Em Andamento',cor:'amber',ordem:0},
     s2:{id:'finalizacao',nome:'Finalização',cor:'blue',ordem:1}
   };
-  try{ if(window.__SEED) Object.keys(window.__SEED).forEach(function(k){ STORE[k]=window.__SEED[k]; }); }catch(e){}
+  /* No SEED, {__ts: milissegundos} vira Timestamp — é como um teste semeia
+     data de histórico sem ter acesso ao firebase antes de a página abrir. */
+  function seedTimestamps(o){
+    if(!o || typeof o!=='object') return o;
+    Object.keys(o).forEach(function(k){
+      var v=o[k];
+      if(v && typeof v==='object'){
+        if('__ts' in v) o[k]=window.firebase.firestore.Timestamp.fromDate(new Date(v.__ts));
+        else seedTimestamps(v);
+      }
+    });
+    return o;
+  }
+  try{ if(window.__SEED) Object.keys(window.__SEED).forEach(function(k){ STORE[k]=seedTimestamps(window.__SEED[k]); }); }catch(e){}
 })();

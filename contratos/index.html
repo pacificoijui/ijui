@@ -26,8 +26,12 @@
 <meta name="twitter:description" content="Gestão eficiente, transparente e integrada.">
 <meta name="twitter:image" content="https://ijui.net/contratos/capa-whatsapp.jpg">
 <meta name="description" content="Sistema de Gestão de Contratos do Município de Ijuí. Consulte contratos por secretaria, fiscal e vencimento e gere relatórios em PDF.">
-<link rel="icon" href="capa-whatsapp.jpg">
-<link rel="apple-touch-icon" href="capa-whatsapp.jpg">
+<!-- O ícone da aba é a logo do município, a mesma que a Agenda usa. A
+     capa-whatsapp.jpg continua servindo de prévia ao compartilhar o link,
+     mas não presta como ícone: é um cartaz de 1024px que, reduzido a 16px
+     na aba, vira borrão — foi por isso que a aba aparecia sem ícone. -->
+<link rel="icon" href="../logo-ijui.jpg">
+<link rel="apple-touch-icon" href="../logo-ijui.jpg">
 <title>Gestão de Contratos – Município de Ijuí</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -286,6 +290,22 @@
   .fcampo input:focus, .fcampo select:focus, .fcampo textarea:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
   .fcampo textarea { resize: vertical; line-height: 1.5; }
 
+  /* Histórico de edições */
+  .hist-linha { display: flex; gap: 12px; align-items: flex-start; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+  .hist-linha:last-child { border-bottom: none; }
+  .hist-quando { flex-shrink: 0; width: 118px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .hist-corpo { flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; }
+  .hist-quem { font-weight: 800; }
+  .hist-alvo { color: var(--blue-text); font-weight: 700; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font: inherit; }
+  .hist-mud { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hist-mud b { color: #000; font-weight: 700; }
+  .hist-acts { flex-shrink: 0; }
+  .hist-nota { font-size: 11.5px; color: var(--muted); max-width: 148px; text-align: right; line-height: 1.45; }
+  @media (max-width: 700px) {
+    .hist-linha { flex-wrap: wrap; }
+    .hist-quando { width: 100%; }
+    .hist-nota { max-width: none; text-align: left; }
+  }
   .aviso { border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 15px; }
   .aviso-amarelo { background: var(--amber-bg); color: #7a5b00; border: 1.5px solid #f0dca3; }
   .aviso-azul { background: var(--blue-bg); color: var(--blue-text); border: 1.5px solid #c9d9f5; }
@@ -504,6 +524,7 @@
       <span id="authUserChip" class="chip-auth" style="display:none"></span>
       <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
       <button class="btn-ghost so-editor" onclick="novoContrato()">＋ Novo contrato</button>
+      <button class="btn-ghost" id="btnHist" onclick="abrirHistorico()" style="display:none">🕘 Histórico</button>
       <button class="btn-gold" onclick="abrirModalRelatorio()">🖨️ Relatórios PDF</button>
     </div>
   </div>
@@ -631,6 +652,7 @@
 <div class="mobile-bar">
   <button class="mb-btn mb-primary so-editor" onclick="novoContrato()">＋ Contrato</button>
   <button class="mb-btn mb-primary" onclick="pdfDoFiltro()">🖨️ PDF</button>
+  <button class="mb-btn" id="mbHist" onclick="abrirHistorico()" style="display:none">🕘 Histórico</button>
   <button class="mb-btn mb-gold" onclick="abrirModalRelatorio()">📄 Relatórios</button>
 </div>
 
@@ -644,6 +666,20 @@
       <button class="btn-ghost so-editor" onclick="novoAditivo()">＋ Aditivo</button>
       <button class="btn-primary so-editor" onclick="editarContrato()">✏️ Editar</button>
       <button class="btn-primary" onclick="pdfContratoAtual()">🖨️ Ficha em PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HISTÓRICO DE EDIÇÕES -->
+<div class="overlay" id="ovHist" onclick="if(event.target===this)fecharHist()">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-header"><h2>Histórico de edições</h2><button class="modal-close" onclick="fecharHist()">✕</button></div>
+    <div class="modal-body">
+      <div id="histAviso"></div>
+      <div id="histLista"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="fecharHist()">Fechar</button>
     </div>
   </div>
 </div>
@@ -1089,16 +1125,39 @@ function paraGravar(c){
   Object.keys(c).sort().forEach(k => { if(k[0] !== '_') out[k] = c[k]; });
   return out;
 }
-function salvarContrato(c){
+function salvarContrato(c, ehNovo){
   if(!contratosPodeEditar()){
     return Promise.reject(new Error('Você está em modo só visualização — peça a um administrador para liberar edição.'));
   }
   if(FONTE_DADOS === 'firestore'){
+    if(ehNovo) return criarSemColidir(c);
     return firebase.firestore().collection('contratos').doc(String(c.id)).set(paraGravar(c));
   }
   RASCUNHO[c.id] = paraGravar(c);
   return gravarRascunho() ? Promise.resolve()
     : Promise.reject(new Error('o navegador não deixou guardar (espaço cheio ou aba anônima)'));
+}
+
+/* O id de um contrato novo é "o maior que existe + 1", contado na lista que
+   está na tela. Com duas pessoas cadastrando ao mesmo tempo — que é o que o
+   sistema se propõe a permitir — as duas chegam ao MESMO número, e um .set()
+   em cima do outro apagaria o contrato de quem gravou primeiro, sem erro
+   nenhum. A transação abaixo só grava se o id estiver livre; se não estiver,
+   pega o próximo e tenta de novo. */
+function criarSemColidir(c, tentativa){
+  const db = firebase.firestore();
+  const ref = db.collection('contratos').doc(String(c.id));
+  return db.runTransaction(t => t.get(ref).then(doc => {
+    if(doc.exists) throw {_idOcupado: true};
+    t.set(ref, paraGravar(c));
+  })).catch(e => {
+    if(e && e._idOcupado && (tentativa || 0) < 25){
+      c.id = Number(c.id) + 1;
+      return criarSemColidir(c, (tentativa || 0) + 1);
+    }
+    if(e && e._idOcupado) throw new Error('não achei um número livre para o contrato novo');
+    throw e;
+  });
 }
 function descartarRascunho(){
   if(!confirm('Descartar as '+contarRascunho()+' alteração(ões) guardadas neste navegador?\nA lista volta a ser exatamente a do arquivo.')) return;
@@ -1304,6 +1363,7 @@ function authShowApp(){
      Firestore. Ligar antes disso tomaria "permissão negada" e o listener
      morreria sem tentar de novo (foi assim que a Agenda ficou vazia). */
   iniciarListenerContratos();
+  histMostrarBotoes();
   RASCUNHO = lerRascunho();   /* rascunhos de antes do banco: viram só um aviso */
   avisoRascunho();
 }
@@ -1987,18 +2047,24 @@ function salvarForm(){
     c.vencimento = valCampo('fcVencimento') || null;
     c.valor = numCampo('fcValor');
   }
-  gravar(c, formId == null ? 'Contrato cadastrado.' : 'Contrato atualizado.');
+  gravar(c, formId == null ? 'Contrato cadastrado.' : 'Contrato atualizado.',
+         formId == null ? 'criou' : 'editou');
 }
 /* Grava, encaixa o contrato na lista em memória e redesenha a tela. */
-function gravar(c, msg){
+function gravar(c, msg, acao){
+  /* A versão anterior é copiada ANTES de a nova entrar no lugar: é ela que
+     o histórico guarda e que o "desfazer" devolve. */
+  const anterior = CONTRATOS.find(x => x.id === c.id);
+  const antes = anterior ? JSON.parse(JSON.stringify(paraGravar(anterior))) : null;
   prepararContrato(c);
-  return salvarContrato(c).then(() => {
+  return salvarContrato(c, !antes).then(() => {
     const i = CONTRATOS.findIndex(x => x.id === c.id);
     if(i >= 0) CONTRATOS[i] = c; else CONTRATOS.push(c);
     fecharForm(); fecharAdit();
     avisoRascunho(); marcarFonte(); popularDatalists(); aplicarFiltros();
     if(document.getElementById('ovDet').classList.contains('open')) abrirDet(c.id);
     toast(msg);
+    return histRegistrar(acao || (antes ? 'editou' : 'criou'), antes, c);
   }).catch(e => alert('Não consegui salvar: '+e.message));
 }
 /* Sugestões dos campos: o que já existe no cadastro, para não nascer
@@ -2087,7 +2153,8 @@ function salvarAdit(){
   const c = Object.assign({}, detAtual);
   c.aditivos = (Array.isArray(detAtual.aditivos) ? detAtual.aditivos : []).slice();
   if(aditIdx != null) c.aditivos[aditIdx] = a; else c.aditivos.push(a);
-  gravar(c, aditIdx != null ? 'Aditivo atualizado.' : 'Aditivo cadastrado.');
+  gravar(c, aditIdx != null ? 'Aditivo atualizado.' : 'Aditivo cadastrado.',
+         aditIdx != null ? 'aditivo-editou' : 'aditivo-criou');
 }
 function excluirAditivo(){
   if(!detAtual || aditIdx == null) return;
@@ -2096,7 +2163,190 @@ function excluirAditivo(){
   const c = Object.assign({}, detAtual);
   c.aditivos = detAtual.aditivos.slice();
   c.aditivos.splice(aditIdx, 1);
-  gravar(c, 'Aditivo excluído.');
+  gravar(c, 'Aditivo excluído.', 'aditivo-excluiu');
+}
+
+/* ══════════════ HISTÓRICO DE EDIÇÕES ══════════════
+   Toda gravação deixa um registro em "contratos_historico": quem foi, o que
+   mexeu, quando, e o contrato inteiro ANTES e DEPOIS. O "antes" é o que
+   torna o desfazer possível — desfazer aqui é regravar a versão anterior,
+   não apagar nada; o próprio desfazer entra no histórico como mais uma
+   edição, então dá para desfazer o desfazer.
+
+   Cada registro nasce com data de validade (365 dias). Quem abre o painel
+   varre o que já venceu e apaga, para o histórico não crescer para sempre.
+   As regras do Firestore só deixam apagar registro VENCIDO: ninguém
+   consegue sumir com o rastro do que fez ontem. Se você ligar uma política
+   de TTL no console do Firebase apontando para o campo "expiraEm", o
+   próprio Firestore faz essa limpeza sozinho — ver contratos/LEIA-ME.md. */
+const HIST_DIAS = 365;
+const HIST_MAX_LINHAS = 300;     /* o painel mostra as mais recentes */
+let _histCache = [];
+
+function histCol(){ return firebase.firestore().collection('contratos_historico'); }
+
+/* Só o que interessa a quem lê o histórico: os campos que a pessoa vê e
+   edita na ficha. Sem isso a comparação acusaria mudança em campo de conta
+   interna (_d, _txt) e em valor recalculado a partir dos aditivos. */
+const HIST_CAMPOS = [
+  ['contr','número'], ['ano','ano'], ['empresa','empresa'], ['objeto','objeto'],
+  ['modalidade','modalidade'], ['tipo','tipo'], ['situacao','situação'],
+  ['vencimento','vencimento'], ['valor','valor'], ['secretarias','secretarias'],
+  ['fiscalAdm','fiscal administrativo'], ['fiscalTec','fiscal técnico'],
+  ['palavra','palavra-chave'], ['obs','observações']
+];
+function histTexto(campo, v){
+  if(v == null || v === '') return '(vazio)';
+  if(Array.isArray(v)) return v.length ? v.join(', ') : '(vazio)';
+  if(campo === 'valor') return money(v);
+  if(campo === 'vencimento') return fmtD(v);
+  return String(v);
+}
+function histDiferencas(antes, depois){
+  if(!antes) return [];
+  const mud = [];
+  HIST_CAMPOS.forEach(([campo, rotulo]) => {
+    const a = histTexto(campo, antes[campo]), d = histTexto(campo, depois[campo]);
+    if(a !== d) mud.push({rotulo: rotulo, de: a, para: d});
+  });
+  const na = (antes.aditivos || []).length, nd = (depois.aditivos || []).length;
+  if(na !== nd) mud.push({rotulo:'aditivos', de: String(na), para: String(nd)});
+  return mud;
+}
+
+/* Registrar NUNCA pode derrubar a gravação do contrato: se o histórico
+   falhar (regra não publicada ainda, rede caindo), o contrato já está
+   salvo e é isso que importa — o erro vai para o console. */
+function histRegistrar(acao, antes, depois){
+  if(!temFirebase() || !authCurrentUser) return Promise.resolve();
+  const agora = new Date();
+  const expira = new Date(agora.getTime() + HIST_DIAS * 86400000);
+  return histCol().add({
+    quando:   firebase.firestore.Timestamp.fromDate(agora),
+    expiraEm: firebase.firestore.Timestamp.fromDate(expira),
+    uid:      authCurrentUser.uid,
+    nome:     authCurrentUser.nome || authCurrentUser.email || '',
+    email:    authCurrentUser.email || '',
+    acao:     acao,
+    contratoId: depois.id,
+    rotulo:   (depois.contr || '?') + '/' + (depois.ano || '?'),
+    empresa:  depois.empresa || '',
+    antes:    antes ? paraGravar(antes) : null,
+    depois:   paraGravar(depois)
+  }).catch(e => { console.error('histórico:', e); });
+}
+
+function histPodeAbrir(){ return temFirebase() && contratosPodeVer(); }
+function histMostrarBotoes(){
+  const mostra = histPodeAbrir() ? '' : 'none';
+  ['btnHist','mbHist'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = mostra; });
+}
+
+function abrirHistorico(){
+  document.getElementById('ovHist').classList.add('open');
+  document.getElementById('histLista').innerHTML = '<div class="empty"><span>🕘</span>Carregando…</div>';
+  document.getElementById('histAviso').innerHTML = '';
+  histCol().orderBy('quando','desc').limit(HIST_MAX_LINHAS).get().then(snap => {
+    _histCache = snap.docs.map(d => Object.assign({_id: d.id}, d.data()));
+    histRender();
+    histLimparVencidos();
+  }).catch(e => {
+    document.getElementById('histLista').innerHTML =
+      '<div class="empty"><span>⚠️</span>Não consegui ler o histórico.<br>' + esc(e.message) + '</div>';
+  });
+}
+function fecharHist(){ document.getElementById('ovHist').classList.remove('open'); }
+
+/* O que já passou dos 365 dias sai do banco. É uma varredura oportunista:
+   roda quando alguém abre o painel, em silêncio, e não atrapalha nada se
+   falhar (quem só visualiza não tem permissão de apagar — e não precisa). */
+function histLimparVencidos(){
+  if(!contratosPodeEditar()) return;
+  const limite = firebase.firestore.Timestamp.fromDate(new Date());
+  histCol().where('expiraEm','<', limite).limit(400).get().then(snap => {
+    if(snap.empty) return;
+    const lote = firebase.firestore().batch();
+    snap.docs.forEach(d => lote.delete(d.ref));
+    return lote.commit();
+  }).catch(e => console.warn('limpeza do histórico:', e.message));
+}
+
+const HIST_ACOES = {
+  criou:            'cadastrou o contrato',
+  editou:           'editou o contrato',
+  'aditivo-criou':  'cadastrou um aditivo no contrato',
+  'aditivo-editou': 'alterou um aditivo do contrato',
+  'aditivo-excluiu':'excluiu um aditivo do contrato',
+  desfez:           'desfez uma alteração no contrato'
+};
+function histQuando(ts){
+  if(!ts || !ts.toDate) return '—';
+  const d = ts.toDate();
+  return d.toLocaleDateString('pt-BR') + '<br>' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+function histRender(){
+  const box = document.getElementById('histLista');
+  if(!_histCache.length){
+    box.innerHTML = '<div class="empty"><span>🕘</span>Nenhuma edição registrada ainda.</div>';
+    return;
+  }
+  const podeDesfazer = contratosPodeEditar();
+  box.innerHTML = _histCache.map(h => {
+    const mud = histDiferencas(h.antes, h.depois);
+    const detalhe = mud.length
+      ? '<div class="hist-mud">' + mud.slice(0,6).map(m =>
+          esc(m.rotulo) + ': <b>' + esc(m.de) + '</b> → <b>' + esc(m.para) + '</b>').join(' · ')
+        + (mud.length > 6 ? ' <i>(e mais ' + (mud.length - 6) + ')</i>' : '') + '</div>'
+      : '';
+    /* Sem "antes" não há o que restaurar: era um contrato novo. O sistema
+       não apaga contrato (contrato que sai do ar vira INATIVO na ficha),
+       então aqui o desfazer não se aplica e a linha diz por quê. */
+    const acao = h.antes
+      ? (podeDesfazer
+          ? '<button class="usr-btn" onclick="histDesfazer(\'' + h._id + '\')">↶ Desfazer</button>'
+          : '')
+      : '<div class="hist-nota">contrato novo — para tirar do ar, marque <b>INATIVO</b> na ficha</div>';
+    return '<div class="hist-linha">'
+      + '<div class="hist-quando">' + histQuando(h.quando) + '</div>'
+      + '<div class="hist-corpo"><span class="hist-quem">' + esc(h.nome || h.email) + '</span> '
+      + (HIST_ACOES[h.acao] || h.acao) + ' '
+      + '<button class="hist-alvo" onclick="histAbrirContrato(' + Number(h.contratoId) + ')">nº '
+      + esc(h.rotulo) + '</button>'
+      + (h.empresa ? ' <span style="color:var(--muted)">· ' + esc(h.empresa) + '</span>' : '')
+      + detalhe + '</div>'
+      + '<div class="hist-acts">' + acao + '</div>'
+      + '</div>';
+  }).join('');
+}
+function histAbrirContrato(id){
+  const c = CONTRATOS.find(x => x.id === id);
+  if(!c){ toast('Esse contrato não está mais no cadastro.'); return; }
+  fecharHist();
+  abrirDet(id);
+}
+
+function histDesfazer(idRegistro){
+  const h = _histCache.find(x => x._id === idRegistro);
+  if(!h || !h.antes) return;
+  if(!contratosPodeEditar()){ alert('Você está em modo somente visualização.'); return; }
+  const atual = CONTRATOS.find(x => x.id === h.antes.id);
+  /* Desfazer sobre um contrato que mudou DE NOVO depois desta edição
+     jogaria fora o trabalho de quem veio depois sem avisar. */
+  const houveDepois = atual && JSON.stringify(paraGravar(atual)) !== JSON.stringify(h.depois);
+  const aviso = 'Voltar o contrato nº ' + h.rotulo + ' para como estava antes desta edição?'
+    + (houveDepois ? '\n\nATENÇÃO: o contrato foi alterado de novo depois desta edição. '
+                   + 'Desfazer agora descarta também essas alterações mais recentes.' : '');
+  if(!confirm(aviso)) return;
+  const volta = Object.assign({}, h.antes);
+  prepararContrato(volta);
+  salvarContrato(volta).then(() => {
+    const i = CONTRATOS.findIndex(x => x.id === volta.id);
+    if(i >= 0) CONTRATOS[i] = volta; else CONTRATOS.push(volta);
+    popularDatalists(); aplicarFiltros();
+    toast('Alteração desfeita.');
+    return histRegistrar('desfez', atual || null, volta);
+  }).then(() => abrirHistorico())
+    .catch(e => alert('Não consegui desfazer: ' + e.message));
 }
 
 /* ══════════════ RELATÓRIOS PDF (jsPDF) ══════════════ */

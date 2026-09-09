@@ -213,6 +213,11 @@ em **"Importar os contratos agora"** — sem fechar a página até terminar. Se
 sobrar contrato do arquivo fora do banco, a tela avisa e oferece completar.
 Ver `contratos/LEIA-ME.md`.
 
+Toda gravação de contrato fica registrada em `contratos_historico` (quem,
+quando, antes e depois), com botão de desfazer na tela e validade de 365
+dias. As regras não deixam reescrever um registro nem apagar o que ainda
+está no prazo — nem para o administrador. Ver `contratos/LEIA-ME.md`.
+
 ## Editais
 
 Ainda sem projeto e sem contas — continua com dados locais/arquivo. Quando

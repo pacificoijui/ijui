@@ -96,6 +96,33 @@ Depois disso quem manda é o banco. O arquivo do repositório fica como
 histórico — e o **Exportar JSON** da tela continua gerando uma cópia no
 mesmo formato quando você quiser atualizar esse histórico.
 
+## Histórico de edições
+
+Toda gravação — contrato novo, edição, aditivo cadastrado, alterado ou
+excluído — deixa um registro na coleção `contratos_historico`: quem foi,
+quando, e o contrato inteiro **antes** e **depois**. O botão **🕘 Histórico**
+abre a lista, em português ("Serli editou o contrato nº 12/2025"), já
+mostrando o que mudou em cada campo.
+
+**Desfazer** regrava a versão anterior. Não apaga nada: o próprio desfazer
+entra no histórico como mais uma edição, então dá para desfazer o desfazer.
+Se o contrato tiver sido alterado de novo depois daquela edição, o aviso
+diz isso antes de confirmar — desfazer ali descarta também o que veio
+depois. Contrato recém-cadastrado não tem "antes" para voltar: para tirá-lo
+do ar, marque **INATIVO** na ficha (o sistema não exclui contrato).
+
+Quem tem **Contratos: Visualizar** lê o histórico mas não desfaz nada.
+
+Cada registro nasce com validade de **365 dias**. Quem abre o painel varre e
+apaga o que já venceu, então o histórico não cresce para sempre. As regras
+do Firestore só deixam apagar registro **vencido** — ninguém, nem o
+administrador, consegue sumir com o rastro do que fez ontem, e nenhum
+registro pode ser reescrito depois de gravado.
+
+Para o Firestore fazer essa limpeza sozinho, sem depender de alguém abrir a
+tela: no console do Firebase, **Firestore Database → TTL → Criar política**,
+coleção `contratos_historico`, campo `expiraEm`. É opcional.
+
 ## O que ainda depende de você, no console do Firebase
 
 Só uma coisa: **publicar as regras**. O arquivo

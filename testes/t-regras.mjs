@@ -13,7 +13,7 @@
    dele. */
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, addDoc, Timestamp } from "firebase/firestore";
 
 let ok = 0, mau = 0;
 async function t(nome, promessa) {
@@ -58,6 +58,12 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, "decisoes", "d1"),     { texto: "…", assinantes: [] });
   await setDoc(doc(db, "rankings", "p1"),     { itens: [] });
   await setDoc(doc(db, "usuarios", "velho1"), { usuario: "julio" });
+  const ontem  = Timestamp.fromDate(new Date(Date.now() - 86400000));
+  const futuro = Timestamp.fromDate(new Date(Date.now() + 300 * 86400000));
+  await setDoc(doc(db, "contratos_historico", "h-vencido"),
+    { uid: CONTAS.soContrato.uid, acao: "editou", quando: ontem, expiraEm: ontem });
+  await setDoc(doc(db, "contratos_historico", "h-recente"),
+    { uid: CONTAS.soContrato.uid, acao: "editou", quando: futuro, expiraEm: futuro });
 });
 
 const como = (c) => env.authenticatedContext(c.uid, { email: c.perfil.email }).firestore();
@@ -88,7 +94,37 @@ await t("e cadastra contrato novo",                       pode(setDoc(doc(como(C
 await t("ninguém exclui contrato pela tela",              nega(deleteDoc(doc(como(CONTAS.soContrato), "contratos", "1"))));
 await t("quem só edita contrato não mexe em processos",   nega(updateDoc(doc(como(CONTAS.soContrato), "processos", "p1"), { numero: "X" })));
 
-console.log("\n3) Os links públicos que precisam continuar funcionando");
+console.log("\n3) Histórico dos contratos: registra, não reescreve, não some antes da hora");
+const agoraTs  = () => Timestamp.fromDate(new Date());
+const futuroTs = () => Timestamp.fromDate(new Date(Date.now() + 365 * 86400000));
+await t("quem não tem o painel não lê o histórico",
+  nega(getDocs(collection(como(CONTAS.pregoeiro), "contratos_historico"))));
+await t("quem tem Contratos: Visualizar lê o histórico",
+  pode(getDocs(collection(como(CONTAS.verContrato), "contratos_historico"))));
+await t("mas não registra nada",
+  nega(addDoc(collection(como(CONTAS.verContrato), "contratos_historico"),
+    { uid: CONTAS.verContrato.uid, acao: "editou", quando: agoraTs(), expiraEm: futuroTs() })));
+await t("quem edita registra a própria edição",
+  pode(addDoc(collection(como(CONTAS.soContrato), "contratos_historico"),
+    { uid: CONTAS.soContrato.uid, acao: "editou", quando: agoraTs(), expiraEm: futuroTs() })));
+await t("ninguém registra edição em nome de outra pessoa",
+  nega(addDoc(collection(como(CONTAS.soContrato), "contratos_historico"),
+    { uid: CONTAS.admin.uid, acao: "editou", quando: agoraTs(), expiraEm: futuroTs() })));
+await t("registro sem data de validade não entra (nunca seria limpo)",
+  nega(addDoc(collection(como(CONTAS.soContrato), "contratos_historico"),
+    { uid: CONTAS.soContrato.uid, acao: "editou", quando: agoraTs() })));
+await t("registro gravado não se reescreve",
+  nega(updateDoc(doc(como(CONTAS.soContrato), "contratos_historico", "h-recente"), { acao: "criou" })));
+await t("nem o administrador reescreve",
+  nega(updateDoc(doc(como(CONTAS.admin), "contratos_historico", "h-recente"), { acao: "criou" })));
+await t("ninguém apaga registro dentro do prazo — nem quem o escreveu",
+  nega(deleteDoc(doc(como(CONTAS.soContrato), "contratos_historico", "h-recente"))));
+await t("nem o administrador",
+  nega(deleteDoc(doc(como(CONTAS.admin), "contratos_historico", "h-recente"))));
+await t("o que passou dos 365 dias, sim: é a limpeza da tela",
+  pode(deleteDoc(doc(como(CONTAS.soContrato), "contratos_historico", "h-vencido"))));
+
+console.log("\n4) Os links públicos que precisam continuar funcionando");
 await t("assinar decisão sem login: só os campos da assinatura",
   pode(updateDoc(doc(anonimo(), "decisoes", "d1"), { assinantes: [{ nome: "Fulano" }], updatedAt: "2026-01-01" })));
 await t("mas o texto da decisão, não",                    nega(updateDoc(doc(anonimo(), "decisoes", "d1"), { texto: "adulterado" })));
@@ -98,7 +134,7 @@ await t("mas o cadastro do agente, não",                  nega(updateDoc(doc(an
 await t("ranking pelo link continua aberto",              pode(updateDoc(doc(anonimo(), "rankings", "p1"), { itens: [1] })));
 await t("listar rankings, não",                           nega(getDocs(collection(anonimo(), "rankings"))));
 
-console.log("\n4) As contas: cada um só cria a própria, e sempre sem poder");
+console.log("\n5) As contas: cada um só cria a própria, e sempre sem poder");
 const novo = (uid, email) => env.authenticatedContext(uid, { email }).firestore();
 await t("cadastro novo nasce pendente e sem acesso",
   pode(setDoc(doc(novo("u-novo", "novo@x.com"), "usuarios_v2", "u-novo"),
@@ -119,7 +155,7 @@ await t("o e-mail de resgate nasce administrador",
   pode(setDoc(doc(novo("u-resgate", "pedrohhpacifico@gmail.com"), "usuarios_v2", "u-resgate"),
     { email: "pedrohhpacifico@gmail.com", status: "aprovado", isAdmin: true, acessos: { agenda: "editar", pregoeiro: "editar", contratos: "editar" } })));
 
-console.log("\n5) Quem mexe no acesso dos outros é só o administrador");
+console.log("\n6) Quem mexe no acesso dos outros é só o administrador");
 await t("cada um lê o próprio perfil",                    pode(getDoc(doc(como(CONTAS.soVer), "usuarios_v2", CONTAS.soVer.uid))));
 await t("mas não o dos outros",                           nega(getDoc(doc(como(CONTAS.soVer), "usuarios_v2", CONTAS.pregoeiro.uid))));
 await t("nem lista o cadastro inteiro",                   nega(getDocs(collection(como(CONTAS.pregoeiro), "usuarios_v2"))));

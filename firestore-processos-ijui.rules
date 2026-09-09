@@ -196,5 +196,30 @@ service cloud.firestore {
       allow create, update: if contratosEdit();
       allow delete: if false;
     }
+
+    // Histórico de edições dos contratos: um registro por gravação, com o
+    // contrato inteiro antes e depois. Quem vê contrato vê o histórico —
+    // saber quem mexeu no quê é parte de acompanhar o cadastro.
+    //
+    // Três travas que fazem o histórico valer alguma coisa:
+    //  · o "uid" gravado tem de ser o de quem está gravando, senão daria
+    //    para registrar uma edição em nome de outra pessoa;
+    //  · nenhum update: registro de histórico não se reescreve. Corrigir o
+    //    contrato gera um registro NOVO (é o que o "desfazer" da tela faz);
+    //  · apagar, só o que já passou da validade. Assim a limpeza dos 365
+    //    dias funciona e, ao mesmo tempo, ninguém consegue sumir com o
+    //    rastro do que fez ontem — nem um admin, nem quem fez a edição.
+    //
+    // A limpeza roda na própria tela, quando alguém abre o painel. Para o
+    // Firestore fazer isso sozinho, crie uma política de TTL no console
+    // apontando para o campo "expiraEm" desta coleção.
+    match /contratos_historico/{id} {
+      allow get, list: if contratos();
+      allow create: if contratosEdit() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.expiraEm is timestamp;
+      allow update: if false;
+      allow delete: if contratosEdit() && resource.data.expiraEm < request.time;
+    }
   }
 }
