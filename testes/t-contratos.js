@@ -769,9 +769,13 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }));
   t('o painel mostra a edição em português', /Pedro/.test(painel.texto)
     && /editou o contrato/.test(painel.texto), painel.texto.slice(0,120));
-  t('e mostra o que mudou, de → para', /objeto/.test(painel.texto)
-    && painel.texto.includes('OBJETO TROCADO NO TESTE'), painel.texto.slice(0,200));
+  /* O objeto de um contrato tem parágrafos inteiros: o painel diz que mudou,
+     sem despejar os dois textos e afogar o resto da linha. */
+  t('campo longo aparece como "alterado", sem despejar o texto', /objeto/.test(painel.texto)
+    && /alterado/.test(painel.texto) && !painel.texto.includes('OBJETO TROCADO NO TESTE'),
+    painel.texto.slice(0,200));
   t('quem pode editar vê o botão de desfazer', painel.temDesfazer, painel);
+
 
   await pgHist.evaluate(()=>{ window.confirm=()=>true; });
   await pgHist.click('#histLista .usr-btn');
@@ -784,6 +788,15 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('desfazer devolve o contrato ao que era', desfeito.objeto===objetoAntigo
     && desfeito.noBanco===objetoAntigo, desfeito);
   t('e o próprio desfazer entra no histórico', desfeito.registros.includes('desfez'), desfeito.registros);
+  /* campo curto continua mostrando o antes e o depois, que é o que serve */
+  await pgHist.evaluate(a=>{
+    const c=Object.assign({}, CONTRATOS.find(x=>x.id===a), {situacao:'INATIVO'});
+    return gravar(c, 'ok', 'editou');
+  }, alvo);
+  await pgHist.evaluate(()=>abrirHistorico());
+  await pgHist.waitForFunction(()=>/situação/.test(document.getElementById('histLista').textContent),null,{timeout:15000});
+  const curto=await pgHist.evaluate(()=>document.getElementById('histLista').textContent);
+  t('campo curto mostra de → para', /situação:/.test(curto) && /INATIVO/.test(curto), curto.slice(0,160));
 
   console.log('\n13) O histórico se limpa sozinho e não serve de rascunho para apagar rastro');
   const pgLimpa=await b.newPage({viewport:{width:1280,height:900}});

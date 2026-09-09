@@ -1,0 +1,1202 @@
+<!--
+  Agenda de Contratos — /contratos/agenda/
+
+  O calendário de vencimentos dos contratos. Reaproveita o que já existe em
+  vez de reinventar: o portão de acesso e as utilidades são os mesmos do
+  sistema de contratos (mesmo cadastro de contas, mesmo painel "contratos"),
+  e feriados, pontos facultativos, aniversários e a observação do dia são os
+  mesmos da Agenda de Licitações, lidos do mesmo Firestore.
+
+  Aqui não se cadastra nada — nem contrato, nem ponto facultativo, nem
+  aniversário. É tela de leitura: cada um desses cadastros continua tendo um
+  dono só, no lugar onde já era feito.
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a6b">
+<meta name="description" content="Agenda de vencimentos dos contratos do Município de Ijuí.">
+<link rel="icon" href="../../logo-ijui.jpg">
+<link rel="apple-touch-icon" href="../../logo-ijui.jpg">
+<title>Agenda de Contratos – Município de Ijuí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:      #1a3a6b;
+    --navy-mid:  #1e4a8a;
+    --navy-dark: #12294d;
+    --navy-light:#2e5da8;
+    --gold:      #e8a020;
+    --gold-light:#f6b93b;
+    --card:      #ffffff;
+    --bg:        #eaeef6;
+    --text:      #1c2433;
+    --muted:     #6b7793;
+    --border:    #dde4f0;
+    --shadow:    0 2px 10px rgba(20,40,80,0.07);
+    --shadow-md: 0 6px 22px rgba(20,40,80,0.10);
+    --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
+    --blue-bg:   #e7eefb;
+    --blue-text: #1e4a8a;
+    --green:     #2a8a3a;  --green-bg:  #e6f4ea;
+    --red:       #c0282a;  --red-bg:    #fbe7e7;
+    --amber:     #c07000;  --amber-bg:  #fef3dc;
+    --radius:    18px;
+    --ring:      0 0 0 3px rgba(46,93,168,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', Arial, sans-serif; font-size: 15px;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(46,93,168,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 0%, rgba(232,160,32,0.07), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(46,93,168,0.18); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(46,93,168,0.28); border-radius: 20px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(46,93,168,0.45); }
+
+  header {
+    background: #ffffff;
+    padding: 0 32px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 3px 16px rgba(15,32,80,0.15);
+    border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 55%, var(--gold) 100%) 1;
+  }
+  .header-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 74px; gap: 20px; }
+  .logo-wrap { display: flex; align-items: center; gap: 18px; }
+.logo-mark { width: 46px; height: 46px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(26,58,107,0.18), inset 0 0 0 1.5px var(--border); flex-shrink: 0; padding: 6px; }
+  .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .logo-divider { width: 2px; height: 44px; background: var(--border); border-radius: 2px; }
+  .logo-text h1 { font-size: 18px; color: var(--navy); font-weight: 700; letter-spacing: 0.2px; line-height: 1.2; }
+  .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .btn-primary { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(26,58,107,0.28); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(26,58,107,0.35); }
+  .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #3d2800; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(232,160,32,0.35); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
+  .btn-gold:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(232,160,32,0.45); }
+  .btn-ghost { background: var(--bg); color: var(--navy); border: 1.5px solid var(--border); padding: 9px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.18s, border-color .15s; }
+  .btn-ghost:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .btn-ghost.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .proto-chip { background: var(--amber-bg); color: var(--amber); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .5px; }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  /* Barra de busca única, no estilo do Google: procura em tudo de uma vez.
+     Os filtros por campo moraram aqui até virarem menu de coluna na tabela. */
+  .busca-wrap { display: flex; justify-content: center; margin: 2px 0 16px; }
+  .busca-box { display: flex; align-items: center; width: 100%; max-width: 780px; background: var(--card);
+    border: 1.5px solid var(--border); border-radius: 28px; padding: 0 6px 0 18px;
+    box-shadow: var(--shadow); transition: box-shadow .18s, border-color .18s; }
+  .busca-box:hover { box-shadow: var(--shadow-md); }
+  .busca-box:focus-within { border-color: var(--navy-light); box-shadow: var(--ring), var(--shadow-md); }
+  .busca-ico { font-size: 15px; opacity: .5; flex-shrink: 0; }
+  .busca-box input { flex: 1; min-width: 0; border: none; outline: none; background: none; font-family: inherit;
+    font-size: 15px; color: var(--text); padding: 14px 12px; }
+  .busca-box input::placeholder { color: #a3aec4; }
+  .busca-x { border: none; background: none; color: var(--muted); font-size: 14px; cursor: pointer;
+    padding: 8px 12px; border-radius: 50%; visibility: hidden; }
+  .busca-x:hover { background: var(--blue-bg); color: var(--navy); }
+  .busca-box.tem-texto .busca-x { visibility: visible; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: var(--blue-bg); color: var(--blue-text); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .chip b { cursor: pointer; opacity: .6; }
+  .chip b:hover { opacity: 1; }
+  .link-clear { background: none; border: none; color: var(--red); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+  /* Toolbar da lista */
+  .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
+  .result-count { font-size: 13.5px; color: var(--muted); }
+  .result-count b { color: var(--navy); font-size: 16px; }
+  .toolbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .sort-sel { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; background: #fbfcff; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+  .sort-sel:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+
+  /* ══ Tabela única — mesmo desenho do módulo licitacon ══ */
+  .tab-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .tab { width: 100%; border-collapse: collapse; }
+  /* Sem cabeçalho fixo: o Chromium resolve o `top` do sticky a partir da
+     própria tabela, não da janela, e o cabeçalho acaba embaixo da primeira
+     linha. Mesma lição aprendida no licitacon. */
+  .tab th {
+    background: #eef2fa; border-bottom: 1.5px solid var(--border);
+    padding: 7px 6px; font-size: 10.5px; font-weight: 800; color: var(--navy);
+    text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap;
+  }
+  .tab th.r { text-align: right; }
+  /* Cabeçalho ordenável: um clique ordena, o mesmo clique de novo inverte. */
+  .tab .th-titulos th { cursor: pointer; user-select: none; }
+  .tab .th-titulos th:hover { background: #e2e9f7; color: var(--navy-light); }
+  .tab .th-titulos th::after { content: "↕"; opacity: .28; margin-left: 4px; font-size: 10px; font-weight: 700; }
+  .tab .th-titulos th.ord-asc::after { content: "▲"; opacity: 1; }
+  .tab .th-titulos th.ord-desc::after { content: "▼"; opacity: 1; }
+  .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #dfe8f8; }
+  /* Filtro por coluna, no estilo do filtro de planilha: o botão abre um menu
+     com as opções que aquela coluna tem, para marcar as que interessam. */
+  .tab .th-filtros th { padding: 0 4px 6px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
+  .cf {
+    display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 11.5px; font-weight: 600; background: #fff; color: var(--muted);
+    text-align: left; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .cf:hover { border-color: var(--navy-light); color: var(--navy); }
+  .cf.ativo { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .cf-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cf-seta { font-size: 8px; opacity: .6; flex-shrink: 0; }
+
+  /* Menu da coluna (e o mesmo conteúdo dentro da folha de filtros do celular) */
+  .pop { position: absolute; z-index: 700; width: 292px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-lg); display: none; flex-direction: column; overflow: hidden; }
+  .pop.open { display: flex; }
+  .pop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 13px; border-bottom: 1px solid var(--border); }
+  .pop-tit { font-size: 11.5px; font-weight: 800; color: var(--navy); text-transform: uppercase; letter-spacing: .6px; }
+  .pop-x { border: none; background: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 2px 4px; }
+  .pop-x:hover { color: var(--navy); }
+  .pop-ord { display: flex; gap: 6px; padding: 9px 13px 0; }
+  .pop-ord button { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcff;
+    font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .pop-ord button:hover { border-color: var(--navy-light); color: var(--navy); }
+  .pop-ord button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .pop-busca { margin: 9px 13px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; color: var(--text); background: #fbfcff; outline: none; }
+  .pop-busca:focus { border-color: var(--navy-light); box-shadow: 0 0 0 2px rgba(46,93,168,.14); background: #fff; }
+  .pop-lista { overflow-y: auto; max-height: 292px; border-top: 1px solid var(--border); }
+  .pop-grupo { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .7px;
+    padding: 9px 13px 5px; background: #f4f7fd; border-bottom: 1px solid var(--border); }
+  .pop-op { display: flex; align-items: center; gap: 9px; padding: 6px 13px; font-size: 12.5px;
+    color: var(--text); cursor: pointer; }
+  .pop-op:hover { background: var(--blue-bg); }
+  .pop-op input { width: 15px; height: 15px; accent-color: var(--navy-light); flex-shrink: 0; margin: 0; }
+  .pop-op .op-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pop-op .op-n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .pop-op.todos { font-weight: 700; color: var(--navy); border-bottom: 1px solid var(--border); }
+  .pop-vazio { padding: 14px 13px; font-size: 12px; color: var(--muted); text-align: center; }
+  .pop-pe { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 13px; border-top: 1px solid var(--border); background: #f4f7fd; }
+  .pop-info { font-size: 11.5px; color: var(--muted); }
+
+  /* Folha de filtros do celular: mesma lista, sem cabeçalho de tabela para clicar */
+  .fm-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    padding: 13px 4px; border: none; border-bottom: 1px solid var(--border); background: none;
+    font-family: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
+  .fm-linha:hover { background: var(--blue-bg); }
+  .fm-nome { font-weight: 700; }
+  .fm-val { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+  .fm-val.on { color: var(--blue-text); font-weight: 700; }
+  .fm-secao { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .7px; margin: 16px 0 2px; }
+  .fm-voltar { border: none; background: none; color: var(--navy); font-family: inherit; font-size: 13px;
+    font-weight: 700; cursor: pointer; padding: 0 0 10px; }
+  /* Texto preto na tabela inteira: só os selos (situação, vencimento) seguem
+     coloridos, porque neles a cor é a informação. O que separa uma coluna da
+     outra é o tamanho e o peso da letra, não o tom de cinza. */
+  .tab td { padding: 5px 6px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.36; color: #000; }
+  .tab tbody tr:last-child td { border-bottom: none; }
+  .tab tbody tr:nth-child(even) td { background: #fafbfe; }
+  .tab tbody tr { cursor: pointer; }
+  .tab tbody tr:hover td { background: var(--blue-bg); }
+
+  /* As larguras são só uma dica (a tabela é auto): o que sobra das colunas
+     estreitas vai para o Objeto, que é o texto que precisa de espaço. */
+  .c-num { width: 8%; }
+  .n-num { display: block; font-weight: 800; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .n-mod { display: block; font-size: 10.5px; color: #000; line-height: 1.3; margin-top: 1px; }
+  .c-emp { width: 13%; font-weight: 600; word-break: break-word; }
+  .c-obj { width: 38%; word-break: break-word; }
+  .c-sec { width: 8%; word-break: break-word; }
+  .c-tipo { width: 6%; }
+  .c-fis { width: 7%; word-break: break-word; }
+  .fis-linha { display: block; }
+  .fis-linha + .fis-linha { margin-top: 3px; }
+  .fis-rot { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .c-sit { width: 5%; white-space: nowrap; }
+  /* Estreita e deixa quebrar em duas linhas — "VENCIDO há 3399d" numa,
+     a data na outra — em vez de forçar a linha inteira numa largura só
+     e empurrar o resto da tabela pro lado. */
+  .c-venc { width: 4%; font-variant-numeric: tabular-nums; }
+  .c-venc .badge { white-space: normal; text-align: center; line-height: 1.35; }
+  /* O valor é o número que se compara entre contratos — é o destaque da linha */
+  .c-valor { width: 7%; text-align: right; white-space: nowrap; font-size: 13.5px; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .badge-num { background: var(--navy); color: #fff; }
+  .badge-sec { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-tipo { background: #f0e8f8; color: #6a20b0; }
+  .badge-ativo { background: var(--green-bg); color: var(--green); }
+  .badge-inativo { background: #eef0f5; color: #7c869c; }
+  .badge-par { background: var(--amber-bg); color: var(--amber); }
+  .bv-red { background: var(--red-bg); color: var(--red); }
+  .bv-amber { background: var(--amber-bg); color: var(--amber); }
+  .bv-green { background: var(--green-bg); color: var(--green); }
+  .bv-gray { background: #eef0f5; color: #7c869c; }
+  .load-wrap { text-align: center; margin-top: 18px; }
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; }
+  .empty span { font-size: 40px; display: block; margin-bottom: 10px; }
+
+  /* Modal */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 18px; box-shadow: var(--shadow-lg); width: 100%; max-width: 640px; margin: 20px; overflow: hidden; animation: slideUp 0.22s ease; max-height: 92vh; overflow-y: auto; }
+  @keyframes slideUp { from { transform: translateY(22px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 19px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
+  .modal-header h2 { font-size: 18px; color: #fff; font-weight: 700; }
+  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .modal-close:hover { background: rgba(255,255,255,0.30); }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-footer { padding: 15px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; background: #f7f9fd; position: sticky; bottom: 0; flex-wrap: wrap; }
+  .det-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 14px; }
+  .det-row .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
+  .det-row .v { color: var(--text); line-height: 1.5; }
+  .det-hr { border: none; border-top: 1px solid var(--border); }
+
+  /* ══ Formulários de cadastro (contrato e aditivo) ══ */
+  .fgrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 13px; }
+  .fcampo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .fcampo.s3 { grid-column: span 3; } .fcampo.s4 { grid-column: span 4; }
+  .fcampo.s6 { grid-column: span 6; } .fcampo.s8 { grid-column: span 8; }
+  .fcampo.s12 { grid-column: span 12; }
+  .fcampo label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .fcampo .dica { font-size: 11px; color: var(--muted); }
+  .fcampo input, .fcampo select, .fcampo textarea {
+    width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 9px;
+    font-family: inherit; font-size: 13.5px; color: #000; background: #fbfcff; outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .fcampo input:focus, .fcampo select:focus, .fcampo textarea:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
+  .fcampo textarea { resize: vertical; line-height: 1.5; }
+
+  /* Histórico de edições */
+  .hist-linha { display: flex; gap: 12px; align-items: flex-start; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+  .hist-linha:last-child { border-bottom: none; }
+  .hist-quando { flex-shrink: 0; width: 118px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .hist-corpo { flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; }
+  .hist-quem { font-weight: 800; }
+  .hist-alvo { color: var(--blue-text); font-weight: 700; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font: inherit; }
+  .hist-mud { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hist-mud b { color: #000; font-weight: 700; }
+  .hist-acts { flex-shrink: 0; }
+  .hist-nota { font-size: 11.5px; color: var(--muted); max-width: 148px; text-align: right; line-height: 1.45; }
+  @media (max-width: 700px) {
+    .hist-linha { flex-wrap: wrap; }
+    .hist-quando { width: 100%; }
+    .hist-nota { max-width: none; text-align: left; }
+  }
+  .aviso { border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 15px; }
+  .aviso-amarelo { background: var(--amber-bg); color: #7a5b00; border: 1.5px solid #f0dca3; }
+  .aviso-azul { background: var(--blue-bg); color: var(--blue-text); border: 1.5px solid #c9d9f5; }
+  .aviso .acao { color: inherit; font-weight: 800; text-decoration: underline; background: none; border: none;
+    font-family: inherit; font-size: inherit; cursor: pointer; padding: 0; margin-left: 8px; }
+
+  /* ══ Aditivos dentro da ficha do contrato ══ */
+  .adit-lista { display: flex; flex-direction: column; gap: 8px; }
+  .adit { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: #fbfcff;
+    cursor: pointer; text-align: left; font-family: inherit; width: 100%; }
+  .adit:hover { border-color: var(--navy-light); background: #fff; }
+  .adit-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .adit-n { font-size: 13px; font-weight: 800; color: #000; }
+  .adit-info { font-size: 12.5px; color: #000; line-height: 1.5; margin-top: 3px; }
+  .adit-obs { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+  .adit-vazio { font-size: 12.5px; color: var(--muted); }
+
+  /* Recado curto de "salvou", no rodapé da tela */
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+    background: var(--navy-dark); color: #fff; padding: 12px 22px; border-radius: 30px; font-size: 13.5px;
+    font-weight: 600; box-shadow: var(--shadow-lg); z-index: 900; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* Modal relatórios */
+  .rep-opt { display: flex; gap: 12px; align-items: flex-start; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .rep-opt:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+  .rep-opt input { margin-top: 3px; accent-color: var(--navy); }
+  .rep-opt .rt { font-weight: 700; color: var(--navy); font-size: 14.5px; }
+  .rep-opt .rd { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .rep-scope { display: flex; gap: 8px; flex-wrap: wrap; }
+  #repSelWrap { border: 1.5px solid var(--border); border-radius: 14px; padding: 14px; background: #f7f9fd; }
+  .sel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .sel-title { font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .5px; }
+  .sel-acts { display: flex; gap: 6px; }
+  .mini-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px; padding: 5px 12px; font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: border-color .15s, background .15s; }
+  .mini-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+
+  /* ── Conta e permissões (painel "Usuários" dos contratos) ── */
+  /* ── Portão de acesso ── */
+  .chip-auth { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--navy); background: var(--blue-bg); padding: 5px 11px; border-radius: 20px; }
+  #authGate { position: fixed; inset: 0; z-index: 12000; display: none; align-items: center; justify-content: center; padding: 18px;
+              background: radial-gradient(1000px 520px at 15% -10%, #1E52CC 0%, transparent 55%), linear-gradient(160deg, #0D2B7E 0%, #081C52 75%); }
+  .auth-card { background: #fff; border-radius: 18px; padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,.35); text-align: center; }
+  .auth-marca { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .auth-titulo { font-size: 21px; font-weight: 800; color: var(--navy); margin: 6px 0 4px; }
+  .auth-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+  .auth-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; background: #fff; border: 1.5px solid var(--border);
+                 border-radius: 10px; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; }
+  .auth-google:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .auth-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 11.5px; }
+  .auth-ou::before, .auth-ou::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 9px; outline: none; box-sizing: border-box; }
+  .auth-input:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .auth-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .auth-btn:hover { background: var(--navy-light); }
+  .auth-btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--border); margin-top: 14px; }
+  .auth-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 12.5px; }
+  .auth-links a { color: var(--navy-light); font-weight: 600; text-decoration: none; }
+  .auth-links a:hover { text-decoration: underline; }
+  .auth-err { color: var(--red); font-size: 12.5px; font-weight: 600; margin-top: 12px; min-height: 16px; }
+  .auth-foto { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: #dde4f0; margin-bottom: 10px; }
+  .auth-pend-nome { font-size: 15px; font-weight: 800; color: var(--navy); }
+  .auth-pend-email { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+  .usr-secao { margin-bottom: 18px; }
+  .usr-secao-tit { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .usr-lista { display: flex; flex-direction: column; gap: 8px; }
+  .usr-vazio { color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0; }
+  .usr-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fff; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .usr-row.usr-bloqueado { background: #fdf3f3; border-color: #e3b3b3; }
+  .usr-info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+  .usr-nome { font-weight: 700; color: var(--navy); font-size: 13.5px; }
+  .usr-login { color: var(--muted); font-size: 12px; }
+  .usr-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .usr-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 8px; padding: 5px 11px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .usr-btn.ok { border-color: #a8d9b4; color: #1b7a34; }
+  .usr-btn.del { border-color: #e3b3b3; color: #c0392b; }
+  .usr-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); cursor: pointer; user-select: none; }
+  .usr-chk-sel select { font-size: 11.5px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border); color: var(--navy); background: #fff; cursor: pointer; }
+  .badge-tipo { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--amber-bg); color: var(--amber); font-weight: 700; }
+  .sel-busca { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 13.5px; background: #fff; outline: none; margin-bottom: 10px; }
+  .sel-busca:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .sel-list { display: flex; flex-wrap: wrap; gap: 7px; max-height: 190px; overflow-y: auto; padding: 2px; }
+  .sel-item { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; color: var(--text); cursor: pointer; user-select: none; transition: all .14s; }
+  .sel-item:hover { border-color: var(--navy-light); }
+  .sel-item.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .sel-item input { display: none; }
+  .sel-item .tick { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; flex-shrink: 0; }
+  .sel-item.on .tick { background: var(--gold); border-color: var(--gold); color: #3d2800; }
+  .sel-item .qt { opacity: .6; font-weight: 700; font-size: 11px; }
+  .sel-count { font-size: 12px; color: var(--muted); margin-top: 9px; font-weight: 600; }
+  .sel-count b { color: var(--navy); }
+
+  .only-mobile { display: none; }
+  .mobile-bar { display: none; }
+
+  @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
+  /* ═══════════ CELULAR ═══════════ */
+  @media (max-width: 860px) {
+    .only-mobile { display: inline-block; }
+    header { padding: 0 14px; }
+    .header-inner { min-height: 62px; gap: 10px; }
+    .logo-mark { width: 38px; height: 38px; border-radius: 10px; padding: 5px; }
+    .logo-divider { display: none; }
+    .logo-wrap { gap: 11px; }
+    .logo-text h1 { font-size: 15.5px; }
+    .logo-text p { font-size: 9.5px; letter-spacing: .6px; }
+    .header-actions .btn-ghost, .header-actions .btn-gold, .proto-chip { display: none; }
+
+    main { padding: 14px 12px 96px; }
+
+    /* 16px evita o zoom automático do navegador ao focar o campo */
+    .busca-wrap { margin: 0 0 12px; }
+    .busca-box { padding: 0 4px 0 14px; }
+    .busca-box input, .sel-busca { font-size: 16px; }
+    .busca-box input { padding: 12px 10px; }
+    .chips { width: 100%; }
+
+    /* Sem cabeçalho de tabela para clicar, os filtros de coluna viram uma
+       folha: a lista das colunas e, ao tocar em uma, as opções dela. */
+    .pop { position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: 8px;
+      width: auto; max-height: 74vh; }
+    .pop-lista { max-height: 46vh; }
+    .pop-busca { font-size: 16px; }
+
+    /* lista */
+    .list-toolbar { gap: 8px; }
+    .toolbar-right { width: 100%; }
+    .toolbar-right label { display: none; }
+    .sort-sel { flex: 1; font-size: 16px; }
+    .toolbar-right .btn-primary { display: none; }
+    .btn-filtros { flex: 1; }
+    /* A tabela deixa de ser tabela: cada linha vira um bloco, com a empresa
+       de título e o valor em destaque. Tabela de 9 colunas espremida em
+       390px quebra palavra no meio e fica ilegível. */
+    .tab-box { border-radius: 14px; }
+    .tab, .tab tbody, .tab tr { display: block; width: 100%; }
+    .tab thead { display: none; }
+    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 9px;
+      padding: 14px 14px 15px; border-bottom: 1px solid var(--border); }
+    .tab tbody tr:last-child { border-bottom: none; }
+    .tab tbody tr:nth-child(even), .tab tbody tr:nth-child(even) td,
+    .tab tbody tr:hover td { background: transparent; }
+    .tab td { display: inline; padding: 0; border: none; width: auto; }
+    .tab td::before { content: ""; }
+    .tab td.vazia { display: none; }
+    .badge { font-size: 10.5px; padding: 3px 8px; }
+
+    /* 1) a empresa contratada */
+    .tab .c-emp { order: 1; flex: 0 0 100%; font-size: 14.5px; font-weight: 700;
+      color: var(--text); line-height: 1.4; margin-bottom: 3px; }
+    /* 2) o objeto do contrato */
+    .tab .c-obj { order: 2; flex: 0 0 100%; font-size: 12.5px; color: var(--muted);
+      line-height: 1.45; margin-bottom: 8px; }
+    /* 3) o valor, que é o número que se compara */
+    .tab .c-valor { order: 3; width: auto; text-align: left; font-size: 19px; font-weight: 800; color: var(--navy); }
+    /* 4) situação e vencimento, que é o que decide se o contrato preocupa */
+    .tab .c-sit { order: 4; }
+    .tab .c-venc { order: 5; }
+    /* 5) o resto, discreto, no pé */
+    .tab .c-sec { order: 6; flex: 0 0 100%; margin-top: 9px; font-size: 11px; }
+    .tab .c-sec::before { content: "secretaria "; }
+    .tab .c-fis { order: 7; flex: 0 0 100%; font-size: 11px; }
+    .tab .c-num { order: 8; flex: 1 1 auto; margin-top: 8px; font-size: 11px; }
+    .tab .c-num .n-num, .tab .c-num .n-mod { display: inline; font-size: 11px; }
+    .tab .c-num .n-num { color: var(--navy); }
+    .tab .c-num .n-mod { color: var(--muted); margin-left: 5px; }
+    .tab .c-tipo { order: 9; margin-top: 8px; font-size: 11px; color: var(--muted); }
+
+    /* modais como folha inferior */
+    .overlay { align-items: flex-end; }
+    .modal { margin: 0; border-radius: 20px 20px 0 0; max-width: 100%; max-height: 90vh; }
+    .modal-header { padding: 16px 18px; }
+    .modal-header h2 { font-size: 16px; }
+    .modal-close { width: 34px; height: 34px; }
+    .modal-body { padding: 18px; gap: 12px; }
+    .modal-footer { padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); }
+    .modal-footer button { flex: 1; padding: 13px 16px; justify-content: center; }
+    .det-row { grid-template-columns: 1fr; gap: 2px; }
+    /* no celular cada campo ocupa a linha inteira */
+    .fgrid .fcampo { grid-column: span 12; }
+    .fcampo input, .fcampo select, .fcampo textarea { font-size: 16px; }
+    .rep-opt { padding: 13px 12px; }
+    .sel-list { max-height: 168px; }
+    .sel-item { padding: 9px 13px; font-size: 13px; }
+
+    /* barra de ações fixa embaixo */
+    .mobile-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300; gap: 8px;
+      padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border); box-shadow: 0 -4px 18px rgba(20,40,80,0.09); }
+    .mb-btn { flex: 1; border: none; border-radius: 11px; padding: 12px 6px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .mb-primary { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; }
+    .mb-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #3d2800; }
+    .load-wrap .btn-ghost { width: 100%; padding: 13px; }
+  }
+
+  @media (max-width: 380px) {
+    .mb-btn { font-size: 11.5px; padding: 11px 4px; }
+  }
+
+  /* ── Calendário ──
+     Mesmo desenho da Agenda de Licitações, com uma diferença de propósito:
+     aqui a semana tem SETE colunas. Lá o calendário mostra só dias úteis
+     porque licitação não abre no fim de semana; vencimento de contrato cai
+     no dia que cair, e esconder sábado e domingo faria sumir da tela um
+     contrato que vence justamente ali. */
+  .cal-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg,#fbfcff,#f4f7fd); flex-wrap: wrap; gap: 12px; }
+  .cal-title { font-size: 22px; font-weight: 800; color: var(--navy); text-transform: capitalize; letter-spacing: -0.4px; }
+  .cal-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .cal-nav button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--navy); font-size: 17px; cursor: pointer; transition: all .14s; display: flex; align-items: center; justify-content: center; }
+  .cal-nav button:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .cal-nav .hoje-btn { width: auto; padding: 0 16px; font-size: 12.5px; font-weight: 800; }
+  .cal-weekdays { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); background: linear-gradient(180deg,var(--navy-dark),var(--navy-mid)); }
+  .cal-weekdays div { padding: 12px 0; text-align: center; font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-auto-rows: minmax(96px, auto); }
+  .cal-cell { min-height: 96px; min-width: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 9px; display: flex; flex-direction: column; gap: 4px; position: relative; }
+  .cal-cell:nth-child(7n) { border-right: none; }
+  .cal-cell.out { background: #fafbfd; }
+  .cal-cell.out .cal-daynum { color: #c3ccdd; }
+  .cal-cell.fds { background: #f8fafe; }
+  .cal-cell.today { background: #fff7dd; }
+  .cal-daynum { font-size: 13px; font-weight: 800; color: var(--text); align-self: flex-start; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+  .cal-cell.today .cal-daynum { background: var(--gold); color: #fff; box-shadow: 0 2px 8px rgba(232,160,32,0.45); }
+  .cal-holiday-name { font-size: 9.5px; font-weight: 800; color: var(--red); background: var(--red-bg); border-radius: 5px; padding: 2px 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
+  .cal-nota { font-size: 10px; font-weight: 700; color: var(--navy); background: var(--blue-bg); border-radius: 5px; padding: 2px 5px; line-height: 1.3; }
+  .cal-ev { font-size: 11.5px; font-weight: 700; padding: 3px 7px; border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; border-left: 3px solid var(--navy-light); background: var(--blue-bg); color: var(--blue-text); line-height: 1.35; transition: transform .12s, box-shadow .12s; flex-shrink: 0; }
+  .cal-ev:hover { transform: translateX(2px); box-shadow: var(--shadow); }
+  .cal-ev.venceu { border-left-color: var(--red); background: var(--red-bg); color: var(--red); }
+  .cal-more { font-size: 10.5px; color: var(--muted); font-weight: 800; cursor: pointer; padding-left: 5px; }
+  .cal-more:hover { color: var(--navy); }
+  .cal-aniv { font-size: 10px; font-weight: 700; color: var(--green); background: var(--green-bg); border-radius: 5px; padding: 2px 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
+  .cal-legenda { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 24px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); background: #fbfcff; }
+  .cal-legenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .cal-legenda i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .btn-voltar { display: inline-flex; align-items: center; text-decoration: none; }
+  @media (max-width: 768px) {
+    /* O CSS herdado do sistema de contratos esconde os botões do cabeçalho
+       no celular, porque lá eles têm uma barra fixa embaixo. Aqui o único
+       atalho do cabeçalho é a volta para o sistema — essa não pode sumir.
+       Some só a parte longa do rótulo, e o cabeçalho passa a quebrar linha. */
+    .header-inner { flex-wrap: wrap; row-gap: 10px; }
+    .header-actions { flex-wrap: wrap; flex-shrink: 1; }
+    .header-actions .btn-gold.btn-voltar { display: inline-flex; }
+    .voltar-longo { display: none; }
+  }
+  @media (max-width: 820px) {
+    .cal-weekdays div { padding: 8px 0; font-size: 9px; letter-spacing: 0.3px; }
+    .cal-cell { min-height: 74px; padding: 5px 4px; gap: 3px; }
+    .cal-daynum { font-size: 11.5px; width: 22px; height: 22px; }
+    .cal-ev { font-size: 9px; padding: 2px 4px; border-left-width: 2px; border-radius: 4px; }
+    .cal-holiday-name, .cal-aniv, .cal-nota { font-size: 8.5px; padding: 1px 4px; }
+    .cal-title { font-size: 17px; }
+  }
+</style>
+</head>
+<body>
+<div id="authGate">
+  <div class="auth-card" id="authEntradaBox">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Gestão de Contratos</h1>
+    <p class="auth-sub">Entre com a mesma conta do sistema de licitações.</p>
+    <button class="auth-google" id="authBtnGoogle" onclick="authGoogle()">
+      <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.1 5.5c4.2-3.9 6.9-9.7 6.9-16.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.4-4.6 2.3-8.8 2.3-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="auth-ou"><span>ou</span></div>
+    <input type="email" id="authEmail" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPass" class="auth-input" placeholder="Senha" autocomplete="current-password">
+    <button class="auth-btn" id="authBtnEntrar" onclick="authEntrarSenha()">Entrar</button>
+    <div class="auth-links">
+      <a href="#" onclick="authEsqueciSenha();return false;">Esqueci a senha</a>
+      <a href="#" onclick="authSetModo('criar');return false;">Criar uma conta</a>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <div class="auth-card" id="authCriarBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Criar conta</h1>
+    <p class="auth-sub">Depois de criada, um administrador libera o seu acesso.</p>
+    <input type="text" id="authNomeC" class="auth-input" placeholder="Nome completo" autocomplete="name">
+    <input type="email" id="authEmailC" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPassC" class="auth-input" placeholder="Senha (mínimo 6 caracteres)" autocomplete="new-password">
+    <input type="password" id="authPass2" class="auth-input" placeholder="Repita a senha" autocomplete="new-password">
+    <button class="auth-btn" id="authBtnCriar" onclick="authCriarConta()">Criar conta</button>
+    <div class="auth-links"><a href="#" onclick="authSetModo('entrar');return false;">Já tenho conta</a></div>
+  </div>
+
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img id="authPendFoto" class="auth-foto" alt="">
+    <div class="auth-pend-nome" id="authPendNome"></div>
+    <div class="auth-pend-email" id="authPendEmail"></div>
+    <p class="auth-sub" id="authPendMsg"></p>
+    <button class="auth-btn ghost" onclick="authLogout()">Sair</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-mark"><img src="../../logo-ijui.jpg" alt="Brasão de Ijuí"></div>
+      <div class="logo-divider"></div>
+      <div class="logo-text">
+        <h1>Agenda de Contratos</h1>
+        <p>Município de Ijuí · Vencimentos</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="proto-chip" id="chipTotal">CARREGANDO</span>
+      <span id="authUserChip" class="chip-auth" style="display:none"></span>
+      <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+      <a class="btn-gold btn-voltar" href="../">← <span class="voltar-longo">Voltar ao sistema de&nbsp;</span>Contratos</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="cal-panel">
+    <div class="cal-head">
+      <div class="cal-title" id="calTitulo">—</div>
+      <div class="cal-nav">
+        <button onclick="mudarMes(-1)" title="Mês anterior">‹</button>
+        <button class="hoje-btn" onclick="irHoje()">Hoje</button>
+        <button onclick="mudarMes(1)" title="Próximo mês">›</button>
+      </div>
+    </div>
+    <div class="cal-weekdays">
+      <div>Segunda</div><div>Terça</div><div>Quarta</div><div>Quinta</div><div>Sexta</div><div>Sábado</div><div>Domingo</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-legenda">
+      <span><i style="background:var(--blue-bg);border-left:3px solid var(--navy-light)"></i> contrato vencendo no dia</span>
+      <span><i style="background:var(--red-bg);border-left:3px solid var(--red)"></i> já vencido</span>
+      <span><i style="background:var(--red-bg)"></i> feriado ou ponto facultativo</span>
+      <span><i style="background:var(--green-bg)"></i> aniversário</span>
+      <span><i style="background:var(--blue-bg)"></i> observação do dia</span>
+    </div>
+  </div>
+</main>
+
+<!-- FICHA DO CONTRATO -->
+<div class="overlay" id="ovDet" onclick="if(event.target===this)fecharDet()">
+  <div class="modal">
+    <div class="modal-header"><h2 id="detTitle">Contrato</h2><button class="modal-close" onclick="fecharDet()">✕</button></div>
+    <div class="modal-body" id="detBody"></div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
+      <a class="btn-primary" id="detAbrirNoSistema" href="../" style="text-decoration:none;display:inline-flex;align-items:center">Abrir no sistema de contratos</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCH8DKzE8oPaQ3HpAex-3iqEaReKon05lM",
+  authDomain: "processos-ijui.firebaseapp.com",
+  projectId: "processos-ijui",
+  storageBucket: "processos-ijui.firebasestorage.app",
+  messagingSenderId: "385308750932",
+  appId: "1:385308750932:web:65e94a26e71451995fe9c1"
+};
+function temFirebase(){ return !!(FIREBASE_CONFIG && FIREBASE_CONFIG.projectId); }
+
+let CONTRATOS = [];
+let FONTE_DADOS = 'arquivo';
+
+function carregarSDK(){
+  const urls = ['app','auth','firestore'].map(m =>
+    'https://www.gstatic.com/firebasejs/10.12.0/firebase-'+m+'-compat.js');
+  return urls.reduce((p,u) => p.then(() => new Promise((ok,err) => {
+    const s = document.createElement('script');
+    s.src = u; s.onload = ok; s.onerror = () => err(new Error('não carregou '+u));
+    document.head.appendChild(s);
+  })), Promise.resolve());
+}
+
+/* ══════════════ UTILIDADES ══════════════ */
+const HOJE = new Date(); HOJE.setHours(0,0,0,0);
+const fmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
+function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function dias(s){ const d=parseD(s); return d===null ? null : Math.round((d-HOJE)/864e5); }
+function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function isAtivo(c){ return c.situacao==='ATIVO' || c.situacao==='ATIVO-PARALIZADO'; }
+function fiscais(c){ return [...c.fiscalAdm, ...c.fiscalTec]; }
+let toastT = null;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+/* O valor e o vencimento que valem hoje são os do contrato somados ao que os
+   aditivos mudaram. Guardar o de origem em valorBase/vencimentoBase é o que
+   permite editar ou apagar um aditivo depois sem perder de onde se partiu —
+   e mantém uma única verdade para a lista, os filtros e os relatórios, que
+   continuam lendo c.valor e c.vencimento sem saber de aditivo nenhum. */
+function recalcularContrato(c){
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  if(!adits.length){
+    if(c.valorBase !== undefined){ c.valor = c.valorBase; delete c.valorBase; }
+    if(c.vencimentoBase !== undefined){ c.vencimento = c.vencimentoBase; delete c.vencimentoBase; }
+    return c;
+  }
+  if(c.valorBase === undefined) c.valorBase = c.valor;
+  if(c.vencimentoBase === undefined) c.vencimentoBase = c.vencimento;
+  const soma = adits.reduce((t,a) => t + (Number(a.valor) || 0), 0);
+  const base = Number(c.valorBase);
+  c.valor = (c.valorBase == null || isNaN(base)) ? (soma || null) : base + soma;
+  /* o prazo vigente é o do aditivo assinado mais recentemente que mexeu nele */
+  const comPrazo = adits.filter(a => a.vencNovo)
+    .sort((x,y) => String(x.data||'').localeCompare(String(y.data||'')));
+  c.vencimento = comPrazo.length ? comPrazo[comPrazo.length-1].vencNovo : c.vencimentoBase;
+  return c;
+}
+function somaAditivos(c){
+  return (Array.isArray(c.aditivos) ? c.aditivos : []).reduce((t,a) => t + (Number(a.valor)||0), 0);
+}
+function prepararContrato(c){
+  recalcularContrato(c);
+  c._d = dias(c.vencimento);
+  delete c._txt;                 /* a busca reindexa este contrato */
+  return c;
+}
+
+function badgeSit(c){
+  if(c.situacao==='ATIVO') return '<span class="badge badge-ativo">✅ ATIVO</span>';
+  if(c.situacao==='ATIVO-PARALIZADO') return '<span class="badge badge-par">⏸️ PARALISADO</span>';
+  return '<span class="badge badge-inativo">INATIVO</span>';
+}
+function badgeVenc(c){
+  const d=c._d;
+  if(d===null) return '<span class="badge badge-venc bv-gray">Sem data</span>';
+  if(!isAtivo(c)) return `<span class="badge badge-venc bv-gray">📅 ${fmtD(c.vencimento)}</span>`;
+  /* <br> em vez de " · ": com a coluna estreita, a quebra é sempre no
+     mesmo lugar (o texto numa linha, a data na outra), em vez do
+     navegador escolher um espaço qualquer pra quebrar. */
+  if(d<0) return `<span class="badge badge-venc bv-red">⚠️ VENCIDO há ${-d}d<br>${fmtD(c.vencimento)}</span>`;
+  if(d<=30) return `<span class="badge badge-venc bv-red">⏰ Vence em ${d}d<br>${fmtD(c.vencimento)}</span>`;
+  if(d<=90) return `<span class="badge badge-venc bv-amber">⏰ Vence em ${d}d<br>${fmtD(c.vencimento)}</span>`;
+  return `<span class="badge badge-venc bv-green">📅 ${fmtD(c.vencimento)}</span>`;
+}
+function aditivosHTML(c){
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  let miolo;
+  if(!adits.length){
+    miolo = '<div class="adit-vazio">Nenhum aditivo registrado. Use <b>＋ Aditivo</b> aqui embaixo.</div>';
+  } else {
+    miolo = '<div class="adit-lista">' + adits.map((a,i) => {
+      const info = [];
+      if(a.data) info.push('assinado em '+fmtD(a.data));
+      if(a.vencNovo) info.push('novo vencimento <b>'+fmtD(a.vencNovo)+'</b>');
+      if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'supressão')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
+      return '<button class="adit" onclick="abrirAdit('+i+')">'
+        + '<div class="adit-topo"><span class="adit-n">Aditivo '+(a.n ? 'nº '+esc(a.n) : (i+1))+'</span>'
+        + '<span class="badge badge-tipo">'+esc(a.tipo||'OUTRO')+'</span></div>'
+        + (info.length ? '<div class="adit-info">'+info.join(' · ')+'</div>' : '')
+        + (a.obs ? '<div class="adit-obs">'+esc(a.obs)+'</div>' : '')
+        + '</button>';
+    }).join('') + '</div>';
+  }
+  return '<hr class="det-hr"><div class="det-row"><div class="k">Aditivos ('+adits.length+')</div><div class="v">'+miolo+'</div></div>';
+}
+
+/* ══════════════ CONTAS E PERMISSÕES ══════════════
+   Contratos usa a MESMA conta do resto do sistema: o mesmo projeto do
+   Firebase, o mesmo Firebase Authentication e a mesma coleção "usuarios_v2"
+   da Agenda e do Sistema Interno — só que olhando o painel "contratos"
+   dentro de "acessos". Quem cuida só de contrato ganha nível em Contratos e
+   "Sem acesso" nos outros dois: continua sendo uma conta só, aprovada num
+   lugar só (o painel Usuários, dentro do Sistema Interno).
+
+   Diferente da Agenda e do Sistema Interno, aqui NADA é público: sem conta
+   aprovada com o painel liberado, a lista de contratos nem chega ao
+   navegador — as regras do Firestore negam a leitura, e a tela não cai no
+   arquivo dados/contratos.json (isso furaria a proteção inteira).
+
+   Três níveis, iguais aos dos outros painéis:
+     Sem acesso  → nem entra;
+     Visualizar  → vê tudo, mas todo botão de salvar é barrado;
+     Editar      → cadastra, edita e registra aditivos.
+   Ver CONTROLE-DE-ACESSO.md na raiz do repositório. */
+const AUTH_BOOTSTRAP_ADMIN_EMAIL = 'pedrohhpacifico@gmail.com';
+let authCurrentUser = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+let authPerfilUnsub = null;
+let usuariosV2ColRef = null;
+let authModo = 'entrar';
+
+/* Mesma normalização dos outros painéis: contas aprovadas antes do modelo
+   de três níveis guardam true/false, e continuam valendo sem migração. */
+function authNormalizaNivel(v){
+  if(v === true) return 'editar';
+  if(v === 'ver' || v === 'editar') return v;
+  return 'nenhum';
+}
+function contratosNivel(){
+  if(!authCurrentUser || authCurrentUser.status !== 'aprovado') return 'nenhum';
+  if(authCurrentUser.isAdmin) return 'editar';
+  return authNormalizaNivel(authCurrentUser.acessos && authCurrentUser.acessos.contratos);
+}
+function contratosPodeVer(){ return contratosNivel() !== 'nenhum'; }
+/* Sem Firebase configurado não existe conta nenhuma: a tela roda com o
+   arquivo local e o rascunho do navegador, exatamente como antes. */
+function contratosPodeEditar(){ return !temFirebase() || contratosNivel() === 'editar'; }
+
+/* ── Portão de acesso ── */
+function authEl(id){ return document.getElementById(id); }
+function authErr(msg){ const e = authEl('authErr'); if(e) e.textContent = msg || ''; }
+function authSetModo(m){
+  authModo = m;
+  authEl('authEntradaBox').style.display = (m === 'entrar') ? 'block' : 'none';
+  authEl('authCriarBox').style.display   = (m === 'criar')  ? 'block' : 'none';
+  authErr('');
+}
+function authMsgErro(e){
+  const m = {
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/user-not-found':'Não existe conta com esse e-mail.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':'Já existe conta com esse e-mail. Tente entrar em vez de criar.',
+    'auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.'
+  };
+  return m[e.code] || ('Erro: ' + e.message);
+}
+function authGoogle(){
+  authErr('');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(e => {
+    if(e.code === 'auth/popup-closed-by-user') return;
+    if(e.code === 'auth/popup-blocked'){ authErr('O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo.'); return; }
+    authErr('Não foi possível entrar com o Google: ' + e.message);
+  });
+}
+function authEntrarSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  const senha = authEl('authPass').value || '';
+  if(!email || !senha){ authErr('Informe e-mail e senha.'); return; }
+  authErr('');
+  firebase.auth().signInWithEmailAndPassword(email, senha).catch(e => authErr(authMsgErro(e)));
+}
+function authCriarConta(){
+  const nome  = (authEl('authNomeC').value || '').trim();
+  const email = (authEl('authEmailC').value || '').trim().toLowerCase();
+  const senha = authEl('authPassC').value || '';
+  const senha2 = authEl('authPass2').value || '';
+  if(!nome || !email || !senha){ authErr('Preencha todos os campos.'); return; }
+  if(senha.length < 6){ authErr('A senha deve ter ao menos 6 caracteres.'); return; }
+  if(senha !== senha2){ authErr('As senhas não conferem.'); return; }
+  authErr('');
+  firebase.auth().createUserWithEmailAndPassword(email, senha)
+    .then(cred => cred.user.updateProfile({displayName: nome}))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authEsqueciSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  if(!email){ authErr('Digite seu e-mail no campo acima primeiro.'); return; }
+  authErr('');
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => alert('Enviamos um e-mail para ' + email + ' com um link para redefinir a senha.'))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  firebase.auth().signOut();
+}
+
+/* ── Perfil (usuarios_v2) ── */
+function iniciarAutenticacaoContratos(){
+  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
+  firebase.auth().onAuthStateChanged(authAoAutenticar);
+}
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email || '').toLowerCase(),
+    nome:  user.displayName || (user.email || '').split('@')[0],
+    foto:  user.photoURL || '',
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || 'password',
+    status: 'pendente',
+    isAdmin: false,
+    acessos: {agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum'},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra || {});
+}
+function authAoAutenticar(user){
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub = null; }
+  if(!user){ authCurrentUser = null; authStartGate(); return; }
+
+  const ref = usuariosV2ColRef.doc(user.uid);
+  ref.get().then(doc => {
+    if(doc.exists) return;
+    const ehResgate = (user.email || '').toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:'aprovado', isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'}
+    } : {}));
+  }).then(() => {
+    authPerfilUnsub = ref.onSnapshot(doc => {
+      /* Conta excluída por um admin com a aba aberta: sair devolve o portão. */
+      if(!doc.exists){ authCurrentUser = null; firebase.auth().signOut(); return; }
+      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
+      if(contratosPodeVer()) authShowApp(); else authShowPendente();
+    }, e => console.warn('perfil: sem permissão de leitura (' + e.message + ')'));
+  }).catch(e => authErr('Erro ao preparar sua conta: ' + e.message));
+}
+
+function authShowApp(){
+  authEl('authGate').style.display = 'none';
+  const chip = authEl('authUserChip');
+  if(chip && authCurrentUser){
+    chip.textContent = '\u{1F464} ' + (authCurrentUser.nome || authCurrentUser.email) +
+      (contratosPodeEditar() ? '' : ' \u00b7 s\u00f3 visualiza\u00e7\u00e3o');
+    chip.style.display = 'inline-flex';
+  }
+  const sair = authEl('btnSair'); if(sair) sair.style.display = '';
+  /* Mesma regra do sistema: os dados só são pedidos depois que o acesso
+     está confirmado. Aqui não se grava nada — a agenda é só de leitura —,
+     então não há botão para esconder de quem só visualiza. */
+  iniciarListenersAgenda();
+}
+function authShowPendente(){
+  authEl('authGate').style.display = 'flex';
+  authEl('authEntradaBox').style.display = 'none';
+  authEl('authCriarBox').style.display = 'none';
+  authErr('');
+  authEl('authPendenteCard').style.display = 'block';
+  authEl('authPendNome').textContent  = authCurrentUser.nome || '';
+  authEl('authPendEmail').textContent = authCurrentUser.email || '';
+  const foto = authEl('authPendFoto');
+  foto.src = authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  authEl('authPendMsg').textContent = authCurrentUser.status === 'bloqueado'
+    ? 'Seu acesso foi bloqueado por um administrador.'
+    : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
+}
+function authStartGate(){
+  authEl('authGate').style.display = 'flex';
+  authEl('authPendenteCard').style.display = 'none';
+  authSetModo('entrar');
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(i && !i._enterBound){
+      i._enterBound = true;
+      i.addEventListener('keydown', e => { if(e.key === 'Enter'){ (authModo === 'criar') ? authCriarConta() : authEntrarSenha(); } });
+    }
+  });
+}
+
+/* ══════════════ FERIADOS E ANIVERSÁRIOS ══════════════
+   Copiados da Agenda de Licitações sem mudar uma vírgula: é o mesmo
+   calendário de feriados do município, e duas versões dele acabariam
+   divergindo. */
+function _pascoa(ano){
+  var a=ano%19, b=Math.floor(ano/100), c=ano%100, d=Math.floor(b/4), e=b%4,
+      f=Math.floor((b+8)/25), g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30,
+      i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7, m=Math.floor((a+11*h+22*l)/451),
+      mes=Math.floor((h+l-7*m+114)/31), dia=((h+l-7*m+114)%31)+1;
+  return new Date(ano, mes-1, dia);
+}
+function _addDias(dt,n){ var x=new Date(dt); x.setDate(x.getDate()+n); return x; }
+var _feriadosCache={};
+function feriadosDoAno(ano){
+  if(_feriadosCache[ano]) return _feriadosCache[ano];
+  var f={};
+  function add(dt,nome){ f[ymd(dt)]=nome; }
+  add(new Date(ano,0,1),  "Confraternização Universal");
+  add(new Date(ano,3,21), "Tiradentes");
+  add(new Date(ano,4,1),  "Dia do Trabalho");
+  add(new Date(ano,8,7),  "Independência");
+  add(new Date(ano,9,12), "N. Sra. Aparecida");
+  add(new Date(ano,10,2), "Finados");
+  add(new Date(ano,10,15),"Proclamação da República");
+  add(new Date(ano,10,20),"Consciência Negra");
+  add(new Date(ano,11,25),"Natal");
+  var pa=_pascoa(ano);
+  add(_addDias(pa,-47),"Carnaval");
+  add(_addDias(pa,-2), "Sexta-feira Santa");
+  add(_addDias(pa,60), "Corpus Christi");
+  _feriadosCache[ano]=f;
+  return f;
+}
+function feriadoNome(iso){
+  if(!iso) return null;
+  if(pontosFac[iso]) return pontosFac[iso];   /* ponto facultativo: vermelho igual feriado */
+  var ano=parseInt(iso.split("-")[0],10);
+  if(!ano) return null;
+  return feriadosDoAno(ano)[iso]||null;
+}
+
+/* ── Aniversários por dia ─────────────────────────────────────────────── */
+function addDiasIso(iso,n){ var d=new Date((iso||hojeStr())+"T12:00:00"); d.setDate(d.getDate()+(parseInt(n,10)||0)); return ymd(new Date(d.getFullYear(),d.getMonth(),d.getDate())); }
+function aniversariosNoDia(iso){
+  var p=iso.split("-"); var mes=parseInt(p[1],10), dia=parseInt(p[2],10);
+  var out=[];
+  anivList.forEach(function(a){
+    if(parseInt(a.mes,10)===mes && parseInt(a.dia,10)===dia) out.push(a.servidor||"Servidor");
+  });
+  return out;
+}
+/* A Agenda de Licitações tem aqui um anivCelula(), que nas sextas puxa os
+   aniversários de sábado e domingo para a célula da sexta — ela precisa
+   disso porque esconde o fim de semana. Este calendário mostra os sete
+   dias, então cada aniversário aparece no dia dele e a função não faz
+   falta. */
+
+/* ══════════════ DADOS DO CALENDÁRIO ══════════════
+   Três camadas vêm do MESMO Firestore da Agenda de Licitações, sem cópia
+   nenhuma: feriados são calculados aqui (não são cadastro), pontos
+   facultativos, aniversários e a observação do dia são as mesmas coleções
+   que a Agenda usa. Quem cadastra continua sendo a Agenda — aqui é só
+   leitura, de propósito: um cadastro em dois lugares vira dois cadastros. */
+var pontosFac = {};      /* iso -> nome do ponto facultativo */
+var anivList  = [];      /* { servidor, dia, mes } */
+var observacoes = {};    /* iso -> texto */
+
+function escHtml(s){ return esc(s); }
+function ymd(d){ var z=function(n){return (n<10?"0":"")+n;}; return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate()); }
+function hojeStr(){ return ymd(new Date()); }
+var MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+
+let _listenersLigados = false;
+function iniciarListenersAgenda(){
+  if(_listenersLigados) return;
+  _listenersLigados = true;
+  const db = firebase.firestore();
+
+  db.collection('contratos').onSnapshot(snap => {
+    CONTRATOS = snap.docs.map(d => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, d.data()));
+    CONTRATOS.forEach(prepararContrato);
+    FONTE_DADOS = 'firestore';
+    marcarTotal();
+    renderCalendario();
+    /* ficha aberta continua batendo com o banco */
+    if(detAtual && document.getElementById('ovDet').classList.contains('open')){
+      const at = CONTRATOS.find(x => x.id === detAtual.id);
+      if(at) abrirDet(at.id);
+    }
+  }, e => erroCarregar(e));
+
+  /* As três camadas da Agenda. Se as regras negarem (conta que só tem
+     Contratos, num dia em que as regras ainda não foram republicadas), o
+     calendário continua funcionando sem elas — some o enfeite, não o
+     vencimento, que é o que a página existe para mostrar. */
+  db.collection('pontos_facultativos').onSnapshot(snap => {
+    pontosFac = {};
+    /* mesma leitura da Agenda: a data está no campo "data" e, nos registros
+       mais antigos, no próprio id do documento */
+    snap.docs.forEach(d => { const v = d.data() || {}; const iso = v.data || d.id;
+      if(iso) pontosFac[iso] = v.nome || 'Ponto Facultativo'; });
+    renderCalendario();
+  }, e => console.warn('pontos facultativos:', e.message));
+
+  db.collection('aniversarios').onSnapshot(snap => {
+    anivList = snap.docs.map(d => d.data());
+    renderCalendario();
+  }, e => console.warn('aniversários:', e.message));
+
+  db.collection('observacoes').onSnapshot(snap => {
+    observacoes = {};
+    snap.docs.forEach(d => { observacoes[d.id] = (d.data() || {}).texto || ''; });
+    renderCalendario();
+  }, e => console.warn('observações:', e.message));
+}
+
+function erroCarregar(e){
+  console.error('agenda de contratos:', e);
+  document.getElementById('calGrid').innerHTML =
+    '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted)">'
+    + 'Não consegui carregar os contratos.<br>' + esc(e.message) + '</div>';
+}
+function marcarTotal(){
+  const chip = document.getElementById('chipTotal');
+  const comData = CONTRATOS.filter(c => c.vencimento).length;
+  if(chip) chip.textContent = comData + ' VENCIMENTOS · DADOS AO VIVO';
+}
+
+/* ══════════════ CALENDÁRIO ══════════════ */
+var calRef = new Date();
+calRef = new Date(calRef.getFullYear(), calRef.getMonth(), 1);
+function mudarMes(delta){ calRef = new Date(calRef.getFullYear(), calRef.getMonth()+delta, 1); renderCalendario(); }
+function irHoje(){ const h = new Date(); calRef = new Date(h.getFullYear(), h.getMonth(), 1); renderCalendario(); }
+
+/* Um contrato aparece no dia em que vence. É só isso que a célula mostra —
+   "Contrato 74/2022" e mais nada: quem quiser o resto clica e abre a ficha.
+   Mês com trinta vencimentos vira uma parede de texto se cada linha trouxer
+   empresa, valor e situação junto. */
+function porDataDeVencimento(){
+  const mapa = {};
+  CONTRATOS.forEach(c => {
+    if(!c.vencimento) return;
+    (mapa[c.vencimento] = mapa[c.vencimento] || []).push(c);
+  });
+  Object.keys(mapa).forEach(k => mapa[k].sort((a,b) =>
+    (a.ano - b.ano) || (a.contr - b.contr)));
+  return mapa;
+}
+
+function renderCalendario(){
+  const grid = document.getElementById('calGrid');
+  if(!grid) return;
+  const ano = calRef.getFullYear(), mes = calRef.getMonth();
+  document.getElementById('calTitulo').textContent = MESES[mes] + ' de ' + ano;
+
+  const porData = porDataDeVencimento();
+  const hoje = hojeStr();
+  /* recua até a segunda-feira da semana do dia 1 */
+  const primeiro = new Date(ano, mes, 1);
+  const diaSemana = primeiro.getDay();               /* 0=Dom ... 6=Sáb */
+  const recuo = (diaSemana === 0) ? 6 : (diaSemana - 1);
+  const d = new Date(ano, mes, 1 - recuo);
+  /* seis semanas cheias, descartando as finais que caem todas fora do mês */
+  const semanas = [];
+  for(let s = 0; s < 6; s++){
+    const semana = [];
+    for(let i = 0; i < 7; i++){ semana.push(new Date(d)); d.setDate(d.getDate()+1); }
+    semanas.push(semana);
+  }
+  while(semanas.length > 1 && !semanas[semanas.length-1].some(x => x.getMonth() === mes)) semanas.pop();
+
+  const CAP = 6;
+  let html = '';
+  semanas.forEach(semana => semana.forEach(dd => {
+    const iso = ymd(dd);
+    const fds = dd.getDay() === 0 || dd.getDay() === 6;
+    const nomeFer = feriadoNome(iso);
+    const cls = 'cal-cell' + (dd.getMonth() !== mes ? ' out' : '')
+      + (fds ? ' fds' : '') + (iso === hoje ? ' today' : '');
+    html += '<div class="' + cls + '">';
+    html += '<div class="cal-daynum">' + dd.getDate() + '</div>';
+    if(nomeFer) html += '<div class="cal-holiday-name" title="' + esc(nomeFer) + '">' + esc(nomeFer) + '</div>';
+    const anivs = aniversariosNoDia(iso);
+    if(anivs.length) html += '<div class="cal-aniv" title="Aniversário: ' + esc(anivs.join(', ')) + '">&#127874; ' + esc(anivs.join(', ')) + '</div>';
+    const nota = (observacoes[iso] || '').trim();
+    if(nota) html += '<div class="cal-nota" title="' + esc(nota) + '">' + esc(nota) + '</div>';
+    const evs = porData[iso] || [];
+    evs.slice(0, CAP).forEach(c => {
+      const venceu = c._d !== null && c._d < 0;
+      html += '<div class="cal-ev' + (venceu ? ' venceu' : '') + '" onclick="abrirDet(' + Number(c.id) + ')"'
+        + ' title="' + esc(c.empresa || '') + '">Contrato ' + c.contr + '/' + c.ano + '</div>';
+    });
+    if(evs.length > CAP){
+      html += '<span class="cal-more" onclick="abrirDet(' + Number(evs[CAP].id) + ')">+' + (evs.length - CAP) + ' mais</span>';
+    }
+    html += '</div>';
+  }));
+  grid.innerHTML = html;
+}
+
+/* ══════════════ FICHA DO CONTRATO ══════════════
+   A mesma ficha do sistema de contratos, só que de leitura: aqui não se
+   edita nem se cadastra aditivo. Quem precisar disso vai pelo botão do
+   rodapé, que abre este mesmo contrato lá. */
+let detAtual = null;
+function abrirDet(id){
+  const c = CONTRATOS.find(x => x.id === id); if(!c) return;
+  detAtual = c;
+  document.getElementById('detTitle').textContent = 'Contrato nº ' + c.contr + '/' + c.ano;
+  document.getElementById('detAbrirNoSistema').href = '../?contrato=' + c.id;
+  const row = (k,v) => v ? '<div class="det-row"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>' : '';
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  const detalheValor = adits.length
+    ? ' <span style="font-size:12.5px;color:var(--muted)">(contrato '+money(c.valorBase)+' + aditivos '+money(somaAditivos(c))+')</span>' : '';
+  const detalheVenc = adits.some(a => a.vencNovo)
+    ? ' <span style="font-size:12.5px;color:var(--muted)">(original '+fmtD(c.vencimentoBase)+', alterado por aditivo)</span>' : '';
+  document.getElementById('detBody').innerHTML =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' + badgeSit(c) + ' ' + badgeVenc(c)
+      + (c.tipo ? ' <span class="badge badge-tipo">'+esc(c.tipo)+'</span>' : '') + '</div>' +
+    row('Empresa', '<b>'+esc(c.empresa)+'</b>') +
+    row('Secretaria(s)', (c.secretarias||[]).map(s => '<span class="badge badge-sec">'+esc(s)+'</span>').join(' ')) +
+    row('Modalidade', esc(c.modalidade)) +
+    row('Objeto', esc(c.objeto)) +
+    '<hr class="det-hr">' +
+    row('Valor total', '<b style="font-size:16px">'+money(c.valor)+'</b>'+detalheValor) +
+    row('Vencimento', fmtD(c.vencimento) + (isAtivo(c) && c._d !== null
+        ? (c._d < 0 ? ' — <b style="color:var(--red)">vencido há '+(-c._d)+' dias</b>'
+                    : ' — faltam <b>'+c._d+' dias</b>') : '') + detalheVenc) +
+    row('Fiscal administrativo', esc((c.fiscalAdm||[]).join(', '))) +
+    row('Fiscal técnico', esc((c.fiscalTec||[]).join(', '))) +
+    row('Palavra-chave', esc(c.palavra)) +
+    (c.obs ? '<hr class="det-hr">' + row('⚠️ Observações', '<b style="color:var(--amber)">'+esc(c.obs)+'</b>') : '') +
+    aditivosHTML(c);
+  document.getElementById('ovDet').classList.add('open');
+}
+function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); detAtual = null; }
+document.addEventListener('keydown', e => { if(e.key === 'Escape') fecharDet(); });
+
+/* ══════════════ INICIALIZAÇÃO ══════════════
+   Igual à do sistema de contratos: a tela nasce fechada e é o portão que
+   pede os dados depois de confirmar quem entrou. */
+if(temFirebase()){
+  document.getElementById('authGate').style.display = 'flex';
+  carregarSDK()
+    .then(() => { firebase.initializeApp(FIREBASE_CONFIG); iniciarAutenticacaoContratos(); })
+    .catch(e => erroCarregar(e));
+} else {
+  document.getElementById('authGate').style.display = 'none';
+  erroCarregar(new Error('Firebase não configurado.'));
+}
+renderCalendario();
+
+</script>
+</body>
+</html>

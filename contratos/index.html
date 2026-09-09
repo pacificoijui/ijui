@@ -95,6 +95,10 @@
   .logo-text h1 { font-size: 18px; color: var(--navy); font-weight: 700; letter-spacing: 0.2px; line-height: 1.2; }
   .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
   .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  /* Link que se comporta como botão. Tem classe própria (e não estilo
+     escrito no atributo) porque o @media do celular precisa conseguir
+     escondê-lo: estilo no atributo ganha de qualquer regra de folha. */
+  .btn-link { display: inline-flex; align-items: center; text-decoration: none; }
   .btn-primary { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(26,58,107,0.28); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
   .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(26,58,107,0.35); }
   .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #3d2800; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(232,160,32,0.35); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
@@ -412,7 +416,7 @@
     .logo-wrap { gap: 11px; }
     .logo-text h1 { font-size: 15.5px; }
     .logo-text p { font-size: 9.5px; letter-spacing: .6px; }
-    .header-actions .btn-ghost, .header-actions .btn-gold, .proto-chip { display: none; }
+    .header-actions .btn-ghost, .header-actions .btn-gold, .header-actions .btn-link, .proto-chip { display: none; }
 
     main { padding: 14px 12px 96px; }
 
@@ -492,18 +496,21 @@
     .sel-item { padding: 9px 13px; font-size: 13px; }
 
     /* barra de ações fixa embaixo */
-    .mobile-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300; gap: 8px;
+    /* A barra quebra em duas linhas em vez de esticar a página para fora da
+       tela: são cinco atalhos agora (contrato, PDF, agenda, relatórios,
+       histórico) e num celular estreito eles não cabem lado a lado. */
+    .mobile-bar { display: flex; flex-wrap: wrap; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300; gap: 8px;
       padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
       background: rgba(255,255,255,0.94); backdrop-filter: blur(10px);
       border-top: 1px solid var(--border); box-shadow: 0 -4px 18px rgba(20,40,80,0.09); }
-    .mb-btn { flex: 1; border: none; border-radius: 11px; padding: 12px 6px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .mb-btn { flex: 1 1 auto; min-width: 96px; border: none; border-radius: 11px; padding: 12px 6px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; text-align: center; text-decoration: none; }
     .mb-primary { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; }
     .mb-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #3d2800; }
     .load-wrap .btn-ghost { width: 100%; padding: 13px; }
   }
 
   @media (max-width: 380px) {
-    .mb-btn { font-size: 11.5px; padding: 11px 4px; }
+    .mb-btn { font-size: 11.5px; padding: 11px 4px; min-width: 84px; }
   }
 </style>
 </head>
@@ -524,6 +531,7 @@
       <span id="authUserChip" class="chip-auth" style="display:none"></span>
       <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
       <button class="btn-ghost so-editor" onclick="novoContrato()">＋ Novo contrato</button>
+      <a class="btn-ghost btn-link" id="btnAgenda" href="agenda/" style="display:none">📅 Agenda</a>
       <button class="btn-ghost" id="btnHist" onclick="abrirHistorico()" style="display:none">🕘 Histórico</button>
       <button class="btn-gold" onclick="abrirModalRelatorio()">🖨️ Relatórios PDF</button>
     </div>
@@ -652,6 +660,7 @@
 <div class="mobile-bar">
   <button class="mb-btn mb-primary so-editor" onclick="novoContrato()">＋ Contrato</button>
   <button class="mb-btn mb-primary" onclick="pdfDoFiltro()">🖨️ PDF</button>
+  <a class="mb-btn" id="mbAgenda" href="agenda/" style="display:none">📅 Agenda</a>
   <button class="mb-btn" id="mbHist" onclick="abrirHistorico()" style="display:none">🕘 Histórico</button>
   <button class="mb-btn mb-gold" onclick="abrirModalRelatorio()">📄 Relatórios</button>
 </div>
@@ -919,7 +928,7 @@ function iniciarListenerContratos(){
     const lista = snap.docs.map(d => d.data());
     if(!lista.length && primeira){ telaBancoVazio(); return; }
     FONTE_DADOS = 'firestore';
-    if(primeira){ primeira = false; CONTRATOS = normalizarLista(lista); iniciar(); }
+    if(primeira){ primeira = false; CONTRATOS = normalizarLista(lista); iniciar(); abrirContratoDaURL(); }
     else reaplicarContratosAoVivo(lista);
     conferirImportacao();
   }, e => mostrarErroCarregar(e));
@@ -2188,12 +2197,16 @@ function histCol(){ return firebase.firestore().collection('contratos_historico'
 /* Só o que interessa a quem lê o histórico: os campos que a pessoa vê e
    edita na ficha. Sem isso a comparação acusaria mudança em campo de conta
    interna (_d, _txt) e em valor recalculado a partir dos aditivos. */
+/* O terceiro item marca campo LONGO: o objeto de um contrato tem parágrafos
+   inteiros, e mostrar "de → para" com os dois textos enche a tela e esconde
+   o que importa. Desses o histórico diz só que mudaram; o texto continua
+   guardado no registro (é o que o desfazer devolve). */
 const HIST_CAMPOS = [
-  ['contr','número'], ['ano','ano'], ['empresa','empresa'], ['objeto','objeto'],
+  ['contr','número'], ['ano','ano'], ['empresa','empresa'], ['objeto','objeto', true],
   ['modalidade','modalidade'], ['tipo','tipo'], ['situacao','situação'],
   ['vencimento','vencimento'], ['valor','valor'], ['secretarias','secretarias'],
   ['fiscalAdm','fiscal administrativo'], ['fiscalTec','fiscal técnico'],
-  ['palavra','palavra-chave'], ['obs','observações']
+  ['palavra','palavra-chave'], ['obs','observações', true]
 ];
 function histTexto(campo, v){
   if(v == null || v === '') return '(vazio)';
@@ -2205,9 +2218,9 @@ function histTexto(campo, v){
 function histDiferencas(antes, depois){
   if(!antes) return [];
   const mud = [];
-  HIST_CAMPOS.forEach(([campo, rotulo]) => {
+  HIST_CAMPOS.forEach(([campo, rotulo, longo]) => {
     const a = histTexto(campo, antes[campo]), d = histTexto(campo, depois[campo]);
-    if(a !== d) mud.push({rotulo: rotulo, de: a, para: d});
+    if(a !== d) mud.push(longo ? {rotulo: rotulo, longo: true} : {rotulo: rotulo, de: a, para: d});
   });
   const na = (antes.aditivos || []).length, nd = (depois.aditivos || []).length;
   if(na !== nd) mud.push({rotulo:'aditivos', de: String(na), para: String(nd)});
@@ -2240,6 +2253,14 @@ function histPodeAbrir(){ return temFirebase() && contratosPodeVer(); }
 function histMostrarBotoes(){
   const mostra = histPodeAbrir() ? '' : 'none';
   ['btnHist','mbHist'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = mostra; });
+  /* A agenda é a mesma tela por outro ângulo: aparece com o mesmo acesso.
+     Mostrar é APAGAR o display do atributo, nunca escrever um valor: quem
+     decide se o atalho cabe na tela é o @media, e estilo escrito no
+     atributo ganharia dele e furaria a largura do celular. */
+  const temAgenda = temFirebase() && contratosPodeVer();
+  ['btnAgenda','mbAgenda'].forEach(id => {
+    const b = document.getElementById(id); if(b) b.style.display = temAgenda ? '' : 'none';
+  });
 }
 
 function abrirHistorico(){
@@ -2294,8 +2315,9 @@ function histRender(){
   box.innerHTML = _histCache.map(h => {
     const mud = histDiferencas(h.antes, h.depois);
     const detalhe = mud.length
-      ? '<div class="hist-mud">' + mud.slice(0,6).map(m =>
-          esc(m.rotulo) + ': <b>' + esc(m.de) + '</b> → <b>' + esc(m.para) + '</b>').join(' · ')
+      ? '<div class="hist-mud">' + mud.slice(0,6).map(m => m.longo
+            ? '<b>' + esc(m.rotulo) + '</b> alterado'
+            : esc(m.rotulo) + ': <b>' + esc(m.de) + '</b> → <b>' + esc(m.para) + '</b>').join(' · ')
         + (mud.length > 6 ? ' <i>(e mais ' + (mud.length - 6) + ')</i>' : '') + '</div>'
       : '';
     /* Sem "antes" não há o que restaurar: era um contrato novo. O sistema
@@ -2682,6 +2704,16 @@ function marcarFonte(){
   if(!chip) return;
   chip.textContent = CONTRATOS.length + ' CONTRATOS · '
     + (FONTE_DADOS === 'firestore' ? 'DADOS AO VIVO' : 'ARQUIVO LOCAL');
+}
+
+/* A agenda manda para cá com "?contrato=ID" quando alguém quer a ficha
+   inteira — com edição, aditivo e PDF, que lá não existem. Abrir direto no
+   contrato certo evita a pessoa ter de procurá-lo de novo numa lista de
+   mais de mil. */
+function abrirContratoDaURL(){
+  const id = Number(new URLSearchParams(location.search).get('contrato'));
+  if(!id) return;
+  if(CONTRATOS.some(c => c.id === id)) abrirDet(id);
 }
 
 function iniciar(){

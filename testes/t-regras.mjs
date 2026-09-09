@@ -58,6 +58,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, "decisoes", "d1"),     { texto: "…", assinantes: [] });
   await setDoc(doc(db, "rankings", "p1"),     { itens: [] });
   await setDoc(doc(db, "usuarios", "velho1"), { usuario: "julio" });
+  await setDoc(doc(db, "aniversarios", "an1"),  { servidor: "Julieta", dia: 22, mes: 10 });
+  await setDoc(doc(db, "pontos_facultativos", "pf1"), { data: "2026-10-15", nome: "Aniversário da cidade" });
   const ontem  = Timestamp.fromDate(new Date(Date.now() - 86400000));
   const futuro = Timestamp.fromDate(new Date(Date.now() + 300 * 86400000));
   await setDoc(doc(db, "contratos_historico", "h-vencido"),
@@ -93,6 +95,21 @@ await t("quem tem Contratos: Editar grava",               pode(updateDoc(doc(com
 await t("e cadastra contrato novo",                       pode(setDoc(doc(como(CONTAS.soContrato), "contratos", "9999"), { contr: 9999, ano: 2026 })));
 await t("ninguém exclui contrato pela tela",              nega(deleteDoc(doc(como(CONTAS.soContrato), "contratos", "1"))));
 await t("quem só edita contrato não mexe em processos",   nega(updateDoc(doc(como(CONTAS.soContrato), "processos", "p1"), { numero: "X" })));
+// A Agenda de Contratos mostra feriados, pontos facultativos, aniversários e
+// a observação do dia — as mesmas coleções da Agenda de Licitações. Quem só
+// tem o painel Contratos precisa LER as três; escrever, não.
+await t("a Agenda de Contratos lê os pontos facultativos",
+  pode(getDocs(collection(como(CONTAS.soContrato), "pontos_facultativos"))));
+await t("lê os aniversários",
+  pode(getDocs(collection(como(CONTAS.verContrato), "aniversarios"))));
+await t("lê a observação do dia",
+  pode(getDocs(collection(como(CONTAS.verContrato), "observacoes"))));
+await t("mas não cadastra ponto facultativo — isso é da Agenda",
+  nega(updateDoc(doc(como(CONTAS.soContrato), "pontos_facultativos", "pf1"), { nome: "X" })));
+await t("nem mexe em aniversário",
+  nega(updateDoc(doc(como(CONTAS.soContrato), "aniversarios", "an1"), { servidor: "X" })));
+await t("e continua sem enxergar os processos das licitações",
+  nega(getDocs(collection(como(CONTAS.soContrato), "processos"))));
 
 console.log("\n3) Histórico dos contratos: registra, não reescreve, não some antes da hora");
 const agoraTs  = () => Timestamp.fromDate(new Date());

@@ -123,6 +123,26 @@ Para o Firestore fazer essa limpeza sozinho, sem depender de alguém abrir a
 tela: no console do Firebase, **Firestore Database → TTL → Criar política**,
 coleção `contratos_historico`, campo `expiraEm`. É opcional.
 
+## Agenda de vencimentos (`/contratos/agenda/`)
+
+O calendário dos vencimentos, aberto pelo botão **📅 Agenda**. Cada dia
+mostra os contratos que vencem ali, só pelo número — "Contrato 74/2022" —,
+e clicar abre a ficha. O botão do rodapé da ficha leva ao mesmo contrato no
+sistema, onde dá para editar, lançar aditivo e gerar PDF.
+
+Feriados, pontos facultativos, aniversários dos servidores e a observação do
+dia são **os mesmos da Agenda de Licitações**, lidos das mesmas coleções.
+Aqui é só leitura: quem cadastra continua sendo a Agenda, porque o mesmo
+cadastro em dois lugares vira dois cadastros diferentes.
+
+Uma diferença de propósito em relação à Agenda de Licitações: lá a semana
+tem cinco colunas, porque licitação não abre no fim de semana. Aqui tem
+sete — vencimento cai no dia que cai, e esconder sábado e domingo faria
+sumir da tela um contrato que vence justamente ali.
+
+Quem tem **Contratos: Visualizar** entra normalmente; é uma tela que não
+grava nada.
+
 ## O que ainda depende de você, no console do Firebase
 
 Só uma coisa: **publicar as regras**. O arquivo
