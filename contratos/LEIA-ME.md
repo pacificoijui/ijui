@@ -133,10 +133,17 @@ mostra os contratos que vencem ali, só pelo número — "Contrato 74/2022" —,
 e clicar abre a ficha. O botão do rodapé da ficha leva ao mesmo contrato no
 sistema, onde dá para editar, lançar aditivo e gerar PDF.
 
-Feriados, pontos facultativos, aniversários dos servidores e a observação do
-dia são **os mesmos da Agenda de Licitações**, lidos das mesmas coleções.
-Aqui é só leitura: quem cadastra continua sendo a Agenda, porque o mesmo
-cadastro em dois lugares vira dois cadastros diferentes.
+Feriados, pontos facultativos e aniversários dos servidores são **os mesmos
+da Agenda de Licitações**, lidos das mesmas coleções. Aqui é só leitura:
+quem cadastra continua sendo a Agenda, porque o mesmo cadastro em dois
+lugares vira dois cadastros diferentes. A observação do dia da Agenda
+("PE 131 PEDR", "leilão 09:30") não vem: é recado de licitação e não diz
+nada a quem está olhando vencimento de contrato.
+
+Um dia com muitos vencimentos mostra todos, e a linha do calendário cresce
+para caber — a alternativa seria esconder alguns atrás de um "+4 mais", e o
+dia com dez contratos é justamente aquele em que esconder atrapalha. Por
+isso o mês e as setas ficam grudados no topo ao rolar.
 
 Uma diferença de propósito em relação à Agenda de Licitações: lá a semana
 tem cinco colunas, porque licitação não abre no fim de semana. Aqui tem

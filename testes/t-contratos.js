@@ -899,7 +899,35 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('sem repetir o que já estava na tela', pagina2.repetidas===0, pagina2);
   t('e o botão some quando acabou', !pagina2.temBotaoMais, pagina2);
 
-  console.log('\n16) Quem já está logado não vê o login piscar na abertura');
+  console.log('\n16) O gerenciador de senhas não tem onde despejar a senha');
+  /* O Chrome ignora autocomplete="off" e chegou a preencher o campo de
+     busca com a senha salva, porque o formulário de login continuava no
+     documento — escondido, mas de pé — depois de a pessoa entrar. */
+  const senhas=await pg.evaluate(()=>({
+    buscaReadonly: document.getElementById('fBusca').hasAttribute('readonly'),
+    loginDesabilitado: ['authEmail','authPass','authPassC','authPass2']
+      .every(id=>{ const e=document.getElementById(id); return e && e.disabled; }),
+    loginVazio: ['authEmail','authPass','authPassC','authPass2']
+      .every(id=>document.getElementById(id).value===''),
+  }));
+  t('os campos de login ficam desabilitados depois de entrar', senhas.loginDesabilitado, senhas);
+  t('e vazios', senhas.loginVazio, senhas);
+  t('a busca nasce readonly, que é o que o Chrome respeita', senhas.buscaReadonly, senhas);
+  /* readonly não pode virar um campo que não se digita */
+  await pg.evaluate(()=>{ fecharDet(); fecharHist(); });   /* uma ficha ficou aberta acima */
+  await pg.click('#fBusca');
+  await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; });
+  await pg.type('#fBusca', 'medianeira');
+  await pg.waitForTimeout(250);
+  const digitou=await pg.evaluate(()=>({
+    valor: document.getElementById('fBusca').value,
+    readonly: document.getElementById('fBusca').hasAttribute('readonly')
+  }));
+  t('mas ao clicar o campo volta a aceitar texto',
+    digitou.valor==='medianeira' && !digitou.readonly, digitou);
+  await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; aplicarFiltros(); });
+
+  console.log('\n17) Quem já está logado não vê o login piscar na abertura');
   const piscou=await pg.evaluate(()=>window.__LOGIN_APARECEU);
   t('o formulário de login não aparece para quem já entrou', !piscou, {piscou});
   t('o portão abre num aviso neutro, não no formulário',

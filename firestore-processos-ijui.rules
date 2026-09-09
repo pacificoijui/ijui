@@ -52,12 +52,12 @@ service cloud.firestore {
     function pregoeiro() { return temAcesso('pregoeiro'); }
     function contratos() { return temAcesso('contratos'); }
     function algum()     { return agenda() || pregoeiro(); }
-    // O calendário (feriados do município, aniversários dos servidores e a
-    // observação do dia) é o mesmo para a Agenda de Licitações e para a
-    // Agenda de Contratos, lido das mesmas coleções. Quem só tem o painel
-    // Contratos precisa LER essas três — sem isso o calendário abriria sem
-    // feriado nenhum. Escrever continua sendo só de quem cuida da Agenda:
-    // cadastro em dois lugares vira dois cadastros.
+    // Pontos facultativos e aniversários dos servidores são os mesmos para a
+    // Agenda de Licitações e para a Agenda de Contratos, lidos das mesmas
+    // coleções. Quem só tem o painel Contratos precisa LER as duas — sem
+    // isso o calendário abriria sem feriado nenhum. Escrever continua sendo
+    // só de quem cuida da Agenda: cadastro em dois lugares vira dois
+    // cadastros.
     function algumCalendario() { return algum() || contratos(); }
     // As mesmas, mas exigindo nível 'editar' — usadas em toda regra de
     // escrita, pra quem está em "somente visualização" nunca conseguir
@@ -149,7 +149,10 @@ service cloud.firestore {
     match /status/{id}               { allow read: if algum(); allow write: if pregoeiroEdit(); }
     match /pontos_facultativos/{id}  { allow read: if algumCalendario(); allow write: if algumEdit(); }
     match /aniversarios/{id}         { allow read: if algumCalendario(); allow write: if algumEdit(); }
-    match /observacoes/{id}          { allow read: if algumCalendario(); allow write: if algumEdit(); }
+    // A observação do dia continua fechada a quem só tem Contratos: ela é o
+    // recado da licitação ("PE 131 PEDR", "leilão 09:30") e saiu do
+    // calendário de contratos — sem uso, sem permissão.
+    match /observacoes/{id}          { allow read: if algum(); allow write: if algumEdit(); }
     match /email_config/{id}         { allow read: if algum(); allow write: if pregoeiroEdit(); }
 
     // Rankings e Habilitações têm um link de colaboração sem login (o

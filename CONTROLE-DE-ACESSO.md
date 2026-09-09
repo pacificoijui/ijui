@@ -220,10 +220,11 @@ está no prazo — nem para o administrador. Ver `contratos/LEIA-ME.md`.
 
 A Agenda de Contratos (`/contratos/agenda/`) usa o mesmo painel `contratos`
 e mostra o calendário de vencimentos. Como ela exibe feriados, pontos
-facultativos, aniversários e a observação do dia — as mesmas coleções da
-Agenda de Licitações —, as regras deixam quem tem só o painel Contratos
-**ler** `pontos_facultativos`, `aniversarios` e `observacoes`. Escrever
-nelas continua sendo de quem cuida da Agenda.
+facultativos e aniversários — as mesmas coleções da Agenda de Licitações —,
+as regras deixam quem tem só o painel Contratos **ler**
+`pontos_facultativos` e `aniversarios`. Escrever nelas continua sendo de
+quem cuida da Agenda. A observação do dia (`observacoes`) ficou de fora: é
+recado de licitação e não aparece no calendário de contratos.
 
 ## Editais
 

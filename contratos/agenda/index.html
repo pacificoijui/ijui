@@ -497,18 +497,29 @@
      porque licitação não abre no fim de semana; vencimento de contrato cai
      no dia que cair, e esconder sábado e domingo faria sumir da tela um
      contrato que vence justamente ali. */
-  .cal-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); overflow: hidden; }
-  .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg,#fbfcff,#f4f7fd); flex-wrap: wrap; gap: 12px; }
+  /* Sem overflow:hidden: ele criaria uma caixa de rolagem própria e o
+     "position: sticky" do cabeçalho do mês pararia de funcionar. As pontas
+     arredondadas passam a ser de quem está nas pontas. */
+  .cal-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); }
+  /* O mês e as setas ficam grudados logo abaixo do cabeçalho do site: com um
+     dia de dez vencimentos a grade fica alta, e sem isso trocar de mês
+     obrigaria a rolar tudo de volta até o topo. O "top" é medido em
+     JavaScript (ajustarTopoGrudado) porque a altura do cabeçalho muda no
+     celular. */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg,#fbfcff,#f4f7fd); flex-wrap: wrap; gap: 12px;
+    position: sticky; top: var(--topo-cab, 78px); z-index: 40; border-radius: var(--radius) var(--radius) 0 0; }
   .cal-title { font-size: 22px; font-weight: 800; color: var(--navy); text-transform: capitalize; letter-spacing: -0.4px; }
   .cal-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .cal-nav button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--navy); font-size: 17px; cursor: pointer; transition: all .14s; display: flex; align-items: center; justify-content: center; }
   .cal-nav button:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
   .cal-nav .hoje-btn { width: auto; padding: 0 16px; font-size: 12.5px; font-weight: 800; }
-  .cal-weekdays { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); background: linear-gradient(180deg,var(--navy-dark),var(--navy-mid)); }
+  .cal-weekdays { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); background: linear-gradient(180deg,var(--navy-dark),var(--navy-mid));
+    position: sticky; top: var(--topo-dias, 152px); z-index: 39; }
   .cal-weekdays div { padding: 12px 0; text-align: center; font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; }
   .cal-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); grid-auto-rows: minmax(96px, auto); }
   .cal-cell { min-height: 96px; min-width: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 9px; display: flex; flex-direction: column; gap: 4px; position: relative; }
   .cal-cell:nth-child(7n) { border-right: none; }
+  .cal-grid > .cal-cell:last-child { border-bottom: none; }
   .cal-cell.out { background: #fafbfd; }
   .cal-cell.out .cal-daynum { color: #c3ccdd; }
   .cal-cell.fds { background: #f8fafe; }
@@ -516,14 +527,11 @@
   .cal-daynum { font-size: 13px; font-weight: 800; color: var(--text); align-self: flex-start; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
   .cal-cell.today .cal-daynum { background: var(--gold); color: #fff; box-shadow: 0 2px 8px rgba(232,160,32,0.45); }
   .cal-holiday-name { font-size: 9.5px; font-weight: 800; color: var(--red); background: var(--red-bg); border-radius: 5px; padding: 2px 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
-  .cal-nota { font-size: 10px; font-weight: 700; color: var(--navy); background: var(--blue-bg); border-radius: 5px; padding: 2px 5px; line-height: 1.3; }
   .cal-ev { font-size: 11.5px; font-weight: 700; padding: 3px 7px; border-radius: 6px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 100%; border-left: 3px solid var(--navy-light); background: var(--blue-bg); color: var(--blue-text); line-height: 1.35; transition: transform .12s, box-shadow .12s; flex-shrink: 0; }
   .cal-ev:hover { transform: translateX(2px); box-shadow: var(--shadow); }
   .cal-ev.venceu { border-left-color: var(--red); background: var(--red-bg); color: var(--red); }
-  .cal-more { font-size: 10.5px; color: var(--muted); font-weight: 800; cursor: pointer; padding-left: 5px; }
-  .cal-more:hover { color: var(--navy); }
   .cal-aniv { font-size: 10px; font-weight: 700; color: var(--green); background: var(--green-bg); border-radius: 5px; padding: 2px 5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
-  .cal-legenda { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 24px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); background: #fbfcff; }
+  .cal-legenda { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 24px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--muted); background: #fbfcff; border-radius: 0 0 var(--radius) var(--radius); }
   .cal-legenda span { display: inline-flex; align-items: center; gap: 6px; }
   .cal-legenda i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
   .btn-voltar { display: inline-flex; align-items: center; text-decoration: none; }
@@ -542,7 +550,7 @@
     .cal-cell { min-height: 74px; padding: 5px 4px; gap: 3px; }
     .cal-daynum { font-size: 11.5px; width: 22px; height: 22px; }
     .cal-ev { font-size: 9px; padding: 2px 4px; border-left-width: 2px; border-radius: 4px; }
-    .cal-holiday-name, .cal-aniv, .cal-nota { font-size: 8.5px; padding: 1px 4px; }
+    .cal-holiday-name, .cal-aniv { font-size: 8.5px; padding: 1px 4px; }
     .cal-title { font-size: 17px; }
   }
 </style>
@@ -637,7 +645,6 @@
       <span><i style="background:var(--red-bg);border-left:3px solid var(--red)"></i> já vencido</span>
       <span><i style="background:var(--red-bg)"></i> feriado ou ponto facultativo</span>
       <span><i style="background:var(--green-bg)"></i> aniversário</span>
-      <span><i style="background:var(--blue-bg)"></i> observação do dia</span>
     </div>
   </div>
 </main>
@@ -915,6 +922,7 @@ function authAoAutenticar(user){
 }
 
 function authShowApp(){
+  authCamposLogin(true);
   authEl('authGate').style.display = 'none';
   const chip = authEl('authUserChip');
   if(chip && authCurrentUser){
@@ -943,11 +951,25 @@ function authShowPendente(){
     ? 'Seu acesso foi bloqueado por um administrador.'
     : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
 }
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(!i) return;
+    if(desligar){ i.value = ''; i.disabled = true; }
+    else i.disabled = false;
+  });
+}
 function authOcultarCarregando(){
   const c = authEl('authCarregando');
   if(c) c.style.display = 'none';
 }
 function authStartGate(){
+  authCamposLogin(false);
   authOcultarCarregando();
   authEl('authGate').style.display = 'flex';
   authEl('authPendenteCard').style.display = 'none';
@@ -1026,7 +1048,9 @@ function aniversariosNoDia(iso){
    leitura, de propósito: um cadastro em dois lugares vira dois cadastros. */
 var pontosFac = {};      /* iso -> nome do ponto facultativo */
 var anivList  = [];      /* { servidor, dia, mes } */
-var observacoes = {};    /* iso -> texto */
+/* A observação do dia ("PE 131 PEDR", "leilão 09:30") existe na Agenda de
+   Licitações e é sobre licitação: no calendário de contratos ela não diz
+   nada a quem está olhando vencimento, e só rouba a linha. Fica só lá. */
 
 function escHtml(s){ return esc(s); }
 function ymd(d){ var z=function(n){return (n<10?"0":"")+n;}; return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate()); }
@@ -1070,11 +1094,6 @@ function iniciarListenersAgenda(){
     renderCalendario();
   }, e => console.warn('aniversários:', e.message));
 
-  db.collection('observacoes').onSnapshot(snap => {
-    observacoes = {};
-    snap.docs.forEach(d => { observacoes[d.id] = (d.data() || {}).texto || ''; });
-    renderCalendario();
-  }, e => console.warn('observações:', e.message));
 }
 
 function erroCarregar(e){
@@ -1110,6 +1129,20 @@ function porDataDeVencimento(){
   return mapa;
 }
 
+/* De quanto o cabeçalho do site e o do mês ocupam depende da largura da
+   tela (no celular o cabeçalho quebra em duas linhas), então a altura vem
+   da medida, não de um número escrito na folha de estilo. */
+function ajustarTopoGrudado(){
+  const cab = document.querySelector('header');
+  const mes = document.querySelector('.cal-head');
+  if(!cab || !mes) return;
+  const alturaCab = cab.getBoundingClientRect().height;
+  const raiz = document.documentElement.style;
+  raiz.setProperty('--topo-cab', alturaCab + 'px');
+  raiz.setProperty('--topo-dias', (alturaCab + mes.getBoundingClientRect().height) + 'px');
+}
+window.addEventListener('resize', ajustarTopoGrudado);
+
 function renderCalendario(){
   const grid = document.getElementById('calGrid');
   if(!grid) return;
@@ -1132,7 +1165,6 @@ function renderCalendario(){
   }
   while(semanas.length > 1 && !semanas[semanas.length-1].some(x => x.getMonth() === mes)) semanas.pop();
 
-  const CAP = 6;
   let html = '';
   semanas.forEach(semana => semana.forEach(dd => {
     const iso = ymd(dd);
@@ -1145,20 +1177,20 @@ function renderCalendario(){
     if(nomeFer) html += '<div class="cal-holiday-name" title="' + esc(nomeFer) + '">' + esc(nomeFer) + '</div>';
     const anivs = aniversariosNoDia(iso);
     if(anivs.length) html += '<div class="cal-aniv" title="Aniversário: ' + esc(anivs.join(', ')) + '">&#127874; ' + esc(anivs.join(', ')) + '</div>';
-    const nota = (observacoes[iso] || '').trim();
-    if(nota) html += '<div class="cal-nota" title="' + esc(nota) + '">' + esc(nota) + '</div>';
-    const evs = porData[iso] || [];
-    evs.slice(0, CAP).forEach(c => {
+    /* Todos os vencimentos do dia, sem corte. Um "+4 mais" economizaria
+       altura, mas quem abre a agenda quer justamente saber o que vence
+       naquele dia — e um dia com dez contratos é exatamente o dia em que
+       esconder quatro deles atrapalha mais. A linha cresce e a página
+       rola; a grade já é de altura automática. */
+    (porData[iso] || []).forEach(c => {
       const venceu = c._d !== null && c._d < 0;
       html += '<div class="cal-ev' + (venceu ? ' venceu' : '') + '" onclick="abrirDet(' + Number(c.id) + ')"'
         + ' title="' + esc(c.empresa || '') + '">Contrato ' + c.contr + '/' + c.ano + '</div>';
     });
-    if(evs.length > CAP){
-      html += '<span class="cal-more" onclick="abrirDet(' + Number(evs[CAP].id) + ')">+' + (evs.length - CAP) + ' mais</span>';
-    }
     html += '</div>';
   }));
   grid.innerHTML = html;
+  ajustarTopoGrudado();
 }
 
 /* ══════════════ FICHA DO CONTRATO ══════════════

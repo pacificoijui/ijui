@@ -543,7 +543,15 @@
   <div class="busca-wrap">
     <div class="busca-box" id="buscaBox">
       <span class="busca-ico">🔎</span>
-      <input type="text" id="fBusca" autocomplete="off" spellcheck="false"
+      <!-- O gerenciador de senhas do Chrome ignora autocomplete="off" e já
+           despejou a senha salva aqui dentro. "readonly" até o primeiro
+           toque é o que ele respeita: no carregamento não há campo editável
+           para preencher, e ao clicar o campo volta ao normal. Os data-* são
+           para o LastPass e o 1Password, que têm cada um o seu. -->
+      <input type="text" id="fBusca" name="busca-contratos" readonly
+             autocomplete="off" spellcheck="false"
+             data-lpignore="true" data-1p-ignore data-form-type="other"
+             onfocus="this.removeAttribute('readonly')"
              placeholder="Pesquisar em tudo — empresa, objeto, nº, fiscal, secretaria, valor…"
              oninput="aplicarFiltros()">
       <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
@@ -1365,6 +1373,7 @@ function authAoAutenticar(user){
 }
 
 function authShowApp(){
+  authCamposLogin(true);
   authEl('authGate').style.display = 'none';
   const chip = authEl('authUserChip');
   if(chip && authCurrentUser){
@@ -1401,11 +1410,25 @@ function authShowPendente(){
     ? 'Seu acesso foi bloqueado por um administrador.'
     : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
 }
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(!i) return;
+    if(desligar){ i.value = ''; i.disabled = true; }
+    else i.disabled = false;
+  });
+}
 function authOcultarCarregando(){
   const c = authEl('authCarregando');
   if(c) c.style.display = 'none';
 }
 function authStartGate(){
+  authCamposLogin(false);
   authOcultarCarregando();
   authEl('authGate').style.display = 'flex';
   authEl('authPendenteCard').style.display = 'none';

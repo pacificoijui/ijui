@@ -1267,6 +1267,7 @@ function iniciarListenersProtegidos(){
   _iniciarListenersDados();
 }
 function authShowApp(){
+  authCamposLogin(true);
   document.getElementById("authGate").style.display="none";
   var chip=document.getElementById("authUserChip");
   if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
@@ -1289,11 +1290,25 @@ function authShowPendente(){
   else if(authNivelDe(authCurrentUser,"pregoeiro")!=="nenhum" || authNivelDe(authCurrentUser,"contratos")!=="nenhum") msg.textContent="Sua conta tem acesso a outros painéis, mas não à Agenda. Peça a um administrador para liberar, se precisar dela.";
   else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
 }
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(function(id){
+    var i=document.getElementById(id);
+    if(!i) return;
+    if(desligar){ i.value=""; i.disabled=true; }
+    else i.disabled=false;
+  });
+}
 function authOcultarCarregando(){
   var c=document.getElementById("authCarregando");
   if(c) c.style.display="none";
 }
 function authStartGate(){
+  authCamposLogin(false);
   authOcultarCarregando();
   document.getElementById("authGate").style.display="flex";
   document.getElementById("authPendenteCard").style.display="none";

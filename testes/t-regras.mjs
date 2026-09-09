@@ -95,15 +95,16 @@ await t("quem tem Contratos: Editar grava",               pode(updateDoc(doc(com
 await t("e cadastra contrato novo",                       pode(setDoc(doc(como(CONTAS.soContrato), "contratos", "9999"), { contr: 9999, ano: 2026 })));
 await t("ninguém exclui contrato pela tela",              nega(deleteDoc(doc(como(CONTAS.soContrato), "contratos", "1"))));
 await t("quem só edita contrato não mexe em processos",   nega(updateDoc(doc(como(CONTAS.soContrato), "processos", "p1"), { numero: "X" })));
-// A Agenda de Contratos mostra feriados, pontos facultativos, aniversários e
-// a observação do dia — as mesmas coleções da Agenda de Licitações. Quem só
-// tem o painel Contratos precisa LER as três; escrever, não.
+// A Agenda de Contratos mostra feriados, pontos facultativos e aniversários —
+// as mesmas coleções da Agenda de Licitações. Quem só tem o painel Contratos
+// precisa LER essas duas; escrever, não. A observação do dia ficou de fora:
+// é recado de licitação e saiu do calendário de contratos.
 await t("a Agenda de Contratos lê os pontos facultativos",
   pode(getDocs(collection(como(CONTAS.soContrato), "pontos_facultativos"))));
 await t("lê os aniversários",
   pode(getDocs(collection(como(CONTAS.verContrato), "aniversarios"))));
-await t("lê a observação do dia",
-  pode(getDocs(collection(como(CONTAS.verContrato), "observacoes"))));
+await t("mas a observação do dia é recado de licitação e continua fechada",
+  nega(getDocs(collection(como(CONTAS.verContrato), "observacoes"))));
 await t("mas não cadastra ponto facultativo — isso é da Agenda",
   nega(updateDoc(doc(como(CONTAS.soContrato), "pontos_facultativos", "pf1"), { nome: "X" })));
 await t("nem mexe em aniversário",
