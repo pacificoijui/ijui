@@ -65,6 +65,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seed(nivel));
     if(logado!==false) await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; },
       {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+    await pg.addInitScript(()=>{
+      window.__LOGIN_APARECEU=false;
+      setInterval(()=>{ const e=document.getElementById('authEntradaBox');
+        if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
+    });
     await pg.goto('http://127.0.0.1:8099/contratos/agenda/index.html',{waitUntil:'networkidle'});
     await pg.waitForTimeout(900);
   }
@@ -147,6 +152,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }));
   t('quem não entrou vê o portão pedindo login',
     deslogado.portaoAberto && deslogado.pedeEntrar, deslogado);
+  t('mas quem já entrou não vê o login piscar', !(await pg.evaluate(()=>window.__LOGIN_APARECEU)));
 
   console.log('\n7) No celular a página não estoura para os lados');
   const pgCel=await b.newPage({viewport:{width:390,height:800}});

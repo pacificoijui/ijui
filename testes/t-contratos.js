@@ -57,6 +57,12 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
     await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seedCom(nivel));
     await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+    /* vigia o piscar do formulário de login — ver seção 15 */
+    await pg.addInitScript(()=>{
+      window.__LOGIN_APARECEU=false;
+      setInterval(()=>{ const e=document.getElementById('authEntradaBox');
+        if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
+    });
     await pg.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
     await pg.waitForTimeout(900);
   }
@@ -850,6 +856,56 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
   console.log('\nerros do histórico:', errsHist.length?errsHist:'nenhum');
   t('nenhum erro de JavaScript no histórico', errsHist.length===0, errsHist);
+
+  console.log('\n15) O histórico não para nas primeiras linhas');
+  /* Um ano de trabalho passa fácil de trezentas edições. O painel traz as
+     mais recentes e oferece buscar as mais antigas — parar em trezentas sem
+     dizer nada esconderia justamente o que alguém foi procurar. */
+  const pgMuitas=await b.newPage({viewport:{width:1280,height:900}});
+  const muitas={};
+  for(let i=0;i<420;i++){
+    muitas['h'+String(i).padStart(4,'0')]={acao:'editou', nome:'Serli', uid:'g-pedro',
+      rotulo:(i+1)+'/2026', contratoId:i+1, empresa:'',
+      quando:{__ts:Date.now()-i*60000}, expiraEm:{__ts:Date.now()+300*86400000},
+      antes:{id:i+1, objeto:'a'}, depois:{id:i+1, objeto:'b'}};
+  }
+  await pgMuitas.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+  await pgMuitas.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pgMuitas.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pgMuitas.addInitScript((sd)=>{ window.__SEED=sd; },
+    Object.assign(seedCom('editar'), {contratos_historico:muitas}));
+  await pgMuitas.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pgMuitas.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgMuitas.waitForTimeout(900);
+  await pgMuitas.evaluate(()=>abrirHistorico());
+  await pgMuitas.waitForFunction(()=>document.querySelectorAll('.hist-linha').length>0,null,{timeout:15000});
+  const pagina1=await pgMuitas.evaluate(()=>({
+    linhas: document.querySelectorAll('.hist-linha').length,
+    temBotaoMais: /Carregar edições mais antigas/.test(document.getElementById('histLista').textContent),
+    primeira: document.querySelector('.hist-linha').textContent
+  }));
+  t('a primeira leva traz 300 linhas', pagina1.linhas===300, pagina1.linhas);
+  t('a mais recente vem primeiro', /1\/2026/.test(pagina1.primeira), pagina1.primeira.slice(0,80));
+  t('e oferece buscar as mais antigas', pagina1.temBotaoMais, pagina1);
+  await pgMuitas.evaluate(()=>histCarregar(true));
+  await pgMuitas.waitForFunction(()=>document.querySelectorAll('.hist-linha').length>300,null,{timeout:15000});
+  const pagina2=await pgMuitas.evaluate(()=>({
+    linhas: document.querySelectorAll('.hist-linha').length,
+    temBotaoMais: /Carregar edições mais antigas/.test(document.getElementById('histLista').textContent),
+    repetidas: (()=>{ const t=[...document.querySelectorAll('.hist-linha')].map(e=>e.textContent);
+                      return t.length - new Set(t).size; })()
+  }));
+  t('carregar mais traz o resto', pagina2.linhas===420, pagina2.linhas);
+  t('sem repetir o que já estava na tela', pagina2.repetidas===0, pagina2);
+  t('e o botão some quando acabou', !pagina2.temBotaoMais, pagina2);
+
+  console.log('\n16) Quem já está logado não vê o login piscar na abertura');
+  const piscou=await pg.evaluate(()=>window.__LOGIN_APARECEU);
+  t('o formulário de login não aparece para quem já entrou', !piscou, {piscou});
+  t('o portão abre num aviso neutro, não no formulário',
+    /id="authCarregando"/.test(html) && /Verificando seu acesso/.test(html));
+  t('e o formulário nasce escondido',
+    /id="authEntradaBox" style="display:none"/.test(html));
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

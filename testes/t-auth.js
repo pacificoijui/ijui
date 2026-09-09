@@ -31,6 +31,14 @@ async function abrirPregoeiro(pg, seedExtra, authSeed){
   await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase(seedExtra));
   if(authSeed) await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; }, authSeed);
+  /* Vigia se a caixa de login chega a ficar visível em ALGUM instante — é o
+     único jeito de pegar um piscar de meio segundo, que não aparece em
+     nenhuma verificação feita depois que a página assentou. */
+  await pg.addInitScript(()=>{
+    window.__LOGIN_APARECEU=false;
+    setInterval(()=>{ const e=document.getElementById('authEntradaBox');
+      if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
+  });
   await pg.goto('http://127.0.0.1:8099/pregoeiro/index.html',{waitUntil:'networkidle'});
   await pg.waitForTimeout(700);
 }
@@ -349,6 +357,31 @@ async function entrarComGoogle(pg, user){
   t('quem tem acesso à Agenda consegue usar o painel de consulta',
     consultaLogada.portaoFechado && consultaLogada.processos===1, consultaLogada);
   t('e os processos aparecem no painel', consultaLogada.cards===1, consultaLogada);
+
+  console.log('\n12) Quem já está logado não vê o login piscar na abertura');
+  /* O portão abre num aviso neutro ("Verificando seu acesso…") e só troca
+     pelo formulário se não houver ninguém logado. Antes ele abria já no
+     formulário, que sumia um segundo depois — a cada visita. */
+  const pgVolta=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirPregoeiro(pgVolta, {usuarios_v2:{'g-adm':{email:'pedrohhpacifico@gmail.com', nome:'Pedro',
+      status:'aprovado', isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'},
+      provedor:'google.com'}}},
+    {uid:'g-adm', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  const volta=await pgVolta.evaluate(()=>({
+    piscou: window.__LOGIN_APARECEU,
+    gateFechado: getComputedStyle(document.getElementById('authGate')).display==='none'
+  }));
+  t('quem já entrou não vê o formulário de login nem por um instante', !volta.piscou, volta);
+  t('e cai direto no sistema', volta.gateFechado, volta);
+
+  const pgFora=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirPregoeiro(pgFora, {});
+  const fora=await pgFora.evaluate(()=>({
+    apareceu: window.__LOGIN_APARECEU,
+    carregandoSumiu: document.getElementById('authCarregando').style.display==='none'
+  }));
+  t('mas quem NÃO entrou continua vendo o formulário', fora.apareceu, fora);
+  t('e o aviso de "verificando" sai da frente', fora.carregandoSumiu, fora);
 
   console.log('\nerros JS (pregoeiro, página 1):', errs1.length?errs1:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

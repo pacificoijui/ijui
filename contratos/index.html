@@ -819,7 +819,17 @@
      (coleção usuarios_v2), olhando o painel "contratos". Quem aprova é o
      administrador, no painel Usuários de dentro do Sistema Interno. -->
 <div id="authGate">
-  <div class="auth-card" id="authEntradaBox">
+  <!-- Enquanto o Firebase confere se já existe sessão nesta máquina, quem já
+       está logado não pode ver o formulário de login piscando: o portão abre
+       neste aviso e, só se não houver ninguém logado, dá lugar ao formulário
+       (authStartGate). -->
+  <div class="auth-card" id="authCarregando">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Gestão de Contratos</h1>
+    <p class="auth-sub">Verificando seu acesso…</p>
+  </div>
+
+  <div class="auth-card" id="authEntradaBox" style="display:none">
     <div class="auth-marca">Município de Ijuí</div>
     <h1 class="auth-titulo">Gestão de Contratos</h1>
     <p class="auth-sub">Entre com a mesma conta do sistema de licitações.</p>
@@ -1377,6 +1387,7 @@ function authShowApp(){
   avisoRascunho();
 }
 function authShowPendente(){
+  authOcultarCarregando();
   authEl('authGate').style.display = 'flex';
   authEl('authEntradaBox').style.display = 'none';
   authEl('authCriarBox').style.display = 'none';
@@ -1390,7 +1401,12 @@ function authShowPendente(){
     ? 'Seu acesso foi bloqueado por um administrador.'
     : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
 }
+function authOcultarCarregando(){
+  const c = authEl('authCarregando');
+  if(c) c.style.display = 'none';
+}
 function authStartGate(){
+  authOcultarCarregando();
   authEl('authGate').style.display = 'flex';
   authEl('authPendenteCard').style.display = 'none';
   authSetModo('entrar');
@@ -2263,14 +2279,30 @@ function histMostrarBotoes(){
   });
 }
 
+/* O painel traz as mais recentes e vai buscando o resto conforme se pede:
+   um ano de trabalho de uma equipe passa fácil de trezentas edições, e
+   parar em trezentas sem dizer nada seria esconder metade do histórico de
+   quem foi procurar justamente o que aconteceu meses atrás. */
+let _histUltimo = null;    /* o "quando" da última linha já carregada */
+let _histTemMais = false;
+
 function abrirHistorico(){
   document.getElementById('ovHist').classList.add('open');
   document.getElementById('histLista').innerHTML = '<div class="empty"><span>🕘</span>Carregando…</div>';
   document.getElementById('histAviso').innerHTML = '';
-  histCol().orderBy('quando','desc').limit(HIST_MAX_LINHAS).get().then(snap => {
-    _histCache = snap.docs.map(d => Object.assign({_id: d.id}, d.data()));
+  _histCache = []; _histUltimo = null; _histTemMais = false;
+  histCarregar(false);
+}
+function histCarregar(mais){
+  let q = histCol().orderBy('quando','desc');
+  if(mais && _histUltimo) q = q.startAfter(_histUltimo);
+  q.limit(HIST_MAX_LINHAS).get().then(snap => {
+    const novos = snap.docs.map(d => Object.assign({_id: d.id}, d.data()));
+    _histCache = mais ? _histCache.concat(novos) : novos;
+    _histTemMais = novos.length === HIST_MAX_LINHAS;
+    if(novos.length) _histUltimo = novos[novos.length-1].quando;
     histRender();
-    histLimparVencidos();
+    if(!mais) histLimparVencidos();
   }).catch(e => {
     document.getElementById('histLista').innerHTML =
       '<div class="empty"><span>⚠️</span>Não consegui ler o histórico.<br>' + esc(e.message) + '</div>';
@@ -2338,7 +2370,11 @@ function histRender(){
       + detalhe + '</div>'
       + '<div class="hist-acts">' + acao + '</div>'
       + '</div>';
-  }).join('');
+  }).join('')
+  + (_histTemMais
+      ? '<div style="text-align:center;padding:14px 0">'
+        + '<button class="btn-ghost" onclick="histCarregar(true)">Carregar edições mais antigas</button></div>'
+      : '');
 }
 function histAbrirContrato(id){
   const c = CONTRATOS.find(x => x.id === id);

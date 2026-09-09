@@ -549,7 +549,17 @@
 </head>
 <body>
 <div id="authGate">
-  <div class="auth-card" id="authEntradaBox">
+  <!-- Enquanto o Firebase confere se já existe sessão nesta máquina, quem já
+       está logado não pode ver o formulário de login piscando: o portão abre
+       neste aviso e, só se não houver ninguém logado, dá lugar ao formulário
+       (authStartGate). -->
+  <div class="auth-card" id="authCarregando">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Agenda de Contratos</h1>
+    <p class="auth-sub">Verificando seu acesso…</p>
+  </div>
+
+  <div class="auth-card" id="authEntradaBox" style="display:none">
     <div class="auth-marca">Município de Ijuí</div>
     <h1 class="auth-titulo">Gestão de Contratos</h1>
     <p class="auth-sub">Entre com a mesma conta do sistema de licitações.</p>
@@ -919,6 +929,7 @@ function authShowApp(){
   iniciarListenersAgenda();
 }
 function authShowPendente(){
+  authOcultarCarregando();
   authEl('authGate').style.display = 'flex';
   authEl('authEntradaBox').style.display = 'none';
   authEl('authCriarBox').style.display = 'none';
@@ -932,7 +943,12 @@ function authShowPendente(){
     ? 'Seu acesso foi bloqueado por um administrador.'
     : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
 }
+function authOcultarCarregando(){
+  const c = authEl('authCarregando');
+  if(c) c.style.display = 'none';
+}
 function authStartGate(){
+  authOcultarCarregando();
   authEl('authGate').style.display = 'flex';
   authEl('authPendenteCard').style.display = 'none';
   authSetModo('entrar');

@@ -49,7 +49,7 @@
          pede "as mais recentes" e "as que já venceram", e um stub que
          devolvesse a coleção inteira faria o teste passar sem testar nada.
          O onSnapshot segue entregando tudo, como antes. */
-      where:function(campo,op,valor){ return makeQuery(name,[{campo:campo,op:op,valor:valor}],null,0); },
+      where:function(campo,op,valor){ return makeQuery(name,[{campo:campo,op:op,valor:valor}],null,0,undefined); },
       orderBy:function(campo,dir){ return makeQuery(name,[],{campo:campo,dir:dir||'asc'},0); },
       limit:function(n){ return makeQuery(name,[],null,n); },
       doc:function(id){
@@ -156,12 +156,15 @@
   };
 
   /* Consulta com where/orderBy/limit encadeáveis, resolvida no .get(). */
-  function makeQuery(name, filtros, ordem, lim){
+  function makeQuery(name, filtros, ordem, lim, depois){
     function valorDe(v){ return (v && typeof v.toDate === 'function') ? v.toDate().getTime() : v; }
     var api={
-      where:function(campo,op,valor){ return makeQuery(name, filtros.concat([{campo:campo,op:op,valor:valor}]), ordem, lim); },
-      orderBy:function(campo,dir){ return makeQuery(name, filtros, {campo:campo,dir:dir||'asc'}, lim); },
-      limit:function(n){ return makeQuery(name, filtros, ordem, n); },
+      where:function(campo,op,valor){ return makeQuery(name, filtros.concat([{campo:campo,op:op,valor:valor}]), ordem, lim, depois); },
+      orderBy:function(campo,dir){ return makeQuery(name, filtros, {campo:campo,dir:dir||'asc'}, lim, depois); },
+      limit:function(n){ return makeQuery(name, filtros, ordem, n, depois); },
+      /* startAfter: continua a lista de onde a página anterior parou — é
+         como o histórico dos contratos busca as edições mais antigas. */
+      startAfter:function(v){ return makeQuery(name, filtros, ordem, lim, v); },
       get:function(){
         STORE[name]=STORE[name]||{};
         var items=Object.keys(STORE[name]).map(function(id){ return {id:id,data:STORE[name][id]}; });
@@ -180,6 +183,13 @@
           var r = a<b ? -1 : a>b ? 1 : 0;
           return ordem.dir==='desc' ? -r : r;
         });
+        if(depois !== undefined && ordem){
+          const corte = valorDe(depois);
+          items = items.filter(function(it){
+            const v = valorDe(it.data[ordem.campo]);
+            return ordem.dir==='desc' ? v < corte : v > corte;
+          });
+        }
         if(lim) items=items.slice(0,lim);
         return Promise.resolve(makeSnap(items, name));
       }
