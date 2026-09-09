@@ -514,6 +514,32 @@
   .sec-n { font-size: 11px; font-weight: 800; background: var(--bg); color: var(--muted); border-radius: 10px; padding: 1px 7px; }
   .sec-btn.on .sec-n { background: rgba(255,255,255,.22); color: #fff; }
 
+  /* ── Edição na própria célula ──
+     A tabela é a folha de lançamento: dois cliques abrem a célula, Tab
+     anda para a próxima coluna. O tracejado só aparece ao passar o mouse,
+     para a lista continuar sendo uma lista e não um formulário. */
+  .tab tbody td[data-campo] { cursor: text; }
+  .tab tbody td[data-campo]:hover { box-shadow: inset 0 0 0 1.5px var(--navy-light); border-radius: 6px; }
+  .tab tbody td.editando { background: #fff !important; box-shadow: inset 0 0 0 2px var(--navy); border-radius: 6px; padding: 4px 5px; }
+  .cel-inp { width: 100%; font-family: inherit; font-size: 13px; color: var(--text);
+    border: 1.5px solid var(--border); border-radius: 6px; padding: 5px 7px; outline: none;
+    background: #fff; box-sizing: border-box; }
+  .cel-inp:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  textarea.cel-inp { resize: vertical; min-height: 62px; line-height: 1.45; }
+  .cel-edit-num { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .cel-edit-num select { grid-column: 1 / -1; }
+  .cel-vazia { color: #b8c2d6; font-style: italic; font-size: 12px; }
+  .linha-nova > td { background: #fffaf0 !important; }
+  .linha-nova > td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+  .c-acao { width: 4%; white-space: nowrap; text-align: right; }
+  .acao-cel { background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 3px;
+    opacity: .35; transition: opacity .14s; }
+  .tab tbody tr:hover .acao-cel { opacity: 1; }
+  .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
+    padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
+  .dica-edicao { font-size: 11.5px; color: var(--muted); font-style: italic; }
+  @media (max-width: 900px) { .dica-edicao { display: none; } }
+
   /* colunas desta tela */
   .c-req   { width: 9%; }
   .c-receb { width: 7%; white-space: nowrap; }
@@ -581,6 +607,7 @@
 
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
+    <span class="dica-edicao">clique duas vezes numa célula para preencher</span>
     <div class="chips" id="chipsAtivos"></div>
     <div class="toolbar-right">
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
@@ -616,6 +643,7 @@
           <th class="c-emp">EMPENHO</th>
           <th class="c-cont">P/ CONTAB.</th>
           <th class="c-val" onclick="ordenarPor('valor')">VALOR (R$) <span class="seta"></span></th>
+          <th class="c-acao"></th>
         </tr>
         <tr class="th-filtros">
           <th><button class="cf" data-col="num"  onclick="abrirFiltroCol(event,'num')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
@@ -626,6 +654,7 @@
           <th><button class="cf" data-col="emp"  onclick="abrirFiltroCol(event,'emp')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
           <th><button class="cf" data-col="cont" onclick="abrirFiltroCol(event,'cont')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
           <th><button class="cf" data-col="valor" onclick="abrirFiltroCol(event,'valor')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="corpo"></tbody>
@@ -681,40 +710,15 @@
     <div class="modal-body" id="detBody"></div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
-      <button class="btn-primary" onclick="editarRequisicao()">✏️ Editar</button>
       <button class="btn-primary" onclick="pdfRequisicaoAtual()">🖨️ Ficha em PDF</button>
     </div>
   </div>
 </div>
 
-<!-- CADASTRO / EDIÇÃO -->
-<div class="overlay" id="ovForm" onclick="if(event.target===this)fecharForm()">
-  <div class="modal" style="max-width:820px">
-    <div class="modal-header"><h2 id="formTitulo">Nova requisição</h2><button class="modal-close" onclick="fecharForm()">✕</button></div>
-    <div class="modal-body">
-      <div id="formAviso"></div>
-      <div class="fgrid">
-        <div class="fcampo s6"><label>Secretaria</label><select id="frSec"></select></div>
-        <div class="fcampo s3"><label>Nº da requisição</label><input type="number" id="frNum" inputmode="numeric"></div>
-        <div class="fcampo s3"><label>Ano</label><input type="number" id="frAno" inputmode="numeric"></div>
-        <div class="fcampo s3"><label>Complemento</label><input type="text" id="frSufixo" placeholder="A, B, CT…"><span class="dica">Opcional, como em “002/2026 - B”.</span></div>
-        <div class="fcampo s3"><label>Recebida em</label><input type="date" id="frRecebido"></div>
-        <div class="fcampo s6"><label>Credor</label><input type="text" id="frCredor" list="dlCredores" autocomplete="off"></div>
-        <div class="fcampo s12"><label>Objeto</label><textarea id="frObjeto" rows="3"></textarea></div>
-        <div class="fcampo s4"><label>Valor (R$)</label><input type="text" id="frValor" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
-        <div class="fcampo s4"><label>Modalidade</label><input type="text" id="frModalidade" list="dlModalidades" autocomplete="off" placeholder="PE 46/2022, DJ 678/2024…"></div>
-        <div class="fcampo s4"><label>Empenho</label><input type="text" id="frEmpenho" autocomplete="off" placeholder="26/2026"></div>
-        <div class="fcampo s4"><label>P/ contabilidade em</label><input type="date" id="frContab"></div>
-      </div>
-      <datalist id="dlCredores"></datalist>
-      <datalist id="dlModalidades"></datalist>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="fecharForm()">Cancelar</button>
-      <button class="btn-primary" onclick="salvarForm()">Salvar</button>
-    </div>
-  </div>
-</div>
+<!-- Sugestões de quem já foi credor e de modalidade já usada: aparecem
+     enquanto se digita na célula. -->
+<datalist id="dlCredores"></datalist>
+<datalist id="dlModalidades"></datalist>
 
 <div id="toast"></div>
 
@@ -727,6 +731,9 @@
    contas dos Contratos, é o passo seguinte; ver requisicao/LEIA-ME.md. */
 let REQS = [];
 let SECRETARIAS = [];
+/* O que veio da planilha, intocado: é para onde uma linha volta quando se
+   desfazem as alterações feitas neste navegador. */
+const ORIGINAIS = new Map();
 
 function carregarDoArquivo(){
   return fetch('dados/requisicoes.json', {cache:'no-cache'}).then(r => {
@@ -743,30 +750,12 @@ function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
 function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
 function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function valCampo(id){ return document.getElementById(id).value.trim(); }
-function numCampo(id){ const s=valCampo(id); return s===''?null:Number(s); }
 let toastT=null;
 function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg; el.classList.add('show');
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'), 2600);
 }
-/* Valor em dinheiro do jeito que se escreve aqui: 1.234,56 e 1234,56 valem
-   o mesmo. Mesma regra do conversor da planilha e do sistema de contratos —
-   o último separador com uma ou duas casas depois é o decimal. */
-function lerValor(id){
-  const bruto = valCampo(id);
-  if(bruto==='') return null;
-  const limpo = bruto.replace(/[^\d,.-]/g,'');
-  if(limpo==='' || limpo==='-') return NaN;
-  const corte = Math.max(limpo.lastIndexOf(','), limpo.lastIndexOf('.'));
-  const casas = corte<0 ? -1 : limpo.length-corte-1;
-  const n = (casas===1||casas===2)
-    ? Number(limpo.slice(0,corte).replace(/[.,]/g,'') + '.' + limpo.slice(corte+1))
-    : Number(limpo.replace(/[.,]/g,''));
-  return isNaN(n) ? NaN : n;
-}
-function porValor(id, v){ document.getElementById(id).value = (v==null||isNaN(v)) ? '' : fmtValorCampo.format(v); }
 
 function rotuloReq(r){
   if(r.num==null) return r.rotulo || '—';
@@ -830,7 +819,8 @@ const FACETAS = {
   cred:  [ {k:'cred', t:'Credor', v:r=>[r.credor || '(sem credor)']} ],
   obj:   [ {k:'obj', t:'Objeto', v:r=>[r.objeto || '(sem objeto)']} ],
   mod:   [ {k:'mod', t:'Modalidade', v:r=>[r.modalidade || '(sem modalidade)']} ],
-  emp:   [ {k:'sit', t:'Situação', v:r=>[situacaoEmpenho(r)], ordemFixa:['Empenhada','Falta empenhar']} ],
+  emp:   [ {k:'sit', t:'Situação', v:r=>[situacaoEmpenho(r)], ordemFixa:['Empenhada','Falta empenhar']},
+           {k:'nEmp', t:'Número do empenho', v:r=>[r.empenho || '(sem empenho)']} ],
   cont:  [ {k:'mesC', t:'Mês na contabilidade', v:r=>[mesDe(r.contabilidade)], desc:true} ],
   valor: [ {k:'faixa', t:'Faixa de valor', v:faixaValor,
             ordemFixa:FAIXAS_VALOR.map(f=>f[0]).concat('(sem valor)')} ]
@@ -863,7 +853,13 @@ function nomeSecretaria(sigla){
   const s = SECRETARIAS.find(x=>x.sigla===sigla);
   return s ? s.nome : sigla;
 }
+/* A linha recém-criada fica fixada no topo e furando os filtros só
+   enquanto a pessoa está preenchendo. Trocar de secretaria, limpar os
+   filtros ou abrir outra requisição é dizer "acabei com aquela": aí ela
+   volta a ser uma linha como as outras, no lugar dela. */
+function soltarNova(){ REQS.forEach(r=>{ delete r._nova; }); }
 function escolherSecretaria(sigla){
+  soltarNova();
   SEC_ATUAL = sigla;
   renderFaixaSecretarias();
   aplicarFiltros();
@@ -876,10 +872,24 @@ function passaBusca(r){
   const t = textoTudo(r);
   return q.every(p=>t.includes(p));
 }
+/* O que cada coluna MOSTRA, que é onde a busca daquela coluna procura. Não
+   dá para procurar nos rótulos das opções: a coluna Empenho é agrupada em
+   "Empenhada / Falta empenhar", e quem digita "4695" ali está procurando o
+   número do empenho — e recebia "nada para filtrar aqui". */
+const TEXTO_COL = {
+  num:   r => r.rotulo + ' ' + r.sec,
+  receb: r => fmtD(r.recebido),
+  cred:  r => r.credor,
+  obj:   r => r.objeto,
+  mod:   r => r.modalidade,
+  emp:   r => r.empenho,
+  cont:  r => fmtD(r.contabilidade),
+  valor: r => (r.valor==null ? '' : fmtBRL.format(r.valor))
+};
 function passaColuna(r, col){
   const f = COLF[col];
   if(f.txt){
-    const alvo = normalizar((FACETAS[col]||[]).map(g=>g.v(r).join(' ')).join(' '));
+    const alvo = normalizar(TEXTO_COL[col] ? TEXTO_COL[col](r) : '');
     if(!alvo.includes(normalizar(f.txt))) return false;
   }
   return (FACETAS[col]||[]).every(g=>{
@@ -891,9 +901,13 @@ function passaColuna(r, col){
 function aplicarFiltros(){
   F.busca = document.getElementById('fBusca').value.trim();
   F.sort = document.getElementById('fSort').value || F.sort;
-  filtrados = REQS.filter(r =>
-    (!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r) && COLUNAS.every(c=>passaColuna(r,c)));
+  /* A linha recém-criada entra na lista mesmo vazia: se ela tivesse de
+     passar pelos filtros, sumiria da tela no instante em que nasce — que é
+     justamente quando ainda não tem nada preenchido. */
+  filtrados = REQS.filter(r => r._nova ||
+    ((!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r) && COLUNAS.every(c=>passaColuna(r,c))));
   ordenar();
+  filtrados.sort((a,b)=>(b._nova?1:0)-(a._nova?1:0));   /* as novas, no topo */
   mostrando = 0;
   document.getElementById('corpo').innerHTML = '';
   document.getElementById('vazio').innerHTML = '';
@@ -935,6 +949,8 @@ function marcarSetas(){
 }
 function limparBusca(){ document.getElementById('fBusca').value=''; aplicarFiltros(); }
 function limparFiltros(){
+  soltarNova();
+  limparBuscaDoMenu();
   document.getElementById('fBusca').value='';
   initFiltros();
   SEC_ATUAL = '';
@@ -946,6 +962,8 @@ function limparFiltros(){
   if(sheetAberta()) renderFiltrosMobile();
 }
 function limparSoFiltros(){
+  soltarNova();
+  limparBuscaDoMenu();
   initFiltros(); SEC_ATUAL='';
   renderFaixaSecretarias(); aplicarFiltros();
   if(popCol) renderPop();
@@ -969,9 +987,17 @@ function renderChips(){
   document.getElementById('chipsAtivos').innerHTML =
     p.map(([t,acao])=>'<span class="chip">'+t+' <span class="chip-x" onclick="'+acao+'">✕</span></span>').join('');
 }
+/* A caixa de busca do menu tem de ser esvaziada junto: renderPop() lê o que
+   estiver escrito nela e devolve o texto ao filtro — limpar deixava tudo
+   limpo, menos aquilo, e o filtro voltava sozinho no primeiro redesenho. */
+function limparBuscaDoMenu(){
+  const b = document.getElementById('popBusca');
+  if(b) b.value = '';
+}
 function limparColuna(col){
   COLF[col] = {txt:'', sel:{}};
   (FACETAS[col]||[]).forEach(g=>{ COLF[col].sel[g.k]=new Set(); });
+  if(popCol===col) limparBuscaDoMenu();
   aplicarFiltros(); if(popCol===col) renderPop();
 }
 function limparGrupo(col, k){ COLF[col].sel[k]=new Set(); aplicarFiltros(); if(popCol===col) renderPop(); }
@@ -1031,6 +1057,18 @@ function renderPop(){
     });
     if(vis.length>400) html += '<div class="pop-mais">+'+(vis.length-400)+' opções — use a busca acima</div>';
   });
+  /* Com texto na busca da coluna, o menu diz quantas linhas ele já está
+     segurando — antes ficava "nada para filtrar aqui" mesmo quando a busca
+     estava funcionando, e parecia defeito. */
+  const termo = document.getElementById('popBusca').value.trim();
+  if(termo){
+    const n = REQS.filter(r => (!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r)
+      && COLUNAS.every(c => c===col ? passaColuna(r,col) : passaColuna(r,c))).length;
+    html = '<div class="pop-achou">' + (n
+        ? '<b>'+n+'</b> '+(n>1?'requisições':'requisição')+' com “'+esc(termo)+'” nesta coluna'
+        : 'Nenhuma requisição com “'+esc(termo)+'” nesta coluna')
+      + '</div>' + html;
+  }
   document.getElementById('popLista').innerHTML = html || '<div class="pop-vazio">Nada para filtrar aqui.</div>';
 }
 function alternarOpcao(col, k, valor){
@@ -1082,18 +1120,34 @@ function badgeEmpenho(r){
     ? '<span class="badge badge-ok">'+esc(r.empenho)+'</span>'
     : '<span class="badge badge-falta">falta empenhar</span>';
 }
+/* Cada célula carrega o campo que representa: é o que permite editar no
+   lugar, com dois cliques, em vez de abrir um formulário. A requisição vai
+   sendo preenchida aos poucos — recebida, objeto, empenho, contabilidade —
+   e cada etapa é um clique duplo na coluna certa. */
+function cel(r, campo, conteudo, classe){
+  return '<td class="'+classe+'" data-id="'+r.id+'" data-campo="'+campo+'" ondblclick="editarCelula(this)">'
+       + conteudo + '</td>';
+}
+function vazio(txt){ return '<span class="cel-vazia">'+(txt||'—')+'</span>'; }
 function linhaHTML(r){
-  return '<tr onclick="abrirDet('+r.id+')">'
-    + '<td class="c-req"><span class="n-num">'+esc(r.rotulo)+'</span>'
-      + '<span class="n-sec">'+esc(r.sec)+'</span></td>'
-    + '<td class="c-receb">'+fmtD(r.recebido)+'</td>'
-    + '<td class="c-cred">'+esc(r.credor||'—')+'</td>'
-    + '<td class="c-obj">'+esc(r.objeto||'—')+'</td>'
-    + '<td class="c-mod">'+esc(r.modalidade||'—')+'</td>'
-    + '<td class="c-emp">'+badgeEmpenho(r)+'</td>'
-    + '<td class="c-cont">'+fmtD(r.contabilidade)+'</td>'
-    + '<td class="c-val">'+(r.valor==null?'—':fmtBRL.format(r.valor))+'</td>'
-    + '</tr>';
+  const numero = r.num==null
+    ? vazio('nº') : '<span class="n-num">'+esc(r.rotulo)+'</span>';
+  const sec = r.sec ? '<span class="n-sec">'+esc(r.sec)+'</span>' : vazio('secretaria');
+  return '<tr data-id="'+r.id+'"'+(r._nova?' class="linha-nova"':'')+'>'
+    + cel(r,'num',   numero + sec, 'c-req')
+    + cel(r,'recebido', r.recebido ? fmtD(r.recebido) : vazio(), 'c-receb')
+    + cel(r,'credor', r.credor ? esc(r.credor) : vazio(), 'c-cred')
+    + cel(r,'objeto', r.objeto ? esc(r.objeto) : vazio(), 'c-obj')
+    + cel(r,'modalidade', r.modalidade ? esc(r.modalidade) : vazio(), 'c-mod')
+    + cel(r,'empenho', badgeEmpenho(r), 'c-emp')
+    + cel(r,'contabilidade', r.contabilidade ? fmtD(r.contabilidade) : vazio(), 'c-cont')
+    + cel(r,'valor', r.valor==null ? vazio() : fmtBRL.format(r.valor), 'c-val')
+    + '<td class="c-acao">'
+      + '<button class="acao-cel" title="Abrir a ficha" onclick="abrirDet('+r.id+')">🔍</button>'
+      + (RASCUNHO[r.id] ? '<button class="acao-cel" title="'
+          + (ORIGINAIS.has(r.id) ? 'Desfazer as alterações desta linha' : 'Descartar esta linha')
+          + '" onclick="descartarLinha('+r.id+')">↺</button>' : '')
+    + '</td></tr>';
 }
 function renderMais(){
   const corpo = document.getElementById('corpo');
@@ -1118,13 +1172,9 @@ function renderMais(){
   const faltam = filtrados.length - mostrando;
   document.getElementById('loadWrap').style.display = faltam>0 ? '' : 'none';
   document.getElementById('btnMais').textContent = 'Carregar mais ('+faltam+' restantes) ↓';
-  /* O total em reais do que está na tela: é a conta que quem cuida de
-     requisição faz na mão o tempo todo. */
-  const soma = filtrados.reduce((t,r)=>t+(r.valor||0), 0);
-  const semValor = filtrados.filter(r=>r.valor==null).length;
   document.getElementById('resultCount').innerHTML =
-    'Exibindo <b>'+mostrando+'</b> de <b>'+filtrados.length+'</b> · total <b>'+money(soma)+'</b>'
-    + (semValor ? ' <span style="color:var(--muted)">('+semValor+' sem valor)</span>' : '');
+    'Exibindo <b>'+mostrando+'</b> de <b>'+filtrados.length+'</b> '
+    + (filtrados.length>1 ? 'requisições' : 'requisição');
 }
 
 /* ══════════════ FICHA ══════════════ */
@@ -1149,84 +1199,187 @@ function abrirDet(id){
 }
 function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
 
-/* ══════════════ CADASTRO E EDIÇÃO ══════════════ */
+/* ══════════════ LANÇAR E EDITAR NA PRÓPRIA TABELA ══════════════
+   A requisição não nasce pronta: chega, recebe data, depois objeto, depois
+   o empenho, depois vai para a contabilidade. Um formulário com todos os
+   campos obrigava a abrir e fechar um card a cada etapa; aqui cada etapa é
+   um clique duplo na coluna certa, e a linha vai se completando — que é
+   como a planilha era usada.
+
+   Tab salva e vai para a próxima coluna, Enter salva, Esc desiste. */
 function proximoId(){ return REQS.reduce((m,r)=>Math.max(m, Number(r.id)||0), 0) + 1; }
-/* O próximo número é o da SECRETARIA escolhida, não o do cadastro inteiro:
-   cada uma numera a sua sequência, como cada aba da planilha fazia. */
+/* Cada secretaria numera a própria sequência, como cada aba da planilha. */
 function proximoNumero(sec, ano){
   const dela = REQS.filter(r=>r.sec===sec && r.ano===ano && r.num!=null);
   return dela.length ? Math.max(...dela.map(r=>r.num)) + 1 : 1;
 }
-function popularSelectSecretarias(){
-  document.getElementById('frSec').innerHTML =
-    SECRETARIAS.map(s=>'<option value="'+esc(s.sigla)+'">'+esc(s.sigla)+' — '+esc(s.nome)+'</option>').join('');
-}
 function popularDatalists(){
-  const uni = (campo) => [...new Set(REQS.map(r=>r[campo]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const uni = campo => [...new Set(REQS.map(r=>r[campo]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   document.getElementById('dlCredores').innerHTML = uni('credor').map(v=>'<option value="'+esc(v)+'">').join('');
   document.getElementById('dlModalidades').innerHTML = uni('modalidade').map(v=>'<option value="'+esc(v)+'">').join('');
 }
-function novaRequisicao(){ abrirForm(null); }
-function editarRequisicao(){ if(detAtual) abrirForm(detAtual.id); }
-function abrirForm(id){
-  formId = id;
-  const r = id!=null ? REQS.find(x=>x.id===id) : null;
-  const ano = r ? r.ano : new Date().getFullYear();
-  const sec = r ? r.sec : (SEC_ATUAL || (SECRETARIAS[0]||{}).sigla || '');
-  document.getElementById('formTitulo').textContent = r ? ('Editar requisição nº '+r.rotulo) : 'Nova requisição';
-  document.getElementById('frSec').value = sec;
-  document.getElementById('frAno').value = ano;
-  document.getElementById('frNum').value = r ? (r.num==null?'':r.num) : proximoNumero(sec, ano);
-  document.getElementById('frSufixo').value = r ? (r.sufixo||'') : '';
-  document.getElementById('frRecebido').value = r ? (r.recebido||'') : new Date().toISOString().slice(0,10);
-  document.getElementById('frCredor').value = r ? (r.credor||'') : '';
-  document.getElementById('frObjeto').value = r ? (r.objeto||'') : '';
-  porValor('frValor', r ? r.valor : null);
-  document.getElementById('frModalidade').value = r ? (r.modalidade||'') : '';
-  document.getElementById('frEmpenho').value = r ? (r.empenho||'') : '';
-  document.getElementById('frContab').value = r ? (r.contabilidade||'') : '';
-  document.getElementById('formAviso').innerHTML = avisoGravacao();
-  document.getElementById('ovForm').classList.add('open');
-  setTimeout(()=>document.getElementById(r?'frCredor':'frNum').focus(), 60);
-}
-function fecharForm(){ document.getElementById('ovForm').classList.remove('open'); formId=null; }
-/* Trocar de secretaria com o formulário aberto reoferece o número dela. */
-document.addEventListener('change', e=>{
-  if(e.target && e.target.id==='frSec' && formId===null){
-    document.getElementById('frNum').value =
-      proximoNumero(valCampo('frSec'), Number(valCampo('frAno')) || new Date().getFullYear());
-  }
-});
-function salvarForm(){
-  const num = numCampo('frNum'), ano = numCampo('frAno');
-  if(!num || !ano){ alert('Informe o número e o ano da requisição.'); return; }
-  if(!valCampo('frCredor')){ alert('Informe o credor.'); return; }
-  const valor = lerValor('frValor');
-  if(isNaN(valor)){ alert('Não entendi o valor “'+valCampo('frValor')+'”.\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
-  const sec = valCampo('frSec'), sufixo = valCampo('frSufixo');
-  const repetida = REQS.find(x=>x.sec===sec && x.num===num && x.ano===ano
-                    && (x.sufixo||'')===sufixo && x.id!==formId);
-  if(repetida && !confirm('A secretaria '+sec+' já tem a requisição nº '+repetida.rotulo
-      +' ('+(repetida.credor||'sem credor')+').\nCadastrar assim mesmo?')) return;
-  const base = formId!=null ? REQS.find(x=>x.id===formId) : {id: proximoId()};
-  const r = Object.assign({}, base, {
-    sec: sec, num: num, ano: ano, sufixo: sufixo,
-    recebido: valCampo('frRecebido') || null,
-    credor: valCampo('frCredor').toUpperCase(),
-    objeto: valCampo('frObjeto'),
-    valor: valor,
-    modalidade: valCampo('frModalidade').toUpperCase(),
-    empenho: valCampo('frEmpenho'),
-    contabilidade: valCampo('frContab') || null
-  });
+
+function novaRequisicao(){
+  soltarNova();                       /* uma de cada vez em destaque */
+  const ano = new Date().getFullYear();
+  const sec = SEC_ATUAL || '';
+  const r = {
+    id: proximoId(), sec: sec, ano: ano,
+    num: sec ? proximoNumero(sec, ano) : null, sufixo: '',
+    recebido: null, credor: '', objeto: '', valor: null,
+    modalidade: '', empenho: '', contabilidade: '', _nova: true
+  };
   prepararReq(r);
-  if(!salvarRequisicao(r)) return;
-  const i = REQS.findIndex(x=>x.id===r.id);
-  if(i>=0) REQS[i]=r; else REQS.push(r);
-  fecharForm();
+  REQS.push(r);
+  if(!salvarRequisicao(r)) { REQS.pop(); return; }
+  renderFaixaSecretarias(); avisoRascunho(); aplicarFiltros();
+  /* A primeira coisa que se preenche é a secretaria, quando a tela está em
+     "Todas"; com uma secretaria escolhida, já é a data de recebimento. */
+  focarCelula(r.id, sec ? 'recebido' : 'num');
+  toast(sec ? ('Requisição nº '+r.rotulo+' aberta em '+sec+'.') : 'Escolha a secretaria na primeira coluna.');
+}
+/* Desfazer o que foi mexido nesta linha. Se ela veio da planilha, volta a
+   ser o que era lá — não some do cadastro; quem foi criado aqui, esse sim
+   sai da lista, senão uma linha aberta por engano ficaria para sempre. */
+function descartarLinha(id){
+  const i = REQS.findIndex(x=>x.id===id);
+  if(i < 0) return;
+  const original = ORIGINAIS.get(id);
+  const r = REQS[i];
+  const pergunta = original
+    ? 'Desfazer as alterações da requisição '+(r.rotulo||'sem número')+' e voltar ao que veio da planilha?'
+    : 'Descartar a requisição '+(r.rotulo||'sem número')+'?\n\nEla só existe neste navegador.';
+  if(!confirm(pergunta)) return;
+  if(original) REQS[i] = prepararReq(Object.assign({}, original));
+  else REQS.splice(i, 1);
+  delete RASCUNHO[id];
+  try{ localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(RASCUNHO)); }catch(e){}
   renderFaixaSecretarias(); popularDatalists(); avisoRascunho(); aplicarFiltros();
-  if(document.getElementById('ovDet').classList.contains('open')) abrirDet(r.id);
-  toast(formId==null ? 'Requisição cadastrada.' : 'Requisição atualizada.');
+  toast(original ? 'Alterações desfeitas.' : 'Linha descartada.');
+}
+
+function focarCelula(id, campo){
+  const td = document.querySelector('td[data-id="'+id+'"][data-campo="'+campo+'"]');
+  if(td){ td.scrollIntoView({block:'center', behavior:'smooth'}); editarCelula(td); }
+}
+const CAMPOS_ORDEM = ['num','recebido','credor','objeto','modalidade','empenho','contabilidade','valor'];
+const ROTULO_CAMPO = {num:'Requisição', recebido:'Recebida em', credor:'Credor', objeto:'Objeto',
+  modalidade:'Modalidade', empenho:'Empenho', contabilidade:'P/ contabilidade', valor:'Valor'};
+
+let _editando = null;   /* {td, id, campo} enquanto uma célula está aberta */
+
+function editarCelula(td){
+  if(_editando) fecharEdicao(true);
+  const id = Number(td.dataset.id), campo = td.dataset.campo;
+  const r = REQS.find(x=>x.id===id);
+  if(!r) return;
+  _editando = {td, id, campo, html: td.innerHTML};
+  td.classList.add('editando');
+  td.innerHTML = editorHTML(r, campo);
+  const alvo = td.querySelector('input,select,textarea');
+  if(!alvo) return;
+  alvo.focus();
+  if(alvo.select) try{ alvo.select(); }catch(e){}
+  alvo.addEventListener('keydown', e=>{
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fecharEdicao(false); return; }
+    if(e.key==='Enter' && !(e.shiftKey && alvo.tagName==='TEXTAREA')){
+      e.preventDefault(); fecharEdicao(true); return;
+    }
+    if(e.key==='Tab'){
+      e.preventDefault();
+      const i = CAMPOS_ORDEM.indexOf(campo);
+      const prox = CAMPOS_ORDEM[e.shiftKey ? i-1 : i+1];
+      fecharEdicao(true);
+      if(prox) setTimeout(()=>focarCelula(id, prox), 0);
+    }
+  });
+  /* Sair da célula com o mouse também salva: ninguém deve perder o que
+     digitou por ter clicado noutro lugar. */
+  alvo.addEventListener('blur', ()=>{ if(_editando && _editando.td===td) fecharEdicao(true); });
+}
+function editorHTML(r, campo){
+  const v = x => x==null ? '' : String(x);
+  if(campo==='num'){
+    const ops = SECRETARIAS.map(s=>'<option value="'+esc(s.sigla)+'"'+(s.sigla===r.sec?' selected':'')+'>'+esc(s.sigla)+'</option>').join('');
+    return '<div class="cel-edit-num">'
+      + '<select class="cel-inp" data-parte="sec">'+(r.sec?'':'<option value="">secretaria…</option>')+ops+'</select>'
+      + '<input class="cel-inp" data-parte="num" type="number" inputmode="numeric" value="'+v(r.num)+'" placeholder="nº">'
+      + '<input class="cel-inp" data-parte="ano" type="number" inputmode="numeric" value="'+v(r.ano)+'" placeholder="ano">'
+      + '<input class="cel-inp" data-parte="sufixo" value="'+esc(r.sufixo||'')+'" placeholder="A, B…">'
+      + '</div>';
+  }
+  if(campo==='recebido' || campo==='contabilidade')
+    return '<input class="cel-inp" type="date" value="'+v(r[campo])+'">';
+  if(campo==='valor')
+    return '<input class="cel-inp" inputmode="decimal" placeholder="0,00" value="'
+         + (r.valor==null?'':fmtValorCampo.format(r.valor))+'">';
+  if(campo==='objeto')
+    return '<textarea class="cel-inp" rows="3">'+esc(r.objeto||'')+'</textarea>';
+  if(campo==='credor')
+    return '<input class="cel-inp" list="dlCredores" value="'+esc(r.credor||'')+'">';
+  if(campo==='modalidade')
+    return '<input class="cel-inp" list="dlModalidades" value="'+esc(r.modalidade||'')+'">';
+  return '<input class="cel-inp" value="'+esc(r[campo]||'')+'">';
+}
+function fecharEdicao(salvando){
+  if(!_editando) return;
+  const {td, id, campo, html} = _editando;
+  _editando = null;                 /* antes de mexer no DOM, para o blur não reentrar */
+  td.classList.remove('editando');
+  const r = REQS.find(x=>x.id===id);
+  if(!salvando || !r){ td.innerHTML = html; return; }
+  const pega = parte => { const e = td.querySelector('[data-parte="'+parte+'"]'); return e ? e.value.trim() : ''; };
+  const unico = td.querySelector('input,select,textarea');
+  const antes = JSON.stringify(paraGuardar(r));
+  if(campo==='num'){
+    const secNova = pega('sec');
+    r.sec = secNova;
+    r.num = pega('num')==='' ? null : Number(pega('num'));
+    r.ano = pega('ano')==='' ? new Date().getFullYear() : Number(pega('ano'));
+    r.sufixo = pega('sufixo');
+    /* Escolher a secretaria numa linha nova sem número: oferece o dela. */
+    if(secNova && r.num==null) r.num = proximoNumero(secNova, r.ano);
+  } else if(campo==='valor'){
+    const n = lerValorTexto(unico.value);
+    if(isNaN(n)){ alert('Não entendi o valor “'+unico.value+'”.\n\nEscreva como 1.234,56 ou 1234,56.'); td.innerHTML = html; return; }
+    r.valor = n;
+  } else if(campo==='recebido' || campo==='contabilidade'){
+    r[campo] = unico.value || null;
+  } else if(campo==='credor' || campo==='modalidade'){
+    r[campo] = unico.value.trim().toUpperCase();
+  } else {
+    r[campo] = unico.value.trim();
+  }
+  prepararReq(r);
+  if(JSON.stringify(paraGuardar(r)) === antes){ td.innerHTML = html; return; }
+  if(!salvarRequisicao(r)){ td.innerHTML = html; return; }
+  redesenharLinha(r);
+  renderFaixaSecretarias(); popularDatalists(); avisoRascunho();
+  if(document.getElementById('ovDet').classList.contains('open') && detAtual && detAtual.id===r.id) abrirDet(r.id);
+  toast(ROTULO_CAMPO[campo] + ' salvo.');
+}
+/* Redesenha SÓ a linha mexida: refazer a tabela inteira a cada campo
+   perderia a rolagem e o lugar de quem está preenchendo em sequência. */
+function redesenharLinha(r){
+  const tr = document.querySelector('tr[data-id="'+r.id+'"]');
+  if(tr) tr.outerHTML = linhaHTML(r);
+}
+function lerValorTexto(bruto){
+  const s = String(bruto||'').trim();
+  if(s==='') return null;
+  const limpo = s.replace(/[^\d,.-]/g,'');
+  if(limpo==='' || limpo==='-') return NaN;
+  const corte = Math.max(limpo.lastIndexOf(','), limpo.lastIndexOf('.'));
+  const casas = corte<0 ? -1 : limpo.length-corte-1;
+  const n = (casas===1||casas===2)
+    ? Number(limpo.slice(0,corte).replace(/[.,]/g,'') + '.' + limpo.slice(corte+1))
+    : Number(limpo.replace(/[.,]/g,''));
+  return isNaN(n) ? NaN : n;
+}
+function paraGuardar(r){
+  const o = {};
+  Object.keys(r).sort().forEach(k=>{ if(k[0] !== '_') o[k] = r[k]; });
+  return o;
 }
 
 /* ══════════════ RASCUNHO DO NAVEGADOR (protótipo) ══════════════
@@ -1240,8 +1393,10 @@ function lerRascunho(){
        return (j && typeof j==='object') ? j : {}; }catch(e){ return {}; }
 }
 function salvarRequisicao(r){
-  RASCUNHO[r.id] = Object.assign({}, r);
-  delete RASCUNHO[r.id]._txt;
+  /* Só os campos de verdade: "_nova" e o índice da busca são estado de
+     tela. Guardar "_nova" faria a linha nascer fixada no topo e furando
+     todo filtro para sempre, a cada visita. */
+  RASCUNHO[r.id] = paraGuardar(r);
   try{ localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(RASCUNHO)); return true; }
   catch(e){ alert('O navegador não deixou guardar (espaço cheio ou aba anônima).'); return false; }
 }
@@ -1252,10 +1407,6 @@ function aplicarRascunho(lista){
   const porId = new Map(lista.map(r=>[r.id, r]));
   Object.keys(RASCUNHO).forEach(k=>{ const r=RASCUNHO[k]; porId.set(r.id, r); });
   return [...porId.values()];
-}
-function avisoGravacao(){
-  return '<div class="aviso aviso-amarelo">Protótipo: o que você salvar fica '
-       + '<b>só neste navegador</b> até o sistema ganhar banco de dados.</div>';
 }
 function avisoRascunho(){
   const box = document.getElementById('avisoRascunho');
@@ -1457,9 +1608,8 @@ function pdfRequisicaoAgora(){
 /* ══════════════ INICIALIZAÇÃO ══════════════ */
 document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
+  if(_editando) return;          /* Esc dentro de uma célula desiste da edição, e só */
   if(popCol){ fecharPop(); return; }
-  const ovForm = document.getElementById('ovForm');
-  if(ovForm.classList.contains('open')){ fecharForm(); return; }
   fecharDet(); fecharFiltrosMobile();
 });
 function marcarTotal(){
@@ -1469,12 +1619,13 @@ function marcarTotal(){
 function carregarTudo(){
   return carregarDoArquivo().then(d=>{
     SECRETARIAS = d.secretarias || [];
+    ORIGINAIS.clear();
+    (d.requisicoes||[]).forEach(r=>ORIGINAIS.set(r.id, Object.assign({}, r)));
     REQS = aplicarRascunho((d.requisicoes||[]).map(prepararReq));
     REQS.forEach(prepararReq);
     initFiltros();
     marcarTotal();
     renderFaixaSecretarias();
-    popularSelectSecretarias();
     popularDatalists();
     avisoRascunho();
     aplicarFiltros();

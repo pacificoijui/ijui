@@ -201,6 +201,8 @@
   .pop-op .op-n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .pop-op.todos { font-weight: 700; color: var(--navy); border-bottom: 1px solid var(--border); }
   .pop-vazio { padding: 14px 13px; font-size: 12px; color: var(--muted); text-align: center; }
+  .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
+    padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
   .pop-pe { display: flex; align-items: center; justify-content: space-between; gap: 8px;
     padding: 9px 13px; border-top: 1px solid var(--border); background: #f4f7fd; }
   .pop-info { font-size: 11.5px; color: var(--muted); }
@@ -1741,6 +1743,9 @@ function limparBusca(){
 }
 function limparFiltros(){
   document.getElementById('fBusca').value = '';
+  /* A caixa do menu de coluna também: deixá-la escrita depois de limpar
+     mostra um filtro que não está mais valendo. */
+  if(popCol) document.getElementById('popBusca').value = '';
   initFiltros(false);
   F.sort = ORDEM_PADRAO;
   document.getElementById('fSort').value = ORDEM_PADRAO;
@@ -1752,6 +1757,7 @@ function limparFiltros(){
    serve quando a busca não achou nada por causa de um filtro, não porque o
    contrato não exista. */
 function limparSoFiltros(){
+  if(popCol) document.getElementById('popBusca').value = '';
   initFiltros(false);
   aplicarFiltros();
   if(popCol) renderPop();
@@ -1883,6 +1889,18 @@ function renderPop(){
     html += opHTML(g.k, '__todas__', todasOn ? 'Desmarcar todas' : 'Selecionar todas', null, todasOn, ' todos');
     vis.forEach(v => html += opHTML(g.k, v, v, mapa[g.k].get(v) || 0, sel.has(v), ''));
   });
+  /* Com texto na busca da coluna, o menu diz quantos contratos ele já está
+     segurando. Sem isso, uma coluna cujas OPÇÕES são agrupadas (a de
+     Vencimento agrupa por prazo e ano) respondia "nenhuma opção com esse
+     texto" a quem digitou uma data — e a busca estava funcionando. */
+  const termo = document.getElementById('popBusca').value.trim();
+  if(termo){
+    const n = CONTRATOS.filter(c => passaBusca(c) && COLUNAS.every(x => passaColuna(c, x))).length;
+    html = '<div class="pop-achou">' + (n
+        ? '<b>'+n+'</b> '+(n>1?'contratos':'contrato')+' com “'+esc(termo)+'” nesta coluna'
+        : 'Nenhum contrato com “'+esc(termo)+'” nesta coluna')
+      + '</div>' + html;
+  }
   document.getElementById('popLista').innerHTML = html || '<div class="pop-vazio">Esta coluna não tem opções.</div>';
   document.getElementById('popInfo').textContent = filtrados.length + ' de ' + CONTRATOS.length;
   const [campo, dir] = String(F.sort).split('-');

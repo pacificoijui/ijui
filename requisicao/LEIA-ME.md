@@ -17,10 +17,10 @@ o papel das abas da planilha e serve a duas coisas ao mesmo tempo:
 
 ## O que a tela mostra
 
-Busca única em tudo (credor, objeto, número, modalidade, empenho, valor),
-filtro por coluna como numa planilha, e o **total em reais do que está na
-tela** ao lado da contagem — é a conta que quem cuida de requisição faz na
-mão o tempo todo.
+Busca única em tudo (credor, objeto, número, modalidade, empenho, valor) e
+filtro por coluna como numa planilha. A busca de cada coluna procura no que
+**aquela coluna mostra**: digitar o número do empenho na coluna Empenho acha
+o empenho, e o menu diz quantas requisições ele está segurando.
 
 A coluna Empenho mostra o número quando existe e **"falta empenhar"** quando
 não. Não é situação inventada: é a coluna EMPENHO vazia na planilha, que é

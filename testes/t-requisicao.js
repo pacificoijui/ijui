@@ -68,53 +68,130 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e o botão fica marcado', sms.marcado.startsWith('SMS'), sms);
   t('com chip para voltar a todas', /SMS/.test(sms.chips), sms.chips);
 
-  console.log('\n3) Lançar: a secretaria escolhida e o próximo número dela');
-  const form=await pg.evaluate(()=>{ novaRequisicao(); return {
-    sec:document.getElementById('frSec').value,
-    num:Number(document.getElementById('frNum').value),
-    ano:Number(document.getElementById('frAno').value),
-    maiorSMS:Math.max(...REQS.filter(r=>r.sec==='SMS'&&r.ano===new Date().getFullYear()&&r.num!=null).map(r=>r.num))
-  }; });
-  t('o formulário já vem com a secretaria escolhida', form.sec==='SMS', form);
-  t('e com o próximo número DELA, não do cadastro inteiro',
-    form.num===form.maiorSMS+1, form);
-  const trocou=await pg.evaluate(()=>{
-    const s=document.getElementById('frSec'); s.value='SMEL';
-    s.dispatchEvent(new Event('change',{bubbles:true}));
-    return {num:Number(document.getElementById('frNum').value),
-            maiorSMEL:Math.max(...REQS.filter(r=>r.sec==='SMEL'&&r.ano===new Date().getFullYear()&&r.num!=null).map(r=>r.num))};
+  console.log('\n3) Lançar na própria tabela, sem abrir formulário');
+  /* A requisição não nasce pronta: chega, recebe data, depois objeto, depois
+     empenho, depois vai para a contabilidade. O lançamento é uma linha nova
+     no alto e cada etapa é um clique duplo na coluna certa. */
+  t('não existe mais formulário de cadastro', !/id="ovForm"/.test(html));
+  const nova=await pg.evaluate(()=>{
+    novaRequisicao();
+    const tr=document.querySelector('.tab tbody tr');
+    const td=document.querySelector('td.editando');
+    const r=REQS.find(x=>x._nova);
+    return {primeiraDaLista: Number(tr.dataset.id)===r.id,
+            destacada: tr.classList.contains('linha-nova'),
+            sec:r.sec, num:r.num, campoAberto: td && td.dataset.campo,
+            maiorSMS: Math.max(...REQS.filter(x=>x.sec==='SMS'&&x.ano===new Date().getFullYear()&&x.num!=null&&!x._nova).map(x=>x.num))};
   });
-  t('trocar de secretaria no formulário reoferece o número dela',
-    trocou.num===trocou.maiorSMEL+1, trocou);
+  t('a linha nova entra no alto da tabela', nova.primeiraDaLista && nova.destacada, nova);
+  t('já na secretaria escolhida na faixa', nova.sec==='SMS', nova);
+  t('e com o próximo número DELA, não do cadastro inteiro', nova.num===nova.maiorSMS+1, nova);
+  t('com a célula da data já aberta para digitar', nova.campoAberto==='recebido', nova);
 
-  const gravou=await pg.evaluate(()=>{
-    document.getElementById('frSec').value='SMEL';
-    document.getElementById('frCredor').value='FORNECEDOR DE TESTE';
-    document.getElementById('frObjeto').value='OBJETO DE TESTE';
-    document.getElementById('frValor').value='1.234,56';
-    document.getElementById('frModalidade').value='PE 1/2026';
-    salvarForm();
-    const r=REQS.find(x=>x.credor==='FORNECEDOR DE TESTE');
-    return {achou:!!r, valor:r&&r.valor, sec:r&&r.sec,
-            rascunho:Object.keys(JSON.parse(localStorage.getItem('requisicoes_ijui_rascunho')||'{}')).length,
+  await pg.fill('td.editando .cel-inp', '2026-09-10');
+  await pg.keyboard.press('Tab'); await pg.waitForTimeout(250);
+  t('Tab salva e anda para a próxima coluna',
+    (await pg.evaluate(()=>REQS.find(r=>r._nova).recebido))==='2026-09-10');
+  t('e a coluna seguinte é o credor',
+    (await pg.evaluate(()=>document.querySelector('td.editando').dataset.campo))==='credor');
+
+  await pg.keyboard.type('FORNECEDOR DE TESTE');
+  await pg.keyboard.press('Tab'); await pg.waitForTimeout(200);
+  await pg.keyboard.type('OBJETO DE TESTE');
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(250);
+  const andou=await pg.evaluate(()=>{
+    const r=REQS.find(x=>x._nova);
+    return {credor:r.credor, objeto:r.objeto, empenho:r.empenho,
+            naTela:document.querySelector('tr[data-id="'+r.id+'"]').textContent};
+  });
+  t('a requisição vai se preenchendo campo a campo',
+    andou.credor==='FORNECEDOR DE TESTE' && andou.objeto==='OBJETO DE TESTE', andou);
+  t('e enquanto não tem empenho, a linha diz isso', /falta empenhar/.test(andou.naTela), andou.naTela.slice(0,90));
+  t('o credor entra em maiúsculas, como o resto do cadastro', andou.credor===andou.credor.toUpperCase());
+
+  /* Etapa seguinte, dias depois: o empenho chega. */
+  const idNova=await pg.evaluate(()=>REQS.find(r=>r._nova).id);
+  await pg.evaluate(id=>document.querySelector('td[data-id="'+id+'"][data-campo="empenho"]')
+    .dispatchEvent(new MouseEvent('dblclick',{bubbles:true})), idNova);
+  await pg.waitForTimeout(200);
+  await pg.keyboard.type('4999 (GABI)');
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(250);
+  const empenhou=await pg.evaluate(id=>({
+    valor:REQS.find(r=>r.id===id).empenho,
+    naTela:document.querySelector('td[data-id="'+id+'"][data-campo="empenho"]').textContent.trim()
+  }), idNova);
+  t('dois cliques numa célula preenchem a etapa seguinte',
+    empenhou.valor==='4999 (GABI)' && empenhou.naTela==='4999 (GABI)', empenhou);
+
+  /* Esc desiste sem estragar o que estava lá. */
+  await pg.evaluate(id=>document.querySelector('td[data-id="'+id+'"][data-campo="credor"]')
+    .dispatchEvent(new MouseEvent('dblclick',{bubbles:true})), idNova);
+  await pg.waitForTimeout(150);
+  await pg.keyboard.type('LIXO QUE NAO PODE SALVAR');
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(250);
+  const escapou=await pg.evaluate(id=>({credor:REQS.find(r=>r.id===id).credor,
+    fichaAberta:document.getElementById('ovDet').classList.contains('open')}), idNova);
+  t('Esc desiste da edição sem gravar', escapou.credor==='FORNECEDOR DE TESTE', escapou);
+  t('e Esc na célula não fecha mais nada por tabela', !escapou.fichaAberta, escapou);
+
+  const guardado=await pg.evaluate(()=>{
+    const rasc=JSON.parse(localStorage.getItem('requisicoes_ijui_rascunho')||'{}');
+    const um=Object.values(rasc)[0];
+    return {quantos:Object.keys(rasc).length, temNova:'_nova' in (um||{}), temTxt:'_txt' in (um||{}),
             aviso:document.getElementById('avisoRascunho').textContent};
   });
-  t('salvar cadastra a requisição', gravou.achou && gravou.sec==='SMEL', gravou);
-  t('com o valor lido à brasileira', gravou.valor===1234.56, gravou);
-  t('e fica guardada neste navegador, com aviso na tela',
-    gravou.rascunho===1 && /só neste navegador/.test(gravou.aviso), gravou);
+  t('fica guardada neste navegador, com aviso na tela',
+    guardado.quantos===1 && /só neste navegador/.test(guardado.aviso), guardado);
+  /* "_nova" é estado de tela: guardado, a linha nasceria fixada no topo e
+     furando todo filtro para sempre, a cada visita. */
+  t('e o rascunho guarda só os campos de verdade',
+    !guardado.temNova && !guardado.temTxt, guardado);
 
-  console.log('\n4) A conta que se faz na mão: o total do que está na tela');
-  const total=await pg.evaluate(()=>{
-    limparFiltros(); escolherSecretaria('GP');
-    const soma=filtrados.reduce((s,r)=>s+(r.valor||0),0);
-    return {texto:document.getElementById('resultCount').textContent, soma:soma, n:filtrados.length};
+  const desfez=await pg.evaluate(()=>{
+    /* uma linha que veio da planilha, alterada, volta ao que era */
+    const r=REQS.find(x=>!x._nova && x.sec==='SMS' && x.empenho);
+    const antes=r.empenho;
+    r.empenho='MEXIDO'; prepararReq(r); salvarRequisicao(r); aplicarFiltros();
+    descartarLinha(r.id);
+    const depois=REQS.find(x=>x.id===r.id);
+    return {antes, agora:depois && depois.empenho, aindaExiste:!!depois};
   });
-  t('o total em reais aparece ao lado da contagem',
-    total.texto.includes(total.n.toString()) && /total/.test(total.texto), total.texto);
-  t('e é a soma do que está filtrado',
-    total.texto.includes(new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(total.soma)),
-    total.texto);
+  t('desfazer numa linha da planilha devolve o valor original, sem apagar a linha',
+    desfez.aindaExiste && desfez.agora===desfez.antes, desfez);
+
+  console.log('\n4) A busca de cada coluna procura no que a coluna mostra');
+  /* A coluna Empenho é agrupada em "Empenhada / Falta empenhar". Quem
+     digitava o NÚMERO do empenho ali recebia "nada para filtrar aqui" — a
+     busca procurava nos rótulos das opções, não no conteúdo da coluna. */
+  const porColuna=await pg.evaluate(()=>{
+    const ex = REQS.find(r=>r.empenho && r.credor && r.modalidade && !r._nova);
+    const casos = [['emp', ex.empenho], ['cred', ex.credor], ['mod', ex.modalidade], ['num', ex.rotulo]];
+    return casos.map(([col, termo])=>{
+      limparFiltros();
+      abrirFiltroCol({stopPropagation(){}, currentTarget:document.querySelector('.cf[data-col="'+col+'"]')}, col);
+      document.getElementById('popBusca').value = termo;
+      renderPop(); aplicarFiltros();
+      return {col, termo, n:filtrados.length,
+              aviso:(document.querySelector('.pop-achou')||{}).textContent||'',
+              todosBatem: filtrados.every(r=>String(TEXTO_COL[col](r)).toUpperCase().includes(termo.toUpperCase()))};
+    });
+  });
+  porColuna.forEach(c=>{
+    t('busca na coluna '+c.col+' acha “'+c.termo+'”', c.n>0 && c.todosBatem, c);
+  });
+  t('e o menu diz quantas achou, em vez de "nada para filtrar aqui"',
+    porColuna.every(c=>/requisi/.test(c.aviso)), porColuna.map(c=>c.aviso));
+  const numEmp=await pg.evaluate(()=>{
+    limparFiltros();
+    const alvo=REQS.find(r=>r.empenho && !r._nova).empenho;
+    COLF.emp.sel.nEmp=new Set([alvo]); aplicarFiltros();
+    return {alvo, n:filtrados.length, todos:filtrados.every(r=>r.empenho===alvo)};
+  });
+  t('dá para marcar um número de empenho na lista de opções',
+    numEmp.n>0 && numEmp.todos, numEmp);
+
+  t('o total em reais saiu de cima da tabela',
+    !/total <b>/.test(await pg.evaluate(()=>document.getElementById('resultCount').innerHTML)));
 
   console.log('\n5) Falta empenhar: a coluna vazia da planilha, à vista');
   const emp=await pg.evaluate(()=>{
