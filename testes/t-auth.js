@@ -358,7 +358,56 @@ async function entrarComGoogle(pg, user){
     consultaLogada.portaoFechado && consultaLogada.processos===1, consultaLogada);
   t('e os processos aparecem no painel', consultaLogada.cards===1, consultaLogada);
 
-  console.log('\n12) Quem já está logado não vê o login piscar na abertura');
+  console.log('\n12) O nome de quem usa a conta é editável no painel');
+  /* Uma caixa de setor ("contratos@ijui.rs.gov.br") entra sem nome nenhum e
+     acaba chamada de "contratos", que é o pedaço do e-mail. Quem aprova é
+     quem sabe de quem é a conta, e corrige ali mesmo. */
+  const pgNome=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirPregoeiro(pgNome, {usuarios_v2:{
+    'g-adm':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true,
+             acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'}, provedor:'google.com'},
+    'u-setor':{email:'contratos@ijui.rs.gov.br', nome:'contratos', status:'pendente', isAdmin:false,
+             acessos:{agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum'}, provedor:'password'},
+    'u-serli':{email:'serli@ijui.rs.gov.br', nome:'Serli', status:'aprovado', isAdmin:false,
+             acessos:{agenda:'nenhum', pregoeiro:'nenhum', contratos:'ver'}, provedor:'password'}}},
+    {uid:'g-adm', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pgNome.evaluate(()=>abrirModalUsuarios());
+  await pgNome.waitForTimeout(500);
+  const campos=await pgNome.evaluate(()=>({
+    pendente: (document.getElementById('pendNome_u-setor')||{}).value,
+    aprovado: (document.getElementById('aprNome_u-serli')||{}).value,
+    ehInput: !!document.querySelector('.usr-nome-inp')
+  }));
+  t('o nome vira campo editável na linha', campos.ehInput, campos);
+  t('nome igual ao pedaço do e-mail entra em branco, com o convite de preencher',
+    campos.pendente==='', campos);
+  t('nome de gente de verdade aparece para editar', campos.aprovado==='Serli', campos);
+
+  await pgNome.evaluate(()=>{
+    window.confirm=()=>true;
+    document.getElementById('pendNome_u-setor').value='Setor de Contratos — Marli';
+    usuariosAprovar('u-setor');
+  });
+  await pgNome.waitForFunction(()=>window.__STORE.usuarios_v2['u-setor'].status==='aprovado',null,{timeout:10000});
+  t('aprovar grava o nome digitado',
+    (await pgNome.evaluate(()=>window.__STORE.usuarios_v2['u-setor'].nome))==='Setor de Contratos — Marli');
+
+  await pgNome.evaluate(()=>{
+    document.getElementById('aprNome_u-serli').value='Serli Machado';
+    usuariosSalvarAcessos('u-serli', 2);
+  });
+  await pgNome.waitForFunction(()=>window.__STORE.usuarios_v2['u-serli'].nome==='Serli Machado',null,{timeout:10000});
+  t('salvar a linha grava o nome corrigido', true);
+
+  await pgNome.evaluate(()=>{
+    document.getElementById('aprNome_u-serli').value='   ';
+    usuariosSalvarAcessos('u-serli', 2);
+  });
+  await pgNome.waitForTimeout(400);
+  t('deixar em branco não apaga o nome que já havia',
+    (await pgNome.evaluate(()=>window.__STORE.usuarios_v2['u-serli'].nome))==='Serli Machado');
+
+  console.log('\n13) Quem já está logado não vê o login piscar na abertura');
   /* O portão abre num aviso neutro ("Verificando seu acesso…") e só troca
      pelo formulário se não houver ninguém logado. Antes ele abria já no
      formulário, que sumia um segundo depois — a cada visita. */

@@ -232,6 +232,20 @@ Ainda sem projeto e sem contas — continua com dados locais/arquivo. Quando
 ganhar cadastro, o caminho é o mesmo: mais um painel em `acessos`, mais um
 `match` nas regras.
 
+### O nome que aparece nas telas
+
+Vem do que a pessoa digitou ao criar a conta, ou do nome da conta Google.
+Uma caixa de setor (`contratos@ijui.rs.gov.br`) entra sem nome nenhum e
+acabaria chamada de "contratos", que é só o pedaço do e-mail — e é esse
+nome que vai para o cabeçalho da tela e para o histórico dos contratos
+("**Serli** editou o contrato nº 12/2025").
+
+Por isso o nome é editável direto na linha do painel Usuários, tanto em
+Pendentes quanto em Aprovados: clique nele, escreva, e salve junto com o
+resto (o botão 💾, ou o próprio "Aprovar"). Deixar em branco não apaga o
+nome que já havia. Nomes já gravados no histórico não mudam — o registro
+guarda quem era na hora da edição, que é o que um histórico deve fazer.
+
 ## Backup diário
 
 O backup automático (GitHub Actions, `.github/workflows/backup-firestore.yml`)

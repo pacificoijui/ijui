@@ -1258,6 +1258,16 @@
   .usr-row.usr-bloqueado{background:#fdf0f0;border-color:#f0cccc}
   .usr-row .usr-info{min-width:0;flex:1}
   .usr-row .usr-nome{font-weight:700;color:var(--navy);font-size:14px}
+  /* O nome é editável ali mesmo: quando alguém entra com uma caixa de setor
+     ("contratos@ijui.rs.gov.br") o nome nasce sendo o pedaço do e-mail, e
+     quem aprova é quem sabe de quem é a conta. Parece texto até receber o
+     cursor, para a linha não virar um formulário. */
+  .usr-row .usr-nome-inp{font-weight:700;color:var(--navy);font-size:14px;font-family:inherit;
+    border:1.5px solid transparent;border-radius:7px;background:transparent;padding:2px 6px;
+    margin:-2px 0 0 -6px;width:min(280px,100%);outline:none;transition:border-color .14s,background .14s}
+  .usr-row .usr-nome-inp:hover{border-color:var(--border);background:#fff}
+  .usr-row .usr-nome-inp:focus{border-color:var(--navy-light);background:#fff;box-shadow:0 0 0 3px rgba(46,93,168,.13)}
+  .usr-row .usr-nome-inp::placeholder{font-weight:500;color:#b0bacc;font-style:italic}
   .usr-row .usr-login{font-size:12px;color:var(--muted);margin-top:1px}
   .usr-row .usr-acts{display:flex;gap:6px;flex-shrink:0;padding-top:1px}
   .usr-btn{border:1px solid #cfd6e4;background:#fff;border-radius:7px;padding:6px 9px;font-size:13px;cursor:pointer;color:var(--navy)}
@@ -11412,6 +11422,22 @@ function authOpcoesNivel(atual){
     return '<option value="'+o[0]+'"'+(atual===o[0]?' selected':'')+'>'+o[1]+'</option>';
   }).join('');
 }
+/* O nome que aparece nas telas e no histórico dos contratos. Vem do que a
+   pessoa digitou ao criar a conta, ou do nome da conta Google — mas uma
+   caixa de setor entra sem nome nenhum e acaba chamada de "contratos",
+   pedaço do e-mail. Quem aprova corrige aqui e salva com o resto da linha. */
+function usrCampoNome(u, prefixo){
+  var valor = (u.nome && u.nome !== (u.email||"").split("@")[0]) ? u.nome : "";
+  return '<input class="usr-nome-inp" id="'+prefixo+'Nome_'+u.uid+'" value="'+escHtml(valor)
+    +'" placeholder="Nome da pessoa" title="Nome de quem usa esta conta" maxlength="80"'
+    +' autocomplete="off" spellcheck="false">';
+}
+function usrLerNome(prefixo, uid, u){
+  var el = document.getElementById(prefixo+'Nome_'+uid);
+  var v = el ? el.value.trim() : "";
+  /* Em branco não apaga o que já havia: fica o nome de antes. */
+  return v || (u && u.nome) || "";
+}
 function usrChipsAcesso(u, prefixo){
   return AUTH_PAINEIS.map(function(p){
     return '<label class="usr-chk usr-chk-sel">'+p.nome+' <select id="'+prefixo+p.sufixo+'_'+u.uid+'">'
@@ -11441,7 +11467,7 @@ function usuariosRenderPendentes(usuarios, convites){
         ' <button class="usr-btn" onclick="usuariosAplicarConvite(\''+u.uid+'\',\''+convite.id+'\')">Aplicar</button></div>'
       : '';
     return '<div class="usr-row usr-row-col"><div class="usr-info">'
-      +'<div class="usr-nome">'+escHtml(u.nome||u.email)+'</div>'
+      +usrCampoNome(u,'pend')
       +'<div class="usr-login">'+escHtml(u.email)+'</div>'
       + avisoConvite
       +'<div class="usr-chks">'+usrChipsAcesso(u,'pend')+'</div>'
@@ -11452,13 +11478,14 @@ function usuariosRenderPendentes(usuarios, convites){
   }).join('');
 }
 function usuariosAprovar(uid){
+  var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
   var acessos=usrLerAcessos('pend', uid);
   /* Aprovar sem liberar nenhum painel é quase sempre engano: a pessoa fica
      "aprovada" no cadastro mas continua vendo a tela de espera, e quem
      aprovou acha que liberou. */
   if(usrNenhumAcesso(acessos) &&
      !confirm("Nenhum painel foi liberado (todos em \"Sem acesso\").\n\nA pessoa vai continuar vendo \"aguardando liberação\".\n\nAprovar mesmo assim?")) return;
-  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos })
+  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos, nome:usrLerNome('pend', uid, u) })
     .then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
@@ -11472,7 +11499,11 @@ function usuariosAplicarConvite(uid, conviteId){
   if(!convite) return;
   var acessos={};
   AUTH_PAINEIS.forEach(function(p){ acessos[p.id]=authNormalizaNivel(convite.acessos && convite.acessos[p.id]); });
-  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos})
+  var uConv=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
+  /* O convite foi preparado com o nome de quem se esperava: ele vale mais do
+     que o pedaço do e-mail com que a conta nasceu. */
+  var nomeConv=(convite.nome||"").trim() || usrLerNome('pend', uid, uConv);
+  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos, nome:nomeConv})
     .then(function(){ return convitesColRef.doc(conviteId).delete(); })
     .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -11491,7 +11522,12 @@ function usuariosRenderAprovados(usuarios){
     var euMesmo=authCurrentUser && authCurrentUser.uid===u.uid;
     var bloqueado=u.status==="bloqueado";
     return '<div class="usr-row usr-row-col'+(bloqueado?' usr-bloqueado':'')+'"><div class="usr-info">'
-      +'<div class="usr-nome">'+escHtml(u.nome||u.email)+(euMesmo?' <span style="font-weight:400;color:var(--muted);font-size:11px">(você)</span>':'')+(u.isAdmin?' <span class="badge-tipo" style="font-size:10px;padding:2px 7px;border-radius:8px">admin</span>':'')+(bloqueado?' <span style="color:var(--red);font-size:11px;font-weight:700">BLOQUEADO</span>':'')+'</div>'
+      +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'
+      +usrCampoNome(u,'apr')
+      +(euMesmo?'<span style="color:var(--muted);font-size:11px">(você)</span>':'')
+      +(u.isAdmin?'<span class="badge-tipo" style="font-size:10px;padding:2px 7px;border-radius:8px">admin</span>':'')
+      +(bloqueado?'<span style="color:var(--red);font-size:11px;font-weight:700">BLOQUEADO</span>':'')
+      +'</div>'
       +'<div class="usr-login">'+escHtml(u.email)+'</div>'
       +'<div class="usr-chks">'+usrChipsAcesso(u,'apr')+'<label class="usr-chk"><input type="checkbox" id="aprAdmin_'+u.uid+'"'+(u.isAdmin?' checked':'')+'> Administrador</label></div>'
       +'</div><div class="usr-acts">'
@@ -11516,8 +11552,8 @@ function usuariosSalvarAcessos(uid, totalAdmins){
   if(!viraAdmin && usrNenhumAcesso(acessos) &&
      !confirm("Nenhum painel ficou liberado (todos em \"Sem acesso\").\n\n"
               +"A pessoa volta a ver \"aguardando liberação\".\n\nSalvar mesmo assim?")) return;
-  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin })
-    .then(function(){ toast("Acessos atualizados."); usuariosV2Renderizar(); })
+  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin, nome:usrLerNome('apr', uid, u) })
+    .then(function(){ toast("Alterações salvas."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
 function usuariosBloquear(uid, nome, totalAdmins, ehAdmin){
