@@ -799,6 +799,7 @@
     <input type="text" id="authNomeC" class="auth-input" placeholder="Nome completo" autocomplete="name">
     <input type="email" id="authEmailC" class="auth-input" placeholder="E-mail" autocomplete="email">
     <input type="password" id="authPassC" class="auth-input" placeholder="Senha (mínimo 6 caracteres)" autocomplete="new-password">
+    <input type="password" id="authPass2" class="auth-input" placeholder="Repita a senha" autocomplete="new-password">
     <button class="auth-btn" id="authBtnCriar" onclick="authCriarConta()">Criar conta</button>
     <div class="auth-links"><a href="#" onclick="authSetModo('entrar');return false;">Já tenho conta</a></div>
   </div>
@@ -1125,8 +1126,10 @@ function authCriarConta(){
   const nome  = (authEl('authNomeC').value || '').trim();
   const email = (authEl('authEmailC').value || '').trim().toLowerCase();
   const senha = authEl('authPassC').value || '';
+  const senha2 = authEl('authPass2').value || '';
   if(!nome || !email || !senha){ authErr('Preencha todos os campos.'); return; }
   if(senha.length < 6){ authErr('A senha deve ter ao menos 6 caracteres.'); return; }
+  if(senha !== senha2){ authErr('As senhas não conferem.'); return; }
   authErr('');
   firebase.auth().createUserWithEmailAndPassword(email, senha)
     .then(cred => cred.user.updateProfile({displayName: nome}))
@@ -1222,7 +1225,7 @@ function authStartGate(){
   authEl('authGate').style.display = 'flex';
   authEl('authPendenteCard').style.display = 'none';
   authSetModo('entrar');
-  ['authEmail','authPass','authNomeC','authEmailC','authPassC'].forEach(id => {
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
     const i = authEl(id);
     if(i && !i._enterBound){
       i._enterBound = true;
