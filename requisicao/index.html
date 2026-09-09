@@ -1,0 +1,1491 @@
+<!--
+  Requisições — /requisicao/  (PROTÓTIPO)
+
+  A planilha REQUISIÇÕES do setor tem uma aba por secretaria, sempre com as
+  mesmas oito colunas. Esta tela é a mesma coisa numa página só: a faixa de
+  secretarias no alto faz o papel das abas — filtra a lista e diz em nome de
+  quem a próxima requisição nasce, já com o próximo número daquela
+  secretaria.
+
+  Protótipo de propósito: os dados vêm de dados/requisicoes.json (gerado da
+  planilha por ferramentas/planilha-para-json.py) e o que se altera fica
+  guardado neste navegador, com aviso na tela. Ligar no Firebase, no mesmo
+  cadastro de contas dos Contratos, é o passo seguinte — ver LEIA-ME.md.
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a6b">
+<meta name="description" content="Controle das requisições do Município de Ijuí, por secretaria.">
+<link rel="icon" href="../logo-ijui.jpg">
+<link rel="apple-touch-icon" href="../logo-ijui.jpg">
+<title>Requisições – Município de Ijuí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<style>
+  :root {
+    --navy:      #1a3a6b;
+    --navy-mid:  #1e4a8a;
+    --navy-dark: #12294d;
+    --navy-light:#2e5da8;
+    --gold:      #e8a020;
+    --gold-light:#f6b93b;
+    --card:      #ffffff;
+    --bg:        #eaeef6;
+    --text:      #1c2433;
+    --muted:     #6b7793;
+    --border:    #dde4f0;
+    --shadow:    0 2px 10px rgba(20,40,80,0.07);
+    --shadow-md: 0 6px 22px rgba(20,40,80,0.10);
+    --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
+    --blue-bg:   #e7eefb;
+    --blue-text: #1e4a8a;
+    --green:     #2a8a3a;  --green-bg:  #e6f4ea;
+    --red:       #c0282a;  --red-bg:    #fbe7e7;
+    --amber:     #c07000;  --amber-bg:  #fef3dc;
+    --radius:    18px;
+    --ring:      0 0 0 3px rgba(46,93,168,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', Arial, sans-serif; font-size: 15px;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(46,93,168,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 0%, rgba(232,160,32,0.07), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(46,93,168,0.18); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(46,93,168,0.28); border-radius: 20px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(46,93,168,0.45); }
+
+  header {
+    background: #ffffff;
+    padding: 0 32px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 3px 16px rgba(15,32,80,0.15);
+    border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 55%, var(--gold) 100%) 1;
+  }
+  .header-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 74px; gap: 20px; }
+  .logo-wrap { display: flex; align-items: center; gap: 18px; }
+.logo-mark { width: 46px; height: 46px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(26,58,107,0.18), inset 0 0 0 1.5px var(--border); flex-shrink: 0; padding: 6px; }
+  .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .logo-divider { width: 2px; height: 44px; background: var(--border); border-radius: 2px; }
+  .logo-text h1 { font-size: 18px; color: var(--navy); font-weight: 700; letter-spacing: 0.2px; line-height: 1.2; }
+  .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  /* Link que se comporta como botão. Tem classe própria (e não estilo
+     escrito no atributo) porque o @media do celular precisa conseguir
+     escondê-lo: estilo no atributo ganha de qualquer regra de folha. */
+  .btn-link { display: inline-flex; align-items: center; text-decoration: none; }
+  .btn-primary { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(26,58,107,0.28); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(26,58,107,0.35); }
+  .btn-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #3d2800; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(232,160,32,0.35); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
+  .btn-gold:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(232,160,32,0.45); }
+  .btn-ghost { background: var(--bg); color: var(--navy); border: 1.5px solid var(--border); padding: 9px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.18s, border-color .15s; }
+  .btn-ghost:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .btn-ghost.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .proto-chip { background: var(--amber-bg); color: var(--amber); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .5px; }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
+
+  /* Barra de busca única, no estilo do Google: procura em tudo de uma vez.
+     Os filtros por campo moraram aqui até virarem menu de coluna na tabela. */
+  .busca-wrap { display: flex; justify-content: center; margin: 2px 0 16px; }
+  .busca-box { display: flex; align-items: center; width: 100%; max-width: 780px; background: var(--card);
+    border: 1.5px solid var(--border); border-radius: 28px; padding: 0 6px 0 18px;
+    box-shadow: var(--shadow); transition: box-shadow .18s, border-color .18s; }
+  .busca-box:hover { box-shadow: var(--shadow-md); }
+  .busca-box:focus-within { border-color: var(--navy-light); box-shadow: var(--ring), var(--shadow-md); }
+  .busca-ico { font-size: 15px; opacity: .5; flex-shrink: 0; }
+  .busca-box input { flex: 1; min-width: 0; border: none; outline: none; background: none; font-family: inherit;
+    font-size: 15px; color: var(--text); padding: 14px 12px; }
+  .busca-box input::placeholder { color: #a3aec4; }
+  .busca-x { border: none; background: none; color: var(--muted); font-size: 14px; cursor: pointer;
+    padding: 8px 12px; border-radius: 50%; visibility: hidden; }
+  .busca-x:hover { background: var(--blue-bg); color: var(--navy); }
+  .busca-box.tem-texto .busca-x { visibility: visible; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { background: var(--blue-bg); color: var(--blue-text); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+  .chip b { cursor: pointer; opacity: .6; }
+  .chip b:hover { opacity: 1; }
+  .link-clear { background: none; border: none; color: var(--red); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+  /* Toolbar da lista */
+  .list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 2px 12px; flex-wrap: wrap; }
+  .result-count { font-size: 13.5px; color: var(--muted); }
+  .result-count b { color: var(--navy); font-size: 16px; }
+  .toolbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .sort-sel { padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; background: #fbfcff; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+  .sort-sel:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+
+  /* ══ Tabela única — mesmo desenho do módulo licitacon ══ */
+  .tab-box { background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+  .tab { width: 100%; border-collapse: collapse; }
+  /* Sem cabeçalho fixo: o Chromium resolve o `top` do sticky a partir da
+     própria tabela, não da janela, e o cabeçalho acaba embaixo da primeira
+     linha. Mesma lição aprendida no licitacon. */
+  .tab th {
+    background: #eef2fa; border-bottom: 1.5px solid var(--border);
+    padding: 7px 6px; font-size: 10.5px; font-weight: 800; color: var(--navy);
+    text-transform: uppercase; letter-spacing: .4px; text-align: left; white-space: nowrap;
+  }
+  .tab th.r { text-align: right; }
+  /* Cabeçalho ordenável: um clique ordena, o mesmo clique de novo inverte. */
+  .tab .th-titulos th { cursor: pointer; user-select: none; }
+  .tab .th-titulos th:hover { background: #e2e9f7; color: var(--navy-light); }
+  .tab .th-titulos th::after { content: "↕"; opacity: .28; margin-left: 4px; font-size: 10px; font-weight: 700; }
+  .tab .th-titulos th.ord-asc::after { content: "▲"; opacity: 1; }
+  .tab .th-titulos th.ord-desc::after { content: "▼"; opacity: 1; }
+  .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #dfe8f8; }
+  /* Filtro por coluna, no estilo do filtro de planilha: o botão abre um menu
+     com as opções que aquela coluna tem, para marcar as que interessam. */
+  .tab .th-filtros th { padding: 0 4px 6px; background: #eef2fa; border-bottom: 1.5px solid var(--border); }
+  .cf {
+    display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 11.5px; font-weight: 600; background: #fff; color: var(--muted);
+    text-align: left; cursor: pointer; text-transform: none; letter-spacing: 0;
+  }
+  .cf:hover { border-color: var(--navy-light); color: var(--navy); }
+  .cf.ativo { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .cf-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cf-seta { font-size: 8px; opacity: .6; flex-shrink: 0; }
+
+  /* Menu da coluna (e o mesmo conteúdo dentro da folha de filtros do celular) */
+  .pop { position: absolute; z-index: 700; width: 292px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-lg); display: none; flex-direction: column; overflow: hidden; }
+  .pop.open { display: flex; }
+  .pop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 13px; border-bottom: 1px solid var(--border); }
+  .pop-tit { font-size: 11.5px; font-weight: 800; color: var(--navy); text-transform: uppercase; letter-spacing: .6px; }
+  .pop-x { border: none; background: none; color: var(--muted); font-size: 13px; cursor: pointer; padding: 2px 4px; }
+  .pop-x:hover { color: var(--navy); }
+  .pop-ord { display: flex; gap: 6px; padding: 9px 13px 0; }
+  .pop-ord button { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 8px; background: #fbfcff;
+    font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .pop-ord button:hover { border-color: var(--navy-light); color: var(--navy); }
+  .pop-ord button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .pop-busca { margin: 9px 13px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; color: var(--text); background: #fbfcff; outline: none; }
+  .pop-busca:focus { border-color: var(--navy-light); box-shadow: 0 0 0 2px rgba(46,93,168,.14); background: #fff; }
+  .pop-lista { overflow-y: auto; max-height: 292px; border-top: 1px solid var(--border); }
+  .pop-grupo { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .7px;
+    padding: 9px 13px 5px; background: #f4f7fd; border-bottom: 1px solid var(--border); }
+  .pop-op { display: flex; align-items: center; gap: 9px; padding: 6px 13px; font-size: 12.5px;
+    color: var(--text); cursor: pointer; }
+  .pop-op:hover { background: var(--blue-bg); }
+  .pop-op input { width: 15px; height: 15px; accent-color: var(--navy-light); flex-shrink: 0; margin: 0; }
+  .pop-op .op-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pop-op .op-n { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .pop-op.todos { font-weight: 700; color: var(--navy); border-bottom: 1px solid var(--border); }
+  .pop-vazio { padding: 14px 13px; font-size: 12px; color: var(--muted); text-align: center; }
+  .pop-pe { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 13px; border-top: 1px solid var(--border); background: #f4f7fd; }
+  .pop-info { font-size: 11.5px; color: var(--muted); }
+
+  /* Folha de filtros do celular: mesma lista, sem cabeçalho de tabela para clicar */
+  .fm-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    padding: 13px 4px; border: none; border-bottom: 1px solid var(--border); background: none;
+    font-family: inherit; font-size: 14px; color: var(--text); text-align: left; cursor: pointer; }
+  .fm-linha:hover { background: var(--blue-bg); }
+  .fm-nome { font-weight: 700; }
+  .fm-val { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+  .fm-val.on { color: var(--blue-text); font-weight: 700; }
+  .fm-secao { font-size: 10.5px; font-weight: 800; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .7px; margin: 16px 0 2px; }
+  .fm-voltar { border: none; background: none; color: var(--navy); font-family: inherit; font-size: 13px;
+    font-weight: 700; cursor: pointer; padding: 0 0 10px; }
+  /* Texto preto na tabela inteira: só os selos (situação, vencimento) seguem
+     coloridos, porque neles a cor é a informação. O que separa uma coluna da
+     outra é o tamanho e o peso da letra, não o tom de cinza. */
+  .tab td { padding: 5px 6px; border-bottom: 1px solid #eef1f8; font-size: 12.5px; vertical-align: top; line-height: 1.36; color: #000; }
+  .tab tbody tr:last-child td { border-bottom: none; }
+  .tab tbody tr:nth-child(even) td { background: #fafbfe; }
+  .tab tbody tr { cursor: pointer; }
+  .tab tbody tr:hover td { background: var(--blue-bg); }
+
+  /* As larguras são só uma dica (a tabela é auto): o que sobra das colunas
+     estreitas vai para o Objeto, que é o texto que precisa de espaço. */
+  .c-num { width: 8%; }
+  .n-num { display: block; font-weight: 800; color: #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .n-mod { display: block; font-size: 10.5px; color: #000; line-height: 1.3; margin-top: 1px; }
+  .c-emp { width: 13%; font-weight: 600; word-break: break-word; }
+  .c-obj { width: 38%; word-break: break-word; }
+  .c-sec { width: 8%; word-break: break-word; }
+  .c-tipo { width: 6%; }
+  .c-fis { width: 7%; word-break: break-word; }
+  .fis-linha { display: block; }
+  .fis-linha + .fis-linha { margin-top: 3px; }
+  .fis-rot { font-size: 9.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .3px; }
+  .c-sit { width: 5%; white-space: nowrap; }
+  /* Estreita e deixa quebrar em duas linhas — "VENCIDO há 3399d" numa,
+     a data na outra — em vez de forçar a linha inteira numa largura só
+     e empurrar o resto da tabela pro lado. */
+  .c-venc { width: 4%; font-variant-numeric: tabular-nums; }
+  .c-venc .badge { white-space: normal; text-align: center; line-height: 1.35; }
+  /* O valor é o número que se compara entre contratos — é o destaque da linha */
+  .c-valor { width: 7%; text-align: right; white-space: nowrap; font-size: 13.5px; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10.5px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .badge-num { background: var(--navy); color: #fff; }
+  .badge-sec { background: var(--blue-bg); color: var(--blue-text); }
+  .badge-tipo { background: #f0e8f8; color: #6a20b0; }
+  .badge-ativo { background: var(--green-bg); color: var(--green); }
+  .badge-inativo { background: #eef0f5; color: #7c869c; }
+  .badge-par { background: var(--amber-bg); color: var(--amber); }
+  .bv-red { background: var(--red-bg); color: var(--red); }
+  .bv-amber { background: var(--amber-bg); color: var(--amber); }
+  .bv-green { background: var(--green-bg); color: var(--green); }
+  .bv-gray { background: #eef0f5; color: #7c869c; }
+  .load-wrap { text-align: center; margin-top: 18px; }
+  .empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 15px; }
+  .empty span { font-size: 40px; display: block; margin-bottom: 10px; }
+
+  /* Modal */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 18px; box-shadow: var(--shadow-lg); width: 100%; max-width: 640px; margin: 20px; overflow: hidden; animation: slideUp 0.22s ease; max-height: 92vh; overflow-y: auto; }
+  @keyframes slideUp { from { transform: translateY(22px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 19px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
+  .modal-header h2 { font-size: 18px; color: #fff; font-weight: 700; }
+  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .modal-close:hover { background: rgba(255,255,255,0.30); }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-footer { padding: 15px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; background: #f7f9fd; position: sticky; bottom: 0; flex-wrap: wrap; }
+  .det-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; font-size: 14px; }
+  .det-row .k { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; padding-top: 2px; }
+  .det-row .v { color: var(--text); line-height: 1.5; }
+  .det-hr { border: none; border-top: 1px solid var(--border); }
+
+  /* ══ Formulários de cadastro (contrato e aditivo) ══ */
+  .fgrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 13px; }
+  .fcampo { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .fcampo.s3 { grid-column: span 3; } .fcampo.s4 { grid-column: span 4; }
+  .fcampo.s6 { grid-column: span 6; } .fcampo.s8 { grid-column: span 8; }
+  .fcampo.s12 { grid-column: span 12; }
+  .fcampo label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .fcampo .dica { font-size: 11px; color: var(--muted); }
+  .fcampo input, .fcampo select, .fcampo textarea {
+    width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 9px;
+    font-family: inherit; font-size: 13.5px; color: #000; background: #fbfcff; outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  .fcampo input:focus, .fcampo select:focus, .fcampo textarea:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
+  .fcampo textarea { resize: vertical; line-height: 1.5; }
+
+  /* Histórico de edições */
+  .hist-linha { display: flex; gap: 12px; align-items: flex-start; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+  .hist-linha:last-child { border-bottom: none; }
+  .hist-quando { flex-shrink: 0; width: 118px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .hist-corpo { flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; }
+  .hist-quem { font-weight: 800; }
+  .hist-alvo { color: var(--blue-text); font-weight: 700; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font: inherit; }
+  .hist-mud { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hist-mud b { color: #000; font-weight: 700; }
+  .hist-acts { flex-shrink: 0; }
+  .hist-nota { font-size: 11.5px; color: var(--muted); max-width: 148px; text-align: right; line-height: 1.45; }
+  @media (max-width: 700px) {
+    .hist-linha { flex-wrap: wrap; }
+    .hist-quando { width: 100%; }
+    .hist-nota { max-width: none; text-align: left; }
+  }
+  .aviso { border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 15px; }
+  .aviso-amarelo { background: var(--amber-bg); color: #7a5b00; border: 1.5px solid #f0dca3; }
+  .aviso-azul { background: var(--blue-bg); color: var(--blue-text); border: 1.5px solid #c9d9f5; }
+  .aviso .acao { color: inherit; font-weight: 800; text-decoration: underline; background: none; border: none;
+    font-family: inherit; font-size: inherit; cursor: pointer; padding: 0; margin-left: 8px; }
+
+  /* ══ Aditivos dentro da ficha do contrato ══ */
+  .adit-lista { display: flex; flex-direction: column; gap: 8px; }
+  .adit { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: #fbfcff;
+    cursor: pointer; text-align: left; font-family: inherit; width: 100%; }
+  .adit:hover { border-color: var(--navy-light); background: #fff; }
+  .adit-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .adit-n { font-size: 13px; font-weight: 800; color: #000; }
+  .adit-info { font-size: 12.5px; color: #000; line-height: 1.5; margin-top: 3px; }
+  .adit-obs { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 3px; }
+  .adit-vazio { font-size: 12.5px; color: var(--muted); }
+
+  /* Recado curto de "salvou", no rodapé da tela */
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+    background: var(--navy-dark); color: #fff; padding: 12px 22px; border-radius: 30px; font-size: 13.5px;
+    font-weight: 600; box-shadow: var(--shadow-lg); z-index: 900; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* Modal relatórios */
+  .rep-opt { display: flex; gap: 12px; align-items: flex-start; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+  .rep-opt:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+  .rep-opt input { margin-top: 3px; accent-color: var(--navy); }
+  .rep-opt .rt { font-weight: 700; color: var(--navy); font-size: 14.5px; }
+  .rep-opt .rd { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+  .rep-scope { display: flex; gap: 8px; flex-wrap: wrap; }
+  #repSelWrap { border: 1.5px solid var(--border); border-radius: 14px; padding: 14px; background: #f7f9fd; }
+  .sel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .sel-title { font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .5px; }
+  .sel-acts { display: flex; gap: 6px; }
+  .mini-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px; padding: 5px 12px; font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: border-color .15s, background .15s; }
+  .mini-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+
+  /* ── Conta e permissões (painel "Usuários" dos contratos) ── */
+  /* ── Portão de acesso ── */
+  .chip-auth { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--navy); background: var(--blue-bg); padding: 5px 11px; border-radius: 20px; }
+  #authGate { position: fixed; inset: 0; z-index: 12000; display: none; align-items: center; justify-content: center; padding: 18px;
+              background: radial-gradient(1000px 520px at 15% -10%, #1E52CC 0%, transparent 55%), linear-gradient(160deg, #0D2B7E 0%, #081C52 75%); }
+  .auth-card { background: #fff; border-radius: 18px; padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,.35); text-align: center; }
+  .auth-marca { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .auth-titulo { font-size: 21px; font-weight: 800; color: var(--navy); margin: 6px 0 4px; }
+  .auth-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+  .auth-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; background: #fff; border: 1.5px solid var(--border);
+                 border-radius: 10px; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; }
+  .auth-google:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .auth-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 11.5px; }
+  .auth-ou::before, .auth-ou::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 9px; outline: none; box-sizing: border-box; }
+  .auth-input:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .auth-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .auth-btn:hover { background: var(--navy-light); }
+  .auth-btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--border); margin-top: 14px; }
+  .auth-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 12.5px; }
+  .auth-links a { color: var(--navy-light); font-weight: 600; text-decoration: none; }
+  .auth-links a:hover { text-decoration: underline; }
+  .auth-err { color: var(--red); font-size: 12.5px; font-weight: 600; margin-top: 12px; min-height: 16px; }
+  .auth-foto { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: #dde4f0; margin-bottom: 10px; }
+  .auth-pend-nome { font-size: 15px; font-weight: 800; color: var(--navy); }
+  .auth-pend-email { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+  .usr-secao { margin-bottom: 18px; }
+  .usr-secao-tit { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .usr-lista { display: flex; flex-direction: column; gap: 8px; }
+  .usr-vazio { color: var(--muted); font-size: 13px; font-style: italic; padding: 8px 0; }
+  .usr-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fff; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .usr-row.usr-bloqueado { background: #fdf3f3; border-color: #e3b3b3; }
+  .usr-info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+  .usr-nome { font-weight: 700; color: var(--navy); font-size: 13.5px; }
+  .usr-login { color: var(--muted); font-size: 12px; }
+  .usr-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .usr-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 8px; padding: 5px 11px; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .usr-btn.ok { border-color: #a8d9b4; color: #1b7a34; }
+  .usr-btn.del { border-color: #e3b3b3; color: #c0392b; }
+  .usr-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); cursor: pointer; user-select: none; }
+  .usr-chk-sel select { font-size: 11.5px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border); color: var(--navy); background: #fff; cursor: pointer; }
+  .badge-tipo { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--amber-bg); color: var(--amber); font-weight: 700; }
+  .sel-busca { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 13.5px; background: #fff; outline: none; margin-bottom: 10px; }
+  .sel-busca:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .sel-list { display: flex; flex-wrap: wrap; gap: 7px; max-height: 190px; overflow-y: auto; padding: 2px; }
+  .sel-item { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; color: var(--text); cursor: pointer; user-select: none; transition: all .14s; }
+  .sel-item:hover { border-color: var(--navy-light); }
+  .sel-item.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .sel-item input { display: none; }
+  .sel-item .tick { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; flex-shrink: 0; }
+  .sel-item.on .tick { background: var(--gold); border-color: var(--gold); color: #3d2800; }
+  .sel-item .qt { opacity: .6; font-weight: 700; font-size: 11px; }
+  .sel-count { font-size: 12px; color: var(--muted); margin-top: 9px; font-weight: 600; }
+  .sel-count b { color: var(--navy); }
+
+  .only-mobile { display: none; }
+  .mobile-bar { display: none; }
+
+  @media (max-width: 1100px) { .dash-grid { grid-template-columns: 1fr; } }
+  /* ═══════════ CELULAR ═══════════ */
+  @media (max-width: 860px) {
+    .only-mobile { display: inline-block; }
+    header { padding: 0 14px; }
+    .header-inner { min-height: 62px; gap: 10px; }
+    .logo-mark { width: 38px; height: 38px; border-radius: 10px; padding: 5px; }
+    .logo-divider { display: none; }
+    .logo-wrap { gap: 11px; }
+    .logo-text h1 { font-size: 15.5px; }
+    .logo-text p { font-size: 9.5px; letter-spacing: .6px; }
+    .header-actions .btn-ghost, .header-actions .btn-gold, .header-actions .btn-link, .proto-chip { display: none; }
+
+    main { padding: 14px 12px 96px; }
+
+    /* 16px evita o zoom automático do navegador ao focar o campo */
+    .busca-wrap { margin: 0 0 12px; }
+    .busca-box { padding: 0 4px 0 14px; }
+    .busca-box input, .sel-busca { font-size: 16px; }
+    .busca-box input { padding: 12px 10px; }
+    .chips { width: 100%; }
+
+    /* Sem cabeçalho de tabela para clicar, os filtros de coluna viram uma
+       folha: a lista das colunas e, ao tocar em uma, as opções dela. */
+    .pop { position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: 8px;
+      width: auto; max-height: 74vh; }
+    .pop-lista { max-height: 46vh; }
+    .pop-busca { font-size: 16px; }
+
+    /* lista */
+    .list-toolbar { gap: 8px; }
+    .toolbar-right { width: 100%; }
+    .toolbar-right label { display: none; }
+    .sort-sel { flex: 1; font-size: 16px; }
+    .toolbar-right .btn-primary { display: none; }
+    .btn-filtros { flex: 1; }
+    /* A tabela deixa de ser tabela: cada linha vira um bloco, com a empresa
+       de título e o valor em destaque. Tabela de 9 colunas espremida em
+       390px quebra palavra no meio e fica ilegível. */
+    .tab-box { border-radius: 14px; }
+    .tab, .tab tbody, .tab tr { display: block; width: 100%; }
+    .tab thead { display: none; }
+    .tab tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 9px;
+      padding: 14px 14px 15px; border-bottom: 1px solid var(--border); }
+    .tab tbody tr:last-child { border-bottom: none; }
+    .tab tbody tr:nth-child(even), .tab tbody tr:nth-child(even) td,
+    .tab tbody tr:hover td { background: transparent; }
+    .tab td { display: inline; padding: 0; border: none; width: auto; }
+    .tab td::before { content: ""; }
+    .tab td.vazia { display: none; }
+    .badge { font-size: 10.5px; padding: 3px 8px; }
+
+    /* 1) a empresa contratada */
+    .tab .c-emp { order: 1; flex: 0 0 100%; font-size: 14.5px; font-weight: 700;
+      color: var(--text); line-height: 1.4; margin-bottom: 3px; }
+    /* 2) o objeto do contrato */
+    .tab .c-obj { order: 2; flex: 0 0 100%; font-size: 12.5px; color: var(--muted);
+      line-height: 1.45; margin-bottom: 8px; }
+    /* 3) o valor, que é o número que se compara */
+    .tab .c-valor { order: 3; width: auto; text-align: left; font-size: 19px; font-weight: 800; color: var(--navy); }
+    /* 4) situação e vencimento, que é o que decide se o contrato preocupa */
+    .tab .c-sit { order: 4; }
+    .tab .c-venc { order: 5; }
+    /* 5) o resto, discreto, no pé */
+    .tab .c-sec { order: 6; flex: 0 0 100%; margin-top: 9px; font-size: 11px; }
+    .tab .c-sec::before { content: "secretaria "; }
+    .tab .c-fis { order: 7; flex: 0 0 100%; font-size: 11px; }
+    .tab .c-num { order: 8; flex: 1 1 auto; margin-top: 8px; font-size: 11px; }
+    .tab .c-num .n-num, .tab .c-num .n-mod { display: inline; font-size: 11px; }
+    .tab .c-num .n-num { color: var(--navy); }
+    .tab .c-num .n-mod { color: var(--muted); margin-left: 5px; }
+    .tab .c-tipo { order: 9; margin-top: 8px; font-size: 11px; color: var(--muted); }
+
+    /* modais como folha inferior */
+    .overlay { align-items: flex-end; }
+    .modal { margin: 0; border-radius: 20px 20px 0 0; max-width: 100%; max-height: 90vh; }
+    .modal-header { padding: 16px 18px; }
+    .modal-header h2 { font-size: 16px; }
+    .modal-close { width: 34px; height: 34px; }
+    .modal-body { padding: 18px; gap: 12px; }
+    .modal-footer { padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); }
+    .modal-footer button { flex: 1; padding: 13px 16px; justify-content: center; }
+    .det-row { grid-template-columns: 1fr; gap: 2px; }
+    /* no celular cada campo ocupa a linha inteira */
+    .fgrid .fcampo { grid-column: span 12; }
+    .fcampo input, .fcampo select, .fcampo textarea { font-size: 16px; }
+    .rep-opt { padding: 13px 12px; }
+    .sel-list { max-height: 168px; }
+    .sel-item { padding: 9px 13px; font-size: 13px; }
+
+    /* barra de ações fixa embaixo */
+    /* A barra quebra em duas linhas em vez de esticar a página para fora da
+       tela: são cinco atalhos agora (contrato, PDF, agenda, relatórios,
+       histórico) e num celular estreito eles não cabem lado a lado. */
+    .mobile-bar { display: flex; flex-wrap: wrap; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300; gap: 8px;
+      padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+      background: rgba(255,255,255,0.94); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border); box-shadow: 0 -4px 18px rgba(20,40,80,0.09); }
+    .mb-btn { flex: 1 1 auto; min-width: 96px; border: none; border-radius: 11px; padding: 12px 6px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; text-align: center; text-decoration: none; }
+    .mb-primary { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: #fff; }
+    .mb-gold { background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #3d2800; }
+    .load-wrap .btn-ghost { width: 100%; padding: 13px; }
+  }
+
+  @media (max-width: 380px) {
+    .mb-btn { font-size: 11.5px; padding: 11px 4px; min-width: 84px; }
+  }
+
+  /* ── A faixa das secretarias ──
+     Fica colada no cabeçalho porque é a primeira decisão de quem usa: a
+     planilha tinha uma aba por secretaria, e a pessoa trabalha dentro da
+     dela. Rola de lado no celular em vez de quebrar em quatro linhas. */
+  .sec-faixa { background: #f4f7fd; border-top: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sec-faixa-inner { max-width: 1440px; margin: 0 auto; display: flex; gap: 6px; padding: 9px 32px; }
+  .sec-btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px; background: #fff;
+    border: 1.5px solid var(--border); border-radius: 20px; padding: 6px 13px; cursor: pointer;
+    font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--navy); transition: all .14s; }
+  .sec-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+  .sec-btn.on { background: var(--navy); border-color: var(--navy); color: #fff; box-shadow: var(--shadow); }
+  .sec-n { font-size: 11px; font-weight: 800; background: var(--bg); color: var(--muted); border-radius: 10px; padding: 1px 7px; }
+  .sec-btn.on .sec-n { background: rgba(255,255,255,.22); color: #fff; }
+
+  /* colunas desta tela */
+  .c-req   { width: 9%; }
+  .c-receb { width: 7%; white-space: nowrap; }
+  .c-cred  { width: 17%; }
+  .c-obj   { width: 30%; }
+  .c-mod   { width: 10%; }
+  .c-emp   { width: 10%; }
+  .c-cont  { width: 7%; white-space: nowrap; }
+  .c-val   { width: 10%; text-align: right; white-space: nowrap; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
+  .n-sec { display: block; font-size: 10.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+  .badge-ok    { background: var(--green-bg); color: var(--green); }
+  .badge-falta { background: var(--amber-bg); color: var(--amber); }
+  .badge-sec   { background: var(--blue-bg); color: var(--blue-text); }
+
+  @media (max-width: 900px) {
+    .sec-faixa-inner { padding: 9px 14px; }
+    .c-mod, .c-cont { display: none; }
+  }
+  @media (max-width: 768px) {
+    .c-receb, .c-emp { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-mark"><img src="../logo-ijui.jpg" alt="Brasão de Ijuí"></div>
+      <div class="logo-divider"></div>
+      <div class="logo-text">
+        <h1>Requisições</h1>
+        <p>Município de Ijuí · Controle e Acompanhamento</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="proto-chip" id="chipTotal">PROTÓTIPO</span>
+      <button class="btn-ghost" onclick="novaRequisicao()">＋ Nova requisição</button>
+      <button class="btn-gold" onclick="pdfDoFiltro()">🖨️ PDF do filtro</button>
+    </div>
+  </div>
+  <!-- A FAIXA DAS SECRETARIAS
+       A planilha é uma aba por secretaria, e é assim que o setor pensa: a
+       pessoa abre a aba dela e lança ali. A faixa faz o mesmo papel — ela
+       filtra a lista E define em nome de quem a próxima requisição nasce,
+       para "＋ Nova requisição" já vir com a secretaria certa e o próximo
+       número dela. -->
+  <div class="sec-faixa" id="secFaixa"></div>
+</header>
+
+<main>
+  <div class="busca-wrap">
+    <div class="busca-box" id="buscaBox">
+      <span class="busca-ico">🔎</span>
+      <input type="text" id="fBusca" name="busca-requisicoes" readonly
+             autocomplete="off" spellcheck="false"
+             data-lpignore="true" data-1p-ignore data-form-type="other"
+             onfocus="this.removeAttribute('readonly')"
+             placeholder="Pesquisar em tudo — credor, objeto, nº, modalidade, empenho, valor…"
+             oninput="aplicarFiltros()">
+      <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
+    </div>
+  </div>
+
+  <div id="avisoRascunho"></div>
+
+  <div class="list-toolbar">
+    <div class="result-count" id="resultCount"></div>
+    <div class="chips" id="chipsAtivos"></div>
+    <div class="toolbar-right">
+      <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
+        <optgroup label="Requisição">
+          <option value="num-desc" selected>Nº da requisição (mais recente)</option>
+          <option value="num-asc">Nº da requisição (mais antiga)</option>
+        </optgroup>
+        <optgroup label="Recebimento">
+          <option value="receb-desc">Recebida — mais recente primeiro</option>
+          <option value="receb-asc">Recebida — mais antiga primeiro</option>
+        </optgroup>
+        <optgroup label="Valor">
+          <option value="valor-desc">Valor — do maior para o menor</option>
+          <option value="valor-asc">Valor — do menor para o maior</option>
+        </optgroup>
+        <optgroup label="Texto">
+          <option value="cred-asc">Credor (A–Z)</option>
+        </optgroup>
+      </select>
+      <button class="link-clear" onclick="limparFiltros()">✕ Limpar filtros</button>
+    </div>
+  </div>
+
+  <div class="tab-wrap">
+    <table class="tab">
+      <thead>
+        <tr>
+          <th class="c-req"   onclick="ordenarPor('num')">REQUISIÇÃO <span class="seta"></span></th>
+          <th class="c-receb" onclick="ordenarPor('receb')">RECEBIDA <span class="seta"></span></th>
+          <th class="c-cred"  onclick="ordenarPor('cred')">CREDOR <span class="seta"></span></th>
+          <th class="c-obj">OBJETO</th>
+          <th class="c-mod">MODALIDADE</th>
+          <th class="c-emp">EMPENHO</th>
+          <th class="c-cont">P/ CONTAB.</th>
+          <th class="c-val" onclick="ordenarPor('valor')">VALOR (R$) <span class="seta"></span></th>
+        </tr>
+        <tr class="th-filtros">
+          <th><button class="cf" data-col="num"  onclick="abrirFiltroCol(event,'num')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="receb" onclick="abrirFiltroCol(event,'receb')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="cred" onclick="abrirFiltroCol(event,'cred')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="obj"  onclick="abrirFiltroCol(event,'obj')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="mod"  onclick="abrirFiltroCol(event,'mod')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="emp"  onclick="abrirFiltroCol(event,'emp')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="cont" onclick="abrirFiltroCol(event,'cont')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="valor" onclick="abrirFiltroCol(event,'valor')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+        </tr>
+      </thead>
+      <tbody id="corpo"></tbody>
+    </table>
+    <div id="vazio"></div>
+  </div>
+  <div class="load-wrap" id="loadWrap" style="display:none">
+    <button class="btn-ghost" onclick="renderMais()" id="btnMais">Carregar mais ↓</button>
+  </div>
+</main>
+
+<div class="mobile-bar">
+  <button class="mb-btn mb-primary" onclick="novaRequisicao()">＋ Requisição</button>
+  <button class="mb-btn mb-primary" onclick="abrirFiltrosMobile()">Filtros</button>
+  <button class="mb-btn mb-gold" onclick="pdfDoFiltro()">🖨️ PDF</button>
+</div>
+
+<!-- MENU DE FILTRO DA COLUNA -->
+<div class="pop" id="popFiltro">
+  <div class="pop-head">
+    <span id="popTit">Filtrar</span>
+    <button class="pop-x" onclick="fecharPop()">✕</button>
+  </div>
+  <input class="pop-busca" id="popBusca" placeholder="Procurar nesta coluna…" oninput="renderPop()" autocomplete="off">
+  <div class="pop-lista" id="popLista"></div>
+  <div class="pop-pe">
+    <button class="pop-limpar" onclick="limparColunaAtual()">Limpar esta coluna</button>
+    <button class="pop-ok" onclick="fecharPop()">Pronto</button>
+  </div>
+</div>
+
+<!-- FOLHA DE FILTROS (CELULAR) -->
+<div class="overlay" id="ovFiltros" onclick="if(event.target===this)fecharFiltrosMobile()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><h2>Filtros e ordem</h2><button class="modal-close" onclick="fecharFiltrosMobile()">✕</button></div>
+    <div class="modal-body">
+      <div class="fm-lista" id="fmLista"></div>
+      <div class="fcampo"><label>Ordenar por</label>
+        <select id="fSortMobile" onchange="document.getElementById('fSort').value=this.value;aplicarFiltros()"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="limparFiltros()">Limpar tudo</button>
+      <button class="btn-primary" onclick="fecharFiltrosMobile()">Ver resultados</button>
+    </div>
+  </div>
+</div>
+
+<!-- FICHA -->
+<div class="overlay" id="ovDet" onclick="if(event.target===this)fecharDet()">
+  <div class="modal">
+    <div class="modal-header"><h2 id="detTitle">Requisição</h2><button class="modal-close" onclick="fecharDet()">✕</button></div>
+    <div class="modal-body" id="detBody"></div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
+      <button class="btn-primary" onclick="editarRequisicao()">✏️ Editar</button>
+      <button class="btn-primary" onclick="pdfRequisicaoAtual()">🖨️ Ficha em PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- CADASTRO / EDIÇÃO -->
+<div class="overlay" id="ovForm" onclick="if(event.target===this)fecharForm()">
+  <div class="modal" style="max-width:820px">
+    <div class="modal-header"><h2 id="formTitulo">Nova requisição</h2><button class="modal-close" onclick="fecharForm()">✕</button></div>
+    <div class="modal-body">
+      <div id="formAviso"></div>
+      <div class="fgrid">
+        <div class="fcampo s6"><label>Secretaria</label><select id="frSec"></select></div>
+        <div class="fcampo s3"><label>Nº da requisição</label><input type="number" id="frNum" inputmode="numeric"></div>
+        <div class="fcampo s3"><label>Ano</label><input type="number" id="frAno" inputmode="numeric"></div>
+        <div class="fcampo s3"><label>Complemento</label><input type="text" id="frSufixo" placeholder="A, B, CT…"><span class="dica">Opcional, como em “002/2026 - B”.</span></div>
+        <div class="fcampo s3"><label>Recebida em</label><input type="date" id="frRecebido"></div>
+        <div class="fcampo s6"><label>Credor</label><input type="text" id="frCredor" list="dlCredores" autocomplete="off"></div>
+        <div class="fcampo s12"><label>Objeto</label><textarea id="frObjeto" rows="3"></textarea></div>
+        <div class="fcampo s4"><label>Valor (R$)</label><input type="text" id="frValor" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+        <div class="fcampo s4"><label>Modalidade</label><input type="text" id="frModalidade" list="dlModalidades" autocomplete="off" placeholder="PE 46/2022, DJ 678/2024…"></div>
+        <div class="fcampo s4"><label>Empenho</label><input type="text" id="frEmpenho" autocomplete="off" placeholder="26/2026"></div>
+        <div class="fcampo s4"><label>P/ contabilidade em</label><input type="date" id="frContab"></div>
+      </div>
+      <datalist id="dlCredores"></datalist>
+      <datalist id="dlModalidades"></datalist>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="fecharForm()">Cancelar</button>
+      <button class="btn-primary" onclick="salvarForm()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════ DADOS ══════════════
+   Protótipo: a lista vem de dados/requisicoes.json, gerado da planilha do
+   setor (requisicao/ferramentas/planilha-para-json.py). Ainda não há banco
+   nem contas — o que se altera aqui fica guardado NESTE navegador e vira
+   arquivo pelo "Exportar JSON". Ligar no Firebase, com o mesmo cadastro de
+   contas dos Contratos, é o passo seguinte; ver requisicao/LEIA-ME.md. */
+let REQS = [];
+let SECRETARIAS = [];
+
+function carregarDoArquivo(){
+  return fetch('dados/requisicoes.json', {cache:'no-cache'}).then(r => {
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  });
+}
+
+/* ══════════════ UTILIDADES ══════════════ */
+const HOJE = new Date(); HOJE.setHours(0,0,0,0);
+const fmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const fmtValorCampo = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
+function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function valCampo(id){ return document.getElementById(id).value.trim(); }
+function numCampo(id){ const s=valCampo(id); return s===''?null:Number(s); }
+let toastT=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'), 2600);
+}
+/* Valor em dinheiro do jeito que se escreve aqui: 1.234,56 e 1234,56 valem
+   o mesmo. Mesma regra do conversor da planilha e do sistema de contratos —
+   o último separador com uma ou duas casas depois é o decimal. */
+function lerValor(id){
+  const bruto = valCampo(id);
+  if(bruto==='') return null;
+  const limpo = bruto.replace(/[^\d,.-]/g,'');
+  if(limpo==='' || limpo==='-') return NaN;
+  const corte = Math.max(limpo.lastIndexOf(','), limpo.lastIndexOf('.'));
+  const casas = corte<0 ? -1 : limpo.length-corte-1;
+  const n = (casas===1||casas===2)
+    ? Number(limpo.slice(0,corte).replace(/[.,]/g,'') + '.' + limpo.slice(corte+1))
+    : Number(limpo.replace(/[.,]/g,''));
+  return isNaN(n) ? NaN : n;
+}
+function porValor(id, v){ document.getElementById(id).value = (v==null||isNaN(v)) ? '' : fmtValorCampo.format(v); }
+
+function rotuloReq(r){
+  if(r.num==null) return r.rotulo || '—';
+  return String(r.num).padStart(3,'0') + '/' + r.ano + (r.sufixo ? ' '+r.sufixo : '');
+}
+function prepararReq(r){
+  r.rotulo = rotuloReq(r);
+  delete r._txt;
+  return r;
+}
+function textoTudo(r){
+  if(r._txt===undefined){
+    r._txt = normalizar([r.rotulo, r.sec, r.credor, r.objeto, r.modalidade, r.empenho,
+      fmtD(r.recebido), fmtD(r.contabilidade), money(r.valor)].join(' '));
+  }
+  return r._txt;
+}
+function normalizar(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+
+/* ══════════════ ESTADO ══════════════ */
+let filtrados = [];
+let mostrando = 0;
+const LOTE = 100;
+const F = { busca:'', sort:'num-desc' };
+const ORDEM_PADRAO = 'num-desc';
+let SEC_ATUAL = '';          /* '' = todas; é também a secretaria de quem lança */
+let formId = null;
+let detAtual = null;
+
+const COLUNAS = ['num','receb','cred','obj','mod','emp','cont','valor'];
+const NOME_COL = {num:'Requisição', receb:'Recebida', cred:'Credor', obj:'Objeto',
+                  mod:'Modalidade', emp:'Empenho', cont:'P/ contabilidade', valor:'Valor'};
+const COL_FEMININA = ['num','mod'];
+const COLF = {};
+
+const FAIXAS_VALOR = [
+  ['Até R$ 1 mil',        v=>v!=null && v<1000],
+  ['R$ 1 mil a 10 mil',   v=>v!=null && v>=1000 && v<10000],
+  ['R$ 10 mil a 50 mil',  v=>v!=null && v>=10000 && v<50000],
+  ['R$ 50 mil a 200 mil', v=>v!=null && v>=50000 && v<200000],
+  ['Acima de R$ 200 mil', v=>v!=null && v>=200000]
+];
+function faixaValor(r){
+  if(r.valor==null) return ['(sem valor)'];
+  const f = FAIXAS_VALOR.find(([,teste])=>teste(r.valor));
+  return [f ? f[0] : '(sem valor)'];
+}
+function mesDe(iso){
+  if(!iso) return '(sem data)';
+  const [a,m] = iso.split('-');
+  return ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto',
+          'setembro','outubro','novembro','dezembro'][Number(m)-1] + ' de ' + a;
+}
+/* "Falta empenhar" não é invenção: é a coluna EMPENHO vazia na planilha,
+   que é justamente o que o setor procura quando abre a planilha. */
+function situacaoEmpenho(r){ return r.empenho ? 'Empenhada' : 'Falta empenhar'; }
+
+const FACETAS = {
+  num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'], desc:true} ],
+  receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], desc:true} ],
+  cred:  [ {k:'cred', t:'Credor', v:r=>[r.credor || '(sem credor)']} ],
+  obj:   [ {k:'obj', t:'Objeto', v:r=>[r.objeto || '(sem objeto)']} ],
+  mod:   [ {k:'mod', t:'Modalidade', v:r=>[r.modalidade || '(sem modalidade)']} ],
+  emp:   [ {k:'sit', t:'Situação', v:r=>[situacaoEmpenho(r)], ordemFixa:['Empenhada','Falta empenhar']} ],
+  cont:  [ {k:'mesC', t:'Mês na contabilidade', v:r=>[mesDe(r.contabilidade)], desc:true} ],
+  valor: [ {k:'faixa', t:'Faixa de valor', v:faixaValor,
+            ordemFixa:FAIXAS_VALOR.map(f=>f[0]).concat('(sem valor)')} ]
+};
+
+function initFiltros(){
+  COLUNAS.forEach(col=>{
+    COLF[col] = {txt:'', sel:{}};
+    (FACETAS[col]||[]).forEach(g=>{ COLF[col].sel[g.k] = new Set(); });
+  });
+}
+
+/* ══════════════ A FAIXA DAS SECRETARIAS ══════════════
+   É a primeira coisa da tela porque é a primeira decisão de quem usa: a
+   planilha tem uma aba por secretaria e a pessoa trabalha dentro da dela. */
+function renderFaixaSecretarias(){
+  const box = document.getElementById('secFaixa');
+  const conta = {};
+  REQS.forEach(r=>{ conta[r.sec] = (conta[r.sec]||0)+1; });
+  const botao = (sigla, rotulo, n) =>
+    '<button class="sec-btn'+(SEC_ATUAL===sigla?' on':'')+'" onclick="escolherSecretaria('+JSON.stringify(sigla).replace(/"/g,'&quot;')+')" title="'+esc(nomeSecretaria(sigla))+'">'
+    + esc(rotulo) + '<span class="sec-n">'+n+'</span></button>';
+  box.innerHTML = '<div class="sec-faixa-inner">'
+    + botao('', 'Todas', REQS.length)
+    + SECRETARIAS.map(s=>botao(s.sigla, s.sigla, conta[s.sigla]||0)).join('')
+    + '</div>';
+}
+function nomeSecretaria(sigla){
+  if(!sigla) return 'Todas as secretarias';
+  const s = SECRETARIAS.find(x=>x.sigla===sigla);
+  return s ? s.nome : sigla;
+}
+function escolherSecretaria(sigla){
+  SEC_ATUAL = sigla;
+  renderFaixaSecretarias();
+  aplicarFiltros();
+}
+
+/* ══════════════ FILTRAGEM ══════════════ */
+function passaBusca(r){
+  const q = normalizar(F.busca).split(/\s+/).filter(Boolean);
+  if(!q.length) return true;
+  const t = textoTudo(r);
+  return q.every(p=>t.includes(p));
+}
+function passaColuna(r, col){
+  const f = COLF[col];
+  if(f.txt){
+    const alvo = normalizar((FACETAS[col]||[]).map(g=>g.v(r).join(' ')).join(' '));
+    if(!alvo.includes(normalizar(f.txt))) return false;
+  }
+  return (FACETAS[col]||[]).every(g=>{
+    const sel = f.sel[g.k];
+    if(!sel || !sel.size) return true;
+    return g.v(r).some(x=>sel.has(x));
+  });
+}
+function aplicarFiltros(){
+  F.busca = document.getElementById('fBusca').value.trim();
+  F.sort = document.getElementById('fSort').value || F.sort;
+  filtrados = REQS.filter(r =>
+    (!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r) && COLUNAS.every(c=>passaColuna(r,c)));
+  ordenar();
+  mostrando = 0;
+  document.getElementById('corpo').innerHTML = '';
+  document.getElementById('vazio').innerHTML = '';
+  renderMais();
+  renderChips();
+  marcarBotoesColuna();
+  marcarSetas();
+  document.getElementById('buscaBox').classList.toggle('tem-texto', !!document.getElementById('fBusca').value);
+}
+function ordenar(){
+  const [campo, dir] = String(F.sort).split('-');
+  const s = dir==='desc' ? -1 : 1;
+  const chave = {
+    num:   r=>(r.ano||0)*10000 + (r.num||0),
+    receb: r=>r.recebido || '',
+    valor: r=>r.valor==null ? -1 : r.valor,
+    cred:  r=>normalizar(r.credor)
+  }[campo] || (r=>r.num||0);
+  filtrados.sort((a,b)=>{
+    const x=chave(a), y=chave(b);
+    if(x<y) return -1*s;
+    if(x>y) return 1*s;
+    return ((a.ano||0)*10000+(a.num||0)) - ((b.ano||0)*10000+(b.num||0));
+  });
+}
+function ordenarPor(campo){
+  const [atual, dir] = String(F.sort).split('-');
+  const nova = campo===atual ? campo+'-'+(dir==='asc'?'desc':'asc') : campo+'-'+(campo==='cred'?'asc':'desc');
+  const sel = document.getElementById('fSort');
+  if([...sel.options].some(o=>o.value===nova)){ sel.value = nova; F.sort = nova; }
+  else { F.sort = nova; sel.value=''; }
+  aplicarFiltros();
+}
+function marcarSetas(){
+  const [campo, dir] = String(F.sort).split('-');
+  document.querySelectorAll('.tab thead .seta').forEach(s=>s.textContent='');
+  const th = document.querySelector('.tab thead th.c-'+({num:'req',receb:'receb',cred:'cred',valor:'val'}[campo]||''));
+  if(th && th.querySelector('.seta')) th.querySelector('.seta').textContent = dir==='desc' ? '▼' : '▲';
+}
+function limparBusca(){ document.getElementById('fBusca').value=''; aplicarFiltros(); }
+function limparFiltros(){
+  document.getElementById('fBusca').value='';
+  initFiltros();
+  SEC_ATUAL = '';
+  F.sort = ORDEM_PADRAO;
+  document.getElementById('fSort').value = ORDEM_PADRAO;
+  renderFaixaSecretarias();
+  aplicarFiltros();
+  if(popCol) renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
+}
+function limparSoFiltros(){
+  initFiltros(); SEC_ATUAL='';
+  renderFaixaSecretarias(); aplicarFiltros();
+  if(popCol) renderPop();
+}
+
+/* ══════════════ CHIPS DO QUE ESTÁ FILTRADO ══════════════ */
+function renderChips(){
+  const p = [];
+  if(SEC_ATUAL) p.push(['<b>'+esc(SEC_ATUAL)+'</b>', "escolherSecretaria('')"]);
+  COLUNAS.forEach(col=>{
+    const f = COLF[col];
+    if(f.txt) p.push([esc(NOME_COL[col])+' com “'+esc(f.txt)+'”', "limparColuna('"+col+"')"]);
+    (FACETAS[col]||[]).forEach(g=>{
+      const sel = f.sel[g.k];
+      if(!sel || !sel.size) return;
+      const vals=[...sel];
+      p.push([esc(g.t)+': '+esc(vals.length<=2?vals.join(', '):vals.slice(0,2).join(', ')+' +'+(vals.length-2)),
+              "limparGrupo('"+col+"','"+g.k+"')"]);
+    });
+  });
+  document.getElementById('chipsAtivos').innerHTML =
+    p.map(([t,acao])=>'<span class="chip">'+t+' <span class="chip-x" onclick="'+acao+'">✕</span></span>').join('');
+}
+function limparColuna(col){
+  COLF[col] = {txt:'', sel:{}};
+  (FACETAS[col]||[]).forEach(g=>{ COLF[col].sel[g.k]=new Set(); });
+  aplicarFiltros(); if(popCol===col) renderPop();
+}
+function limparGrupo(col, k){ COLF[col].sel[k]=new Set(); aplicarFiltros(); if(popCol===col) renderPop(); }
+function limparColunaAtual(){ if(popCol) limparColuna(popCol); }
+
+/* ══════════════ MENU DE FILTRO DA COLUNA ══════════════ */
+let popCol = null;
+function abrirFiltroCol(ev, col){
+  ev.stopPropagation();
+  if(popCol===col){ fecharPop(); return; }
+  popCol = col;
+  const pop = document.getElementById('popFiltro');
+  document.getElementById('popTit').textContent = 'Filtrar por ' + NOME_COL[col].toLowerCase();
+  document.getElementById('popBusca').value = COLF[col].txt || '';
+  pop.classList.add('open');
+  const btn = ev.currentTarget || document.querySelector('.cf[data-col="'+col+'"]');
+  const r = btn.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
+  pop.style.top  = (r.bottom + window.scrollY + 6) + 'px';
+  renderPop();
+}
+function fecharPop(){ popCol=null; document.getElementById('popFiltro').classList.remove('open'); }
+document.addEventListener('click', e=>{
+  if(!popCol) return;
+  if(e.target.closest('#popFiltro') || e.target.closest('.cf')) return;
+  fecharPop();
+});
+/* As contagens contam com os filtros das OUTRAS colunas já aplicados: é o
+   que faz o menu dizer a verdade sobre o que cada opção vai trazer. */
+function baseParaColuna(col){
+  return REQS.filter(r => (!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r)
+    && COLUNAS.every(c => c===col || passaColuna(r,c)));
+}
+function renderPop(){
+  if(!popCol) return;
+  const col = popCol, busca = normalizar(document.getElementById('popBusca').value);
+  COLF[col].txt = document.getElementById('popBusca').value.trim();
+  const base = baseParaColuna(col);
+  let html = '';
+  (FACETAS[col]||[]).forEach(g=>{
+    const conta = {};
+    base.forEach(r=>g.v(r).forEach(v=>{ conta[v]=(conta[v]||0)+1; }));
+    let chaves = Object.keys(conta);
+    if(g.ordemFixa) chaves.sort((a,b)=>g.ordemFixa.indexOf(a)-g.ordemFixa.indexOf(b));
+    else if(g.desc) chaves.sort((a,b)=>b.localeCompare(a,'pt-BR'));
+    else chaves.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const vis = chaves.filter(k=>!busca || normalizar(k).includes(busca));
+    if(!vis.length) return;
+    const sel = COLF[col].sel[g.k];
+    html += '<div class="pop-grupo">'+esc(g.t)+'</div>';
+    html += '<label class="pop-op todos"><input type="checkbox" '+(sel.size?'':'checked')
+          + ' onclick="limparGrupo(\''+col+'\',\''+g.k+'\')"><span class="op-txt">Todos</span></label>';
+    vis.slice(0,400).forEach(k=>{
+      html += '<label class="pop-op"><input type="checkbox"'+(sel.has(k)?' checked':'')
+           + ' onclick="alternarOpcao(\''+col+'\',\''+g.k+'\',this.dataset.v)" data-v="'+esc(k).replace(/"/g,'&quot;')+'">'
+           + '<span class="op-txt">'+esc(k)+'</span><span class="op-n">'+conta[k]+'</span></label>';
+    });
+    if(vis.length>400) html += '<div class="pop-mais">+'+(vis.length-400)+' opções — use a busca acima</div>';
+  });
+  document.getElementById('popLista').innerHTML = html || '<div class="pop-vazio">Nada para filtrar aqui.</div>';
+}
+function alternarOpcao(col, k, valor){
+  const sel = COLF[col].sel[k];
+  sel.has(valor) ? sel.delete(valor) : sel.add(valor);
+  aplicarFiltros(); renderPop();
+}
+function resumoColuna(col){
+  const f = COLF[col], p = [];
+  if(f.txt) p.push('“'+f.txt+'”');
+  (FACETAS[col]||[]).forEach(g=>{
+    const sel = f.sel[g.k];
+    if(sel && sel.size) p.push(sel.size===1 ? [...sel][0] : sel.size+' opções');
+  });
+  return p.join(' · ');
+}
+function marcarBotoesColuna(){
+  COLUNAS.forEach(col=>{
+    const btn = document.querySelector('.cf[data-col="'+col+'"]');
+    if(!btn) return;
+    const r = resumoColuna(col);
+    btn.classList.toggle('ativo', !!r);
+    btn.querySelector('.cf-txt').textContent = r || (COL_FEMININA.includes(col)?'Todas':'Todos');
+  });
+}
+
+/* ══════════════ FILTROS NO CELULAR ══════════════ */
+function sheetAberta(){ return document.getElementById('ovFiltros').classList.contains('open'); }
+function abrirFiltrosMobile(){
+  document.getElementById('ovFiltros').classList.add('open');
+  const alvo = document.getElementById('fSortMobile');
+  alvo.innerHTML = document.getElementById('fSort').innerHTML;
+  alvo.value = document.getElementById('fSort').value;
+  renderFiltrosMobile();
+}
+function fecharFiltrosMobile(){ fecharPop(); document.getElementById('ovFiltros').classList.remove('open'); }
+function renderFiltrosMobile(){
+  document.getElementById('fmLista').innerHTML = COLUNAS.map(col=>{
+    const r = resumoColuna(col);
+    return '<button class="fm-linha" data-col="'+col+'" onclick="abrirFiltroCol(event,\''+col+'\')">'
+      + '<span class="fm-nome">'+esc(NOME_COL[col])+'</span>'
+      + '<span class="fm-val'+(r?' on':'')+'">'+esc(r || (COL_FEMININA.includes(col)?'Todas':'Todos'))+'</span></button>';
+  }).join('');
+}
+
+/* ══════════════ TABELA ══════════════ */
+function badgeEmpenho(r){
+  return r.empenho
+    ? '<span class="badge badge-ok">'+esc(r.empenho)+'</span>'
+    : '<span class="badge badge-falta">falta empenhar</span>';
+}
+function linhaHTML(r){
+  return '<tr onclick="abrirDet('+r.id+')">'
+    + '<td class="c-req"><span class="n-num">'+esc(r.rotulo)+'</span>'
+      + '<span class="n-sec">'+esc(r.sec)+'</span></td>'
+    + '<td class="c-receb">'+fmtD(r.recebido)+'</td>'
+    + '<td class="c-cred">'+esc(r.credor||'—')+'</td>'
+    + '<td class="c-obj">'+esc(r.objeto||'—')+'</td>'
+    + '<td class="c-mod">'+esc(r.modalidade||'—')+'</td>'
+    + '<td class="c-emp">'+badgeEmpenho(r)+'</td>'
+    + '<td class="c-cont">'+fmtD(r.contabilidade)+'</td>'
+    + '<td class="c-val">'+(r.valor==null?'—':fmtBRL.format(r.valor))+'</td>'
+    + '</tr>';
+}
+function renderMais(){
+  const corpo = document.getElementById('corpo');
+  if(!filtrados.length){
+    /* "Não encontrei" é resposta ruim quando o registro existe e só está
+       fora do recorte da tela. */
+    const soBusca = REQS.filter(passaBusca).length;
+    document.getElementById('vazio').innerHTML =
+      '<div class="empty"><span>🔍</span>Nenhuma requisição com esses filtros.<br>'
+      + (soBusca
+          ? soBusca + (soBusca>1?' requisições combinam':' requisição combina') + ' com a busca fora dos filtros atuais — '
+            + '<u style="cursor:pointer" onclick="limparSoFiltros()">ver assim mesmo</u>.'
+          : 'Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.')
+      + '</div>';
+    document.getElementById('loadWrap').style.display='none';
+    document.getElementById('resultCount').innerHTML='';
+    return;
+  }
+  const fatia = filtrados.slice(mostrando, mostrando+LOTE);
+  corpo.insertAdjacentHTML('beforeend', fatia.map(linhaHTML).join(''));
+  mostrando += fatia.length;
+  const faltam = filtrados.length - mostrando;
+  document.getElementById('loadWrap').style.display = faltam>0 ? '' : 'none';
+  document.getElementById('btnMais').textContent = 'Carregar mais ('+faltam+' restantes) ↓';
+  /* O total em reais do que está na tela: é a conta que quem cuida de
+     requisição faz na mão o tempo todo. */
+  const soma = filtrados.reduce((t,r)=>t+(r.valor||0), 0);
+  const semValor = filtrados.filter(r=>r.valor==null).length;
+  document.getElementById('resultCount').innerHTML =
+    'Exibindo <b>'+mostrando+'</b> de <b>'+filtrados.length+'</b> · total <b>'+money(soma)+'</b>'
+    + (semValor ? ' <span style="color:var(--muted)">('+semValor+' sem valor)</span>' : '');
+}
+
+/* ══════════════ FICHA ══════════════ */
+function abrirDet(id){
+  const r = REQS.find(x=>x.id===id); if(!r) return;
+  detAtual = r;
+  document.getElementById('detTitle').textContent = 'Requisição nº ' + r.rotulo;
+  const linha = (k,v)=> v ? '<div class="det-row"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>' : '';
+  document.getElementById('detBody').innerHTML =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<span class="badge badge-sec">'+esc(r.sec)+'</span> ' + badgeEmpenho(r) + '</div>'
+    + linha('Secretaria', esc(nomeSecretaria(r.sec)))
+    + linha('Credor', '<b>'+esc(r.credor)+'</b>')
+    + linha('Objeto', esc(r.objeto))
+    + '<hr class="det-hr">'
+    + linha('Valor', '<b style="font-size:16px">'+money(r.valor)+'</b>')
+    + linha('Modalidade', esc(r.modalidade))
+    + linha('Recebida em', fmtD(r.recebido))
+    + linha('Empenho', r.empenho ? esc(r.empenho) : '<i style="color:var(--muted)">ainda não empenhada</i>')
+    + linha('P/ contabilidade em', fmtD(r.contabilidade));
+  document.getElementById('ovDet').classList.add('open');
+}
+function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
+
+/* ══════════════ CADASTRO E EDIÇÃO ══════════════ */
+function proximoId(){ return REQS.reduce((m,r)=>Math.max(m, Number(r.id)||0), 0) + 1; }
+/* O próximo número é o da SECRETARIA escolhida, não o do cadastro inteiro:
+   cada uma numera a sua sequência, como cada aba da planilha fazia. */
+function proximoNumero(sec, ano){
+  const dela = REQS.filter(r=>r.sec===sec && r.ano===ano && r.num!=null);
+  return dela.length ? Math.max(...dela.map(r=>r.num)) + 1 : 1;
+}
+function popularSelectSecretarias(){
+  document.getElementById('frSec').innerHTML =
+    SECRETARIAS.map(s=>'<option value="'+esc(s.sigla)+'">'+esc(s.sigla)+' — '+esc(s.nome)+'</option>').join('');
+}
+function popularDatalists(){
+  const uni = (campo) => [...new Set(REQS.map(r=>r[campo]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  document.getElementById('dlCredores').innerHTML = uni('credor').map(v=>'<option value="'+esc(v)+'">').join('');
+  document.getElementById('dlModalidades').innerHTML = uni('modalidade').map(v=>'<option value="'+esc(v)+'">').join('');
+}
+function novaRequisicao(){ abrirForm(null); }
+function editarRequisicao(){ if(detAtual) abrirForm(detAtual.id); }
+function abrirForm(id){
+  formId = id;
+  const r = id!=null ? REQS.find(x=>x.id===id) : null;
+  const ano = r ? r.ano : new Date().getFullYear();
+  const sec = r ? r.sec : (SEC_ATUAL || (SECRETARIAS[0]||{}).sigla || '');
+  document.getElementById('formTitulo').textContent = r ? ('Editar requisição nº '+r.rotulo) : 'Nova requisição';
+  document.getElementById('frSec').value = sec;
+  document.getElementById('frAno').value = ano;
+  document.getElementById('frNum').value = r ? (r.num==null?'':r.num) : proximoNumero(sec, ano);
+  document.getElementById('frSufixo').value = r ? (r.sufixo||'') : '';
+  document.getElementById('frRecebido').value = r ? (r.recebido||'') : new Date().toISOString().slice(0,10);
+  document.getElementById('frCredor').value = r ? (r.credor||'') : '';
+  document.getElementById('frObjeto').value = r ? (r.objeto||'') : '';
+  porValor('frValor', r ? r.valor : null);
+  document.getElementById('frModalidade').value = r ? (r.modalidade||'') : '';
+  document.getElementById('frEmpenho').value = r ? (r.empenho||'') : '';
+  document.getElementById('frContab').value = r ? (r.contabilidade||'') : '';
+  document.getElementById('formAviso').innerHTML = avisoGravacao();
+  document.getElementById('ovForm').classList.add('open');
+  setTimeout(()=>document.getElementById(r?'frCredor':'frNum').focus(), 60);
+}
+function fecharForm(){ document.getElementById('ovForm').classList.remove('open'); formId=null; }
+/* Trocar de secretaria com o formulário aberto reoferece o número dela. */
+document.addEventListener('change', e=>{
+  if(e.target && e.target.id==='frSec' && formId===null){
+    document.getElementById('frNum').value =
+      proximoNumero(valCampo('frSec'), Number(valCampo('frAno')) || new Date().getFullYear());
+  }
+});
+function salvarForm(){
+  const num = numCampo('frNum'), ano = numCampo('frAno');
+  if(!num || !ano){ alert('Informe o número e o ano da requisição.'); return; }
+  if(!valCampo('frCredor')){ alert('Informe o credor.'); return; }
+  const valor = lerValor('frValor');
+  if(isNaN(valor)){ alert('Não entendi o valor “'+valCampo('frValor')+'”.\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
+  const sec = valCampo('frSec'), sufixo = valCampo('frSufixo');
+  const repetida = REQS.find(x=>x.sec===sec && x.num===num && x.ano===ano
+                    && (x.sufixo||'')===sufixo && x.id!==formId);
+  if(repetida && !confirm('A secretaria '+sec+' já tem a requisição nº '+repetida.rotulo
+      +' ('+(repetida.credor||'sem credor')+').\nCadastrar assim mesmo?')) return;
+  const base = formId!=null ? REQS.find(x=>x.id===formId) : {id: proximoId()};
+  const r = Object.assign({}, base, {
+    sec: sec, num: num, ano: ano, sufixo: sufixo,
+    recebido: valCampo('frRecebido') || null,
+    credor: valCampo('frCredor').toUpperCase(),
+    objeto: valCampo('frObjeto'),
+    valor: valor,
+    modalidade: valCampo('frModalidade').toUpperCase(),
+    empenho: valCampo('frEmpenho'),
+    contabilidade: valCampo('frContab') || null
+  });
+  prepararReq(r);
+  if(!salvarRequisicao(r)) return;
+  const i = REQS.findIndex(x=>x.id===r.id);
+  if(i>=0) REQS[i]=r; else REQS.push(r);
+  fecharForm();
+  renderFaixaSecretarias(); popularDatalists(); avisoRascunho(); aplicarFiltros();
+  if(document.getElementById('ovDet').classList.contains('open')) abrirDet(r.id);
+  toast(formId==null ? 'Requisição cadastrada.' : 'Requisição atualizada.');
+}
+
+/* ══════════════ RASCUNHO DO NAVEGADOR (protótipo) ══════════════
+   Ainda não há banco: o que se altera fica guardado NESTE navegador e é
+   aplicado por cima da lista ao abrir — sempre com aviso na tela, porque
+   rascunho de navegador não é cadastro. Vira arquivo pelo "Exportar JSON". */
+const CHAVE_RASCUNHO = 'requisicoes_ijui_rascunho';
+let RASCUNHO = {};
+function lerRascunho(){
+  try{ const j = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || '{}');
+       return (j && typeof j==='object') ? j : {}; }catch(e){ return {}; }
+}
+function salvarRequisicao(r){
+  RASCUNHO[r.id] = Object.assign({}, r);
+  delete RASCUNHO[r.id]._txt;
+  try{ localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(RASCUNHO)); return true; }
+  catch(e){ alert('O navegador não deixou guardar (espaço cheio ou aba anônima).'); return false; }
+}
+function contarRascunho(){ return Object.keys(RASCUNHO).length; }
+function aplicarRascunho(lista){
+  RASCUNHO = lerRascunho();
+  if(!contarRascunho()) return lista;
+  const porId = new Map(lista.map(r=>[r.id, r]));
+  Object.keys(RASCUNHO).forEach(k=>{ const r=RASCUNHO[k]; porId.set(r.id, r); });
+  return [...porId.values()];
+}
+function avisoGravacao(){
+  return '<div class="aviso aviso-amarelo">Protótipo: o que você salvar fica '
+       + '<b>só neste navegador</b> até o sistema ganhar banco de dados.</div>';
+}
+function avisoRascunho(){
+  const box = document.getElementById('avisoRascunho');
+  const n = contarRascunho();
+  if(!n){ box.innerHTML=''; return; }
+  box.innerHTML = '<div class="aviso aviso-amarelo"><b>'+n
+    + (n>1?' requisições alteradas':' requisição alterada')+' só neste navegador.</b> '
+    + 'Enquanto o banco de dados não estiver ligado, a alteração não chega a mais ninguém: '
+    + 'exporte e substitua <b>dados/requisicoes.json</b>.'
+    + '<button class="acao" onclick="exportarJSON()">Exportar JSON</button>'
+    + '<button class="acao" onclick="descartarRascunho()">Descartar</button></div>';
+}
+function descartarRascunho(){
+  if(!confirm('Descartar as alterações guardadas neste navegador?')) return;
+  localStorage.removeItem(CHAVE_RASCUNHO); RASCUNHO={};
+  carregarTudo().then(()=>toast('Rascunho descartado.'));
+}
+function exportarJSON(){
+  const saida = {
+    secretarias: SECRETARIAS,
+    requisicoes: REQS.map(r=>{
+      const o={}; Object.keys(r).sort().forEach(k=>{ if(k[0]!=='_') o[k]=r[k]; }); return o;
+    })
+  };
+  const txt = '{\n  "secretarias": [\n'
+    + SECRETARIAS.map(s=>'    '+JSON.stringify(s)).join(',\n')
+    + '\n  ],\n  "requisicoes": [\n'
+    + saida.requisicoes.map(r=>'    '+JSON.stringify(r)).join(',\n')
+    + '\n  ]\n}\n';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type:'application/json'}));
+  a.download = 'requisicoes.json'; a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Arquivo gerado. Substitua dados/requisicoes.json no repositório.');
+}
+
+/* ══════════════ PDF ══════════════
+   Mesmo papel dos Contratos e dos Pedidos de Diligência: logo do município
+   no alto, título, e o rodapé com identificação e paginação. Texto preto —
+   o relatório é impresso e anexado. */
+const CAMINHO_LOGO_PDF = '../logo-ijui-largo.jpg';
+let _logoPdf = null;
+function carregarLogoPdf(){
+  if(_logoPdf) return Promise.resolve(_logoPdf);
+  return fetch(CAMINHO_LOGO_PDF).then(r=>r.blob()).then(b=>new Promise(ok=>{
+    const fr=new FileReader();
+    fr.onload=()=>{ _logoPdf=fr.result; ok(_logoPdf); };
+    fr.onerror=()=>ok(null);
+    fr.readAsDataURL(b);
+  })).catch(()=>null);
+}
+/* As fontes de fábrica do jsPDF desenham o alfabeto ocidental e nada além.
+   Um caractere fora disso não sai errado só ele: a LINHA INTEIRA sai com as
+   letras esparramadas. Mesma limpeza do sistema de contratos. */
+const PDF_TROCAS = [
+  [/[→⇒➡➔➜⟶]/g, '->'],
+  [/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '->'],
+  [/[•●▪]/g, '-'],
+  [/[‐‑‒]/g, '-'],
+  [/ /g, ' ']
+];
+function pdfTexto(v){
+  let t = String(v==null?'':v);
+  PDF_TROCAS.forEach(([de,para])=>{ t = t.replace(de,para); });
+  return t.replace(/[^ -ÿ–—‘’“”…€]/g, '');
+}
+const PW=297, PH=210, ML=12, MR=12, MT=39, MB=16, CW=PW-ML-MR;
+const PDF_FS=8.4, PDF_LH=3.55;
+const COLS = [
+  {t:'Requisição', w:22, f:r=>r.rotulo},
+  {t:'Secretaria', w:20, f:r=>r.sec},
+  {t:'Recebida',   w:19, f:r=>fmtD(r.recebido)},
+  {t:'Credor',     w:44, f:r=>r.credor||'—'},
+  {t:'Objeto',     w:75, f:r=>r.objeto||'—'},
+  {t:'Modalidade', w:26, f:r=>r.modalidade||'—'},
+  {t:'Empenho',    w:24, f:r=>r.empenho||'—'},
+  {t:'P/ contab.', w:19, f:r=>fmtD(r.contabilidade)},
+  {t:'Valor (R$)', w:24, f:r=>r.valor==null?'—':fmtBRL.format(r.valor).replace('R$','').trim(), right:true}
+];
+function pdfBase(){
+  if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando. Aguarde e tente novamente.'); return null; }
+  return new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+}
+function pdfLogo(doc, largura, y){
+  if(!_logoPdf) return;
+  try{ doc.addImage(_logoPdf,'JPEG',(PW-largura)/2,y,largura,largura/3.087); }catch(e){}
+}
+function pdfHeader(doc, titulo, sub){
+  pdfLogo(doc, 46, 7);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(18,41,77);
+  doc.text(pdfTexto(titulo), PW/2, 27.5, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,102,133);
+  if(sub) doc.text(doc.splitTextToSize(pdfTexto(sub), CW-20).slice(0,2), PW/2, 32.5, {align:'center'});
+  doc.setDrawColor(232,160,32); doc.setLineWidth(.9); doc.line(ML, MT-3.5, PW-MR, MT-3.5);
+}
+function pdfFooter(doc){
+  const n = doc.getNumberOfPages();
+  const emitido = 'Emitido em ' + new Date().toLocaleString('pt-BR');
+  for(let i=1;i<=n;i++){
+    doc.setPage(i);
+    doc.setDrawColor(200,208,225); doc.setLineWidth(.2); doc.line(ML,PH-11,PW-MR,PH-11);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,130,155);
+    doc.text('Município de Ijuí · Capital Mundial das Etnias · Requisições', ML, PH-6.5);
+    doc.text(emitido, PW/2, PH-6.5, {align:'center'});
+    doc.text('Página '+i+' de '+n, PW-MR, PH-6.5, {align:'right'});
+  }
+}
+function pdfTableHeader(doc, y){
+  doc.setFillColor(26,58,107); doc.rect(ML,y,CW,7.4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(255,255,255);
+  let x=ML+2;
+  COLS.forEach(c=>{ doc.text(c.t, c.right? x+c.w-4 : x, y+5, c.right?{align:'right'}:undefined); x+=c.w; });
+  return y+7.4;
+}
+function pdfDoFiltro(){
+  if(!filtrados.length){ alert('Nenhuma requisição no filtro atual.'); return; }
+  return carregarLogoPdf().then(pdfDoFiltroAgora);
+}
+function pdfDoFiltroAgora(){
+  const doc = pdfBase(); if(!doc) return;
+  const titulo = SEC_ATUAL ? ('Requisições — '+nomeSecretaria(SEC_ATUAL)) : 'Requisições — todas as secretarias';
+  const soma = filtrados.reduce((t,r)=>t+(r.valor||0),0);
+  const sub = filtrados.length + ' requisição(ões) · total ' + money(soma)
+            + (F.busca ? ' · busca “'+F.busca+'”' : '');
+  pdfHeader(doc, titulo, sub);
+  let y = pdfTableHeader(doc, MT-4);
+  doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
+  let zebra=false;
+  filtrados.forEach(r=>{
+    const cel = COLS.map(c=>doc.splitTextToSize(pdfTexto(c.f(r)), c.w-4.5));
+    const h = Math.max(...cel.map(l=>l.length))*PDF_LH + 3;
+    if(y+h > PH-MB){
+      doc.addPage(); pdfHeader(doc, titulo, sub); y = pdfTableHeader(doc, MT-4);
+      doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
+    }
+    if(zebra){ doc.setFillColor(238,242,250); doc.rect(ML,y,CW,h,'F'); }
+    zebra=!zebra;
+    let x=ML+2;
+    COLS.forEach((c,i)=>{
+      /* Falta de empenho é o que se procura numa lista dessas: fica em
+         vermelho, e é a única coisa colorida da página. */
+      doc.setTextColor(i===6 && !r.empenho ? 192 : 0, i===6 && !r.empenho ? 40 : 0, i===6 && !r.empenho ? 42 : 0);
+      cel[i].forEach((ln,li)=> doc.text(ln, c.right? x+c.w-4 : x, y+3.7+li*PDF_LH, c.right?{align:'right'}:undefined));
+      x+=c.w;
+    });
+    doc.setTextColor(0,0,0);
+    y+=h;
+  });
+  if(y+9 > PH-MB){ doc.addPage(); pdfHeader(doc, titulo, sub); y=MT-4; }
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(26,58,107);
+  doc.text('Total: '+money(soma)+'  ('+filtrados.length+' requisições)', PW-MR-2, y+6, {align:'right'});
+  pdfFooter(doc);
+  const nome = 'requisicoes_' + (SEC_ATUAL ? SEC_ATUAL.replace(/[^A-Za-z0-9]+/g,'-') : 'todas')
+             + '_' + new Date().toISOString().slice(0,10) + '.pdf';
+  doc.save(nome);
+}
+function pdfRequisicaoAtual(){ return carregarLogoPdf().then(pdfRequisicaoAgora); }
+function pdfRequisicaoAgora(){
+  const r = detAtual; if(!r) return;
+  if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando.'); return; }
+  const doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, H=297, L=18, R=18, CWp=W-L-R, PE=H-20;
+  if(_logoPdf){ try{ doc.addImage(_logoPdf,'JPEG',(W-46)/2,12,46,46/3.087); }catch(e){} }
+  let y = 12 + 46/3.087 + 9;
+  doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(18,41,77);
+  doc.text('Requisição nº '+r.rotulo, W/2, y, {align:'center'}); y+=6.5;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(90,102,133);
+  doc.text(pdfTexto(nomeSecretaria(r.sec)), W/2, y, {align:'center'}); y+=6;
+  doc.setDrawColor(232,160,32); doc.setLineWidth(.9); doc.line(L,y,W-R,y); y+=9;
+  const item = (k,v)=>{
+    if(!v) return;
+    const linhas = doc.splitTextToSize(pdfTexto(v), CWp);
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(107,119,147);
+    doc.text(k.toUpperCase(), L, y); y+=4.8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(0,0,0);
+    linhas.forEach(ln=>{ if(y>PE){ doc.addPage(); y=26; } doc.text(ln,L,y); y+=5.2; });
+    y+=3.4;
+  };
+  item('Credor', r.credor);
+  item('Objeto', r.objeto);
+  item('Valor', money(r.valor));
+  item('Modalidade', r.modalidade);
+  item('Recebida em', fmtD(r.recebido));
+  item('Empenho', r.empenho || 'ainda não empenhada');
+  item('P/ contabilidade em', fmtD(r.contabilidade));
+  const total = doc.getNumberOfPages();
+  const emitido = 'Emitido em ' + new Date().toLocaleString('pt-BR');
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    doc.setDrawColor(200,208,225); doc.setLineWidth(.2); doc.line(L,H-15,W-R,H-15);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,130,155);
+    doc.text('Município de Ijuí · Requisições', L, H-10.5);
+    doc.text(emitido, W/2, H-10.5, {align:'center'});
+    doc.text('Página '+i+' de '+total, W-R, H-10.5, {align:'right'});
+  }
+  doc.save('requisicao_'+r.rotulo.replace(/[^\w]+/g,'-')+'_'+r.sec.replace(/[^\w]+/g,'-')+'.pdf');
+}
+
+/* ══════════════ INICIALIZAÇÃO ══════════════ */
+document.addEventListener('keydown', e=>{
+  if(e.key!=='Escape') return;
+  if(popCol){ fecharPop(); return; }
+  const ovForm = document.getElementById('ovForm');
+  if(ovForm.classList.contains('open')){ fecharForm(); return; }
+  fecharDet(); fecharFiltrosMobile();
+});
+function marcarTotal(){
+  const chip = document.querySelector('.proto-chip');
+  if(chip) chip.textContent = REQS.length + ' REQUISIÇÕES · PROTÓTIPO';
+}
+function carregarTudo(){
+  return carregarDoArquivo().then(d=>{
+    SECRETARIAS = d.secretarias || [];
+    REQS = aplicarRascunho((d.requisicoes||[]).map(prepararReq));
+    REQS.forEach(prepararReq);
+    initFiltros();
+    marcarTotal();
+    renderFaixaSecretarias();
+    popularSelectSecretarias();
+    popularDatalists();
+    avisoRascunho();
+    aplicarFiltros();
+    carregarLogoPdf();
+  }).catch(e=>{
+    document.getElementById('vazio').innerHTML =
+      '<div class="empty"><span>⚠️</span>Não foi possível carregar as requisições.<br>'+esc(e.message)+'</div>';
+  });
+}
+carregarTudo();
+
+</script>
+</body>
+</html>
