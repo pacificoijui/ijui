@@ -24,6 +24,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- jsPDF: a mesma ficha em PDF do sistema de contratos, gerada aqui -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <style>
   :root {
     --navy:      #1a3a6b;
@@ -656,6 +658,7 @@
     <div class="modal-body" id="detBody"></div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
+      <button class="btn-primary" onclick="pdfContratoAtual()">🖨️ Ficha em PDF</button>
       <a class="btn-primary" id="detAbrirNoSistema" href="../" style="text-decoration:none;display:inline-flex;align-items:center">Abrir no sistema de contratos</a>
     </div>
   </div>
@@ -1228,6 +1231,59 @@ function abrirDet(id){
     aditivosHTML(c);
   document.getElementById('ovDet').classList.add('open');
 }
+/* A ficha em PDF é a MESMA do sistema de contratos, copiada sem mudança:
+   é o papel que sai da ficha, e duas versões dele acabariam divergindo.
+   Depende só de money/fmtD/isAtivo/somaAditivos, que já estão aqui. */
+function pdfContratoAtual(){
+  const c = detAtual; if(!c) return;
+  if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando. Aguarde e tente novamente.'); return; }
+  const doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210, L=15, CWp=W-30;
+  doc.setFillColor(18,41,77); doc.rect(0,0,W,22,'F');
+  doc.setFillColor(232,160,32); doc.rect(0,22,W,1.2,'F');
+  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(13);
+  doc.text('PREFEITURA MUNICIPAL DE IJUÍ — GESTÃO DE CONTRATOS', L, 10);
+  doc.setFontSize(11); doc.setTextColor(246,185,59);
+  doc.text(`FICHA DO CONTRATO Nº ${c.contr}/${c.ano}`, L, 17.5);
+  let y = 33;
+  const item = (k,v)=>{
+    if(!v) return;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(107,119,147);
+    doc.text(k.toUpperCase(), L, y); y+=4.5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(28,36,51);
+    const lines = doc.splitTextToSize(String(v), CWp);
+    lines.forEach(ln=>{ if(y>282){doc.addPage(); y=20;} doc.text(ln, L, y); y+=5; });
+    y+=3;
+  };
+  item('Situação', c.situacao + (isAtivo(c)&&c._d!==null ? (c._d<0?` (vencido há ${-c._d} dias)`:` (faltam ${c._d} dias)`):''));
+  item('Empresa', c.empresa);
+  item('Secretaria(s)', c.secretarias.join(', '));
+  item('Modalidade', c.modalidade);
+  item('Tipo de contrato', c.tipo);
+  item('Objeto', c.objeto);
+  const aditsPdf = Array.isArray(c.aditivos) ? c.aditivos : [];
+  item('Valor total', money(c.valor) + (aditsPdf.length ? '  (contrato '+money(c.valorBase)+' + aditivos '+money(somaAditivos(c))+')' : ''));
+  item('Vencimento', fmtD(c.vencimento) + (aditsPdf.some(a=>a.vencNovo) ? '  (original '+fmtD(c.vencimentoBase)+', alterado por aditivo)' : ''));
+  item('Fiscal administrativo', c.fiscalAdm.join(', '));
+  item('Fiscal técnico', c.fiscalTec.join(', '));
+  item('Palavra-chave', c.palavra);
+  item('Observações', c.obs);
+  if(aditsPdf.length){
+    item('Aditivos', aditsPdf.map((a,i) => {
+      const p = ['Aditivo '+(a.n ? 'nº '+a.n : (i+1))];
+      if(a.tipo) p.push(a.tipo.toLowerCase());
+      if(a.data) p.push('assinado em '+fmtD(a.data));
+      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
+      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'supressão')+' de '+money(Math.abs(Number(a.valor))));
+      return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
+    }).join('\n'));
+  }
+  doc.setDrawColor(200,208,225); doc.line(L,287,W-15,287);
+  doc.setFontSize(7.5); doc.setTextColor(120,130,155);
+  doc.text('Emitido em ' + new Date().toLocaleString('pt-BR') + ' · Sistema de Gestão de Contratos (protótipo)', L, 292);
+  doc.save(`contrato_${c.contr}-${c.ano}.pdf`);
+}
+
 function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); detAtual = null; }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') fecharDet(); });
 

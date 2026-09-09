@@ -130,8 +130,9 @@ coleção `contratos_historico`, campo `expiraEm`. É opcional.
 
 O calendário dos vencimentos, aberto pelo botão **📅 Agenda**. Cada dia
 mostra os contratos que vencem ali, só pelo número — "Contrato 74/2022" —,
-e clicar abre a ficha. O botão do rodapé da ficha leva ao mesmo contrato no
-sistema, onde dá para editar, lançar aditivo e gerar PDF.
+e clicar abre a ficha. Do rodapé dela saem a **ficha em PDF** (a mesma do
+sistema) e o caminho para o mesmo contrato no sistema, onde dá para editar
+e lançar aditivo.
 
 Feriados, pontos facultativos e aniversários dos servidores são **os mesmos
 da Agenda de Licitações**, lidos das mesmas coleções. Aqui é só leitura:

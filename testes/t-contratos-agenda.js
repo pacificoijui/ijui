@@ -14,6 +14,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
 (async()=>{
   const stub=fs.readFileSync('fbstub3.js','utf8');
+  const jspdf=fs.readFileSync('node_modules/jspdf/dist/jspdf.umd.min.js','utf8');
   const html=fs.readFileSync('../contratos/agenda/index.html','utf8');
 
   console.log('1) A página é de leitura — não cadastra nada');
@@ -62,6 +63,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }
   async function abrir(pg, nivel, logado){
     await pg.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+    await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:jspdf}));
     await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
     await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seed(nivel));
     if(logado!==false) await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; },
@@ -176,6 +178,13 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     /V\. J CENTRO TERAPEUTICO/.test(ficha.corpo) && /Serli/.test(ficha.corpo)
     && /1\.000,00/.test(ficha.corpo), ficha.corpo.slice(0,160));
   t('o botão leva ao mesmo contrato no sistema', ficha.link==='../?contrato=1', ficha.link);
+  /* A ficha em PDF é a mesma do sistema: quem está na agenda não precisa
+     atravessar para o outro lado só para imprimir um contrato. */
+  const antesPdf=errs.length;
+  await pg.evaluate(()=>pdfContratoAtual());
+  await pg.waitForTimeout(600);
+  t('a ficha em PDF sai daqui mesmo, sem erro', errs.length===antesPdf, errs.slice(antesPdf));
+  t('e o botão está no rodapé da ficha', /Ficha em PDF/.test(html));
 
   console.log('\n8) O portão é o mesmo do sistema de contratos');
   const pgSem=await b.newPage({viewport:{width:1280,height:900}});
