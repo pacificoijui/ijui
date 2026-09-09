@@ -648,10 +648,45 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const semAcesso=await pgSem.evaluate(()=>({
     portaoAberto: document.getElementById('authGate').style.display==='flex',
     esperando: document.getElementById('authPendenteCard').style.display==='block',
-    semDados: (window.CONTRATOS||[]).length===0
+    semDados: CONTRATOS.length===0
   }));
   t('quem não tem o painel liberado fica na tela de espera', semAcesso.portaoAberto && semAcesso.esperando, semAcesso);
   t('e nem chega a receber a lista de contratos', semAcesso.semDados, semAcesso);
+
+  console.log('\n10) A estreia: banco vazio, o administrador importa pela tela');
+  const pgVazio=await b.newPage({viewport:{width:1280,height:900}});
+  await pgVazio.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+  await pgVazio.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pgVazio.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pgVazio.addInitScript((sd)=>{ window.__SEED=sd; }, {
+    contratos:{},
+    usuarios_v2:{'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado',
+                            isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'},
+                            provedor:'google.com'}}
+  });
+  await pgVazio.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pgVazio.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgVazio.waitForTimeout(900);
+  const vazio=await pgVazio.evaluate(()=>({
+    texto: document.getElementById('vazio').textContent,
+    temBotao: !!document.querySelector('#vazio button')
+  }));
+  t('com o banco vazio, o administrador vê o convite para importar',
+    /banco de contratos ainda está vazio/.test(vazio.texto) && vazio.temBotao, vazio.texto.slice(0,80));
+
+  /* confirm() automático: o navegador de teste não tem quem clique em OK */
+  await pgVazio.evaluate(()=>{ window.confirm=()=>true; });
+  await pgVazio.click('#vazio button');
+  /* Assim que os contratos entram, o próprio listener monta a tela — e a
+     mensagem de progresso vai junto com o aviso de banco vazio. */
+  await pgVazio.waitForFunction(()=>typeof CONTRATOS!=='undefined' && CONTRATOS.length>0, null, {timeout:30000});
+  const importou=await pgVazio.evaluate(()=>({
+    noBanco: Object.keys(window.__STORE.contratos).length,
+    naTela: CONTRATOS.length,
+    linhas: document.querySelectorAll('.tab tbody tr').length
+  }));
+  t('os 1.264 contratos entram no banco', importou.noBanco===1264, importou);
+  t('e a tela se monta sozinha com eles', importou.naTela===1264 && importou.linhas>0, importou);
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

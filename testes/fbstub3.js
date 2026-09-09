@@ -145,9 +145,26 @@
     }
   };
 
+  /* Lote de escritas (db.batch()). O Firestore real manda tudo de uma vez e
+     desfaz se alguma falhar; aqui basta aplicar em ordem — os testes usam
+     isso para a importação inicial dos contratos e para as operações de
+     status do pregoeiro. */
+  function batch(){
+    var ops=[];
+    var api={
+      set:function(ref,data,opts){ ops.push(function(){ return ref.set(data,opts); }); return api; },
+      update:function(ref,data){   ops.push(function(){ return ref.update(data); });   return api; },
+      delete:function(ref){        ops.push(function(){ return ref.delete(); });       return api; },
+      commit:function(){
+        return ops.reduce(function(p,f){ return p.then(f); }, Promise.resolve()).then(function(){});
+      }
+    };
+    return api;
+  }
+
   window.firebase={
     initializeApp:function(){},
-    firestore:function(){ return {collection:collection}; },
+    firestore:function(){ return {collection:collection, batch:batch}; },
     auth:function(){ return authApi; }
   };
   window.firebase.auth.GoogleAuthProvider=function(){};
