@@ -185,8 +185,15 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const bNada=await buscar('bicicleta ergométrica');
   t('termo sem resultado não quebra a tela', bNada.n===0, bNada.n);
 
-  const todos=await pg.evaluate(()=>{ limparFiltros(); return {n:filtrados.length, busca:document.getElementById('fBusca').value}; });
-  t('limpar os filtros zera a busca e volta ao padrão de abertura', todos.n===N_PADRAO && todos.busca==='', {todos, N_PADRAO});
+  /* Limpar é limpar: o botão dizia "Limpar filtros" e reaplicava os dois
+     filtros de abertura, então quem clicava via os mesmos chips no lugar e
+     achava que o botão não fazia nada. O recorte de abertura continua
+     valendo — mas só na abertura. */
+  const todos=await pg.evaluate(()=>{ limparFiltros(); return {n:filtrados.length,
+    busca:document.getElementById('fBusca').value,
+    chips:document.getElementById('chipsAtivos').textContent.trim()}; });
+  t('limpar os filtros zera a busca e mostra o cadastro inteiro',
+    todos.n===N && todos.busca==='' && todos.chips==='', {todos, N});
 
   console.log('\n3b) Menu da coluna: as opções para marcar, como numa planilha');
   const abrir = col => pg.evaluate(c=>{
@@ -200,6 +207,10 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     };
   }, col);
 
+  /* Os testes daqui pra frente contam sobre a tela em recorte de abertura,
+     que é onde as contagens do menu fazem sentido — a busca acima acabou de
+     limpar tudo. */
+  await pg.evaluate(()=>{ initFiltros(true); aplicarFiltros(); });
   const mTipo=await abrir('tipo');
   t('o menu da coluna abre com as opções dela', mTipo.aberto && mTipo.opcoes.length>3, mTipo);
   t('as opções são os tipos que existem', mTipo.opcoes.includes('OBRA') && mTipo.opcoes.includes('SERVIÇO'), mTipo.opcoes);
@@ -352,11 +363,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     return {acesos:[...document.querySelectorAll('.cf')].filter(b=>b.classList.contains('ativo')).map(b=>b.dataset.col),
             n:filtrados.length, chips:document.getElementById('chipsAtivos').textContent.trim()};
   });
-  t('limpar filtros apaga os outros menus de coluna, mantendo só o padrão de abertura',
-    limpou.acesos.join('|')==='sit|venc', limpou);
-  t('e volta ao padrão de abertura (ativo, vencendo em 30 dias)', limpou.n===N_PADRAO, {limpou, N_PADRAO});
-  t('os chips que sobram são os do padrão (Situação e Prazo)',
-    /Situação/.test(limpou.chips) && /Prazo/.test(limpou.chips), limpou.chips);
+  t('limpar filtros apaga TODOS os menus de coluna, sem sobrar nenhum aceso',
+    limpou.acesos.length===0, limpou);
+  t('e a lista passa a mostrar o cadastro inteiro', limpou.n===N, {limpou, N});
+  t('sem sobrar chip nenhum na tela', limpou.chips==='', limpou.chips);
+  await pg.evaluate(()=>{ initFiltros(true); aplicarFiltros(); });
 
   console.log('\n3c) Ordenação pelo cabeçalho e pelo menu');
   const clique = campo => pg.evaluate(c=>{
@@ -899,7 +910,90 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('sem repetir o que já estava na tela', pagina2.repetidas===0, pagina2);
   t('e o botão some quando acabou', !pagina2.temBotaoMais, pagina2);
 
-  console.log('\n16) O gerenciador de senhas não tem onde despejar a senha');
+  console.log('\n16) Valor em dinheiro do jeito que se escreve aqui');
+  /* Os campos eram <input type="number">, que só aceita ponto decimal:
+     quem digitava "1.234,56" — como está na planilha do setor — via o
+     campo recusar em silêncio e o contrato ser salvo SEM VALOR. */
+  await pg.evaluate(()=>{ fecharDet(); fecharHist(); fecharForm(); });
+  const formatos=[['1234.56',1234.56], ['1234,56',1234.56], ['1.234,56',1234.56],
+                  ['1,234.56',1234.56], ['1.234',1234], ['R$ 76.800,00',76800],
+                  ['-50,25',-50.25], ['',null]];
+  const lidos=await pg.evaluate((fs)=>fs.map(([txt])=>{
+    document.getElementById('fcValor').value=txt;
+    const v=lerValor('fcValor');
+    return (typeof v==='number' && isNaN(v)) ? 'NaN' : v;
+  }), formatos);
+  formatos.forEach(([txt, esperado], i)=>{
+    t('valor "'+txt+'" vira '+esperado, lidos[i]===esperado, {txt, esperado, veio:lidos[i]});
+  });
+  t('e texto sem número nenhum é recusado, não salvo como vazio',
+    await pg.evaluate(()=>{ document.getElementById('fcValor').value='abc';
+      const v=lerValor('fcValor'); return typeof v==='number' && isNaN(v); }));
+
+  /* de ponta a ponta: cadastrar digitando à brasileira */
+  const gravou=await pg.evaluate(async ()=>{
+    novoContrato();
+    document.getElementById('fcContr').value='9998';
+    document.getElementById('fcAno').value='2026';
+    document.getElementById('fcEmpresa').value='TESTE DO VALOR';
+    document.getElementById('fcVencimento').value='2027-01-01';
+    document.getElementById('fcValor').value='1.234,56';
+    await salvarForm();
+    await new Promise(r=>setTimeout(r,350));
+    const c=CONTRATOS.find(x=>x.contr===9998&&x.ano===2026);
+    return {valor:c&&c.valor, noBanco:c&&window.__STORE.contratos[String(c.id)].valor};
+  });
+  t('cadastrar com "1.234,56" salva 1234,56 mesmo', gravou.valor===1234.56, gravou);
+  t('e é isso que vai para o banco', gravou.noBanco===1234.56, gravou);
+  const reabre=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===9998&&x.ano===2026);
+    abrirForm(c.id); const v=document.getElementById('fcValor').value; fecharForm(); return v;
+  });
+  t('e ao reabrir o formulário o valor aparece formatado', reabre==='1.234,56', reabre);
+
+  console.log('\n17) "Limpar filtros" limpa mesmo');
+  /* Limpava reaplicando os filtros de abertura: os dois chips continuavam
+     na tela e quem clicou concluía que o botão não fazia nada — e quem
+     procurava um contrato fora do recorte não achava nem depois de limpar. */
+  await pg.evaluate(()=>{ fecharDet(); fecharHist(); });
+  await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; limparFiltros(); });
+  await pg.waitForTimeout(200);
+  const limpo=await pg.evaluate(()=>({
+    chips: document.getElementById('chipsAtivos').textContent.trim(),
+    linhas: filtrados.length,
+    total: CONTRATOS.length
+  }));
+  t('depois de limpar não sobra nenhum chip de filtro', limpo.chips==='', limpo);
+  t('e a lista passa a mostrar o cadastro inteiro', limpo.linhas===limpo.total, limpo);
+
+  /* a tela ABRE no recorte de sempre — limpar é outra coisa */
+  const pgAbre=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgAbre, 'editar');
+  const abertura=await pgAbre.evaluate(()=>document.getElementById('chipsAtivos').textContent);
+  t('mas a tela continua abrindo no que precisa de atenção',
+    /ATIVO/.test(abertura) && /30 dias/.test(abertura), abertura.trim());
+
+  /* buscar algo que existe fora do recorte não pode responder "não achei" e parar */
+  const fora=await pgAbre.evaluate(()=>{
+    const alvo=CONTRATOS.find(c=>!filtrados.includes(c) && c.empresa && c.empresa.length>8);
+    document.getElementById('fBusca').removeAttribute('readonly');
+    document.getElementById('fBusca').value=alvo.empresa;
+    aplicarFiltros();
+    return {empresa:alvo.empresa, achou:filtrados.length, aviso:document.getElementById('vazio').textContent};
+  });
+  if(fora.achou===0){
+    t('quando a busca só falha por causa do filtro, a tela diz e oferece ver',
+      /fora dos filtros atuais/.test(fora.aviso) && /ver assim mesmo/.test(fora.aviso), fora.aviso.slice(0,140));
+    await pgAbre.evaluate(()=>limparSoFiltros());
+    await pgAbre.waitForTimeout(150);
+    const depois=await pgAbre.evaluate(()=>({achou:filtrados.length,
+      busca:document.getElementById('fBusca').value}));
+    t('e "ver assim mesmo" mantém a busca digitada', depois.achou>0 && depois.busca===fora.empresa, depois);
+  } else {
+    t('busca fora do recorte encontrou direto (nada a avisar)', true);
+  }
+
+  console.log('\n18) O gerenciador de senhas não tem onde despejar a senha');
   /* O Chrome ignora autocomplete="off" e chegou a preencher o campo de
      busca com a senha salva, porque o formulário de login continuava no
      documento — escondido, mas de pé — depois de a pessoa entrar. */
@@ -927,7 +1021,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     digitou.valor==='medianeira' && !digitou.readonly, digitou);
   await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; aplicarFiltros(); });
 
-  console.log('\n17) Quem já está logado não vê o login piscar na abertura');
+  console.log('\n19) Quem já está logado não vê o login piscar na abertura');
   const piscou=await pg.evaluate(()=>window.__LOGIN_APARECEU);
   t('o formulário de login não aparece para quem já entrou', !piscou, {piscou});
   t('o portão abre num aviso neutro, não no formulário',

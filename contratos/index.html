@@ -726,7 +726,7 @@
         <div class="fcampo s6"><label>Fiscal administrativo</label><input type="text" id="fcFiscalAdm" list="listaFiscais"><span class="dica">Mais de um, separe por vírgula.</span></div>
         <div class="fcampo s6"><label>Fiscal técnico</label><input type="text" id="fcFiscalTec" list="listaFiscais"><span class="dica">Mais de um, separe por vírgula.</span></div>
         <div class="fcampo s6"><label id="fcLabelVenc">Vencimento</label><input type="date" id="fcVencimento"></div>
-        <div class="fcampo s6"><label id="fcLabelValor">Valor (R$)</label><input type="number" id="fcValor" step="0.01" inputmode="decimal"></div>
+        <div class="fcampo s6"><label id="fcLabelValor">Valor (R$)</label><input type="text" id="fcValor" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
         <div class="fcampo s12"><label>Observações</label><textarea id="fcObs" rows="2"></textarea></div>
       </div>
       <div class="aviso aviso-azul" id="fcNota" style="display:none;margin:15px 0 0"></div>
@@ -758,7 +758,7 @@
         </div>
         <div class="fcampo s6"><label>Data de assinatura</label><input type="date" id="faData" onchange="aditNota()"></div>
         <div class="fcampo s6"><label>Novo vencimento</label><input type="date" id="faVenc" onchange="aditNota()"><span class="dica">Deixe vazio se não muda o prazo.</span></div>
-        <div class="fcampo s6"><label>Valor acrescido (R$)</label><input type="number" id="faValor" step="0.01" inputmode="decimal" oninput="aditNota()"><span class="dica">Negativo em caso de supressão.</span></div>
+        <div class="fcampo s6"><label>Valor acrescido (R$)</label><input type="text" id="faValor" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="aditNota()"><span class="dica">Negativo em caso de supressão.</span></div>
         <div class="fcampo s12"><label>Observação</label><textarea id="faObs" rows="2"></textarea></div>
       </div>
       <div class="aviso aviso-azul" id="faNota" style="margin:15px 0 0"></div>
@@ -1604,11 +1604,18 @@ function normalizar(s){
   return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 
-function initFiltros(){
+/* comPadrao = como a tela ABRE; sem ele, tudo em branco de verdade.
+   Os dois eram a mesma coisa, e "Limpar filtros" acabava reaplicando os
+   filtros de abertura — quem clicava via os mesmos dois chips continuarem
+   ali e concluía que o botão não funcionava. Pior: quem procurava uma
+   empresa cujo contrato não vence nos próximos 30 dias não achava nada,
+   limpava os filtros, e continuava não achando. */
+function initFiltros(comPadrao){
   COLUNAS.forEach(col => {
     COLF[col] = {txt:'', sel:{}};
     (FACETAS[col] || []).forEach(g => { COLF[col].sel[g.k] = new Set(); });
   });
+  if(!comPadrao) return;
   /* A tela abre no que precisa de atenção agora: contrato ativo (não
      paralisado, não histórico) e vencendo nos próximos 30 dias, do mais
      próximo pro mais distante — é o que alguém abre a tela pra ver. */
@@ -1694,9 +1701,18 @@ function limparBusca(){
 }
 function limparFiltros(){
   document.getElementById('fBusca').value = '';
-  initFiltros();
+  initFiltros(false);
   F.sort = 'venc-asc';
   document.getElementById('fSort').value = 'venc-asc';
+  aplicarFiltros();
+  if(popCol) renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
+}
+/* Tira os filtros das colunas e MANTÉM o que a pessoa digitou: é o que
+   serve quando a busca não achou nada por causa de um filtro, não porque o
+   contrato não exista. */
+function limparSoFiltros(){
+  initFiltros(false);
   aplicarFiltros();
   if(popCol) renderPop();
   if(sheetAberta()) renderFiltrosMobile();
@@ -1958,8 +1974,17 @@ function linhaHTML(c){
 function renderMais(){
   const corpo = document.getElementById('corpo');
   if(!filtrados.length){
+    /* "Não encontrei" é uma resposta ruim quando o contrato existe e só
+       está fora do recorte da tela. Se ele estiver, a mensagem diz quantos
+       são e oferece tirar os filtros mantendo a busca. */
+    const soBusca = CONTRATOS.filter(passaBusca).length;
     document.getElementById('vazio').innerHTML =
-      '<div class="empty"><span>🔍</span>Nenhum contrato encontrado com esses filtros.<br>Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.</div>';
+      '<div class="empty"><span>🔍</span>Nenhum contrato encontrado com esses filtros.<br>'
+      + (soBusca
+          ? soBusca + (soBusca > 1 ? ' contratos combinam' : ' contrato combina') + ' com a busca fora dos filtros atuais — '
+            + '<u style="cursor:pointer" onclick="limparSoFiltros()">ver assim mesmo</u>.'
+          : 'Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.')
+      + '</div>';
     document.getElementById('loadWrap').style.display = 'none';
     document.getElementById('resultCount').innerHTML = '';
     return;
@@ -2036,6 +2061,32 @@ function lerLista(txt){ return String(txt||'').split(',').map(s => s.trim()).fil
 function valCampo(id){ return document.getElementById(id).value.trim(); }
 function numCampo(id){ const s = valCampo(id); return s === '' ? null : Number(s); }
 
+/* Valor em dinheiro do jeito que se escreve aqui. Os campos eram
+   <input type="number">, que só aceita ponto decimal: quem digitava
+   "1.234,56" — como está na planilha do setor e como todo mundo escreve —
+   via o campo recusar em silêncio e o contrato ser salvo SEM VALOR.
+
+   Agora entram os quatro jeitos: 1234.56, 1234,56, 1.234,56 e 1,234.56. A
+   regra é a mesma do conversor da planilha: o último separador com uma ou
+   duas casas depois é o decimal; qualquer outro é separador de milhar. */
+function lerValor(id){
+  const bruto = valCampo(id);
+  if(bruto === '') return null;
+  const limpo = bruto.replace(/[^\d,.-]/g, '');
+  if(limpo === '' || limpo === '-') return NaN;
+  const corte = Math.max(limpo.lastIndexOf(','), limpo.lastIndexOf('.'));
+  const casas = corte < 0 ? -1 : limpo.length - corte - 1;
+  const n = (casas === 1 || casas === 2)
+    ? Number(limpo.slice(0, corte).replace(/[.,]/g, '') + '.' + limpo.slice(corte + 1))
+    : Number(limpo.replace(/[.,]/g, ''));
+  return isNaN(n) ? NaN : n;
+}
+const fmtValorCampo = new Intl.NumberFormat('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+function porValor(id, v){
+  document.getElementById(id).value =
+    (v == null || isNaN(v)) ? '' : fmtValorCampo.format(v);
+}
+
 function abrirForm(id){
   formId = id;
   const c = id != null ? CONTRATOS.find(x => x.id === id) : null;
@@ -2056,7 +2107,7 @@ function abrirForm(id){
   set('fcFiscalTec', c ? (c.fiscalTec||[]).join(', ') : '');
   /* com aditivos, o que se edita aqui é o de ORIGEM: o vigente é conta */
   set('fcVencimento', c ? (adits.length ? c.vencimentoBase : c.vencimento) : '');
-  set('fcValor', c ? (adits.length ? c.valorBase : c.valor) : '');
+  porValor('fcValor', c ? (adits.length ? c.valorBase : c.valor) : null);
   document.getElementById('fcLabelVenc').textContent  = adits.length ? 'Vencimento original' : 'Vencimento';
   document.getElementById('fcLabelValor').textContent = adits.length ? 'Valor original (R$)' : 'Valor (R$)';
   const nota = document.getElementById('fcNota');
@@ -2088,12 +2139,14 @@ function salvarForm(){
     fiscalAdm:   lerLista(valCampo('fcFiscalAdm')),
     fiscalTec:   lerLista(valCampo('fcFiscalTec'))
   });
+  const valorDigitado = lerValor('fcValor');
+  if(isNaN(valorDigitado)){ alert('Não entendi o valor "'+valCampo('fcValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
   if(Array.isArray(c.aditivos) && c.aditivos.length){
     c.vencimentoBase = valCampo('fcVencimento') || null;
-    c.valorBase = numCampo('fcValor');
+    c.valorBase = valorDigitado;
   } else {
     c.vencimento = valCampo('fcVencimento') || null;
-    c.valor = numCampo('fcValor');
+    c.valor = valorDigitado;
   }
   gravar(c, formId == null ? 'Contrato cadastrado.' : 'Contrato atualizado.',
          formId == null ? 'criou' : 'editou');
@@ -2154,7 +2207,7 @@ function abrirAdit(i){
   document.getElementById('faTipo').value = (a && a.tipo) || 'PRAZO';
   set('faData', a && a.data);
   set('faVenc', a && a.vencNovo);
-  set('faValor', a && a.valor);
+  porValor('faValor', a ? a.valor : null);
   set('faObs', a && a.obs);
   document.getElementById('faExcluir').style.display = a ? '' : 'none';
   document.getElementById('aditAviso').innerHTML = avisoGravacao();
@@ -2167,7 +2220,7 @@ function lerAditivoDoForm(){
     tipo: document.getElementById('faTipo').value,
     data: valCampo('faData') || null,
     vencNovo: valCampo('faVenc') || null,
-    valor: numCampo('faValor'),
+    valor: lerValor('faValor'),
     obs: valCampo('faObs')
   };
 }
@@ -2194,6 +2247,7 @@ function aditNota(){
 function salvarAdit(){
   if(!detAtual) return;
   const a = lerAditivoDoForm();
+  if(isNaN(a.valor)){ alert('Não entendi o valor "'+valCampo('faValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
   if(!a.data && !a.vencNovo && a.valor == null && !a.obs){
     alert('Preencha ao menos a data, o novo vencimento, o valor ou uma observação.');
     return;
@@ -2780,7 +2834,7 @@ function iniciar(){
   marcarFonte();
   avisoRascunho();
   popularDatalists();
-  initFiltros();
+  initFiltros(true);
   aplicarFiltros();
   /* A busca fica sempre à vista, também no celular: procurar é o motivo de a
      página existir. Os recortes por coluna ficam a um clique, no cabeçalho da
