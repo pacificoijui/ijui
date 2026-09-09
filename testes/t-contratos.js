@@ -19,6 +19,9 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const html=fs.readFileSync('../contratos/index.html','utf8');
   const json=fs.readFileSync('../contratos/dados/contratos.json','utf8');
   const dados=JSON.parse(json);
+  /* Quantos são muda a cada planilha nova que o setor manda — o teste
+     confere que TODOS chegam na tela, não um número decorado. */
+  const N=dados.length, PROXIMO_ID=Math.max(...dados.map(c=>c.id))+1;
   t('o index.html continua pequeno (sem contrato embutido)', html.length<180*1024, {kb:Math.round(html.length/1024)});
   /* A única linha longa que sobra é o brasão em base64, que é imagem e não
      dado — o que não pode voltar é contrato dentro do HTML. */
@@ -26,7 +29,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a única linha longa que sobrou é o brasão em base64',
     html.split('\n').filter(l=>l.length>5000).every(l=>l.indexOf('data:image/png;base64')>=0),
     html.split('\n').filter(l=>l.length>5000).map(l=>l.slice(0,60)));
-  t('o arquivo tem os 1.264 contratos', dados.length===1264, dados.length);
+  t('o arquivo tem contrato pra valer (mais de mil)', N>1000, N);
   t('todo contrato tem id numérico', dados.every(c=>typeof c.id==='number'), dados.filter(c=>typeof c.id!=='number').slice(0,3));
   t('os ids não se repetem', new Set(dados.map(c=>c.id)).size===dados.length);
   t('o JSON é uma linha por contrato (diff legível)', json.split('\n').length===dados.length+3, json.split('\n').length);
@@ -70,10 +73,10 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     chip:(document.querySelector('.proto-chip')||{}).textContent,
     linhas:document.querySelectorAll('.tab tbody tr').length,
   }));
-  t('os 1.264 contratos chegaram na página', est.total===1264, est);
+  t('todos os contratos do arquivo chegaram na página', est.total===N, {esperado:N, veio:est.total});
   t('a fonte é o Firestore, ao vivo', est.fonte==='firestore', est);
-  t('o vencimento foi pré-processado em todos', est.comData===1264, est);
-  t('a tarja do cabeçalho diz de onde vieram', /1264 CONTRATOS · DADOS AO VIVO/.test(est.chip||''), est.chip);
+  t('o vencimento foi pré-processado em todos', est.comData===N, est);
+  t('a tarja do cabeçalho diz de onde vieram', new RegExp(N+' CONTRATOS · DADOS AO VIVO').test(est.chip||''), est.chip);
   t('as linhas da tabela foram renderizadas', est.linhas>0 && est.linhas<=100, est);
 
   console.log('\n2b) Uma busca só em cima; os filtros moram dentro da tabela');
@@ -153,7 +156,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
   console.log('\n4) A busca única procura em qualquer informação (sem os filtros do padrão de abertura atrapalhando)');
   const ativos=await pg.evaluate(()=>{ limparColuna('sit'); limparColuna('venc'); return filtrados.length; });
-  t('sem filtro de situação nem de prazo, mostra os 1264 contratos', ativos===1264, ativos);
+  t('sem filtro de situação nem de prazo, mostra todos os contratos', ativos===N, {esperado:N, veio:ativos});
 
   const buscar = termo => pg.evaluate(async q=>{
     document.getElementById('fBusca').value=q;
@@ -496,8 +499,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   });
   t('com o banco ligado, o formulário não avisa mais nada de rascunho',
     cadastrou.avisoNoForm.trim()==='', cadastrou.avisoNoForm.slice(0,80));
-  t('o contrato novo entrou na lista', novo.achou && novo.total===1265, novo);
-  t('ganhou id próprio, sem pisar em ninguém', novo.id===1265, novo.id);
+  t('o contrato novo entrou na lista', novo.achou && novo.total===N+1, novo);
+  t('ganhou id próprio, sem pisar em ninguém', novo.id===PROXIMO_ID, {esperado:PROXIMO_ID, veio:novo.id});
   t('empresa e tipo entram em maiúsculas, como o resto do cadastro', novo.empresa==='TESTE ENGENHARIA LTDA', novo.empresa);
   t('secretarias e fiscais viram lista pela vírgula', novo.secs==='SMMA|SMED' && novo.fis==='Ana|Bruno', novo);
   t('o formulário fecha ao salvar', novo.fechou, novo);
@@ -519,7 +522,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             fichaAberta:document.getElementById('ovDet').classList.contains('open'),
             fichaMostra:document.getElementById('detBody').textContent.includes('300.000')};
   });
-  t('editar altera o contrato em vez de criar outro', depoisEdicao.valor===300000 && depoisEdicao.total===1265, depoisEdicao);
+  t('editar altera o contrato em vez de criar outro', depoisEdicao.valor===300000 && depoisEdicao.total===N+1, depoisEdicao);
   t('a situação também muda', depoisEdicao.sit==='ATIVO-PARALIZADO', depoisEdicao);
   t('a ficha aberta se atualiza sozinha', depoisEdicao.fichaAberta && depoisEdicao.fichaMostra, depoisEdicao);
 
@@ -595,7 +598,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             campos:Object.keys(c).join(','), temInterno:/"_/.test(txt)};
   });
   t('o JSON exportado tem todos os contratos, um por linha',
-    exportado.itens===1265 && exportado.linhas===1265+3, exportado);
+    exportado.itens===N+1 && exportado.linhas===N+1+3, exportado);
   t('e não leva os campos internos da tela', !exportado.temInterno, exportado.campos);
 
   /* O que a tela salvou tem de estar no banco, não num rascunho de
@@ -624,7 +627,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     return {empresa:c&&c.empresa, total:CONTRATOS.length};
   });
   t('a alteração da outra pessoa entra na lista sozinha',
-    aoVivo.empresa==='OUTRA PESSOA SALVOU LTDA' && aoVivo.total===1265, aoVivo);
+    aoVivo.empresa==='OUTRA PESSOA SALVOU LTDA' && aoVivo.total===N+1, aoVivo);
 
   console.log('\n9) O portão: sem acesso não entra, e "Visualizar" não grava');
   const pgVer=await b.newPage({viewport:{width:1280,height:900}});
@@ -635,7 +638,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     botaoNovo: getComputedStyle(document.querySelector('.header-actions .so-editor')).display,
     chip: document.getElementById('authUserChip').textContent
   }));
-  t('quem tem "Visualizar" entra e enxerga os contratos', soVer.entrou && soVer.total===1264, soVer);
+  t('quem tem "Visualizar" entra e enxerga os contratos', soVer.entrou && soVer.total===N, soVer);
   t('mas não vê os botões de cadastro', soVer.botaoNovo==='none', soVer);
   t('e o cabeçalho avisa que é só visualização', /só visualização/.test(soVer.chip), soVer.chip);
   const tentouGravar=await pgVer.evaluate(()=>
@@ -685,8 +688,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     naTela: CONTRATOS.length,
     linhas: document.querySelectorAll('.tab tbody tr').length
   }));
-  t('os 1.264 contratos entram no banco', importou.noBanco===1264, importou);
-  t('e a tela se monta sozinha com eles', importou.naTela===1264 && importou.linhas>0, importou);
+  t('todos os contratos do arquivo entram no banco', importou.noBanco===N, {esperado:N, veio:importou.noBanco});
+  t('e a tela se monta sozinha com eles', importou.naTela===N && importou.linhas>0, importou);
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

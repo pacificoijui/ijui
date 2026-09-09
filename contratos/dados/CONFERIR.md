@@ -1,0 +1,87 @@
+# Contratos a conferir na tela
+
+Gerado a partir da planilha em 09/09/2026. São 15 registros em que a planilha estava ambígua e o conversor teve de decidir. Tudo já entrou no sistema com o valor da coluna "virou" — basta abrir o contrato pelo número, conferir e corrigir o que estiver errado.
+
+## Onde o conversor teve de decidir
+
+| Contrato | Empresa | Campo | Estava na planilha | Entrou como |
+|---|---|---|---|---|
+| **79/2025** | CANTINHO DA FELICIDADE CASA DE REPOUSO LTD | contr | `(vazio na planilha)` | **79** |
+| **177/2024** | CREATIVE GROUP LTDA | situacao | `PARALIZADO` | **ATIVO-PARALIZADO** |
+| **128/2019** | OI S/A | valor | `¨117.753,61` | **R$ 117.753,61** |
+| **140/2022** | SINNC- SOLUÇÕES LTDA | valor | `1.449,895,56` | **R$ 1.449.895,56** |
+| **196/2024** | RODRIGO AMARAL | valor | `7.100,00.` | **R$ 7.100,00** |
+| **24/2025** | COPREL TELECOM LTDA | valor | `16.797, 60.` | **R$ 16.797,60** |
+| **31/2024** | ALEXANDRE BASSAN DA SILVEIRA | valor | `144.204,00.` | **R$ 144.204,00** |
+| **51/2026** | INSTITUTO HUMANITÁRIO E EDUCATIVO SOS VIDA | valor | `96.00,00` | **R$ 9.600,00** |
+| **56/2023** | REPLANTEC PROJETOS E CONSTRUÇÕES LTDA | valor | `379.200,00.` | **R$ 379.200,00** |
+| **66/2024** | PEREIRA & POMMER LTDA | valor | `758.779,98.` | **R$ 758.779,98** |
+| **77/2021** | JAIR AGOSTINHO DA LUZ | valor | `190.33,28` | **R$ 19.033,28** |
+| **79/2023** | ANIMATI SISTEMAS DE INFORMÁTICA LTDA | valor | `72.600,00.` | **R$ 72.600,00** |
+| **10/2026** | SERVIMAX LTDA | vencimento | `2704/2026` | **2026-04-27** |
+| **51/2024** | MAXHELP EMPRESA DE VIGILANCIA LTDA | vencimento | `,` | **em branco** |
+| **77/2025** | GOVERNANÇABRASIL S/A TECNOLOGIA E GESTÃO E | vencimento | `0308/2027` | **2027-08-03** |
+
+## Contratos ATIVOS sem vencimento (12)
+
+A planilha não trazia a data. Entraram em branco.
+
+| Contrato | Empresa |
+|---|---|
+| **94/2025** | UNIMED NOROESTE/RS- SOCIEDADE COOPERATIVA DE ASSISTE |
+| **117/2025** | JAIME HUTH |
+| **129/2025** | WHITE WOLF SERVIÇOS LTDA |
+| **133/2025** | CRESTANI & ROSA LTDA |
+| **8/2026** | SESC - ADMINISTRAÇÃO REGIONAL NO ESTADO DO RIO GRAND |
+| **38/2026** | SESC - ADMINISTRAÇÃO REGIONAL NO ESTADO DO RIO GRAND |
+| **48/2026** | SERVIÇO NACIONAL DE APRENDIZAGEM COMERCIAL SENAC |
+| **52/2026** | INSTITUTO HUMANITÁRIO E EDUCATIVO SOS VIDA |
+| **60/2026** | SERVIMAX LTDA |
+| **106/2026** | SESC - ADMINISTRAÇÃO REGIONAL NO ESTADO DO RIO GRAND |
+| **136/2026** | TIZA CONSTRUTORA LTDA |
+| **141/2026** |  |
+
+## Contratos ATIVOS sem valor (40)
+
+| Contrato | Empresa |
+|---|---|
+| **151/2016** | ALEXANDRE DANIEL DE LIMA |
+| **152/2016** | HAMILTON VIERA MOLINA |
+| **153/2016** | JADIR MUNIZ |
+| **154/2016** | JOAO CARLOS RIBAS |
+| **155/2016** | MARCO AURELIO N. KERSCHE |
+| **156/2016** | OSMAR E. WOTTRICH |
+| **157/2016** | THAIRO RAFAEL PALHARINI DA SILVA |
+| **159/2016** | VALDEMAR J. PORAZZI |
+| **160/2016** | VALMIR ANTONIO OWERGOOR |
+| **109/2022** | CAIXA ECONOMICA FEDERAL |
+| **234/2022** | MAPFRE SEGUROS GERAIS S/A |
+| **113/2023** | JOAO ANTONIO CARGNELUTTI |
+| **79/2026** | CELIO DA COSTA CORREA |
+| **80/2026** | JOÃO CARLOS CORACINI |
+| **81/2026** | VILMAR ARMANDO KONAGESKI |
+| **82/2026** | VICENTE IVO RASIA |
+| **83/2026** | NEREU JULIO LISBOA |
+| **84/2026** | DARI BATISTA PINHEIRO |
+| **85/2026** | FABIANO THOME DA CRUZ |
+| **86/2026** | FRANSCICO MARTINS SEBAJOS |
+| **87/2026** | ANILDO DALTOE TABORDA |
+| **88/2026** | JOAO ROBERTO CABRAL RIBEIRO |
+| **89/2026** | FABIO CRISTIANO DO AMARAL |
+| **90/2026** | RICARDO HENRIQUE DOS SANTOS WOTTRICH |
+| **91/2026** | LUIS ALBERTO MARQUES |
+| **92/2026** | OSMAR SARTURI DE OLIVEIRA |
+| **93/2026** | FABIO CESAR MARQUES DE OLIVEIRA |
+| **94/2026** | RAFAEL AMARAL |
+| **95/2026** | JANETE MARIA VIANA DE LIMA |
+| **96/2026** | VALMOR DE ALMEIDA |
+| **97/2026** | ALBERI JOSE INACIO |
+| **98/2026** | NELSON DOMINGOS SMANIOTTO |
+| **99/2026** | FABIANO PEREIRA DOS SANTOS |
+| **100/2026** | ADEMIR DOS SANTOS CARDODO |
+| **101/2026** | ADERBAL LUZ CARVALHO |
+| **102/2026** | ERNO WATCHER |
+| **103/2026** | ANTONIO CARLOS MARQUES JUNIOR |
+| **104/2026** | OSMAR ARMANDO RASIA |
+| **105/2026** | REGINA BASTITA DORNELES GOI |
+| **141/2026** |  |

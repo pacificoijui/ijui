@@ -33,6 +33,16 @@ avisos = []
 def avisar(linha, campo, bruto, virou, grau="ajustado"):
     avisos.append({"linha": linha, "campo": campo, "bruto": bruto, "virou": virou, "grau": grau})
 
+def identificar(novos):
+    """Amarra cada aviso ao contrato (nº/ano e empresa) — é assim que quem
+    for conferir vai achar o registro na tela, não pelo número da linha."""
+    por_linha = {c["_linha"]: c for c in novos}
+    for a in avisos:
+        c = por_linha.get(a["linha"])
+        a["contrato"] = (f"{c['contr']}/{c['ano']}" if c and c["contr"] else
+                         (f"?/{c['ano']}" if c else "?"))
+        a["empresa"] = (c["empresa"] if c else "")[:42]
+
 
 def texto(v):
     if v is None:
@@ -44,11 +54,21 @@ def maiusc(v):
     return texto(v).upper()
 
 
+# Traços de todo tipo aparecem na planilha como separador de item, tanto
+# entre secretarias ("SMG-\nSMF-") quanto entre fiscais ("Laura- Matias").
+SEPARADORES = r"[\n;,/\-–—]+"
+
+def limpar_ponta(v):
+    """Tira o traço/vírgula que sobra quando o separador vem grudado no
+    nome ('Laura-' → 'Laura'). O ponto fica: abreviação ('Andre Z.')."""
+    return texto(v).strip(" -–—,;:")
+
+
 def titulo(nome):
     """Nome de pessoa em Caixa Alta vira Caixa de Título, como no cadastro
     que já existe ('Mariana', 'Mario Oliveira'). Preposições ficam baixas."""
     baixas = {"de", "da", "do", "das", "dos", "e"}
-    partes = texto(nome).lower().split()
+    partes = limpar_ponta(nome).lower().split()
     return " ".join(p if i and p in baixas else p.capitalize() for i, p in enumerate(partes))
 
 
@@ -58,8 +78,8 @@ def lista_de_nomes(v, linha, campo):
     bruto = str(v) if v is not None else ""
     if not texto(bruto):
         return []
-    pedacos = re.split(r"[\n;,/]+|\s+[Ee]\s+", bruto)
-    nomes = [titulo(p) for p in pedacos if texto(p)]
+    pedacos = re.split(SEPARADORES + r"|\s+[Ee]\s+", bruto)
+    nomes = [titulo(p) for p in pedacos if limpar_ponta(p)]
     nomes = [n for n in nomes if len(n) > 1]
     if len(nomes) > 1 and ("\n" in bruto or " E " in bruto.upper()):
         avisar(linha, campo, texto(bruto), nomes, "separado")
@@ -71,8 +91,8 @@ def lista_de_siglas(v, linha):
     bruto = str(v) if v is not None else ""
     if not texto(bruto):
         return []
-    pedacos = re.split(r"[\n;,/-]+", bruto)
-    siglas = [maiusc(p) for p in pedacos if texto(p)]
+    pedacos = re.split(SEPARADORES, bruto)
+    siglas = [maiusc(limpar_ponta(p)) for p in pedacos if limpar_ponta(p)]
     if len(siglas) > 1:
         avisar(linha, "secretarias", texto(bruto), siglas, "separado")
     return siglas
@@ -137,6 +157,19 @@ def data(v, linha):
     return None
 
 
+def numero_do_cadastro(empresa, ano, modalidade):
+    if not DESTINO.exists():
+        return None
+    try:
+        ano = int(float(ano))
+    except (TypeError, ValueError):
+        return None
+    achados = [c for c in json.loads(DESTINO.read_text(encoding="utf-8"))
+               if c.get("ano") == ano and c.get("empresa", "").upper() == empresa
+               and c.get("modalidade", "").upper() == modalidade and c.get("contr")]
+    return achados[0]["contr"] if len(achados) == 1 else None
+
+
 def converter(caminho):
     import openpyxl
     ws = openpyxl.load_workbook(caminho, data_only=True)[ "Planilha1" ]
@@ -156,8 +189,12 @@ def converter(caminho):
 
         contr = col(0)
         if contr is None or texto(contr) == "":
-            avisar(i, "contr", "(vazio)", None, "CONFERIR")
-            contr = None
+            # Número caiu da planilha. Se o contrato já existe no cadastro
+            # (mesma empresa, ano e modalidade), o número é o de lá — isso é
+            # recuperar, não adivinhar. Sai no relatório de qualquer forma.
+            contr = numero_do_cadastro(maiusc(col(3)), col(1), maiusc(col(2)))
+            avisar(i, "contr", "(vazio na planilha)",
+                   contr if contr else "continua sem número", "CONFERIR")
         else:
             contr = int(float(contr))
 
@@ -229,9 +266,96 @@ def relatorio(novos, antigos):
     ajustes = [a for a in avisos if a["grau"] == "ajustado"]
     print(f"\n{'-'*66}\nPRECISA DE CONFERÊNCIA: {len(conferir)}\n{'-'*66}")
     for a in conferir:
-        print(f"  linha {a['linha']:>5}  {a['campo']:<11} {a['bruto']!r:<28} → {a['virou']!r}")
+        print(f"  contrato {a['contrato']:<10} {a['campo']:<11} {a['bruto']!r:<26} → {a['virou']!r}")
+        print(f"           {a['empresa']}")
     print(f"\nnormalizados sem dúvida: {len(ajustes)} "
           f"(valores com ponto/vírgula trocados, listas separadas)")
+
+
+def escrever_conferencia(novos, antigos):
+    """Deixa a lista de pendências num arquivo, não só na tela: quem for
+    conferir faz isso depois, contrato por contrato, direto na tela do
+    sistema — e precisa da lista em mãos, pelo NÚMERO do contrato."""
+    conferir = [a for a in avisos if a["grau"] == "CONFERIR"]
+    antes = {(c.get("contr"), c.get("ano")) for c in antigos}
+    entram = [c for c in novos if (c["contr"], c["ano"]) not in antes]
+    saem = [c for c in antigos if (c.get("contr"), c.get("ano")) not in
+            {(n["contr"], n["ano"]) for n in novos}]
+    mudou_valor = []
+    por_chave = {(c.get("contr"), c.get("ano")): c for c in antigos}
+    for c in novos:
+        velho = por_chave.get((c["contr"], c["ano"]))
+        if velho and velho.get("valor") and c["valor"] and \
+           abs(velho["valor"] - c["valor"]) / max(velho["valor"], c["valor"]) > 0.01:
+            mudou_valor.append((c, velho["valor"]))
+
+    def brl(v):
+        return "—" if v is None else f"R$ {v:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
+
+    L = []
+    L.append("# Contratos a conferir na tela\n")
+    L.append(f"Gerado a partir da planilha em {datetime.now():%d/%m/%Y}. "
+             f"São {len(conferir)} registros em que a planilha estava ambígua e o "
+             f"conversor teve de decidir. Tudo já entrou no sistema com o valor da "
+             f"coluna \"virou\" — basta abrir o contrato pelo número, conferir e "
+             f"corrigir o que estiver errado.\n")
+
+    L.append("## Onde o conversor teve de decidir\n")
+    L.append("| Contrato | Empresa | Campo | Estava na planilha | Entrou como |")
+    L.append("|---|---|---|---|---|")
+    for a in sorted(conferir, key=lambda x: (x["campo"], x["contrato"])):
+        virou = a["virou"]
+        if a["campo"] == "valor":
+            virou = brl(virou)
+        L.append(f"| **{a['contrato']}** | {a['empresa']} | {a['campo']} | "
+                 f"`{a['bruto']}` | **{virou if virou is not None else 'em branco'}** |")
+
+    ativos_sem = [c for c in novos if c["situacao"].startswith("ATIVO") and not c["vencimento"]]
+    if ativos_sem:
+        L.append(f"\n## Contratos ATIVOS sem vencimento ({len(ativos_sem)})\n")
+        L.append("A planilha não trazia a data. Entraram em branco.\n")
+        L.append("| Contrato | Empresa |")
+        L.append("|---|---|")
+        for c in sorted(ativos_sem, key=lambda x: (x["ano"] or 0, x["contr"] or 0)):
+            L.append(f"| **{c['contr']}/{c['ano']}** | {c['empresa'][:52]} |")
+
+    ativos_sv = [c for c in novos if c["situacao"].startswith("ATIVO") and not c["valor"]]
+    if ativos_sv:
+        L.append(f"\n## Contratos ATIVOS sem valor ({len(ativos_sv)})\n")
+        L.append("| Contrato | Empresa |")
+        L.append("|---|---|")
+        for c in sorted(ativos_sv, key=lambda x: (x["ano"] or 0, x["contr"] or 0)):
+            L.append(f"| **{c['contr']}/{c['ano']}** | {c['empresa'][:52]} |")
+
+    if mudou_valor:
+        L.append(f"\n## Valores que mudaram em relação ao cadastro anterior ({len(mudou_valor)})\n")
+        L.append("Provavelmente aditivos lançados na planilha. Não é erro — "
+                 "está aqui só para você saber o que mudou.\n")
+        L.append("| Contrato | Empresa | Era | Agora |")
+        L.append("|---|---|---|---|")
+        for c, antigo in sorted(mudou_valor, key=lambda x: (x[0]["ano"] or 0, x[0]["contr"] or 0)):
+            L.append(f"| **{c['contr']}/{c['ano']}** | {c['empresa'][:40]} | {brl(antigo)} | {brl(c['valor'])} |")
+
+    if entram:
+        L.append(f"\n## Entraram agora ({len(entram)})\n")
+        L.append("| Contrato | Empresa | Situação | Vencimento |")
+        L.append("|---|---|---|---|")
+        for c in sorted(entram, key=lambda x: (x["ano"] or 0, x["contr"] or 0)):
+            L.append(f"| **{c['contr']}/{c['ano']}** | {c['empresa'][:40]} | {c['situacao']} | "
+                     f"{c['vencimento'] or '—'} |")
+
+    if saem:
+        L.append(f"\n## Estavam no cadastro e não vieram na planilha ({len(saem)})\n")
+        L.append("Não entram no banco. Se algum deveria estar lá, cadastre pela tela.\n")
+        L.append("| Contrato | Empresa | Situação |")
+        L.append("|---|---|---|")
+        for c in sorted(saem, key=lambda x: (x.get("ano") or 0, x.get("contr") or 0)):
+            L.append(f"| **{c.get('contr')}/{c.get('ano')}** | {(c.get('empresa') or '(em branco)')[:40]} | "
+                     f"{c.get('situacao') or '—'} |")
+
+    destino = RAIZ / "contratos" / "dados" / "CONFERIR.md"
+    destino.write_text("\n".join(L) + "\n", encoding="utf-8")
+    print(f"relatório de conferência: {destino.relative_to(RAIZ)}")
 
 
 if __name__ == "__main__":
@@ -240,9 +364,11 @@ if __name__ == "__main__":
         sys.exit(1)
     novos = converter(sys.argv[1])
     antigos = casar_ids(novos)
+    identificar(novos)
     relatorio(novos, antigos)
 
     if "--gravar" in sys.argv:
+        escrever_conferencia(novos, antigos)
         saida = [{k: v for k, v in sorted(c.items()) if k != "_linha"} for c in novos]
         DESTINO.write_text(
             "[\n" + ",\n".join("  " + json.dumps(c, ensure_ascii=False) for c in saida) + "\n]\n",
