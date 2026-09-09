@@ -34,9 +34,15 @@ service cloud.firestore {
     // antigo, só liberado/bloqueado) — nivel() trata os dois formatos
     // igual, sem precisar migrar nenhum documento: true equivale a
     // 'editar', false/ausente equivale a 'nenhum'.
+    //
+    // O .get('acessos', {}).get(painel, 'nenhum') é de propósito: ler um
+    // campo que não existe derruba a avaliação inteira da regra. Com o
+    // valor padrão, um documento de conta sem "acessos" (ou sem aquele
+    // painel) simplesmente não tem acesso, em vez de virar erro.
+    function bruto(painel) { return perfil().get('acessos', {}).get(painel, 'nenhum'); }
     function nivel(painel) {
-      return perfil().acessos[painel] == true ? 'editar'
-           : (perfil().acessos[painel] == 'ver' || perfil().acessos[painel] == 'editar') ? perfil().acessos[painel]
+      return bruto(painel) == true ? 'editar'
+           : (bruto(painel) == 'ver' || bruto(painel) == 'editar') ? bruto(painel)
            : 'nenhum';
     }
     // Admin sempre edita tudo — é o próprio propósito do cargo.
@@ -44,12 +50,14 @@ service cloud.firestore {
     function podeEditar(painel) { return aprovado() && (admin() || nivel(painel) == 'editar'); }
     function agenda()    { return temAcesso('agenda'); }
     function pregoeiro() { return temAcesso('pregoeiro'); }
+    function contratos() { return temAcesso('contratos'); }
     function algum()     { return agenda() || pregoeiro(); }
-    // As mesmas três, mas exigindo nível 'editar' — usadas em toda regra de
+    // As mesmas, mas exigindo nível 'editar' — usadas em toda regra de
     // escrita, pra quem está em "somente visualização" nunca conseguir
     // gravar nada, nem contornando a trava do lado do cliente.
     function agendaEdit()    { return podeEditar('agenda'); }
     function pregoeiroEdit() { return podeEditar('pregoeiro'); }
+    function contratosEdit() { return podeEditar('contratos'); }
     function algumEdit()     { return agendaEdit() || pregoeiroEdit(); }
 
     // ── Contas e permissões ──────────────────────────────────────────────
@@ -65,19 +73,27 @@ service cloud.firestore {
     match /usuarios_v2/{uid} {
       allow get: if autenticado() && (request.auth.uid == uid || admin());
       allow list: if admin();
+      // O auto-cadastro só pode nascer de duas formas: o e-mail de resgate
+      // já administrador, ou qualquer outro "pendente" e sem acesso nenhum.
+      //
+      // Os dois formatos de "sem acesso" são aceitos ('nenhum' e o antigo
+      // false) porque uma aba aberta há dias, ou uma página em cache, ainda
+      // manda o formato antigo — e negar aí só produziria um "Missing or
+      // insufficient permissions" na cara de quem está se cadastrando. Nos
+      // dois casos o resultado é o mesmo: nasce sem poder nenhum.
+      function nascePendente(d) {
+        return d.status == 'pendente' && d.isAdmin == false &&
+          (d.get('acessos', {}).get('agenda', 'nenhum')    in ['nenhum', false]) &&
+          (d.get('acessos', {}).get('pregoeiro', 'nenhum') in ['nenhum', false]) &&
+          (d.get('acessos', {}).get('contratos', 'nenhum') in ['nenhum', false]);
+      }
+      function nasceResgate(d) {
+        return request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
+          d.status == 'aprovado' && d.isAdmin == true;
+      }
       allow create: if autenticado() && request.auth.uid == uid &&
-        request.resource.data.email == request.auth.token.email.lower() && (
-          (request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
-           request.resource.data.status == 'aprovado' &&
-           request.resource.data.isAdmin == true &&
-           request.resource.data.acessos.agenda == 'editar' &&
-           request.resource.data.acessos.pregoeiro == 'editar')
-          ||
-          (request.resource.data.status == 'pendente' &&
-           request.resource.data.isAdmin == false &&
-           request.resource.data.acessos.agenda == 'nenhum' &&
-           request.resource.data.acessos.pregoeiro == 'nenhum')
-        );
+        request.resource.data.email == request.auth.token.email.lower() &&
+        (nasceResgate(request.resource.data) || nascePendente(request.resource.data));
       allow update: if admin();
       allow delete: if admin();
     }
@@ -164,6 +180,21 @@ service cloud.firestore {
       allow create, delete: if pregoeiroEdit();
       allow update: if pregoeiroEdit() ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assinantes','updatedAt']);
+    }
+
+    // ── Contratos ────────────────────────────────────────────────────────
+    // Painel próprio ("contratos") dentro do MESMO cadastro de contas: quem
+    // só cuida de contrato ganha nível em Contratos e "Sem acesso" nos
+    // outros dois, e continua sendo uma conta só, aprovada num lugar só.
+    //
+    // Aqui não existe link público nenhum — nem "get" aberto —, então tudo
+    // exige conta aprovada com o painel liberado: ver exige o painel,
+    // gravar exige nível "editar". Sem exclusão pela tela: contrato saindo
+    // do ar é "situação: INATIVO", não documento apagado.
+    match /contratos/{id} {
+      allow get, list: if contratos();
+      allow create, update: if contratosEdit();
+      allow delete: if false;
     }
   }
 }

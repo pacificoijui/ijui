@@ -1206,7 +1206,7 @@ function authPerfilPadrao(user, extra){
     provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
     status: "pendente",
     isAdmin: false,
-    acessos: {agenda:"nenhum", pregoeiro:"nenhum"},
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum"},
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }, extra||{});
 }
@@ -1220,11 +1220,13 @@ function authAoAutenticar(user){
     if(doc.exists) return;
     var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
     return ref.set(authPerfilPadrao(user, ehResgate ? {
-      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar"}
+      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar",contratos:"editar"}
     } : {}));
   }).then(function(){
     authPerfilUnsub=ref.onSnapshot(function(doc){
-      if(!doc.exists) return;
+      /* Excluído por um admin com a pessoa logada: sair da conta devolve o
+         portão, em vez de deixar a tela aberta com os dados já carregados. */
+      if(!doc.exists){ authCurrentUser=null; firebase.auth().signOut(); return; }
       authCurrentUser=Object.assign({uid:user.uid}, doc.data());
       if(authTemAcesso("agenda")) authShowApp(); else authShowPendente();
     }, function(e){ console.warn("perfil: sem permissão de leitura ("+e.message+")"); });
@@ -1277,7 +1279,7 @@ function authShowPendente(){
   foto.src=authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
   var msg=document.getElementById("authPendMsg");
   if(authCurrentUser.status==="bloqueado") msg.textContent="Seu acesso foi bloqueado por um administrador.";
-  else if(authNivelDe(authCurrentUser,"pregoeiro")!=="nenhum") msg.textContent="Sua conta tem acesso só ao Sistema Interno. Peça a um administrador para liberar a Agenda, se precisar dela.";
+  else if(authNivelDe(authCurrentUser,"pregoeiro")!=="nenhum" || authNivelDe(authCurrentUser,"contratos")!=="nenhum") msg.textContent="Sua conta tem acesso a outros painéis, mas não à Agenda. Peça a um administrador para liberar, se precisar dela.";
   else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
 }
 function authStartGate(){

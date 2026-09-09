@@ -18,6 +18,11 @@ jobs:
       # repositório privado é pulado — o backup diário segue pelo artifact.
       BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
       BACKUP_REPO: ${{ vars.BACKUP_REPO }}
+      # Conta ADMIN do próprio sistema. Desde que as regras do Firestore foram
+      # fechadas, ler as coleções exige login — ver CONTROLE-DE-ACESSO.md,
+      # seção "Backup diário", para criar essa conta e cadastrar os secrets.
+      BACKUP_EMAIL: ${{ secrets.BACKUP_EMAIL }}
+      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
     steps:
       - uses: actions/checkout@v4
 

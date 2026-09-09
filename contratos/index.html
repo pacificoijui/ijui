@@ -324,8 +324,31 @@
   .mini-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
 
   /* ── Conta e permissões (painel "Usuários" dos contratos) ── */
-  .auth-box { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--navy); }
-  .chip-auth { font-weight: 700; }
+  /* ── Portão de acesso ── */
+  .chip-auth { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--navy); background: var(--blue-bg); padding: 5px 11px; border-radius: 20px; }
+  #authGate { position: fixed; inset: 0; z-index: 12000; display: none; align-items: center; justify-content: center; padding: 18px;
+              background: radial-gradient(1000px 520px at 15% -10%, #1E52CC 0%, transparent 55%), linear-gradient(160deg, #0D2B7E 0%, #081C52 75%); }
+  .auth-card { background: #fff; border-radius: 18px; padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,.35); text-align: center; }
+  .auth-marca { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .auth-titulo { font-size: 21px; font-weight: 800; color: var(--navy); margin: 6px 0 4px; }
+  .auth-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+  .auth-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; background: #fff; border: 1.5px solid var(--border);
+                 border-radius: 10px; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; }
+  .auth-google:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .auth-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 11.5px; }
+  .auth-ou::before, .auth-ou::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 9px; outline: none; box-sizing: border-box; }
+  .auth-input:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .auth-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .auth-btn:hover { background: var(--navy-light); }
+  .auth-btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--border); margin-top: 14px; }
+  .auth-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 12.5px; }
+  .auth-links a { color: var(--navy-light); font-weight: 600; text-decoration: none; }
+  .auth-links a:hover { text-decoration: underline; }
+  .auth-err { color: var(--red); font-size: 12.5px; font-weight: 600; margin-top: 12px; min-height: 16px; }
+  .auth-foto { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: #dde4f0; margin-bottom: 10px; }
+  .auth-pend-nome { font-size: 15px; font-weight: 800; color: var(--navy); }
+  .auth-pend-email { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
   .usr-secao { margin-bottom: 18px; }
   .usr-secao-tit { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
   .usr-lista { display: flex; flex-direction: column; gap: 8px; }
@@ -478,8 +501,9 @@
     </div>
     <div class="header-actions">
       <span class="proto-chip">PROTÓTIPO · DADOS LOCAIS</span>
-      <div id="contratosAuthBox" class="auth-box" style="display:none"></div>
-      <button class="btn-ghost" onclick="novoContrato()">＋ Novo contrato</button>
+      <span id="authUserChip" class="chip-auth" style="display:none"></span>
+      <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+      <button class="btn-ghost so-editor" onclick="novoContrato()">＋ Novo contrato</button>
       <button class="btn-gold" onclick="abrirModalRelatorio()">🖨️ Relatórios PDF</button>
     </div>
   </div>
@@ -604,7 +628,7 @@
 
 <!-- Barra de ações fixa (apenas no celular) -->
 <div class="mobile-bar">
-  <button class="mb-btn mb-primary" onclick="novoContrato()">＋ Contrato</button>
+  <button class="mb-btn mb-primary so-editor" onclick="novoContrato()">＋ Contrato</button>
   <button class="mb-btn mb-primary" onclick="pdfDoFiltro()">🖨️ PDF</button>
   <button class="mb-btn mb-gold" onclick="abrirModalRelatorio()">📄 Relatórios</button>
 </div>
@@ -616,8 +640,8 @@
     <div class="modal-body" id="detBody"></div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
-      <button class="btn-ghost" onclick="novoAditivo()">＋ Aditivo</button>
-      <button class="btn-primary" onclick="editarContrato()">✏️ Editar</button>
+      <button class="btn-ghost so-editor" onclick="novoAditivo()">＋ Aditivo</button>
+      <button class="btn-primary so-editor" onclick="editarContrato()">✏️ Editar</button>
       <button class="btn-primary" onclick="pdfContratoAtual()">🖨️ Ficha em PDF</button>
     </div>
   </div>
@@ -745,24 +769,46 @@
   </div>
 </div>
 
-<!-- MODAL USUÁRIOS (só existe de verdade quando o Firestore dos contratos
-     estiver ligado — ver o comentário "CONTAS E PERMISSÕES" no script) -->
-<div class="overlay" id="modalUsuariosContratos" onclick="if(event.target===this)fecharModalUsuariosContratos()">
-  <div class="modal">
-    <div class="modal-header"><h2>👤 Usuários com acesso à edição</h2><button class="modal-close" onclick="fecharModalUsuariosContratos()">✕</button></div>
-    <div class="modal-body">
-      <div class="usr-secao">
-        <div class="usr-secao-tit">Esperando aprovação</div>
-        <div id="usrCtrPendentesLista" class="usr-lista"></div>
-      </div>
-      <div class="usr-secao">
-        <div class="usr-secao-tit">Já aprovados</div>
-        <div id="usrCtrAprovadosLista" class="usr-lista"></div>
-      </div>
+<!-- PORTÃO DE ACESSO — mesma conta da Agenda e do Sistema Interno
+     (coleção usuarios_v2), olhando o painel "contratos". Quem aprova é o
+     administrador, no painel Usuários de dentro do Sistema Interno. -->
+<div id="authGate">
+  <div class="auth-card" id="authEntradaBox">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Gestão de Contratos</h1>
+    <p class="auth-sub">Entre com a mesma conta do sistema de licitações.</p>
+    <button class="auth-google" id="authBtnGoogle" onclick="authGoogle()">
+      <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.1 5.5c4.2-3.9 6.9-9.7 6.9-16.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.4-4.6 2.3-8.8 2.3-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="auth-ou"><span>ou</span></div>
+    <input type="email" id="authEmail" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPass" class="auth-input" placeholder="Senha" autocomplete="current-password">
+    <button class="auth-btn" id="authBtnEntrar" onclick="authEntrarSenha()">Entrar</button>
+    <div class="auth-links">
+      <a href="#" onclick="authEsqueciSenha();return false;">Esqueci a senha</a>
+      <a href="#" onclick="authSetModo('criar');return false;">Criar uma conta</a>
     </div>
-    <div class="modal-footer">
-      <button class="btn-ghost" onclick="fecharModalUsuariosContratos()">Fechar</button>
-    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <div class="auth-card" id="authCriarBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Criar conta</h1>
+    <p class="auth-sub">Depois de criada, um administrador libera o seu acesso.</p>
+    <input type="text" id="authNomeC" class="auth-input" placeholder="Nome completo" autocomplete="name">
+    <input type="email" id="authEmailC" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPassC" class="auth-input" placeholder="Senha (mínimo 6 caracteres)" autocomplete="new-password">
+    <button class="auth-btn" id="authBtnCriar" onclick="authCriarConta()">Criar conta</button>
+    <div class="auth-links"><a href="#" onclick="authSetModo('entrar');return false;">Já tenho conta</a></div>
+  </div>
+
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img id="authPendFoto" class="auth-foto" alt="">
+    <div class="auth-pend-nome" id="authPendNome"></div>
+    <div class="auth-pend-email" id="authPendEmail"></div>
+    <p class="auth-sub" id="authPendMsg"></p>
+    <button class="auth-btn ghost" onclick="authLogout()">Sair</button>
   </div>
 </div>
 
@@ -773,13 +819,22 @@
    corrigir um contrato era editar o código-fonte.
 
    Agora vêm de fora, nesta ordem:
-     1. do Firestore próprio dos contratos, se FIREBASE_CONFIG estiver
-        preenchido — projeto SEPARADO do das licitações, de propósito;
+     1. do Firestore, se FIREBASE_CONFIG estiver preenchido — a coleção
+        "contratos" do MESMO projeto das licitações, com painel próprio no
+        controle de acesso (ver contratos/LEIA-ME.md e CONTROLE-DE-ACESSO.md);
      2. senão, de dados/contratos.json, a mesma lista versionada no
         repositório. A tela funciona igual, só não recebe alteração viva.
 
    Ver contratos/LEIA-ME.md. */
-const FIREBASE_CONFIG = {};   /* ← config do projeto de contratos entra aqui */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCH8DKzE8oPaQ3HpAex-3iqEaReKon05lM",
+  authDomain: "processos-ijui.firebaseapp.com",
+  projectId: "processos-ijui",
+  storageBucket: "processos-ijui.firebasestorage.app",
+  messagingSenderId: "385308750932",
+  appId: "1:385308750932:web:65e94a26e71451995fe9c1"
+};
+function temFirebase(){ return !!(FIREBASE_CONFIG && FIREBASE_CONFIG.projectId); }
 
 let CONTRATOS = [];
 let FONTE_DADOS = 'arquivo';
@@ -794,65 +849,103 @@ function carregarSDK(){
   })), Promise.resolve());
 }
 
-/* O id do documento no Firestore é texto; quem manda é o campo `id` numérico
-   de dentro — é ele que a tela usa em abrirDet(). Ignorar o id do documento
-   evita comparar "12" com 12. */
-function carregarDoFirestore(){
-  return carregarSDK()
-    .then(() => {
-      firebase.initializeApp(FIREBASE_CONFIG);
-      iniciarAutenticacaoContratos();
-      return firebase.firestore().collection('contratos').get();
-    })
-    .then(snap => snap.docs.map(d => d.data()));
-}
-
-/* Depois da primeira leitura, passa a ouvir a coleção ao vivo: quando uma
-   pessoa salva um contrato ou aditivo, todo mundo com a tela aberta (em
-   qualquer computador) vê a mudança sozinha, sem apertar F5 — é o que
-   permite duas pessoas trabalharem nos contratos ao mesmo tempo. Só existe
-   quando FONTE_DADOS é 'firestore'; no modo arquivo/rascunho não há o que
-   sincronizar entre navegadores. */
-function iniciarSincroniaAoVivo(){
-  if(FONTE_DADOS !== 'firestore') return;
-  firebase.firestore().collection('contratos').onSnapshot(snap => {
-    reaplicarContratosAoVivo(snap.docs.map(d => d.data()));
-  }, e => console.warn('contratos: sem sincronia ao vivo ('+e.message+')'));
-}
-/* Reaplica a lista vinda do Firestore SEM reiniciar os filtros da tela (ao
-   contrário de iniciar(), que zera tudo para o padrão de quando a página
-   abre) — é o que faz a atualização ao vivo não atrapalhar quem já estava
-   filtrando ou com uma ficha aberta. */
-function reaplicarContratosAoVivo(lista){
-  CONTRATOS = lista.map(c => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
-  CONTRATOS.forEach(prepararContrato);
-  popularDatalists();
-  aplicarFiltros();
-  marcarFonte();
-  if(detAtual){
-    const atualizado = CONTRATOS.find(x => x.id === detAtual.id);
-    if(atualizado) abrirDet(atualizado.id);
-  }
-}
-
+/* Com o Firebase ligado, os contratos NÃO são carregados na abertura da
+   página: quem carrega é o portão de acesso, depois de confirmar que a
+   pessoa entrou e tem o painel Contratos liberado (ver
+   iniciarListenerContratos, no bloco CONTAS E PERMISSÕES). Cair no arquivo
+   quando o Firestore nega seria abrir um buraco do tamanho do cadastro
+   inteiro — o arquivo é público —, então o fallback só existe enquanto não
+   há Firebase nenhum configurado. */
 function carregarDoArquivo(){
   return fetch('dados/contratos.json', {cache:'no-cache'}).then(r => {
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.json();
   });
 }
+function normalizarLista(d){
+  if(!Array.isArray(d) || !d.length) throw new Error('lista de contratos vazia');
+  /* os campos de lista precisam existir: fiscais() e os filtros contam com isso */
+  return d.map(c => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
+}
 
-function carregarContratos(){
-  const temConfig = FIREBASE_CONFIG && FIREBASE_CONFIG.projectId;
-  const tentativa = temConfig
-    ? carregarDoFirestore().then(d => { FONTE_DADOS = 'firestore'; return d; })
-        .catch(e => { console.warn('Firestore indisponível, caindo para o arquivo:', e); return carregarDoArquivo(); })
-    : carregarDoArquivo();
-  return tentativa.then(d => {
-    if(!Array.isArray(d) || !d.length) throw new Error('lista de contratos vazia');
-    /* os campos de lista precisam existir: fiscais() e os filtros contam com isso */
-    return d.map(c => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
-  }).then(aplicarRascunho);
+/* Ouvir a coleção ao vivo (onSnapshot, não um get() de uma vez só) é o que
+   permite duas pessoas mexerem nos contratos ao mesmo tempo: quem salva um
+   contrato ou aditivo aparece na tela da outra na hora, sem F5. A primeira
+   leva monta a tela; as seguintes só atualizam o que mudou. */
+let _listenerContratosLigado = false;
+function iniciarListenerContratos(){
+  if(_listenerContratosLigado) return;
+  _listenerContratosLigado = true;
+  let primeira = true;
+  firebase.firestore().collection('contratos').onSnapshot(snap => {
+    const lista = snap.docs.map(d => d.data());
+    if(!lista.length && primeira){ telaBancoVazio(); return; }
+    FONTE_DADOS = 'firestore';
+    if(primeira){ primeira = false; CONTRATOS = normalizarLista(lista); iniciar(); }
+    else reaplicarContratosAoVivo(lista);
+  }, e => mostrarErroCarregar(e));
+}
+/* Reaplica a lista vinda do Firestore SEM reiniciar os filtros da tela (ao
+   contrário de iniciar(), que zera tudo para o padrão de quando a página
+   abre) — é o que faz a atualização ao vivo não atrapalhar quem já estava
+   filtrando ou com uma ficha aberta. */
+function reaplicarContratosAoVivo(lista){
+  CONTRATOS = normalizarLista(lista);
+  CONTRATOS.forEach(prepararContrato);
+  popularDatalists();
+  aplicarFiltros();
+  marcarFonte();
+  if(detAtual && document.getElementById('ovDet').classList.contains('open')){
+    const atualizado = CONTRATOS.find(x => x.id === detAtual.id);
+    if(atualizado) abrirDet(atualizado.id);
+  }
+}
+function mostrarErroCarregar(e){
+  console.error('Erro ao carregar os contratos:', e);
+  const alvo = document.getElementById('vazio');
+  if(alvo) alvo.innerHTML =
+    '<div class="empty"><span>⚠️</span>Não foi possível carregar os contratos.<br>' + esc(e.message) + '</div>';
+}
+
+/* ── Primeira carga: subir o arquivo para o banco ──
+   A coleção nasce vazia. Em vez de exigir terminal e credencial de
+   administrador (as regras negam gravação sem login, e é assim que tem de
+   ser), a própria tela sobe o dados/contratos.json — logada, com a conta
+   de quem está olhando. É de uma vez só: depois disso quem manda é o
+   banco, e o arquivo do repositório fica como histórico. */
+function telaBancoVazio(){
+  const alvo = document.getElementById('vazio');
+  if(!alvo) return;
+  const podeImportar = contratosPodeEditar() && authCurrentUser && authCurrentUser.isAdmin;
+  alvo.innerHTML = '<div class="empty"><span>📥</span>'
+    + 'O banco de contratos ainda está vazio.'
+    + (podeImportar
+        ? '<br><span style="font-size:13px">São 1.264 contratos no arquivo do repositório, prontos para subir.</span>'
+          + '<div style="margin-top:14px"><button class="btn-gold" onclick="importarDoArquivo()">Importar os contratos agora</button></div>'
+          + '<div id="impProgresso" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>'
+        : '<br><span style="font-size:13px">Peça a um administrador para fazer a primeira importação.</span>')
+    + '</div>';
+}
+function importarDoArquivo(){
+  const prog = document.getElementById('impProgresso');
+  const diz = t => { if(prog) prog.textContent = t; };
+  if(!confirm('Subir os contratos do arquivo para o banco?\n\nÉ para ser feito uma única vez, na estreia.')) return;
+  diz('Lendo o arquivo...');
+  carregarDoArquivo().then(normalizarLista).then(lista => {
+    const db = firebase.firestore();
+    let feitos = 0;
+    /* Em lotes: um write por contrato daria 1.264 idas ao servidor. */
+    const lotes = [];
+    for(let i = 0; i < lista.length; i += 400) lotes.push(lista.slice(i, i + 400));
+    return lotes.reduce((p, lote) => p.then(() => {
+      const batch = db.batch();
+      lote.forEach(c => batch.set(db.collection('contratos').doc(String(c.id)), paraGravar(c)));
+      return batch.commit().then(() => { feitos += lote.length; diz('Enviando... ' + feitos + ' de ' + lista.length); });
+    }), Promise.resolve()).then(() => diz('Pronto: ' + feitos + ' contratos no banco.'));
+  }).catch(e => {
+    diz('');
+    alert('Não consegui importar: ' + e.message);
+  });
 }
 
 /* ══════════════ GRAVAÇÃO ══════════════
@@ -950,181 +1043,192 @@ function avisoGravacao(){
 }
 
 /* ══════════════ CONTAS E PERMISSÕES ══════════════
-   Ler a lista de contratos continua público, sem conta nenhuma — exatamente
-   como hoje. Só GRAVAR (novo contrato, edição, aditivo) exige login E nível
-   "Editar": os outros (visitante sem conta, ou conta aprovada só como
-   "Visualizar") continuam lendo à vontade, mas qualquer botão de salvar é
-   barrado com um aviso claro, tanto aqui quanto nas regras do Firestore.
+   Contratos usa a MESMA conta do resto do sistema: o mesmo projeto do
+   Firebase, o mesmo Firebase Authentication e a mesma coleção "usuarios_v2"
+   da Agenda e do Sistema Interno — só que olhando o painel "contratos"
+   dentro de "acessos". Quem cuida só de contrato ganha nível em Contratos e
+   "Sem acesso" nos outros dois: continua sendo uma conta só, aprovada num
+   lugar só (o painel Usuários, dentro do Sistema Interno).
 
-   Projeto Firebase PRÓPRIO dos contratos — não compartilha usuarios_v2 nem
-   o Firebase Auth do sistema de licitações (ver contratos/LEIA-ME.md sobre
-   o isolamento entre projetos). Por isso este é um sistema de contas
-   inteiro à parte, bem mais simples que o de lá: um único "painel"
-   (contratos), então cada pessoa só precisa de um nível, não de um por
-   painel. O e-mail pedrohhpacifico@gmail.com nasce administrador com
-   edição liberada na primeira vez que entra, pra sempre existir alguém
-   capaz de aprovar os demais — mesma ideia do sistema de licitações. */
-const AUTH_BOOTSTRAP_ADMIN_EMAIL_CONTRATOS = 'pedrohhpacifico@gmail.com';
-let authCurrentUser = null;   /* {uid,email,nome,foto,status,isAdmin,nivel} — perfil em usuarios_contratos */
-let authPerfilUnsubContratos = null;
-let usuariosContratosColRef = null;
+   Diferente da Agenda e do Sistema Interno, aqui NADA é público: sem conta
+   aprovada com o painel liberado, a lista de contratos nem chega ao
+   navegador — as regras do Firestore negam a leitura, e a tela não cai no
+   arquivo dados/contratos.json (isso furaria a proteção inteira).
 
+   Três níveis, iguais aos dos outros painéis:
+     Sem acesso  → nem entra;
+     Visualizar  → vê tudo, mas todo botão de salvar é barrado;
+     Editar      → cadastra, edita e registra aditivos.
+   Ver CONTROLE-DE-ACESSO.md na raiz do repositório. */
+const AUTH_BOOTSTRAP_ADMIN_EMAIL = 'pedrohhpacifico@gmail.com';
+let authCurrentUser = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+let authPerfilUnsub = null;
+let usuariosV2ColRef = null;
+let authModo = 'entrar';
+
+/* Mesma normalização dos outros painéis: contas aprovadas antes do modelo
+   de três níveis guardam true/false, e continuam valendo sem migração. */
+function authNormalizaNivel(v){
+  if(v === true) return 'editar';
+  if(v === 'ver' || v === 'editar') return v;
+  return 'nenhum';
+}
 function contratosNivel(){
   if(!authCurrentUser || authCurrentUser.status !== 'aprovado') return 'nenhum';
   if(authCurrentUser.isAdmin) return 'editar';
-  return (authCurrentUser.nivel === 'ver' || authCurrentUser.nivel === 'editar') ? authCurrentUser.nivel : 'nenhum';
+  return authNormalizaNivel(authCurrentUser.acessos && authCurrentUser.acessos.contratos);
 }
-/* Sem Firestore configurado não existe conta nenhuma — é o rascunho local
-   de sempre, então continua liberado, exatamente como hoje. */
-function contratosPodeEditar(){
-  return FONTE_DADOS !== 'firestore' || contratosNivel() === 'editar';
-}
+function contratosPodeVer(){ return contratosNivel() !== 'nenhum'; }
+/* Sem Firebase configurado não existe conta nenhuma: a tela roda com o
+   arquivo local e o rascunho do navegador, exatamente como antes. */
+function contratosPodeEditar(){ return !temFirebase() || contratosNivel() === 'editar'; }
 
-function iniciarAutenticacaoContratos(){
-  usuariosContratosColRef = firebase.firestore().collection('usuarios_contratos');
-  firebase.auth().onAuthStateChanged(authAoAutenticarContratos);
+/* ── Portão de acesso ── */
+function authEl(id){ return document.getElementById(id); }
+function authErr(msg){ const e = authEl('authErr'); if(e) e.textContent = msg || ''; }
+function authSetModo(m){
+  authModo = m;
+  authEl('authEntradaBox').style.display = (m === 'entrar') ? 'block' : 'none';
+  authEl('authCriarBox').style.display   = (m === 'criar')  ? 'block' : 'none';
+  authErr('');
 }
-function authAoAutenticarContratos(user){
-  if(authPerfilUnsubContratos){ authPerfilUnsubContratos(); authPerfilUnsubContratos = null; }
-  if(!user){ authCurrentUser = null; atualizarBoxAuth(); return; }
-  const ref = usuariosContratosColRef.doc(user.uid);
-  ref.get().then(doc => {
-    if(doc.exists) return;
-    const ehResgate = (user.email||'').toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL_CONTRATOS;
-    return ref.set({
-      email: (user.email||'').toLowerCase(),
-      nome:  user.displayName || (user.email||'').split('@')[0],
-      foto:  user.photoURL || '',
-      provedor: (user.providerData[0] && user.providerData[0].providerId) || 'password',
-      status: ehResgate ? 'aprovado' : 'pendente',
-      isAdmin: ehResgate,
-      nivel: ehResgate ? 'editar' : 'nenhum',
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  }).then(() => {
-    authPerfilUnsubContratos = ref.onSnapshot(doc => {
-      if(!doc.exists) return;
-      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
-      atualizarBoxAuth();
-      avisoRascunho();
-    }, e => console.warn('perfil de contratos: sem permissão de leitura ('+e.message+')'));
-  }).catch(e => console.warn('Erro ao preparar sua conta de contratos: '+e.message));
+function authMsgErro(e){
+  const m = {
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/user-not-found':'Não existe conta com esse e-mail.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':'Já existe conta com esse e-mail. Tente entrar em vez de criar.',
+    'auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.'
+  };
+  return m[e.code] || ('Erro: ' + e.message);
 }
-function contratosEntrarGoogle(){
+function authGoogle(){
+  authErr('');
   const provider = new firebase.auth.GoogleAuthProvider();
   firebase.auth().signInWithPopup(provider).catch(e => {
     if(e.code === 'auth/popup-closed-by-user') return;
-    alert('Não foi possível entrar: '+e.message);
+    if(e.code === 'auth/popup-blocked'){ authErr('O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo.'); return; }
+    authErr('Não foi possível entrar com o Google: ' + e.message);
   });
 }
-function contratosSair(){ firebase.auth().signOut(); }
-function atualizarBoxAuth(){
-  const box = document.getElementById('contratosAuthBox'); if(!box) return;
-  box.style.display = '';
-  if(!authCurrentUser){
-    box.innerHTML = '<button class="mini-btn" onclick="contratosEntrarGoogle()">Entrar para editar</button>';
-    return;
-  }
-  if(authCurrentUser.status === 'pendente'){
-    box.innerHTML = '<span class="chip-auth">'+esc(authCurrentUser.nome)+' — aguardando liberação</span> <button class="mini-btn" onclick="contratosSair()">Sair</button>';
-    return;
-  }
-  if(authCurrentUser.status === 'bloqueado'){
-    box.innerHTML = '<span class="chip-auth">'+esc(authCurrentUser.nome)+' — acesso bloqueado</span> <button class="mini-btn" onclick="contratosSair()">Sair</button>';
-    return;
-  }
-  const nivel = contratosNivel();
-  box.innerHTML = '<span class="chip-auth">'+esc(authCurrentUser.nome)+(nivel==='editar' ? '' : ' (somente visualização)')+'</span>'
-    + (authCurrentUser.isAdmin ? ' <button class="mini-btn" onclick="abrirModalUsuariosContratos()">Usuários</button>' : '')
-    + ' <button class="mini-btn" onclick="contratosSair()">Sair</button>';
+function authEntrarSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  const senha = authEl('authPass').value || '';
+  if(!email || !senha){ authErr('Informe e-mail e senha.'); return; }
+  authErr('');
+  firebase.auth().signInWithEmailAndPassword(email, senha).catch(e => authErr(authMsgErro(e)));
+}
+function authCriarConta(){
+  const nome  = (authEl('authNomeC').value || '').trim();
+  const email = (authEl('authEmailC').value || '').trim().toLowerCase();
+  const senha = authEl('authPassC').value || '';
+  if(!nome || !email || !senha){ authErr('Preencha todos os campos.'); return; }
+  if(senha.length < 6){ authErr('A senha deve ter ao menos 6 caracteres.'); return; }
+  authErr('');
+  firebase.auth().createUserWithEmailAndPassword(email, senha)
+    .then(cred => cred.user.updateProfile({displayName: nome}))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authEsqueciSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  if(!email){ authErr('Digite seu e-mail no campo acima primeiro.'); return; }
+  authErr('');
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => alert('Enviamos um e-mail para ' + email + ' com um link para redefinir a senha.'))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  firebase.auth().signOut();
 }
 
-/* ── Painel "Usuários" (admin) ──
-   Bem mais simples que o do sistema de licitações: um único nível por
-   pessoa (não um por painel), porque aqui só existe um painel. */
-let _usuariosContratosCache = [];
-function abrirModalUsuariosContratos(){
-  if(!authCurrentUser || !authCurrentUser.isAdmin){ alert('Só administradores podem gerenciar usuários.'); return; }
-  document.getElementById('modalUsuariosContratos').classList.add('open');
-  renderUsuariosContratos();
+/* ── Perfil (usuarios_v2) ── */
+function iniciarAutenticacaoContratos(){
+  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
+  firebase.auth().onAuthStateChanged(authAoAutenticar);
 }
-function fecharModalUsuariosContratos(){ document.getElementById('modalUsuariosContratos').classList.remove('open'); }
-function renderUsuariosContratos(){
-  usuariosContratosColRef.get().then(snap => {
-    _usuariosContratosCache = snap.docs.map(d => Object.assign({uid:d.id}, d.data()));
-    renderUsrCtrPendentes();
-    renderUsrCtrAprovados();
-  }).catch(e => {
-    document.getElementById('usrCtrPendentesLista').innerHTML = '<div class="usr-vazio">Erro ao carregar: '+esc(e.message)+'</div>';
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email || '').toLowerCase(),
+    nome:  user.displayName || (user.email || '').split('@')[0],
+    foto:  user.photoURL || '',
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || 'password',
+    status: 'pendente',
+    isAdmin: false,
+    acessos: {agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum'},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra || {});
+}
+function authAoAutenticar(user){
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub = null; }
+  if(!user){ authCurrentUser = null; authStartGate(); return; }
+
+  const ref = usuariosV2ColRef.doc(user.uid);
+  ref.get().then(doc => {
+    if(doc.exists) return;
+    const ehResgate = (user.email || '').toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:'aprovado', isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'}
+    } : {}));
+  }).then(() => {
+    authPerfilUnsub = ref.onSnapshot(doc => {
+      /* Conta excluída por um admin com a aba aberta: sair devolve o portão. */
+      if(!doc.exists){ authCurrentUser = null; firebase.auth().signOut(); return; }
+      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
+      if(contratosPodeVer()) authShowApp(); else authShowPendente();
+    }, e => console.warn('perfil: sem permissão de leitura (' + e.message + ')'));
+  }).catch(e => authErr('Erro ao preparar sua conta: ' + e.message));
+}
+
+function authShowApp(){
+  authEl('authGate').style.display = 'none';
+  const chip = authEl('authUserChip');
+  if(chip && authCurrentUser){
+    chip.textContent = '👤 ' + (authCurrentUser.nome || authCurrentUser.email) +
+      (contratosPodeEditar() ? '' : ' · só visualização');
+    chip.style.display = 'inline-flex';
+  }
+  const sair = authEl('btnSair'); if(sair) sair.style.display = '';
+  /* Quem só visualiza não vê os botões que levariam a um formulário que
+     não pode salvar. A trava de verdade continua sendo salvarContrato() e,
+     acima dela, as regras do Firestore — esconder botão é só cortesia. */
+  const podeEditar = contratosPodeEditar();
+  document.querySelectorAll('.so-editor').forEach(el => { el.style.display = podeEditar ? '' : 'none'; });
+  /* Só agora — com o acesso confirmado — os contratos são pedidos ao
+     Firestore. Ligar antes disso tomaria "permissão negada" e o listener
+     morreria sem tentar de novo (foi assim que a Agenda ficou vazia). */
+  iniciarListenerContratos();
+  RASCUNHO = lerRascunho();   /* rascunhos de antes do banco: viram só um aviso */
+  avisoRascunho();
+}
+function authShowPendente(){
+  authEl('authGate').style.display = 'flex';
+  authEl('authEntradaBox').style.display = 'none';
+  authEl('authCriarBox').style.display = 'none';
+  authErr('');
+  authEl('authPendenteCard').style.display = 'block';
+  authEl('authPendNome').textContent  = authCurrentUser.nome || '';
+  authEl('authPendEmail').textContent = authCurrentUser.email || '';
+  const foto = authEl('authPendFoto');
+  foto.src = authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  authEl('authPendMsg').textContent = authCurrentUser.status === 'bloqueado'
+    ? 'Seu acesso foi bloqueado por um administrador.'
+    : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
+}
+function authStartGate(){
+  authEl('authGate').style.display = 'flex';
+  authEl('authPendenteCard').style.display = 'none';
+  authSetModo('entrar');
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC'].forEach(id => {
+    const i = authEl(id);
+    if(i && !i._enterBound){
+      i._enterBound = true;
+      i.addEventListener('keydown', e => { if(e.key === 'Enter'){ (authModo === 'criar') ? authCriarConta() : authEntrarSenha(); } });
+    }
   });
-}
-function opcoesNivelContratos(atual){
-  return [['nenhum','Sem acesso'],['ver','Visualizar'],['editar','Editar']]
-    .map(o => '<option value="'+o[0]+'"'+(atual===o[0]?' selected':'')+'>'+o[1]+'</option>').join('');
-}
-function renderUsrCtrPendentes(){
-  const box = document.getElementById('usrCtrPendentesLista'); if(!box) return;
-  const pend = _usuariosContratosCache.filter(u => u.status === 'pendente');
-  if(!pend.length){ box.innerHTML = '<div class="usr-vazio">Ninguém esperando aprovação.</div>'; return; }
-  box.innerHTML = pend.map(u =>
-    '<div class="usr-row"><div class="usr-info">'
-    + '<div class="usr-nome">'+esc(u.nome||u.email)+'</div>'
-    + '<div class="usr-login">'+esc(u.email)+'</div>'
-    + '<label class="usr-chk usr-chk-sel">Contratos <select id="ctrPendNv_'+u.uid+'">'+opcoesNivelContratos('editar')+'</select></label>'
-    + '</div><div class="usr-acts">'
-    + '<button class="usr-btn ok" onclick="aprovarUsuarioContratos(\''+u.uid+'\')">Aprovar</button>'
-    + '<button class="usr-btn del" onclick="recusarUsuarioContratos(\''+u.uid+'\',\''+esc(u.nome||u.email)+'\')">Recusar</button>'
-    + '</div></div>'
-  ).join('');
-}
-function aprovarUsuarioContratos(uid){
-  const sel = document.getElementById('ctrPendNv_'+uid);
-  usuariosContratosColRef.doc(uid).update({status:'aprovado', nivel:(sel&&sel.value)||'ver'})
-    .then(() => { toast('Acesso liberado.'); renderUsuariosContratos(); })
-    .catch(e => alert('Erro: '+e.message));
-}
-function recusarUsuarioContratos(uid, nome){
-  if(!confirm('Recusar o pedido de "'+nome+'"? A pessoa pode se cadastrar de novo se for engano.')) return;
-  usuariosContratosColRef.doc(uid).delete().then(() => { toast('Pedido recusado.'); renderUsuariosContratos(); })
-    .catch(e => alert('Erro: '+e.message));
-}
-function renderUsrCtrAprovados(){
-  const box = document.getElementById('usrCtrAprovadosLista'); if(!box) return;
-  const aprovados = _usuariosContratosCache.filter(u => u.status === 'aprovado' || u.status === 'bloqueado');
-  if(!aprovados.length){ box.innerHTML = '<div class="usr-vazio">Nenhum usuário aprovado ainda.</div>'; return; }
-  const totalAdmins = _usuariosContratosCache.filter(u => u.isAdmin).length;
-  box.innerHTML = aprovados.map(u => {
-    const bloqueado = u.status === 'bloqueado';
-    return '<div class="usr-row'+(bloqueado?' usr-bloqueado':'')+'"><div class="usr-info">'
-      + '<div class="usr-nome">'+esc(u.nome||u.email)+(u.isAdmin?' <span class="badge-tipo">admin</span>':'')+(bloqueado?' <b style="color:#c0392b">BLOQUEADO</b>':'')+'</div>'
-      + '<div class="usr-login">'+esc(u.email)+'</div>'
-      + '<label class="usr-chk usr-chk-sel">Contratos <select id="ctrAprNv_'+u.uid+'">'+opcoesNivelContratos(u.nivel||'nenhum')+'</select></label>'
-      + '<label class="usr-chk"><input type="checkbox" id="ctrAprAd_'+u.uid+'"'+(u.isAdmin?' checked':'')+'> Administrador</label>'
-      + '</div><div class="usr-acts">'
-      + '<button class="usr-btn" onclick="salvarUsuarioContratos(\''+u.uid+'\','+totalAdmins+')">Salvar</button>'
-      + (bloqueado
-          ? '<button class="usr-btn ok" onclick="reativarUsuarioContratos(\''+u.uid+'\')">Reativar</button>'
-          : '<button class="usr-btn del" onclick="bloquearUsuarioContratos(\''+u.uid+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">Bloquear</button>')
-      + '</div></div>';
-  }).join('');
-}
-function salvarUsuarioContratos(uid, totalAdmins){
-  const nv = document.getElementById('ctrAprNv_'+uid), ad = document.getElementById('ctrAprAd_'+uid);
-  const u = _usuariosContratosCache.find(x => x.uid === uid);
-  if(u && u.isAdmin && !ad.checked && totalAdmins <= 1){ alert('Precisa existir ao menos um administrador.'); return; }
-  usuariosContratosColRef.doc(uid).update({nivel:(nv&&nv.value)||'nenhum', isAdmin: !!(ad&&ad.checked)})
-    .then(() => { toast('Acessos atualizados.'); renderUsuariosContratos(); })
-    .catch(e => alert('Erro: '+e.message));
-}
-function bloquearUsuarioContratos(uid, totalAdmins, ehAdmin){
-  if(ehAdmin && totalAdmins <= 1){ alert('Não é possível bloquear o único administrador.'); return; }
-  if(!confirm('Bloquear o acesso desta pessoa? Ela continua com a conta, mas não edita nada até ser reativada.')) return;
-  usuariosContratosColRef.doc(uid).update({status:'bloqueado'}).then(() => { toast('Usuário bloqueado.'); renderUsuariosContratos(); })
-    .catch(e => alert('Erro: '+e.message));
-}
-function reativarUsuarioContratos(uid){
-  usuariosContratosColRef.doc(uid).update({status:'aprovado'}).then(() => { toast('Usuário reativado.'); renderUsuariosContratos(); })
-    .catch(e => alert('Erro: '+e.message));
 }
 
 /* ══════════════ UTILIDADES ══════════════ */
@@ -2216,7 +2320,7 @@ document.addEventListener('keydown', e=>{
   fecharDet(); fecharRep(); fecharFiltrosMobile();
 });
 /* fecha os modais com o botão voltar do celular */
-window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharForm(); fecharDet(); fecharRep(); fecharFiltrosMobile(); fecharModalUsuariosContratos(); });
+window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharForm(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
 
 /* A tarja do cabeçalho diz de onde vieram os dados — sem ela não dá para
    saber, olhando a tela, se o Firestore respondeu ou se caiu no arquivo. */
@@ -2239,12 +2343,22 @@ function iniciar(){
      tabela (no celular, no botão "Filtros e ordem"). */
 }
 
-carregarContratos().then(d => { CONTRATOS = d; iniciar(); iniciarSincroniaAoVivo(); }).catch(e => {
-  console.error('Erro ao carregar os contratos:', e);
-  const alvo = document.getElementById('vazio');
-  if(alvo) alvo.innerHTML =
-    '<div class="empty"><span>⚠️</span>Não foi possível carregar os contratos.<br>' + esc(e.message) + '</div>';
-});
+/* Com o Firebase ligado, a tela começa fechada: carrega o SDK, liga o
+   portão de acesso, e é o próprio portão que pede os contratos depois de
+   confirmar quem entrou (authShowApp → iniciarListenerContratos). Sem
+   Firebase configurado, segue o caminho antigo — arquivo local + rascunho
+   no navegador —, e nesse caso não há portão nenhum. */
+if(temFirebase()){
+  document.getElementById('authGate').style.display = 'flex';
+  carregarSDK()
+    .then(() => { firebase.initializeApp(FIREBASE_CONFIG); iniciarAutenticacaoContratos(); })
+    .catch(e => mostrarErroCarregar(e));
+} else {
+  document.getElementById('authGate').style.display = 'none';
+  carregarDoArquivo().then(normalizarLista).then(aplicarRascunho)
+    .then(d => { CONTRATOS = d; iniciar(); })
+    .catch(e => mostrarErroCarregar(e));
+}
 </script>
 </body>
 </html>

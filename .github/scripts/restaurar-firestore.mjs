@@ -64,6 +64,29 @@ function args() {
   };
 }
 
+// Restaurar grava, e gravar exige login desde que as regras foram fechadas
+// (ver CONTROLE-DE-ACESSO.md). Usa a mesma conta admin do backup diario:
+//   BACKUP_EMAIL=... BACKUP_SENHA=... node restaurar-firestore.mjs ...
+let TOKEN = "";
+async function entrar(chave) {
+  const email = process.env.BACKUP_EMAIL || "";
+  const senha = process.env.BACKUP_SENHA || "";
+  if (!email || !senha) {
+    throw new Error(
+      "defina BACKUP_EMAIL e BACKUP_SENHA (conta ADMIN do sistema) antes de restaurar.\n" +
+      "Ver CONTROLE-DE-ACESSO.md, secao \"Backup diario\"."
+    );
+  }
+  const r = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${chave}`,
+    { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password: senha, returnSecureToken: true }) }
+  );
+  const d = await r.json();
+  if (!r.ok) throw new Error(`login falhou: ${d.error?.message || r.status}`);
+  TOKEN = d.idToken;
+}
+
 async function gravar(colecao, id, fields, chave, projeto) {
   const url =
     `https://firestore.googleapis.com/v1/projects/${projeto}` +
@@ -71,7 +94,7 @@ async function gravar(colecao, id, fields, chave, projeto) {
     `?key=${chave}`;
   const res = await fetch(url, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
     body: JSON.stringify({ fields: fields || {} }),
   });
   if (!res.ok) {
@@ -104,6 +127,9 @@ async function main() {
 
   if (!confirmar) {
     console.log("SIMULAÇÃO — nada será gravado. Use --confirmar para valer.\n");
+  } else {
+    await entrar(chave);
+    console.log(`entrou como ${process.env.BACKUP_EMAIL}\n`);
   }
 
   let total = 0;

@@ -1,12 +1,21 @@
 #!/usr/bin/env node
 // Backup diario do Firestore do sistema de licitacoes de Ijui.
 //
-// Le todas as colecoes pela API REST do Firestore usando a mesma chave web que
-// ja esta publica no HTML do site (ler nao exige credencial nenhuma), e grava:
+// Le todas as colecoes pela API REST do Firestore e grava:
 //
 //   backup/<data>/<colecao>.json       leitura humana, valores ja convertidos
 //   backup/<data>/raw/<colecao>.json   payload cru da API, para restauracao fiel
 //   backup/<data>/manifest.json        data, contagem por colecao e total
+//
+// PRECISA DE LOGIN. Desde que as regras do Firestore foram fechadas (ver
+// CONTROLE-DE-ACESSO.md), listar uma colecao exige conta aprovada — a chave
+// web publica sozinha nao le mais nada. O backup entra com uma conta de
+// e-mail/senha do proprio sistema, guardada nos secrets do repositorio:
+//
+//   BACKUP_EMAIL  e-mail de uma conta ADMIN do sistema
+//   BACKUP_SENHA  a senha dela
+//
+// Como criar essa conta, em CONTROLE-DE-ACESSO.md ("Backup diario").
 //
 // Uso: node .github/scripts/backup-firestore.mjs [diretorio-de-saida]
 
@@ -16,9 +25,10 @@ import { fileURLToPath } from "node:url";
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-// Cada modulo tem o seu projeto Firebase, separado de proposito (ver
-// contratos/LEIA-ME.md): um nao alcanca o outro. O backup e o unico lugar que
-// le todos — de fora, so para guardar.
+// Contratos passou a morar no MESMO projeto das licitacoes, como um painel a
+// mais do controle de acesso (ver contratos/LEIA-ME.md) — por isso a colecao
+// "contratos" entra na lista de licitacoes. Editais, se ganhar projeto
+// proprio um dia, continua como linha separada.
 //
 // As colecoes de cada um precisam estar listadas aqui: a API REST nao lista
 // colecoes sem credencial de admin. Modulo que ganhar projeto e nao entrar
@@ -30,7 +40,10 @@ const LICITACOES = [
   "diligencias",
   "decisoes",
   "aniversarios",
-  "usuarios",
+  "usuarios",          // cadastro antigo (usuario/senha), so historico
+  "usuarios_v2",       // as contas de verdade: quem entra e com qual acesso
+  "usuarios_v2_convites",
+  "contratos",
   "status",
   "agentes",
   "observacoes",
@@ -44,7 +57,6 @@ const LICITACOES = [
 // pela metade.
 const MODULOS = [
   { nome: "licitacoes", html: ["pregoeiro", "index.html"], exigido: true, colecoes: LICITACOES },
-  { nome: "contratos",  html: ["contratos", "index.html"], colecoes: ["contratos"] },
   { nome: "editais",    html: ["editais", "index.html"],   colecoes: ["editais"] },
 ];
 
@@ -88,10 +100,37 @@ function campos(f) {
   return o;
 }
 
+// Token de acesso da conta de backup. Vale ~1h; um backup inteiro leva
+// segundos, entao pegar uma vez no comeco basta.
+let TOKEN = "";
+async function entrar(chave) {
+  const email = process.env.BACKUP_EMAIL || "";
+  const senha = process.env.BACKUP_SENHA || "";
+  if (!email || !senha) {
+    throw new Error(
+      "sem BACKUP_EMAIL/BACKUP_SENHA nos secrets do repositorio.\n" +
+      "Desde que as regras do Firestore foram fechadas, o backup precisa entrar\n" +
+      "com uma conta admin do sistema. Ver CONTROLE-DE-ACESSO.md, secao \"Backup diario\"."
+    );
+  }
+  const r = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${chave}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password: senha, returnSecureToken: true }),
+    }
+  );
+  const d = await r.json();
+  if (!r.ok) throw new Error(`login do backup falhou: ${d.error?.message || r.status}`);
+  TOKEN = d.idToken;
+}
+
 async function buscarJson(url, tentativa = 1) {
   let res;
+  const opcoes = TOKEN ? { headers: { Authorization: `Bearer ${TOKEN}` } } : undefined;
   try {
-    res = await fetch(url);
+    res = await fetch(url, opcoes);
   } catch (e) {
     // Falha de rede: tenta de novo antes de desistir, para nao perder o backup
     // do dia por causa de um soluco de conexao do runner.
@@ -103,6 +142,13 @@ async function buscarJson(url, tentativa = 1) {
     if (tentativa >= 4) throw new Error(`HTTP ${res.status} em ${url}`);
     await new Promise((r) => setTimeout(r, 2000 * tentativa));
     return buscarJson(url, tentativa + 1);
+  }
+  if (res.status === 403 || res.status === 401) {
+    throw new Error(
+      `sem permissao para ler ${url.split("/documents/")[1]?.split("?")[0] || url}.\n` +
+      "A conta em BACKUP_EMAIL precisa ser ADMIN do sistema (o painel Usuarios,\n" +
+      "dentro do Sistema Interno, marca isso). Ver CONTROLE-DE-ACESSO.md."
+    );
   }
   if (!res.ok) throw new Error(`HTTP ${res.status} em ${url}`);
   return res.json();
@@ -154,6 +200,14 @@ async function main() {
     else console.log(`${mod.nome}: sem projeto proprio ainda — nada a baixar`);
   }
   console.log("");
+
+  // Uma conta so, do projeto das licitacoes, que e o unico com regras
+  // fechadas hoje. Se um dia editais ganhar projeto proprio, vai precisar da
+  // propria conta aqui.
+  if (fontes.length) {
+    await entrar(fontes[0].chave);
+    console.log(`entrou como ${process.env.BACKUP_EMAIL}\n`);
+  }
 
   const porProjeto = {};
   const vazias = [];

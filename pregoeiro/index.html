@@ -60,6 +60,13 @@
       : authPodeEditar(nivelExigido);
   }
   function authPodeNaColecao(nome, acao){
+    /* Link público (?assinatura=, ?assinar=, ?ranking=...): não existe conta
+       nenhuma pra consultar, e quem manda ali são as regras do Firestore —
+       que já limitam a escrita aos poucos campos daquele fluxo. A checagem
+       PRECISA ser aqui, na hora de gravar, e não na hora de criar a
+       referência: as refs do topo do arquivo nascem antes de a URL ser
+       lida, quando AUTH_MODO_COMPARTILHADO ainda nem existe. */
+    if(typeof AUTH_MODO_COMPARTILHADO!=="undefined" && AUTH_MODO_COMPARTILHADO) return true;
     var regra=PAINEL_DA_COLECAO[nome];
     if(!regra) return true;   /* coleção fora da lista: sem trava extra aqui */
     return authNivelExigidoOk(regra[acao] || regra.escrever);
@@ -2245,6 +2252,7 @@
           <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
             <label class="usr-chk usr-chk-sel">Agenda <select id="cvAg"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
             <label class="usr-chk usr-chk-sel">Sistema Interno <select id="cvPr"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
+            <label class="usr-chk usr-chk-sel">Contratos <select id="cvCt"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
             <button class="btn-save" onclick="convitesSalvar()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">Preparar convite</button>
           </div>
         </div>
@@ -11118,11 +11126,18 @@ function authPodeVer(painel){ var n=authNivel(painel); return n==="ver"||n==="ed
 function authPodeEditar(painel){ return authNivel(painel)==="editar"; }
 function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
 function authTemAcesso(painel){ return authPodeVer(painel); }
+/* Os três painéis que uma conta pode ter, na ordem em que aparecem no
+   painel Usuários. Contratos entrou aqui (mesmo projeto do Firebase, mesma
+   conta) — ver contratos/LEIA-ME.md. */
+var AUTH_PAINEIS=[
+  {id:"agenda",    nome:"Agenda",          sufixo:"Ag"},
+  {id:"pregoeiro", nome:"Sistema Interno", sufixo:"Pr"},
+  {id:"contratos", nome:"Contratos",       sufixo:"Ct"}
+];
 function authResumoAcessos(acessos){
-  var nomes={agenda:"Agenda", pregoeiro:"Sistema Interno"};
-  var partes=["agenda","pregoeiro"].map(function(p){
-    var n=authNormalizaNivel(acessos && acessos[p]);
-    return n==="nenhum" ? null : nomes[p]+" ("+(n==="editar"?"editar":"visualizar")+")";
+  var partes=AUTH_PAINEIS.map(function(p){
+    var n=authNormalizaNivel(acessos && acessos[p.id]);
+    return n==="nenhum" ? null : p.nome+" ("+(n==="editar"?"editar":"visualizar")+")";
   }).filter(Boolean);
   return partes.length ? partes.join(", ") : "nenhum acesso";
 }
@@ -11219,7 +11234,7 @@ function authPerfilPadrao(user, extra){
     provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
     status: "pendente",
     isAdmin: false,
-    acessos: {agenda:"nenhum", pregoeiro:"nenhum"},
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum"},
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }, extra||{});
 }
@@ -11234,11 +11249,14 @@ function authAoAutenticar(user){
     if(doc.exists) return;
     var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
     return ref.set(authPerfilPadrao(user, ehResgate ? {
-      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar"}
+      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar",contratos:"editar"}
     } : {}));
   }).then(function(){
     authPerfilUnsub=ref.onSnapshot(function(doc){
-      if(!doc.exists) return;   /* excluído por um admin enquanto a pessoa estava logada */
+      /* Excluído por um admin com a pessoa logada: não dá pra simplesmente
+         ignorar — a tela ficaria aberta, com os dados já carregados, como
+         se nada tivesse acontecido. Sai da conta, o que devolve o portão. */
+      if(!doc.exists){ authCurrentUser=null; firebase.auth().signOut(); return; }
       authCurrentUser=Object.assign({uid:user.uid}, doc.data());
       if(authTemAcesso("pregoeiro")) authShowApp(); else authShowPendente();
     }, function(e){ console.warn("perfil: sem permissão de leitura ("+e.message+")"); });
@@ -11299,8 +11317,13 @@ function authShowPendente(){
   var foto=document.getElementById("authPendFoto");
   foto.src=authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
   var msg=document.getElementById("authPendMsg");
+  /* Quem já tem acesso a OUTRO painel merece um recado que explique isso —
+     senão fica parecendo que a conta não foi liberada. */
+  var outros=AUTH_PAINEIS.filter(function(p){
+    return p.id!=="pregoeiro" && authNivelDe(authCurrentUser,p.id)!=="nenhum";
+  }).map(function(p){ return p.nome; });
   if(authCurrentUser.status==="bloqueado") msg.textContent="Seu acesso foi bloqueado por um administrador.";
-  else if(authNivelDe(authCurrentUser,"agenda")!=="nenhum") msg.textContent="Sua conta tem acesso só à Agenda. Peça a um administrador para liberar o Sistema Interno, se precisar dele.";
+  else if(outros.length) msg.textContent="Sua conta tem acesso a "+outros.join(" e ")+", mas não ao Sistema Interno. Peça a um administrador para liberar, se precisar dele.";
   else msg.textContent="Sua conta foi criada. Peça para um administrador liberar o seu acesso.";
 }
 function authStartGate(){
@@ -11351,8 +11374,22 @@ function authOpcoesNivel(atual){
   }).join('');
 }
 function usrChipsAcesso(u, prefixo){
-  return '<label class="usr-chk usr-chk-sel">Agenda <select id="'+prefixo+'Ag_'+u.uid+'">'+authOpcoesNivel(authNivelDe(u,"agenda"))+'</select></label>'
-       + '<label class="usr-chk usr-chk-sel">Sistema Interno <select id="'+prefixo+'Pr_'+u.uid+'">'+authOpcoesNivel(authNivelDe(u,"pregoeiro"))+'</select></label>';
+  return AUTH_PAINEIS.map(function(p){
+    return '<label class="usr-chk usr-chk-sel">'+p.nome+' <select id="'+prefixo+p.sufixo+'_'+u.uid+'">'
+      +authOpcoesNivel(authNivelDe(u,p.id))+'</select></label>';
+  }).join('');
+}
+/* Lê os três selects de uma linha do painel e devolve o objeto acessos. */
+function usrLerAcessos(prefixo, uid){
+  var acessos={};
+  AUTH_PAINEIS.forEach(function(p){
+    var el=document.getElementById(prefixo+p.sufixo+'_'+uid);
+    acessos[p.id]=(el&&el.value)||"nenhum";
+  });
+  return acessos;
+}
+function usrNenhumAcesso(acessos){
+  return AUTH_PAINEIS.every(function(p){ return authNormalizaNivel(acessos[p.id])==="nenhum"; });
 }
 function usuariosRenderPendentes(usuarios, convites){
   var box=document.getElementById("usrPendentesLista");
@@ -11376,10 +11413,14 @@ function usuariosRenderPendentes(usuarios, convites){
   }).join('');
 }
 function usuariosAprovar(uid){
-  var ag=document.getElementById('pendAg_'+uid), pr=document.getElementById('pendPr_'+uid);
-  usuariosV2ColRef.doc(uid).update({
-    status:"aprovado", acessos:{agenda:(ag&&ag.value)||"nenhum", pregoeiro:(pr&&pr.value)||"nenhum"}
-  }).then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
+  var acessos=usrLerAcessos('pend', uid);
+  /* Aprovar sem liberar nenhum painel é quase sempre engano: a pessoa fica
+     "aprovada" no cadastro mas continua vendo a tela de espera, e quem
+     aprovou acha que liberou. */
+  if(usrNenhumAcesso(acessos) &&
+     !confirm("Nenhum painel foi liberado (todos em \"Sem acesso\").\n\nA pessoa vai continuar vendo \"aguardando liberação\".\n\nAprovar mesmo assim?")) return;
+  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos })
+    .then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
 function usuariosRecusar(uid, nome){
@@ -11390,7 +11431,9 @@ function usuariosRecusar(uid, nome){
 function usuariosAplicarConvite(uid, conviteId){
   var convite=_convitesCache.find(function(c){ return c.id===conviteId; });
   if(!convite) return;
-  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:convite.acessos||{agenda:"nenhum",pregoeiro:"nenhum"}})
+  var acessos={};
+  AUTH_PAINEIS.forEach(function(p){ acessos[p.id]=authNormalizaNivel(convite.acessos && convite.acessos[p.id]); });
+  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos})
     .then(function(){ return convitesColRef.doc(conviteId).delete(); })
     .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -11420,13 +11463,12 @@ function usuariosRenderAprovados(usuarios){
   }).join('');
 }
 function usuariosSalvarAcessos(uid, totalAdmins){
-  var ag=document.getElementById('aprAg_'+uid), pr=document.getElementById('aprPr_'+uid), ad=document.getElementById('aprAdmin_'+uid);
+  var ad=document.getElementById('aprAdmin_'+uid);
+  var viraAdmin=!!(ad&&ad.checked);
   var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
-  if(u && u.isAdmin && !ad.checked && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
-  usuariosV2ColRef.doc(uid).update({
-    acessos:{agenda:(ag&&ag.value)||"nenhum", pregoeiro:(pr&&pr.value)||"nenhum"},
-    isAdmin: !!(ad&&ad.checked)
-  }).then(function(){ toast("Acessos atualizados."); usuariosV2Renderizar(); })
+  if(u && u.isAdmin && !viraAdmin && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
+  usuariosV2ColRef.doc(uid).update({ acessos:usrLerAcessos('apr', uid), isAdmin:viraAdmin })
+    .then(function(){ toast("Acessos atualizados."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
 function usuariosBloquear(uid, nome, totalAdmins, ehAdmin){
@@ -11460,14 +11502,15 @@ function usuariosEnviarReset(email){
    clique aplica exatamente o acesso preparado aqui. */
 function convitesLimparForm(){
   ["cvNome","cvEmail"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
-  ["cvAg","cvPr"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value="nenhum"; });
+  AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); if(e) e.value="nenhum"; });
 }
 function convitesSalvar(){
   var nome=(document.getElementById("cvNome").value||"").trim();
   var email=(document.getElementById("cvEmail").value||"").trim().toLowerCase();
   if(!email){ alert("Informe o e-mail."); return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
-  var acessos={agenda:document.getElementById("cvAg").value, pregoeiro:document.getElementById("cvPr").value};
+  var acessos={};
+  AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); acessos[p.id]=(e&&e.value)||"nenhum"; });
   convitesColRef.add({nome:nome, email:email, acessos:acessos, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });

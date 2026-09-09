@@ -1,61 +1,53 @@
-# Contratos — banco próprio, separado das licitações
+# Contratos — dentro do mesmo banco, com painel próprio de acesso
 
-## Por que projeto separado e não "um grupo" dentro do mesmo
+## Por que acabou ficando no mesmo projeto
 
-A pergunta era: para deixar os contratos isolados das licitações, é mais seguro
-**outro projeto Firebase** ou **separar por grupo/coleção dentro do mesmo**?
+A primeira decisão aqui foi por **projeto Firebase separado**, e o motivo
+era bom: num projeto só, a única coisa que separa contratos de licitações é
+o arquivo de regras — uma linha errada nele expõe os dois de uma vez. Com
+projetos separados, errar a regra de um lado não alcança o outro.
 
-**Outro projeto.** As três opções, do mais fraco para o mais forte:
+O que mudou foi o **login**. Quando aquilo foi escrito, contratos não tinha
+conta nenhuma; o que estava em jogo era só isolar dado de dado. Depois o
+sistema ganhou contas de verdade (Firebase Authentication + `usuarios_v2`,
+ver `CONTROLE-DE-ACESSO.md`), e aí a conta passou a pesar mais que o
+isolamento:
 
-| | o que separa | o que NÃO separa |
+| | projeto separado | mesmo projeto |
 |---|---|---|
-| Coleções com prefixo no mesmo banco | nada, só o nome | chave, regras, cota, console — tudo compartilhado |
-| Segundo banco no mesmo projeto | o banco e o arquivo de regras | a chave web, o projeto, quem tem acesso ao console, a cobrança |
-| **Projeto separado** | **tudo** | — |
+| Contas | duas por pessoa, dois cadastros, dois painéis de aprovação | **uma conta, um lugar pra aprovar** |
+| Isolamento | total | por regra, `match /contratos/{id}` independente das outras |
+| Para funcionar | criar projeto, ativar login, importar, manter dois configs | **já funciona** |
 
-O que decide é isto: **num projeto só, a única coisa que separa contratos de
-licitações é o arquivo de regras.** Uma linha errada nele — e regra de Firestore
-é fácil de errar — expõe os dois de uma vez. Com projetos separados, errar a
-regra das licitações não alcança os contratos, porque a chave é outra, o banco é
-outro e o endereço é outro. Não existe caminho de um para o outro nem se alguém
-quiser.
+O risco que sobra é conhecido: se alguém colar uma regra errada no console,
+expõe licitações **e** contratos de uma vez. Mitigado por duas coisas — as
+regras são por coleção (não há curinga `match /{document=**}`), e o arquivo
+`firestore-processos-ijui.rules` está versionado aqui, então dá pra
+comparar e voltar atrás.
 
-O resto vem junto: cota e cobrança independentes (uma consulta pesada nos
-contratos não derruba a licitação em andamento), acesso ao console concedido
-separadamente, e apagar um projeto não chega perto do outro.
-
-O preço é pequeno e conhecido: dois configs para manter, dois lugares para olhar
-no console, e o backup precisa saber dos dois — o que ele já sabe. O plano
-gratuito (Spark) vale por projeto, então o segundo projeto não custa nada.
-
-**Isso não é um substituto para as regras.** Separar limita o estrago; não
-impede. O banco das licitações tinha as regras abertas para leitura com a
-chave pública — inclusive a antiga coleção `usuarios`, com hash de senha — até
-a introdução do login por Firebase Authentication e do fechamento das regras
-(ver `CONTROLE-DE-ACESSO.md` na raiz do repositório). Ao criar o projeto dos
-contratos, vale já nascer com regra restritiva e o mesmo modelo de conta e
-aprovação por painel, em vez de repetir o problema.
+**Isso não é substituto para as regras.** O que protege o cadastro é a
+regra `match /contratos/{id}`, que exige conta aprovada com o painel
+Contratos: ver exige o painel, gravar exige nível "Editar".
 
 ## Como está hoje
 
-`FIREBASE_CONFIG` em `contratos/index.html` está **vazio**. Enquanto estiver, a
-tela carrega de `dados/contratos.json` — os mesmos 1.264 contratos, versionados
-aqui no repositório. Tudo funciona: busca, filtros, relatórios em PDF. A tarja do
-cabeçalho diz qual das duas fontes está no ar.
+Ligado no Firestore do projeto `processos-ijui`, coleção `contratos`, atrás
+do portão de acesso — a tela só carrega a lista depois de confirmar que
+quem entrou tem o painel Contratos liberado. A tarja do cabeçalho diz
+`DADOS AO VIVO` quando é o banco que está no ar.
+
+O `dados/contratos.json` continua no repositório como **histórico e semente
+da primeira importação**. Ele não é mais a fonte da tela: se o Firestore
+negar a leitura, a tela mostra o erro em vez de cair no arquivo — o arquivo
+é público, e usá-lo como plano B furaria a proteção inteira.
 
 ## Cadastro, edição e aditivos
 
 A tela cadastra contrato novo, edita contrato existente e registra aditivos
-(prazo, valor, ou os dois). **Onde isso é gravado depende do `FIREBASE_CONFIG`:**
-
-- **com o config preenchido**, salvar escreve no Firestore dos contratos e todo
-  mundo passa a ver;
-- **com ele vazio** — a situação de hoje —, não existe onde gravar: a alteração
-  fica guardada no `localStorage` **daquele navegador**, e a tela avisa isso numa
-  tarja amarela permanente. Para virar cadastro de verdade, o botão
-  **Exportar JSON** gera o `dados/contratos.json` novo (mesmo formato, um
-  contrato por linha), que substitui o arquivo do repositório. O botão
-  **Descartar** joga os rascunhos fora.
+(prazo, valor, ou os dois). Salvar escreve direto no Firestore, e **quem
+estiver com a tela aberta vê a alteração na hora**, sem recarregar: a lista
+é ouvida ao vivo (`onSnapshot`). É isso que permite duas pessoas mexerem
+nos contratos ao mesmo tempo.
 
 O valor e o vencimento que a lista mostra são sempre os **vigentes**. Quando um
 contrato ganha aditivo, o valor e o prazo de origem passam a morar em
@@ -67,64 +59,45 @@ aditivo refaz a conta sem somar duas vezes.
 
 ### Quem pode editar
 
-Ler continua público, sem login nenhum — igual a hoje. **Gravar** (cadastro
-novo, edição, aditivo) já está pronto no código para exigir conta aprovada
-com nível **"Editar"**, no mesmo modelo de `CONTROLE-DE-ACESSO.md`: conta
-nasce pendente sem nenhum acesso, um administrador aprova escolhendo **Sem
-acesso / Visualizar / Editar** no botão **Usuários** (aparece no cabeçalho
-assim que alguém loga), e o e-mail `pedrohhpacifico@gmail.com` já nasce
-administrador com edição liberada. Isso já está implementado em
-`contratos/index.html` (procure por "CONTAS E PERMISSÕES") e em
-`contratos/firestore-contratos-ijui.rules` — só falta o passo abaixo, que só
-você consegue fazer, porque exige a sua conta do Firebase.
+Três níveis, os mesmos dos outros painéis (ver `CONTROLE-DE-ACESSO.md`):
 
-Enquanto `FIREBASE_CONFIG` estiver vazio (a situação de hoje), nada disso
-entra em cena: não existe conta, e salvar cai direto no rascunho do
-navegador — exatamente o comportamento de sempre, sem nenhuma mudança.
+- **Sem acesso** — nem entra: fica na tela de "aguardando liberação", e a
+  lista de contratos nem chega ao navegador;
+- **Visualizar** — vê tudo, mas os botões de cadastro somem e qualquer
+  tentativa de gravar é recusada (no navegador e nas regras);
+- **Editar** — cadastra, edita e registra aditivos.
 
-## Como ligar o Firestore
+Quem aprova é um administrador, no painel **Usuários** dentro do Sistema
+Interno — é o mesmo cadastro de contas do resto do sistema. Para alguém que
+só cuida de contrato: **Contratos: Editar**, e "Sem acesso" nos outros dois
+painéis.
 
-1. No console do Firebase, **criar um projeto novo** (ex.: `contratos-ijui`).
-   Não reaproveitar o `processos-ijui`.
-2. **Authentication** → **Sign-in method** → ativar **Google** (e, se quiser,
-   **E-mail/senha** também) — é o mesmo tipo de login do sistema de
-   licitações, mas com conta separada, porque o projeto é outro.
-3. Criar o Firestore. Colar o conteúdo de
-   [`contratos/firestore-contratos-ijui.rules`](firestore-contratos-ijui.rules)
-   em **Firestore Database** → **Regras** → **Publicar**. Esse arquivo já
-   deixa a leitura de `contratos` pública (como hoje) e a escrita restrita a
-   quem tiver nível "Editar" — não precisa (nem deve) copiar as regras das
-   licitações.
-4. Registrar um app Web e copiar o objeto de configuração.
-5. Colar em `FIREBASE_CONFIG`, em `contratos/index.html`.
-6. Subir os dados:
+## Primeira importação (uma vez só)
 
-   ```bash
-   node contratos/ferramentas/importar.mjs              # ensaio, não grava nada
-   node contratos/ferramentas/importar.mjs --confirmar  # grava de verdade
-   ```
+A coleção nasce vazia. Com o banco vazio, um administrador que abrir a tela
+vê o botão **"Importar os contratos agora"**, que sobe os 1.264 do
+`dados/contratos.json` em lotes. É feito pela tela de propósito: gravar
+exige login, e assim não é preciso terminal nem credencial de
+administrador do Firebase.
 
-   O id de cada documento é o `id` numérico do contrato em texto, então rodar de
-   novo atualiza os mesmos documentos em vez de duplicar.
+Depois disso quem manda é o banco. O arquivo do repositório fica como
+histórico — e o **Exportar JSON** da tela continua gerando uma cópia no
+mesmo formato quando você quiser atualizar esse histórico.
 
-7. Conferir: a tarja do cabeçalho deve passar a dizer `DADOS AO VIVO`.
-8. Abrir a tela e entrar com **pedrohhpacifico@gmail.com** pelo Google — nasce
-   administrador na hora, com edição liberada. No botão **Usuários** que
-   aparece no cabeçalho, aprove as duas pessoas que vão editar contratos,
-   escolhendo o nível **Editar** para cada uma. A partir daí, as duas
-   conseguem estar na tela ao mesmo tempo: quem salva um contrato ou aditivo
-   aparece para a outra pessoa na hora, sem precisar atualizar a página — a
-   tela ouve o Firestore ao vivo (`onSnapshot`), não só na hora de abrir.
+## O que ainda depende de você, no console do Firebase
 
-A partir daí o backup diário passa a incluir o projeto de contratos sozinho —
-ele lê o `FIREBASE_CONFIG` daqui e, enquanto estiver vazio, simplesmente pula.
+Só uma coisa: **publicar as regras**. O arquivo
+[`../firestore-processos-ijui.rules`](../firestore-processos-ijui.rules) já
+traz o `match /contratos/{id}`. Enquanto ele não for publicado, a coleção
+`contratos` fica sem regra nenhuma — e sem regra o Firestore nega tudo, ou
+seja, a tela não carrega.
 
 ## Arquivos
 
 | | |
 |---|---|
-| `index.html` | a tela: busca que varre tudo, tabela única com filtro em cada coluna, o cadastro de contratos e aditivos, e as contas/permissões (bloco "CONTAS E PERMISSÕES") |
-| `dados/contratos.json` | os 1.264 contratos, um por linha |
-| `ferramentas/importar.mjs` | sobe o JSON para o Firestore dos contratos |
-| `firestore-contratos-ijui.rules` | as regras do Firestore do projeto de contratos (colar no console, quando o projeto existir) |
-| `../testes/t-contratos.js` | confere que a tela continua fazendo o que fazia |
+| `index.html` | a tela: busca que varre tudo, tabela única com filtro em cada coluna, o cadastro de contratos e aditivos, o portão de acesso (bloco "CONTAS E PERMISSÕES") e a importação inicial |
+| `dados/contratos.json` | os 1.264 contratos, um por linha — histórico e semente da primeira importação |
+| `../firestore-processos-ijui.rules` | as regras, incluindo `match /contratos/{id}` |
+| `../CONTROLE-DE-ACESSO.md` | como funcionam as contas e os três painéis |
+| `../testes/t-contratos.js` | confere a tela, o portão e a atualização ao vivo |

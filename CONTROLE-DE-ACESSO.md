@@ -22,10 +22,24 @@ aquele painel específico** — em vez de abertas por necessidade técnica.
    liberação" com o nome, foto e e-mail de quem entrou.
 3. Um administrador abre **Usuários** (dentro do Sistema Interno) e vê o
    pedido esperando. Marca ali mesmo, painel por painel (Agenda, Sistema
-   Interno), um de três níveis — **Sem acesso**, **Visualizar** ou
-   **Editar** — e aprova.
+   Interno, Contratos), um de três níveis — **Sem acesso**, **Visualizar**
+   ou **Editar** — e aprova.
 4. A liberação chega **na hora**, sem precisar relogar: quem estava com a
    aba aberta na tela de espera vê o sistema abrir sozinho.
+
+## Os três painéis
+
+Uma conta só, com um nível para cada painel:
+
+| Painel | O que é | Endereço |
+|---|---|---|
+| **Agenda** | a agenda pública de licitações | `/` |
+| **Sistema Interno** | a central do pregoeiro | `/pregoeiro/` |
+| **Contratos** | o cadastro de contratos e aditivos | `/contratos/` |
+
+Os três moram no mesmo projeto do Firebase e usam a **mesma conta**: quem
+cuida só de contrato ganha nível em Contratos e "Sem acesso" nos outros
+dois, e continua sendo uma pessoa, uma conta, aprovada num lugar só.
 
 ## Três níveis por painel: Sem acesso / Visualizar / Editar
 
@@ -33,8 +47,8 @@ Além de dar ou não acesso a um painel, o administrador escolhe **o quanto**
 essa pessoa pode fazer nele:
 
 - **Sem acesso** — nem entra no painel.
-- **Visualizar** — entra, vê tudo (processos, status, decisões, contratos
-  quando existir), mas qualquer botão de salvar/editar/excluir é barrado.
+- **Visualizar** — entra, vê tudo (processos, status, decisões, contratos),
+  mas qualquer botão de salvar/editar/excluir é barrado.
   Aparece um aviso fixo no topo da tela ("👁 Modo somente visualização")
   pra nunca confundir com um erro qualquer.
 - **Editar** — acesso completo, igual ao que existia antes desta mudança.
@@ -54,7 +68,7 @@ ou não) — não precisaram de nenhuma migração: o sistema trata `true` como
 lados (JavaScript e regras do Firestore).
 
 O e-mail `pedrohhpacifico@gmail.com` é o **e-mail de resgate**: a primeira
-vez que ele entra, já nasce administrador com os dois painéis liberados —
+vez que ele entra, já nasce administrador com os três painéis liberados —
 garante que sempre exista alguém capaz de aprovar todo o resto. É a mesma
 ideia do antigo `AUTH_BOOTSTRAP_ADMIN = "pacifico"`, só que agora amarrada a
 um e-mail de verdade (verificado pelo Google/Firebase), não a um texto que
@@ -166,25 +180,58 @@ rápido) e aprove cada uma no painel **Usuários**.
 | `index.html` (bloco "LOGIN / CONTROLE DE ACESSO") | portão de acesso da Agenda |
 | `pregoeiro/index.html` (mesmo bloco + painel "Usuários") | portão de acesso do Sistema Interno, e onde o admin aprova/gerencia |
 | `testes/t-auth.js` | confere cadastro → pendente → aprovação → acesso ao vivo, o e-mail de resgate, convites, e a proteção do último admin |
+| `contratos/index.html` (bloco "CONTAS E PERMISSÕES") | portão de acesso dos Contratos, no mesmo cadastro |
 | `testes/fbstub3.js` | o Firestore E o Firebase Auth falsos usados nos testes (`firebase.auth()` simulado, sem rede nenhuma) |
 
-## Contratos e Editais
+## Contratos
 
-O módulo de Editais ainda não tem projeto Firebase próprio — continua
-funcionando com dados locais/arquivo.
+Contratos **não é mais um projeto Firebase à parte**: virou o terceiro
+painel deste mesmo controle de acesso. A razão é prática — projeto separado
+significaria um segundo Firebase Authentication, ou seja, cada pessoa com
+duas contas e você aprovando em dois painéis diferentes. Com um projeto só,
+é uma conta por pessoa e um lugar só pra liberar.
 
-O módulo de **Contratos** já tem o código do mesmo modelo pronto (Firebase
-Authentication + coleção própria `usuarios_contratos` + painel de aprovação
-com os três níveis Sem acesso/Visualizar/Editar), num projeto Firebase
-totalmente separado do `processos-ijui` — nunca compartilhando projeto,
-pelo mesmo motivo de isolamento documentado em `contratos/LEIA-ME.md`. Falta
-só o projeto existir de verdade: os passos exatos (criar o projeto, ativar
-o login, publicar `contratos/firestore-contratos-ijui.rules`, colar o
-`FIREBASE_CONFIG`) estão em `contratos/LEIA-ME.md` → "Como ligar o
-Firestore". Diferença importante em relação às licitações: em Contratos,
-**ler continua público, sem conta nenhuma** — só gravar exige login com
-nível "Editar" — porque a tela de contratos já era pública antes desta
-mudança, e exigir login para ler seria piorar o que existe hoje, não
-proteger nada de novo. É esse projeto, quando existir, que também habilita
-duas pessoas editarem contratos ao mesmo tempo com atualização em tempo
-real (a tela passa a ouvir o Firestore ao vivo, não só ler uma vez).
+O que muda em relação aos outros dois painéis: em Contratos **nem ler é
+público**. Sem conta aprovada com o painel liberado, a lista nem chega ao
+navegador — e a tela **não** cai no `dados/contratos.json` quando o
+Firestore nega, porque esse arquivo é público e isso furaria a proteção
+inteira.
+
+Para cadastrar alguém que só cuida de contrato: aprove a conta dela no
+painel Usuários com **Contratos: Editar** e **Sem acesso** nos outros dois.
+
+Duas pessoas podem trabalhar ao mesmo tempo: a tela ouve o Firestore ao
+vivo, então o que uma salva aparece na outra na hora, sem recarregar.
+
+A primeira importação dos 1.264 contratos é feita **pela própria tela**:
+entre como administrador em `/contratos/` com o banco ainda vazio e clique
+em **"Importar os contratos agora"**. Ver `contratos/LEIA-ME.md`.
+
+## Editais
+
+Ainda sem projeto e sem contas — continua com dados locais/arquivo. Quando
+ganhar cadastro, o caminho é o mesmo: mais um painel em `acessos`, mais um
+`match` nas regras.
+
+## Backup diário
+
+O backup automático (GitHub Actions, `.github/workflows/backup-firestore.yml`)
+lia as coleções com a chave web pública. **Isso parou de funcionar quando as
+regras foram fechadas** — listar coleção passou a exigir conta aprovada.
+Agora ele entra com uma conta admin do próprio sistema, e para isso precisa
+de dois secrets no repositório:
+
+1. Crie uma conta de e-mail/senha só para isso (na tela de login, "Criar uma
+   conta" — pode ser um e-mail seu com `+backup`, tipo
+   `seuemail+backup@gmail.com`), e **aprove como administrador** no painel
+   Usuários. Precisa ser admin porque o backup também copia o cadastro de
+   contas.
+2. No GitHub: **Settings → Secrets and variables → Actions → New repository
+   secret**, criando dois:
+   - `BACKUP_EMAIL` — o e-mail dessa conta
+   - `BACKUP_SENHA` — a senha dela
+3. Rode uma vez na mão para conferir: aba **Actions** → "Backup diário do
+   Firestore" → **Run workflow**.
+
+Sem esses secrets o backup falha com a mensagem explicando isso — de
+propósito, para não gravar um backup vazio achando que está tudo bem.

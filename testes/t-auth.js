@@ -79,7 +79,7 @@ async function entrarComGoogle(pg, user){
     msg: document.getElementById('authPendMsg').textContent
   }));
   t('a liberação chega na hora, sem precisar relogar (mas aqui é Pregoeiro, e ele só ganhou Agenda)', aoVivo.aindaPendenteAqui, aoVivo);
-  t('e a mensagem já explica que o acesso dele é só na Agenda', /só à Agenda/.test(aoVivo.msg), aoVivo.msg);
+  t('e a mensagem já explica que ele tem acesso a outro painel, não a este', /acesso a Agenda/.test(aoVivo.msg) && /não ao Sistema Interno/.test(aoVivo.msg), aoVivo.msg);
 
   console.log('\n2) O e-mail de resgate já nasce administrador, com tudo liberado');
   let pg2=await b.newPage({viewport:{width:1300,height:900}});
@@ -252,6 +252,71 @@ async function entrarComGoogle(pg, user){
     processos:(window.processos||[]).length
   }));
   t('na Agenda, depois de aprovada (só visualizar), os processos aparecem sozinhos', depoisAprovarAgenda.appAberto && depoisAprovarAgenda.processos===1, depoisAprovarAgenda);
+
+  console.log('\n8) A trava de escrita não pode quebrar os links públicos de assinatura');
+  /* O ?assinatura=ID grava a assinatura do pregoeiro em "agentes" sem login
+     nenhum — as regras do Firestore liberam só aqueles campos. A trava de
+     escrita por painel precisa reconhecer o modo compartilhado NA HORA DE
+     GRAVAR: as referências do topo do arquivo nascem antes de a URL ser
+     lida, então checar isso na criação da referência bloqueava o link. */
+  let pgAsg=await b.newPage({viewport:{width:420,height:900}});
+  await pgAsg.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:(r.request().url().includes('firestore')||r.request().url().includes('auth'))?stub:'/*noop*/'}));
+  await pgAsg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pgAsg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pgAsg.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase({agentes:{ag1:{nomeAbrev:'PEDRO', nomeCompleto:'Pedro Pacifico', nomeCompleto2:''}}}));
+  await pgAsg.goto('http://127.0.0.1:8099/pregoeiro/index.html?assinatura=ag1',{waitUntil:'networkidle'});
+  await pgAsg.waitForTimeout(700);
+  const modoLink=await pgAsg.evaluate(()=>({
+    compartilhado: AUTH_MODO_COMPARTILHADO,
+    portaoEscondido: document.getElementById('authGate').style.display==='none'
+  }));
+  t('o link abre em modo compartilhado, sem portão de login', modoLink.compartilhado && modoLink.portaoEscondido, modoLink);
+  const gravouAssinatura=await pgAsg.evaluate(()=>
+    db.collection('agentes').doc('ag1').set({assinaturaImg:'data:image/png;base64,xx', assinaturaEm:'2026-01-01'},{merge:true})
+      .then(()=>({ok:true})).catch(e=>({ok:false, msg:e.message})));
+  t('e a assinatura é gravada normalmente, sem a trava atrapalhar', gravouAssinatura.ok, gravouAssinatura);
+  t('a assinatura chegou mesmo no cadastro do agente',
+    await pgAsg.evaluate(()=>!!(window.__STORE.agentes.ag1||{}).assinaturaImg));
+
+  console.log('\n9) Conta excluída com a aba aberta devolve o portão');
+  let pg9=await b.newPage({viewport:{width:1300,height:900}});
+  await abrirPregoeiro(pg9, {
+    usuarios_v2:{'g-ana':{email:'ana@example.com', nome:'Ana', status:'aprovado', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'editar',contratos:'nenhum'}, provedor:'google.com'}}
+  }, {uid:'g-ana', email:'ana@example.com', displayName:'Ana', photoURL:''});
+  t('a Ana entra normalmente', await pg9.evaluate(()=>document.getElementById('authGate').style.display==='none'));
+  await pg9.evaluate(()=>usuariosV2ColRef.doc('g-ana').delete());
+  await pg9.waitForTimeout(600);
+  const depoisExcluir=await pg9.evaluate(()=>({
+    portao: document.getElementById('authGate').style.display==='flex',
+    semUsuario: window.authCurrentUser===null,
+    telaLogin: document.getElementById('authEntradaBox').style.display==='block'
+  }));
+  t('excluir a conta dela fecha a sessão na hora', depoisExcluir.portao && depoisExcluir.semUsuario, depoisExcluir);
+  t('e devolve a tela de login, não a de espera', depoisExcluir.telaLogin, depoisExcluir);
+
+  console.log('\n10) Contratos é o terceiro painel do mesmo cadastro');
+  let pg10=await b.newPage({viewport:{width:1300,height:900}});
+  await abrirPregoeiro(pg10, {
+    usuarios_v2:{
+      'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true, acessos:{agenda:'editar',pregoeiro:'editar',contratos:'editar'}, provedor:'google.com'},
+      'g-rita':{email:'rita@example.com', nome:'Rita', status:'pendente', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'nenhum'}, provedor:'google.com'}
+    }
+  }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pg10.evaluate(()=>abrirModalUsuarios());
+  await pg10.waitForTimeout(400);
+  t('o painel Usuários mostra os três painéis',
+    await pg10.evaluate(()=>!!document.getElementById('pendAg_g-rita') && !!document.getElementById('pendPr_g-rita') && !!document.getElementById('pendCt_g-rita')));
+
+  /* É este o pedido do começo: alguém que só mexe em contratos. */
+  await pg10.evaluate(()=>{ document.getElementById('pendCt_g-rita').value='editar'; usuariosAprovar('g-rita'); });
+  await pg10.waitForTimeout(500);
+  const rita=await pg10.evaluate(()=>window.__STORE.usuarios_v2['g-rita']);
+  t('dá pra aprovar alguém só para editar contratos',
+    rita.status==='aprovado' && rita.acessos.contratos==='editar' && rita.acessos.agenda==='nenhum' && rita.acessos.pregoeiro==='nenhum', rita);
+
+  const resumo=await pg10.evaluate(()=>authResumoAcessos({agenda:'ver', pregoeiro:'nenhum', contratos:'editar'}));
+  t('o resumo de acessos fala dos três painéis',
+    /Agenda \(visualizar\)/.test(resumo) && /Contratos \(editar\)/.test(resumo) && !/Sistema Interno/.test(resumo), resumo);
 
   console.log('\nerros JS (pregoeiro, página 1):', errs1.length?errs1:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

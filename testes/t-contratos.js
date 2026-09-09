@@ -2,10 +2,13 @@
    de 724 KB dentro do index.html: 850 KB baixados a cada visita, e corrigir
    um contrato era editar o código-fonte.
 
-   Agora a lista vem de dados/contratos.json (ou do Firestore próprio dos
-   contratos, quando FIREBASE_CONFIG estiver preenchido). Este teste confere
-   que a tela continua fazendo exatamente o que fazia: filtros, painel,
-   contagens e a ficha do contrato. */
+   Agora a lista vem do Firestore (coleção "contratos" do mesmo projeto das
+   licitações, atrás do portão de acesso) e, só enquanto não houver Firebase
+   configurado, de dados/contratos.json. Este teste confere que a tela
+   continua fazendo exatamente o que fazia — filtros, painel, contagens e a
+   ficha do contrato — e que o portão faz o seu papel: sem acesso não entra,
+   com "Visualizar" entra mas não grava, e o que uma pessoa salva aparece na
+   tela da outra sem recarregar. */
 const {chromium, executablePath} = require('./navegador');
 const fs=require('fs');
 let ok=0,mau=0;
@@ -16,7 +19,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const html=fs.readFileSync('../contratos/index.html','utf8');
   const json=fs.readFileSync('../contratos/dados/contratos.json','utf8');
   const dados=JSON.parse(json);
-  t('o index.html encolheu para menos de 150 KB', html.length<150*1024, {kb:Math.round(html.length/1024)});
+  t('o index.html continua pequeno (sem contrato embutido)', html.length<180*1024, {kb:Math.round(html.length/1024)});
   /* A única linha longa que sobra é o brasão em base64, que é imagem e não
      dado — o que não pode voltar é contrato dentro do HTML. */
   t('nenhum contrato ficou embutido no HTML', html.indexOf('"contr":')<0 && html.indexOf('MEDIANEIRA')<0);
@@ -27,17 +30,38 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('todo contrato tem id numérico', dados.every(c=>typeof c.id==='number'), dados.filter(c=>typeof c.id!=='number').slice(0,3));
   t('os ids não se repetem', new Set(dados.map(c=>c.id)).size===dados.length);
   t('o JSON é uma linha por contrato (diff legível)', json.split('\n').length===dados.length+3, json.split('\n').length);
-  t('o config do Firebase começa vazio, e é dos contratos',
-    /const FIREBASE_CONFIG = \{\};/.test(html) && /projeto SEPARADO do das licitações/.test(html));
-  t('o módulo não fala com o Firestore das licitações',
-    html.indexOf('processos-ijui')<0 && html.indexOf('licitacoes')<0);
+  t('o config aponta para o mesmo projeto do resto do sistema',
+    /projectId: "processos-ijui"/.test(html) && /usuarios_v2/.test(html));
+  t('a leitura não cai no arquivo quando o Firebase está ligado (isso furaria a proteção)',
+    /o fallback só existe enquanto não/.test(html));
+
+  /* Daqui pra frente a tela roda como em produção: Firestore e Firebase Auth
+     falsos (fbstub3.js), a coleção "contratos" semeada com o mesmo arquivo
+     versionado, e uma conta já logada com o painel Contratos liberado. */
+  const stub=fs.readFileSync('fbstub3.js','utf8');
+  const contratosSeed={}; dados.forEach(c => { contratosSeed[String(c.id)]=c; });
+  function seedCom(nivel){
+    return {
+      contratos: contratosSeed,
+      usuarios_v2: {'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado',
+                               isAdmin:false, acessos:{agenda:'nenhum', pregoeiro:'nenhum', contratos:nivel},
+                               provedor:'google.com'}}
+    };
+  }
+  async function abrirContratos(pg, nivel, corpoJspdf){
+    await pg.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+    await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:corpoJspdf||'window.jspdf={jsPDF:function(){}};'}));
+    await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+    await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seedCom(nivel));
+    await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+    await pg.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+    await pg.waitForTimeout(900);
+  }
 
   const b=await chromium.launch(executablePath?{executablePath}:{});
   const pg=await b.newPage({viewport:{width:1280,height:900}});
   const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
-  await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
-  await pg.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
-  await pg.waitForTimeout(600);
+  await abrirContratos(pg, 'editar');
 
   console.log('\n2) A tela carrega a lista de fora e monta tudo');
   const est=await pg.evaluate(()=>({
@@ -47,9 +71,9 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     linhas:document.querySelectorAll('.tab tbody tr').length,
   }));
   t('os 1.264 contratos chegaram na página', est.total===1264, est);
-  t('a fonte é o arquivo local (sem Firebase configurado)', est.fonte==='arquivo', est);
+  t('a fonte é o Firestore, ao vivo', est.fonte==='firestore', est);
   t('o vencimento foi pré-processado em todos', est.comData===1264, est);
-  t('a tarja do cabeçalho diz de onde vieram', /1264 CONTRATOS · ARQUIVO LOCAL/.test(est.chip||''), est.chip);
+  t('a tarja do cabeçalho diz de onde vieram', /1264 CONTRATOS · DADOS AO VIVO/.test(est.chip||''), est.chip);
   t('as linhas da tabela foram renderizadas', est.linhas>0 && est.linhas<=100, est);
 
   console.log('\n2b) Uma busca só em cima; os filtros moram dentro da tabela');
@@ -375,9 +399,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const jspdf=fs.readFileSync('node_modules/jspdf/dist/jspdf.umd.min.js','utf8');
   const pgp=await b.newPage({viewport:{width:1280,height:900}});
   const errsPdf=[]; pgp.on('pageerror',e=>errsPdf.push(e.message));
-  await pgp.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:jspdf}));
-  await pgp.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
-  await pgp.waitForTimeout(800);
+  await abrirContratos(pgp, 'editar', jspdf);
   const pdfs=await pgp.evaluate(()=>{
     let salvo=null;
     const O=window.jspdf.jsPDF;
@@ -395,9 +417,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
   console.log('\n6) No celular a tabela vira blocos e a busca fica à vista');
   const cel=await b.newPage({viewport:{width:390,height:844}});
-  await cel.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
-  await cel.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
-  await cel.waitForTimeout(700);
+  await abrirContratos(cel, 'editar');
   const noCel=await cel.evaluate(()=>{
     const tr=document.querySelector('.tab tbody tr');
     const px=c=>parseFloat(getComputedStyle(tr.querySelector('.'+c)).fontSize);
@@ -474,14 +494,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             aviso:document.getElementById('avisoRascunho').textContent,
             naBusca:(()=>{ document.getElementById('fBusca').value='teste engenharia'; aplicarFiltros(); return filtrados.length; })()};
   });
-  t('o formulário avisa que sem o Firebase a alteração fica só no navegador',
-    /só neste navegador/.test(cadastrou.avisoNoForm), cadastrou.avisoNoForm.slice(0,80));
+  t('com o banco ligado, o formulário não avisa mais nada de rascunho',
+    cadastrou.avisoNoForm.trim()==='', cadastrou.avisoNoForm.slice(0,80));
   t('o contrato novo entrou na lista', novo.achou && novo.total===1265, novo);
   t('ganhou id próprio, sem pisar em ninguém', novo.id===1265, novo.id);
   t('empresa e tipo entram em maiúsculas, como o resto do cadastro', novo.empresa==='TESTE ENGENHARIA LTDA', novo.empresa);
   t('secretarias e fiscais viram lista pela vírgula', novo.secs==='SMMA|SMED' && novo.fis==='Ana|Bruno', novo);
   t('o formulário fecha ao salvar', novo.fechou, novo);
-  t('a tela avisa que a alteração é só deste navegador', /só neste navegador/.test(novo.aviso), novo.aviso.slice(0,60));
+  t('e a tela também não fala em rascunho — foi gravado de verdade', novo.aviso.trim()==='', novo.aviso.slice(0,60));
   t('o contrato novo já aparece na busca', novo.naBusca===1, novo.naBusca);
 
   const editou=await pg.evaluate(()=>{
@@ -578,29 +598,60 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     exportado.itens===1265 && exportado.linhas===1265+3, exportado);
   t('e não leva os campos internos da tela', !exportado.temInterno, exportado.campos);
 
-  const recarregou=await (async()=>{
-    await pg.reload({waitUntil:'networkidle'});
-    await pg.waitForTimeout(800);
-    return pg.evaluate(()=>{
-      const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
-      return {achou:!!c, valor:c&&c.valor, total:CONTRATOS.length,
-              aviso:document.getElementById('avisoRascunho').textContent};
-    });
-  })();
-  t('o que foi salvo sobrevive ao recarregar a página',
-    recarregou.achou && recarregou.valor===300000 && recarregou.total===1265, recarregou);
-  t('e o aviso continua na tela', /só neste navegador/.test(recarregou.aviso), recarregou.aviso.slice(0,60));
+  /* O que a tela salvou tem de estar no banco, não num rascunho de
+     navegador: é o que faz a alteração valer para todo mundo. */
+  const noBanco=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
+    const doc=window.__STORE.contratos[String(c.id)];
+    return {gravou:!!doc, valor:doc&&doc.valor, temCampoInterno:doc?Object.keys(doc).some(k=>k[0]==='_'):null,
+            rascunhoVazio:Object.keys(JSON.parse(localStorage.getItem('contratos_ijui_rascunho')||'{}')).length===0};
+  });
+  t('o contrato salvo foi para o banco, e não para um rascunho local',
+    noBanco.gravou && noBanco.valor===300000 && noBanco.rascunhoVazio, noBanco);
+  t('e foi gravado sem os campos internos da tela', noBanco.temCampoInterno===false, noBanco);
 
-  /* descartar recarrega a página: deixa o evaluate voltar antes do reload */
-  await pg.evaluate(()=>{ setTimeout(descartarRascunho, 0); });
-  await pg.waitForLoadState('networkidle');
-  await pg.waitForFunction(()=>typeof CONTRATOS!=='undefined' && CONTRATOS.length>0, null, {timeout:15000});
-  const limpo=await pg.evaluate(()=>({
-    total:CONTRATOS.length, sumiu:!CONTRATOS.find(x=>x.contr===900),
-    aviso:document.getElementById('avisoRascunho').textContent.trim()
+  console.log('\n8) Tempo real: o que uma pessoa salva aparece na tela da outra');
+  /* Grava direto no banco, como se fosse a outra pessoa em outro
+     computador, e confere que a tela reage sozinha — sem F5. */
+  await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
+    const doc=Object.assign({}, window.__STORE.contratos[String(c.id)], {empresa:'OUTRA PESSOA SALVOU LTDA'});
+    return firebase.firestore().collection('contratos').doc(String(c.id)).set(doc);
+  });
+  await pg.waitForTimeout(500);
+  const aoVivo=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
+    return {empresa:c&&c.empresa, total:CONTRATOS.length};
+  });
+  t('a alteração da outra pessoa entra na lista sozinha',
+    aoVivo.empresa==='OUTRA PESSOA SALVOU LTDA' && aoVivo.total===1265, aoVivo);
+
+  console.log('\n9) O portão: sem acesso não entra, e "Visualizar" não grava');
+  const pgVer=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgVer, 'ver');
+  const soVer=await pgVer.evaluate(()=>({
+    entrou: document.getElementById('authGate').style.display==='none',
+    total: CONTRATOS.length,
+    botaoNovo: getComputedStyle(document.querySelector('.header-actions .so-editor')).display,
+    chip: document.getElementById('authUserChip').textContent
   }));
-  t('descartar os rascunhos devolve a lista do arquivo',
-    limpo.total===1264 && limpo.sumiu && limpo.aviso==='', limpo);
+  t('quem tem "Visualizar" entra e enxerga os contratos', soVer.entrou && soVer.total===1264, soVer);
+  t('mas não vê os botões de cadastro', soVer.botaoNovo==='none', soVer);
+  t('e o cabeçalho avisa que é só visualização', /só visualização/.test(soVer.chip), soVer.chip);
+  const tentouGravar=await pgVer.evaluate(()=>
+    salvarContrato({id:1, contr:1, ano:2020, empresa:'INVASOR'})
+      .then(()=>({bloqueou:false})).catch(e=>({bloqueou:true, msg:e.message})));
+  t('gravar é recusado antes mesmo de tentar o banco', tentouGravar.bloqueou, tentouGravar);
+
+  const pgSem=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgSem, 'nenhum');
+  const semAcesso=await pgSem.evaluate(()=>({
+    portaoAberto: document.getElementById('authGate').style.display==='flex',
+    esperando: document.getElementById('authPendenteCard').style.display==='block',
+    semDados: (window.CONTRATOS||[]).length===0
+  }));
+  t('quem não tem o painel liberado fica na tela de espera', semAcesso.portaoAberto && semAcesso.esperando, semAcesso);
+  t('e nem chega a receber a lista de contratos', semAcesso.semDados, semAcesso);
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
