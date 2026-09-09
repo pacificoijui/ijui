@@ -44,6 +44,7 @@ const LICITACOES = [
   "usuarios_v2",       // as contas de verdade: quem entra e com qual acesso
   "usuarios_v2_convites",
   "contratos",
+  "contratos_historico",  // quem editou o que, e o desfazer: some sozinho em 365 dias
   "status",
   "agentes",
   "observacoes",
