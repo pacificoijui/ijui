@@ -3,6 +3,13 @@
 
     python3 contratos/ferramentas/planilha-para-json.py PLANILHA.xlsx            # só relatório
     python3 contratos/ferramentas/planilha-para-json.py PLANILHA.xlsx --gravar   # grava o JSON
+    ... --antes contratos-de-ontem.json                                          # compara com outro cadastro
+
+O "antes" da comparação é o próprio dados/contratos.json, que este script
+sobrescreve — então rodar duas vezes seguidas faz a segunda comparar o
+arquivo com ele mesmo e não achar diferença nenhuma. Para refazer o
+relatório depois de já ter gravado, use --antes apontando para a versão
+anterior (`git show HEAD~1:contratos/dados/contratos.json > antes.json`).
 
 A planilha é preenchida à mão, ao longo de anos, por várias pessoas — então
 vem com valor digitado de tudo quanto é jeito ("18.000.00", "191940 08",
@@ -164,7 +171,7 @@ def numero_do_cadastro(empresa, ano, modalidade):
         ano = int(float(ano))
     except (TypeError, ValueError):
         return None
-    achados = [c for c in json.loads(DESTINO.read_text(encoding="utf-8"))
+    achados = [c for c in cadastro_anterior()
                if c.get("ano") == ano and c.get("empresa", "").upper() == empresa
                and c.get("modalidade", "").upper() == modalidade and c.get("contr")]
     return achados[0]["contr"] if len(achados) == 1 else None
@@ -218,9 +225,18 @@ def converter(caminho):
     return contratos
 
 
+def cadastro_anterior():
+    """O cadastro contra o qual comparar: o arquivo atual, ou o que vier em
+    --antes (para refazer o relatório depois de já ter gravado)."""
+    if "--antes" in sys.argv:
+        caminho = Path(sys.argv[sys.argv.index("--antes") + 1])
+        return json.loads(caminho.read_text(encoding="utf-8"))
+    return json.loads(DESTINO.read_text(encoding="utf-8")) if DESTINO.exists() else []
+
+
 def casar_ids(novos):
     """Mantém o id de quem já está no cadastro, casando por número+ano."""
-    antigos = json.loads(DESTINO.read_text(encoding="utf-8")) if DESTINO.exists() else []
+    antigos = cadastro_anterior()
     por_chave = {(c.get("contr"), c.get("ano")): c["id"] for c in antigos}
     usados = {c["id"] for c in antigos}
     proximo = max(usados) + 1 if usados else 1
@@ -272,6 +288,14 @@ def relatorio(novos, antigos):
           f"(valores com ponto/vírgula trocados, listas separadas)")
 
 
+def rotulo(c):
+    """Como o contrato aparece no relatório. Sem número não dá para procurar
+    pelo número: mostra o id, que é por onde a tela abre o registro."""
+    if c.get("contr") and c.get("ano"):
+        return f"{c['contr']}/{c['ano']}"
+    return f"sem número (id {c.get('id')})"
+
+
 def escrever_conferencia(novos, antigos):
     """Deixa a lista de pendências num arquivo, não só na tela: quem for
     conferir faz isso depois, contrato por contrato, direto na tela do
@@ -310,6 +334,20 @@ def escrever_conferencia(novos, antigos):
         L.append(f"| **{a['contrato']}** | {a['empresa']} | {a['campo']} | "
                  f"`{a['bruto']}` | **{virou if virou is not None else 'em branco'}** |")
 
+    # Linha com número mas nada mais: ou é um contrato ainda por preencher, ou
+    # é sobra da planilha. Quem confere decide — o conversor não apaga nada.
+    vazios = [c for c in novos if not c["empresa"] and not c["objeto"]]
+    if vazios:
+        L.append(f"\n## Linhas praticamente em branco na planilha ({len(vazios)})\n")
+        L.append("Só o número veio preenchido. Entraram assim mesmo: confira se é "
+                 "contrato a preencher ou se deve ser excluído pela tela.\n")
+        L.append("| Contrato | O que veio |")
+        L.append("|---|---|")
+        for c in sorted(vazios, key=lambda x: (x["ano"] or 0, x["contr"] or 0)):
+            veio = ", ".join(k for k in ("empresa", "objeto", "valor", "vencimento",
+                                         "modalidade") if c.get(k)) or "nada além do número"
+            L.append(f"| **{rotulo(c)}** | {veio} |")
+
     ativos_sem = [c for c in novos if c["situacao"].startswith("ATIVO") and not c["vencimento"]]
     if ativos_sem:
         L.append(f"\n## Contratos ATIVOS sem vencimento ({len(ativos_sem)})\n")
@@ -322,10 +360,12 @@ def escrever_conferencia(novos, antigos):
     ativos_sv = [c for c in novos if c["situacao"].startswith("ATIVO") and not c["valor"]]
     if ativos_sv:
         L.append(f"\n## Contratos ATIVOS sem valor ({len(ativos_sv)})\n")
-        L.append("| Contrato | Empresa |")
-        L.append("|---|---|")
+        L.append("A planilha trazia a célula vazia ou zerada.\n")
+        L.append("| Contrato | Empresa | Na planilha |")
+        L.append("|---|---|---|")
         for c in sorted(ativos_sv, key=lambda x: (x["ano"] or 0, x["contr"] or 0)):
-            L.append(f"| **{c['contr']}/{c['ano']}** | {c['empresa'][:52]} |")
+            L.append(f"| **{c['contr']}/{c['ano']}** | {c['empresa'][:52]} | "
+                     f"{'zero' if c['valor'] == 0 else 'em branco'} |")
 
     if mudou_valor:
         L.append(f"\n## Valores que mudaram em relação ao cadastro anterior ({len(mudou_valor)})\n")
@@ -350,7 +390,7 @@ def escrever_conferencia(novos, antigos):
         L.append("| Contrato | Empresa | Situação |")
         L.append("|---|---|---|")
         for c in sorted(saem, key=lambda x: (x.get("ano") or 0, x.get("contr") or 0)):
-            L.append(f"| **{c.get('contr')}/{c.get('ano')}** | {(c.get('empresa') or '(em branco)')[:40]} | "
+            L.append(f"| **{rotulo(c)}** | {(c.get('empresa') or '(em branco)')[:40]} | "
                      f"{c.get('situacao') or '—'} |")
 
     destino = RAIZ / "contratos" / "dados" / "CONFERIR.md"
