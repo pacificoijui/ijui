@@ -680,16 +680,62 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* confirm() automático: o navegador de teste não tem quem clique em OK */
   await pgVazio.evaluate(()=>{ window.confirm=()=>true; });
   await pgVazio.click('#vazio button');
-  /* Assim que os contratos entram, o próprio listener monta a tela — e a
-     mensagem de progresso vai junto com o aviso de banco vazio. */
-  await pgVazio.waitForFunction(()=>typeof CONTRATOS!=='undefined' && CONTRATOS.length>0, null, {timeout:30000});
+  /* Espera a importação TERMINAR, não o primeiro lote: o banco deixa de
+     estar vazio já no primeiro, e a tela se monta por cima — foi assim que
+     uma importação de verdade parou nos 400 e passou por concluída. */
+  await pgVazio.waitForFunction(()=>typeof _importando!=='undefined' && _importando===false
+    && typeof CONTRATOS!=='undefined' && CONTRATOS.length>0, null, {timeout:60000});
   const importou=await pgVazio.evaluate(()=>({
     noBanco: Object.keys(window.__STORE.contratos).length,
     naTela: CONTRATOS.length,
-    linhas: document.querySelectorAll('.tab tbody tr').length
+    linhas: document.querySelectorAll('.tab tbody tr').length,
+    andamento: (document.getElementById('avisoImportacao')||{}).textContent||''
   }));
   t('todos os contratos do arquivo entram no banco', importou.noBanco===N, {esperado:N, veio:importou.noBanco});
   t('e a tela se monta sozinha com eles', importou.naTela===N && importou.linhas>0, importou);
+  t('o andamento sobrevive ao redesenho da lista (não vive dentro de #vazio)',
+    /Pronto: \d+ contrato/.test(importou.andamento), importou.andamento.slice(0,90));
+  t('terminado, não sobra aviso de contrato faltando',
+    !/ainda não est/.test(importou.andamento), importou.andamento.slice(0,90));
+
+  console.log('\n11) Importação que parou no meio: a tela oferece completar');
+  const pgMeio=await b.newPage({viewport:{width:1280,height:900}});
+  await pgMeio.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+  await pgMeio.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pgMeio.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  /* Só os 400 primeiros no banco: exatamente o estado em que o cadastro
+     ficou quando a página foi embora depois do primeiro lote. */
+  const meio={}; dados.slice(0,400).forEach(c=>{ meio[String(c.id)]=c; });
+  await pgMeio.addInitScript((sd)=>{ window.__SEED=sd; }, {
+    contratos:meio,
+    usuarios_v2:{'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado',
+                            isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'},
+                            provedor:'google.com'}}
+  });
+  await pgMeio.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pgMeio.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgMeio.waitForFunction(()=>typeof _faltamImportar!=='undefined' && _faltamImportar!==null, null, {timeout:30000});
+  const pelaMetade=await pgMeio.evaluate(()=>({
+    naTela: CONTRATOS.length,
+    faltam: _faltamImportar.length,
+    aviso: document.getElementById('avisoImportacao').textContent,
+    temBotao: !!document.querySelector('#avisoImportacao button')
+  }));
+  t('o banco pela metade não passa despercebido', /ainda não est/.test(pelaMetade.aviso), pelaMetade.aviso.slice(0,90));
+  t('o aviso diz quantos faltam', pelaMetade.faltam===N-400 && pelaMetade.aviso.includes(String(N-400)),
+    {esperado:N-400, veio:pelaMetade.faltam});
+  t('e traz o botão para completar', pelaMetade.temBotao, pelaMetade.temBotao);
+
+  await pgMeio.evaluate(()=>{ window.confirm=()=>true; importarDoArquivo(); });
+  await pgMeio.waitForFunction(()=>_importando===false && CONTRATOS.length>400, null, {timeout:60000});
+  const completou=await pgMeio.evaluate(()=>({
+    noBanco: Object.keys(window.__STORE.contratos).length,
+    naTela: CONTRATOS.length,
+    aviso: document.getElementById('avisoImportacao').textContent
+  }));
+  t('completar sobe só o que faltava e fecha a conta', completou.noBanco===N && completou.naTela===N,
+    {esperado:N, veio:completou});
+  t('e o aviso de faltando some', !/ainda não est/.test(completou.aviso), completou.aviso.slice(0,90));
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

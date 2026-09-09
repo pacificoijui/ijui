@@ -522,6 +522,7 @@
   </div>
 
   <div id="avisoRascunho"></div>
+  <div id="avisoImportacao"></div>
 
   <!-- LISTA -->
   <div class="list-toolbar">
@@ -884,6 +885,7 @@ function iniciarListenerContratos(){
     FONTE_DADOS = 'firestore';
     if(primeira){ primeira = false; CONTRATOS = normalizarLista(lista); iniciar(); }
     else reaplicarContratosAoVivo(lista);
+    conferirImportacao();
   }, e => mostrarErroCarregar(e));
 }
 /* Reaplica a lista vinda do Firestore SEM reiniciar os filtros da tela (ao
@@ -908,45 +910,143 @@ function mostrarErroCarregar(e){
     '<div class="empty"><span>⚠️</span>Não foi possível carregar os contratos.<br>' + esc(e.message) + '</div>';
 }
 
+function podeImportarContratos(){
+  return !!(contratosPodeEditar() && authCurrentUser && authCurrentUser.isAdmin);
+}
+
+/* O arquivo é lido uma vez por visita: a conferência abaixo roda a cada
+   atualização ao vivo e não pode virar uma ida ao servidor por vez. */
+let _arquivoPromessa = null;
+function listaDoArquivo(){
+  if(!_arquivoPromessa) _arquivoPromessa = carregarDoArquivo().then(normalizarLista);
+  return _arquivoPromessa;
+}
+
+function telaBancoVazio(){
+  const alvo = document.getElementById('vazio');
+  if(!alvo) return;
+  const podeImportar = podeImportarContratos();
+  alvo.innerHTML = '<div class="empty"><span>📥</span>'
+    + 'O banco de contratos ainda está vazio.'
+    + (podeImportar
+        ? '<br><span style="font-size:13px" id="impQuantos">Conferindo o arquivo do repositório...</span>'
+          + '<div style="margin-top:14px"><button class="btn-gold" onclick="importarDoArquivo()">Importar os contratos agora</button></div>'
+        : '<br><span style="font-size:13px">Peça a um administrador para fazer a primeira importação.</span>')
+    + '</div>';
+  /* Quantos são vem do próprio arquivo, não de um número escrito aqui: o
+     cadastro é atualizado pela planilha do setor de tempos em tempos, e um
+     número desatualizado na tela faria duvidar do que vai subir. */
+  if(podeImportar) listaDoArquivo().then(lista => {
+    const q = document.getElementById('impQuantos');
+    if(q) q.textContent = 'São ' + lista.length.toLocaleString('pt-BR')
+      + ' contratos no arquivo do repositório, prontos para subir.';
+  }).catch(() => {
+    const q = document.getElementById('impQuantos');
+    if(q) q.textContent = 'Os contratos do arquivo do repositório estão prontos para subir.';
+  });
+}
+
 /* ── Primeira carga: subir o arquivo para o banco ──
    A coleção nasce vazia. Em vez de exigir terminal e credencial de
    administrador (as regras negam gravação sem login, e é assim que tem de
    ser), a própria tela sobe o dados/contratos.json — logada, com a conta
-   de quem está olhando. É de uma vez só: depois disso quem manda é o
-   banco, e o arquivo do repositório fica como histórico. */
-function telaBancoVazio(){
-  const alvo = document.getElementById('vazio');
-  if(!alvo) return;
-  const podeImportar = contratosPodeEditar() && authCurrentUser && authCurrentUser.isAdmin;
-  alvo.innerHTML = '<div class="empty"><span>📥</span>'
-    + 'O banco de contratos ainda está vazio.'
-    + (podeImportar
-        ? '<br><span style="font-size:13px">São 1.264 contratos no arquivo do repositório, prontos para subir.</span>'
-          + '<div style="margin-top:14px"><button class="btn-gold" onclick="importarDoArquivo()">Importar os contratos agora</button></div>'
-          + '<div id="impProgresso" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>'
-        : '<br><span style="font-size:13px">Peça a um administrador para fazer a primeira importação.</span>')
+   de quem está olhando.
+
+   Sobe em lotes, e aí está a armadilha que já mordeu uma vez: assim que o
+   PRIMEIRO lote entra, o banco deixa de estar vazio, o listener recebe a
+   leva e monta a lista por cima da tela de importação. Parecia terminado
+   com 400 contratos dentro, faltando quase mil. Por isso agora:
+
+     · o andamento fica num aviso próprio, que o redesenho da lista não
+       apaga, e diz para não fechar a página;
+     · a conferência com o arquivo é permanente, não um momento só da tela
+       de banco vazio — se faltar contrato, o aviso oferece completar;
+     · reenviar contrato que já está lá não duplica nada: o id do documento
+       é o id do contrato, então é o mesmo registro. Dá para clicar de novo
+       à vontade, e é isso que torna a importação retomável. */
+let _importando = false;
+let _faltamImportar = null;   /* null enquanto ninguém conferiu */
+let _recadoImportacao = '';   /* o "pronto" fica na tela depois de terminar */
+
+function avisoImportacao(andamento){
+  const box = document.getElementById('avisoImportacao');
+  if(!box) return;
+  if(andamento !== undefined){
+    _recadoImportacao = andamento;
+    box.innerHTML = '<div class="aviso aviso-azul" id="impProgresso">' + esc(andamento) + '</div>';
+    return;
+  }
+  if(_importando) return;   /* não apaga o andamento por baixo de quem espera */
+  if(!podeImportarContratos() || !_faltamImportar || !_faltamImportar.length){
+    /* Terminou e não falta nada: some o pedido de completar, mas o recado
+       de que deu certo fica — quem clicou precisa ver o desfecho, e a
+       conferência roda de novo a cada atualização ao vivo. */
+    box.innerHTML = _recadoImportacao
+      ? '<div class="aviso aviso-azul" id="impProgresso">' + esc(_recadoImportacao) + '</div>' : '';
+    return;
+  }
+  const n = _faltamImportar.length;
+  box.innerHTML = '<div class="aviso aviso-amarelo">'
+    + '<b>' + n + (n > 1 ? ' contratos do arquivo ainda não estão no banco.' : ' contrato do arquivo ainda não está no banco.') + '</b> '
+    + 'Ou a importação parou no meio, ou o arquivo foi atualizado pela planilha do setor.'
+    + '<button class="acao" onclick="importarDoArquivo()">Subir os que faltam</button>'
     + '</div>';
 }
+
+function conferirImportacao(){
+  if(_importando || FONTE_DADOS !== 'firestore' || !podeImportarContratos()) return Promise.resolve();
+  const noBanco = new Set(CONTRATOS.map(c => String(c.id)));
+  return listaDoArquivo().then(lista => {
+    _faltamImportar = lista.filter(c => !noBanco.has(String(c.id)));
+    avisoImportacao();
+  }).catch(e => { console.error('conferência com o arquivo:', e); });
+}
+
 function importarDoArquivo(){
-  const prog = document.getElementById('impProgresso');
-  const diz = t => { if(prog) prog.textContent = t; };
-  if(!confirm('Subir os contratos do arquivo para o banco?\n\nÉ para ser feito uma única vez, na estreia.')) return;
-  diz('Lendo o arquivo...');
-  carregarDoArquivo().then(normalizarLista).then(lista => {
+  if(_importando) return;
+  if(!podeImportarContratos()){
+    alert('Só um administrador com permissão de edição pode importar.');
+    return;
+  }
+  _importando = true;
+  avisoImportacao('Lendo o arquivo...');
+  listaDoArquivo().then(lista => {
+    const noBanco = new Set(CONTRATOS.map(c => String(c.id)));
+    const faltam = lista.filter(c => !noBanco.has(String(c.id)));
+    if(!faltam.length){
+      avisoImportacao('O banco já tem os ' + lista.length + ' contratos do arquivo.');
+      return;
+    }
+    if(!confirm('Subir ' + faltam.length + ' contrato(s) do arquivo para o banco?\n\n'
+                + 'Não feche a página até terminar.')){
+      _faltamImportar = faltam; _importando = false; avisoImportacao();
+      return;
+    }
     const db = firebase.firestore();
-    let feitos = 0;
-    /* Em lotes: um write por contrato daria 1.264 idas ao servidor. */
+    /* Em lotes: um write por contrato daria mais de mil idas ao servidor.
+       200 por lote (o teto do Firestore é 500) para o andamento andar à
+       vista e uma interrupção custar pouco. */
     const lotes = [];
-    for(let i = 0; i < lista.length; i += 400) lotes.push(lista.slice(i, i + 400));
+    for(let i = 0; i < faltam.length; i += 200) lotes.push(faltam.slice(i, i + 200));
+    let feitos = 0;
     return lotes.reduce((p, lote) => p.then(() => {
       const batch = db.batch();
       lote.forEach(c => batch.set(db.collection('contratos').doc(String(c.id)), paraGravar(c)));
-      return batch.commit().then(() => { feitos += lote.length; diz('Enviando... ' + feitos + ' de ' + lista.length); });
-    }), Promise.resolve()).then(() => diz('Pronto: ' + feitos + ' contratos no banco.'));
+      return batch.commit().then(() => {
+        feitos += lote.length;
+        avisoImportacao('Enviando... ' + feitos + ' de ' + faltam.length
+                        + ' — não feche a página.');
+      });
+    }), Promise.resolve()).then(() => {
+      avisoImportacao('Pronto: ' + feitos + ' contrato(s) subiram para o banco.');
+    });
   }).catch(e => {
-    diz('');
-    alert('Não consegui importar: ' + e.message);
-  });
+    console.error('importação:', e);
+    avisoImportacao('A importação parou: ' + e.message);
+    alert('Não consegui terminar a importação: ' + e.message
+          + '\n\nO que já subiu continua no banco. Clique em "Subir os que faltam" '
+          + 'para continuar de onde parou.');
+  }).then(() => { _importando = false; conferirImportacao(); });
 }
 
 /* ══════════════ GRAVAÇÃO ══════════════

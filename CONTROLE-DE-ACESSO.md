@@ -207,9 +207,11 @@ painel Usuários com **Contratos: Editar** e **Sem acesso** nos outros dois.
 Duas pessoas podem trabalhar ao mesmo tempo: a tela ouve o Firestore ao
 vivo, então o que uma salva aparece na outra na hora, sem recarregar.
 
-A primeira importação dos 1.264 contratos é feita **pela própria tela**:
+A primeira importação dos contratos é feita **pela própria tela**:
 entre como administrador em `/contratos/` com o banco ainda vazio e clique
-em **"Importar os contratos agora"**. Ver `contratos/LEIA-ME.md`.
+em **"Importar os contratos agora"** — sem fechar a página até terminar. Se
+sobrar contrato do arquivo fora do banco, a tela avisa e oferece completar.
+Ver `contratos/LEIA-ME.md`.
 
 ## Editais
 

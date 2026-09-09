@@ -72,13 +72,25 @@ Interno — é o mesmo cadastro de contas do resto do sistema. Para alguém que
 só cuida de contrato: **Contratos: Editar**, e "Sem acesso" nos outros dois
 painéis.
 
-## Primeira importação (uma vez só)
+## Primeira importação
 
 A coleção nasce vazia. Com o banco vazio, um administrador que abrir a tela
-vê o botão **"Importar os contratos agora"**, que sobe os 1.264 do
+vê o botão **"Importar os contratos agora"**, que sobe os contratos do
 `dados/contratos.json` em lotes. É feito pela tela de propósito: gravar
 exige login, e assim não é preciso terminal nem credencial de
 administrador do Firebase.
+
+**Não feche a página no meio.** Assim que o primeiro lote entra o banco
+deixa de estar vazio e a lista se monta por cima da tela de importação —
+parece pronto, mas ainda falta lote. O andamento fica num aviso próprio,
+que a lista não apaga, e só some quando acaba.
+
+Se mesmo assim ficar pela metade, não fica escondido: enquanto houver
+contrato do arquivo fora do banco, o administrador vê um aviso amarelo
+dizendo quantos faltam, com o botão **"Subir os que faltam"**. Pode clicar
+quantas vezes quiser — cada contrato grava no documento com o próprio id,
+então reenviar não duplica nada. Esse mesmo aviso é o que apareceria depois
+de o arquivo ser atualizado pela planilha do setor.
 
 Depois disso quem manda é o banco. O arquivo do repositório fica como
 histórico — e o **Exportar JSON** da tela continua gerando uma cópia no
@@ -97,7 +109,7 @@ seja, a tela não carrega.
 | | |
 |---|---|
 | `index.html` | a tela: busca que varre tudo, tabela única com filtro em cada coluna, o cadastro de contratos e aditivos, o portão de acesso (bloco "CONTAS E PERMISSÕES") e a importação inicial |
-| `dados/contratos.json` | os 1.264 contratos, um por linha — histórico e semente da primeira importação |
+| `dados/contratos.json` | os contratos, um por linha — histórico e semente da primeira importação |
 | `../firestore-processos-ijui.rules` | as regras, incluindo `match /contratos/{id}` |
 | `../CONTROLE-DE-ACESSO.md` | como funcionam as contas e os três painéis |
 | `../testes/t-contratos.js` | confere a tela, o portão e a atualização ao vivo |
