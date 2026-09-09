@@ -1,8 +1,14 @@
 # Backup do sistema
 
-O banco do sistema é o Firestore do projeto `processos-ijui`. Todo dia o GitHub
-roda sozinho o workflow [`backup-firestore.yml`](../workflows/backup-firestore.yml),
-que baixa as 12 coleções e guarda o resultado.
+O banco do sistema é o Firestore do projeto `processos-ijui` — o mesmo de tudo:
+licitações, contratos e o cadastro de contas. Todo dia o GitHub roda sozinho o
+workflow [`backup-firestore.yml`](../workflows/backup-firestore.yml), que baixa
+todas as coleções e guarda o resultado.
+
+> **Atenção:** desde que as regras do Firestore foram fechadas, o backup só
+> funciona com os secrets `BACKUP_EMAIL` e `BACKUP_SENHA` configurados — ver
+> "Por que agora precisa de senha", mais abaixo. Sem eles a execução falha
+> avisando, em vez de guardar um backup vazio.
 
 O agendamento é para as **03:00 da manhã (horário de Brasília)**, mas o GitHub
 atrasa execuções agendadas quando os runners estão concorridos: na prática as
@@ -123,11 +129,11 @@ copiar e quais coleções cada um tem. Ela é escrita à mão porque a API do
 Firestore não lista coleções sem credencial de administrador — **coleção que não
 estiver nessa tabela não é copiada, e nada avisa.**
 
-Hoje ela cobre três módulos: licitações (`pregoeiro/index.html`, 12 coleções),
-contratos (`contratos/index.html`) e editais (`editais/index.html`). Os dois
-últimos ainda não têm projeto Firebase: enquanto o `FIREBASE_CONFIG` deles
-estiver vazio o backup apenas os pula, e no dia em que forem preenchidos passa a
-copiá-los sozinho, cada um na sua pasta.
+Hoje ela cobre dois módulos: licitações (`pregoeiro/index.html`), que virou o
+projeto de tudo — inclusive a coleção `contratos` e o cadastro de contas
+`usuarios_v2` —, e editais (`editais/index.html`), que ainda não tem projeto:
+enquanto o `FIREBASE_CONFIG` dele estiver vazio o backup apenas o pula, e no dia
+em que for preenchido passa a copiá-lo sozinho, na pasta dele.
 
 Módulo novo = mais uma linha nessa tabela. É a única manutenção que este backup
 pede, e esquecer dela é a falha mais provável — foi o que aconteceu com editais,
@@ -148,15 +154,33 @@ Vale saber de antemão, para ninguém descobrir na hora do aperto:
   está lá dentro. Baixar uma cópia para fora de tempos em tempos (o artifact ou
   um `git clone` do repositório privado) é o que cobre esse caso.
 
-Um detalhe que é os dois lados da mesma moeda: o sistema grava direto do
-navegador, sem autenticação do Firebase, então a regra de escrita do Firestore
-está necessariamente aberta. É por isso que a restauração funciona só com a
-chave pública — e é também por isso que o cenário "alguém apagou tudo" é
-plausível. Se um dia a regra de escrita for fechada, a restauração passa a
-precisar de credencial de administrador.
+## Por que agora precisa de senha
 
-## Por que não precisa de senha nenhuma
+Este README dizia, com razão na época, que o backup não precisava de credencial
+nenhuma: a regra de escrita do Firestore estava aberta, e ler era público. **Isso
+mudou.** Com o login por Firebase Authentication e as regras fechadas (ver
+`CONTROLE-DE-ACESSO.md`), listar uma coleção passou a exigir conta aprovada — e o
+backup, que lia com a chave web pública, parou de funcionar.
 
-O backup lê pela API REST do Firestore com a mesma chave web que já está no HTML
-do site, e ela é pública por natureza. Não há service account, nem secret, nem
-mudança de plano no Firebase envolvida.
+Agora ele entra com uma conta **administradora** do próprio sistema, guardada em
+dois secrets do repositório:
+
+| Secret | O que é |
+|---|---|
+| `BACKUP_EMAIL` | e-mail de uma conta de e-mail/senha, aprovada como administrador |
+| `BACKUP_SENHA` | a senha dela |
+
+Precisa ser administrador porque o backup também copia o cadastro de contas
+(`usuarios_v2`), que só admin lê. O passo a passo para criar essa conta está em
+`CONTROLE-DE-ACESSO.md`, seção "Backup diário".
+
+Sem os secrets o script **falha na cara**, com a mensagem explicando o que fazer
+— de propósito: gravar um backup vazio achando que está tudo bem é pior do que
+não gravar.
+
+A restauração (`restaurar-firestore.mjs`) usa a mesma conta, pelas mesmas
+variáveis de ambiente:
+
+```bash
+BACKUP_EMAIL=... BACKUP_SENHA=... node .github/scripts/restaurar-firestore.mjs backup/<data>/<projeto> --confirmar
+```
