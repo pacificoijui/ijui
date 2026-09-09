@@ -110,10 +110,12 @@ acompanhamento).
 ## O que muda de comportamento (e por quê)
 
 - **O link `?consulta=1`** (compartilhar a lista de processos "sem senha,
-  sem edição") deixa de funcionar sem login. Ele permitia navegar a lista
-  inteira de processos sem nenhuma conta — exatamente o tipo de exposição
-  ampla que "fechar tudo" pede pra eliminar. Quem recebia esse link agora
-  precisa logar (com Google, em segundos) para ver a mesma tela.
+  sem edição") passou a pedir login. Ele percorre a lista inteira de
+  processos, e listar é exatamente o que as regras fecharam — era o tipo de
+  exposição ampla que "fechar tudo" pede pra eliminar. Quem recebe o link
+  agora vê o portão, entra com a conta dele (Google, em segundos) e cai no
+  mesmo painel de sempre. Basta ter **Agenda ou Sistema Interno** em
+  qualquer nível, inclusive "Visualizar" — é um painel só de leitura.
 - **Os links `?ranking=ID`, `?hab=ID`, `?assinar=ID` e `?assinatura=ID`
   continuam funcionando sem login**, de propósito: são links individuais
   para UM documento específico (um comitê editando o ranking de um
@@ -160,10 +162,11 @@ Antes de publicar de vez, vale simular alguns casos na aba **Regras** →
 - Listar (`list`) a coleção `rankings` inteira sem estar autenticado →
   **negado**.
 
-Essas regras foram escritas e revisadas com cuidado, mas **nunca testadas
-contra o motor de regras de verdade** — o ambiente onde este trabalho foi
-feito não tem acesso à rede do Firebase. O Playground é rápido e não exige
-saber programar; vale a pena rodar esses casos antes de confiar 100%.
+Essas regras **agora são testadas de verdade**, contra o motor oficial do
+Firestore rodando no emulador: `testes/t-regras.mjs` (41 conferências, do
+"visitante não lista processos" ao "ninguém se promove sozinho"), que entra
+junto com o resto em `testes/rodar.sh`. O Playground do console continua
+útil para uma conferência manual, mas não é mais a única rede de proteção.
 
 ### 3. Testar com a sua própria conta
 
@@ -181,6 +184,7 @@ rápido) e aprove cada uma no painel **Usuários**.
 | `pregoeiro/index.html` (mesmo bloco + painel "Usuários") | portão de acesso do Sistema Interno, e onde o admin aprova/gerencia |
 | `testes/t-auth.js` | confere cadastro → pendente → aprovação → acesso ao vivo, o e-mail de resgate, convites, e a proteção do último admin |
 | `contratos/index.html` (bloco "CONTAS E PERMISSÕES") | portão de acesso dos Contratos, no mesmo cadastro |
+| `testes/t-regras.mjs` | roda as regras no emulador oficial do Firestore e confere quem pode o quê, caso a caso |
 | `testes/fbstub3.js` | o Firestore E o Firebase Auth falsos usados nos testes (`firebase.auth()` simulado, sem rede nenhuma) |
 
 ## Contratos

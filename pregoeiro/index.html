@@ -1183,7 +1183,7 @@
 
   /* ── Página de assinatura (?assinar=ID) ── */
   body.asg-shared-mode>*:not(#asgSharedPanel){display:none!important}
-  body.consulta-mode>*:not(#consultaPanel){display:none!important}
+  body.consulta-mode>*:not(#consultaPanel):not(#authGate){display:none!important}
   #consultaPanel{position:fixed;inset:0;z-index:9999;display:none;flex-direction:column;font-family:'Sora',system-ui,sans-serif;background:#f0f2f5;-webkit-text-size-adjust:100%}
   /* Cards da consulta reaproveitam .card/.grid do sistema, só que sem nenhum
      botão interativo além da PASTA — nada aqui grava no Firestore. */
@@ -11126,6 +11126,18 @@ function authPodeVer(painel){ var n=authNivel(painel); return n==="ver"||n==="ed
 function authPodeEditar(painel){ return authNivel(painel)==="editar"; }
 function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
 function authTemAcesso(painel){ return authPodeVer(painel); }
+/* Este arquivo serve duas telas: o Sistema Interno inteiro e, pelo link
+   "?consulta=1", um painel só de leitura para os colegas acompanharem os
+   processos pendentes. O painel de consulta não mostra nada do sistema
+   interno — nenhum botão de edição —, então exige menos: basta ter acesso
+   a algum painel, que é exatamente o que as regras do Firestore pedem para
+   listar processos. */
+function authPodeAbrirEstaTela(){
+  if(typeof consultaAtivo!=="undefined" && consultaAtivo){
+    return authPodeVer("pregoeiro") || authPodeVer("agenda");
+  }
+  return authPodeVer("pregoeiro");
+}
 /* Os três painéis que uma conta pode ter, na ordem em que aparecem no
    painel Usuários. Contratos entrou aqui (mesmo projeto do Firebase, mesma
    conta) — ver contratos/LEIA-ME.md. */
@@ -11258,7 +11270,7 @@ function authAoAutenticar(user){
          se nada tivesse acontecido. Sai da conta, o que devolve o portão. */
       if(!doc.exists){ authCurrentUser=null; firebase.auth().signOut(); return; }
       authCurrentUser=Object.assign({uid:user.uid}, doc.data());
-      if(authTemAcesso("pregoeiro")) authShowApp(); else authShowPendente();
+      if(authPodeAbrirEstaTela()) authShowApp(); else authShowPendente();
     }, function(e){ console.warn("perfil: sem permissão de leitura ("+e.message+")"); });
   }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
 }
@@ -11733,7 +11745,13 @@ document.addEventListener("keydown", function(e){
    Firebase Auth e do perfil em usuarios_v2. */
 (function(){
   var params=new URLSearchParams(window.location.search);
-  if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("assinatura")||params.has("venc")||params.has("consulta")){
+  /* "consulta" ficou de fora de propósito: aquele painel LISTA a coleção de
+     processos inteira, e listar exige conta aprovada desde que as regras
+     foram fechadas (ver CONTROLE-DE-ACESSO.md). Deixá-lo aqui só produzia
+     uma tela quebrada com "Missing or insufficient permissions"; fora daqui,
+     ele cai no portão normal e a pessoa entra com a conta dela. Os outros
+     links abrem UM documento pelo id, que as regras liberam sem login. */
+  if(params.has("ranking")||params.has("hab")||params.has("assinar")||params.has("assinatura")||params.has("venc")){
     AUTH_MODO_COMPARTILHADO=true;
     var g0=document.getElementById("authGate"); if(g0) g0.style.display="none";
   }

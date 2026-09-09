@@ -318,6 +318,38 @@ async function entrarComGoogle(pg, user){
   t('o resumo de acessos fala dos três painéis',
     /Agenda \(visualizar\)/.test(resumo) && /Contratos \(editar\)/.test(resumo) && !/Sistema Interno/.test(resumo), resumo);
 
+  console.log('\n11) O link de consulta (?consulta=1) pede login em vez de dar erro de permissão');
+  /* Esse painel LISTA a coleção de processos inteira, e listar exige conta
+     aprovada desde que as regras foram fechadas. Antes ele entrava como
+     link público e a pessoa via "Missing or insufficient permissions". */
+  let pgC=await b.newPage({viewport:{width:1300,height:900}});
+  await pgC.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:(r.request().url().includes('firestore')||r.request().url().includes('auth'))?stub:'/*noop*/'}));
+  await pgC.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pgC.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+  await pgC.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase({
+    processos:{p1:{numero:'PE 22/2026', objeto:'Consulta', status:'em-andamento', dataLicit:'2026-08-01', horarioAbertura:'09:00', link:'', responsavel:'PEDRO', contato:''}},
+    usuarios_v2:{'g-vera':{email:'vera@example.com', nome:'Vera', status:'aprovado', isAdmin:false, acessos:{agenda:'ver',pregoeiro:'nenhum',contratos:'nenhum'}, provedor:'google.com'}}
+  }));
+  await pgC.goto('http://127.0.0.1:8099/pregoeiro/index.html?consulta=1',{waitUntil:'networkidle'});
+  await pgC.waitForTimeout(700);
+  const consultaSemLogin=await pgC.evaluate(()=>({
+    compartilhado: AUTH_MODO_COMPARTILHADO,
+    portaoVisivel: getComputedStyle(document.getElementById('authGate')).display!=='none'
+  }));
+  t('sem login, o link mostra o portão — não uma tela quebrada',
+    consultaSemLogin.compartilhado===false && consultaSemLogin.portaoVisivel, consultaSemLogin);
+
+  await entrarComGoogle(pgC, {uid:'g-vera', email:'vera@example.com', displayName:'Vera', photoURL:''});
+  await pgC.waitForTimeout(600);
+  const consultaLogada=await pgC.evaluate(()=>({
+    portaoFechado: document.getElementById('authGate').style.display==='none',
+    processos:(window.processos||[]).length,
+    cards: document.getElementById('consultaGrid').querySelectorAll('.card').length
+  }));
+  t('quem tem acesso à Agenda consegue usar o painel de consulta',
+    consultaLogada.portaoFechado && consultaLogada.processos===1, consultaLogada);
+  t('e os processos aparecem no painel', consultaLogada.cards===1, consultaLogada);
+
   console.log('\nerros JS (pregoeiro, página 1):', errs1.length?errs1:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
   await b.close();

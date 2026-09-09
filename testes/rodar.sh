@@ -67,6 +67,27 @@ for t in $ARQUIVOS; do
   fi
 done
 
+# ── as regras do Firestore, contra o motor de verdade (emulador) ────────
+# Só quando o filtro não exclui: é o teste mais lento da suíte (sobe o
+# emulador). Sai verde e avisando se o emulador não puder ser baixado.
+if [ -z "$FILTRO" ] || echo "regras" | grep -q -- "$FILTRO"; then
+  printf '%-46s' "t-regras.mjs (emulador)"
+  SAIDA=$(./rodar-regras.sh 2>&1)
+  if [ $? -eq 0 ] && ! echo "$SAIDA" | grep -q '✗'; then
+    RESUMO=$(echo "$SAIDA" | grep -oE '[0-9]+ passaram' | tail -1)
+    if echo "$SAIDA" | grep -q "emulador indisponível"; then
+      printf '\033[33m%s\033[0m\n' "pulado (emulador indisponível)"
+    else
+      verde "ok ${RESUMO:-}"
+      PASSOU=$((PASSOU+1))
+    fi
+  else
+    vermelho "FALHOU"
+    echo "$SAIDA" | grep '✗' | head -6 | sed 's/^/      /'
+    FALHOU=$((FALHOU+1)); FALHAS="$FALHAS t-regras.mjs"
+  fi
+fi
+
 # ── conferência estrutural dos .odt gerados pelo módulo de editais ──────
 if echo "$ARQUIVOS" | grep -qE 't-(editais|itens|dotacao)\.js'; then
   printf '%-46s' "verificar-odt.py"

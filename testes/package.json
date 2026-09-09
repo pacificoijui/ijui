@@ -6,7 +6,9 @@
     "test": "./rodar.sh"
   },
   "devDependencies": {
-    "jszip": "^3.10.1",
-    "jspdf": "^2.5.1"
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase-tools": "^15.29.0",
+    "jspdf": "^2.5.1",
+    "jszip": "^3.10.1"
   }
 }
