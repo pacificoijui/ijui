@@ -22,7 +22,10 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* Quantos são muda a cada planilha nova que o setor manda — o teste
      confere que TODOS chegam na tela, não um número decorado. */
   const N=dados.length, PROXIMO_ID=Math.max(...dados.map(c=>c.id))+1;
-  t('o index.html continua pequeno (sem contrato embutido)', html.length<180*1024, {kb:Math.round(html.length/1024)});
+  /* O limite existe para o cadastro nunca mais voltar para dentro do HTML —
+     eram 724 KB numa linha só. O arquivo cresceu com o histórico, a agenda e
+     o PDF novo; 210 KB continua sendo um décimo do que era. */
+  t('o index.html continua pequeno (sem contrato embutido)', html.length<210*1024, {kb:Math.round(html.length/1024)});
   /* A única linha longa que sobra é o brasão em base64, que é imagem e não
      dado — o que não pode voltar é contrato dentro do HTML. */
   t('nenhum contrato ficou embutido no HTML', html.indexOf('"contr":')<0 && html.indexOf('MEDIANEIRA')<0);
@@ -139,30 +142,32 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('todas as colunas têm o próprio menu de filtro',
     forma.filtrosColuna.join('|')==='num|emp|obj|sec|tipo|fis|sit|venc|valor', forma.filtrosColuna);
 
-  console.log('\n3) Ao abrir, mostra o que precisa de atenção agora: ativo, vencendo em 30 dias, mais próximo primeiro');
+  console.log('\n3) Ao abrir, mostra os contratos do ano, do último cadastrado para trás');
+  /* Quem chega de manhã quer ver o que entrou desde ontem — e é o número do
+     contrato, que anda sempre para cima, que conta isso. */
   const padraoAbertura=await pg.evaluate(()=>{
-    const esperado=CONTRATOS.filter(c=>c.situacao==='ATIVO' && c._d!==null && c._d>=0 && c._d<=30);
-    const vencimentosNaTela=filtrados.map(c=>c.vencimento);
-    const ordenado=vencimentosNaTela.every((v,i)=>i===0||v>=vencimentosNaTela[i-1]);
+    const ano=new Date().getFullYear();
+    const esperado=CONTRATOS.filter(c=>c.ano===ano);
+    const nums=filtrados.map(c=>c.contr);
     return {
-      n:filtrados.length, esperado:esperado.length,
-      todosAtivos:filtrados.every(c=>c.situacao==='ATIVO'),
-      todosDentroDe30d:filtrados.every(c=>c._d!==null && c._d>=0 && c._d<=30),
-      ordenadoPorVencimento:ordenado,
+      n:filtrados.length, esperado:esperado.length, ano:ano,
+      todosDoAno:filtrados.every(c=>c.ano===ano),
+      decrescente:nums.every((v,i)=>i===0||v<=nums[i-1]),
       chips:document.getElementById('chipsAtivos').textContent.trim(),
       sort:F.sort
     };
   });
-  t('mostra exatamente os contratos ativos vencendo em até 30 dias',
-    padraoAbertura.n===padraoAbertura.esperado && padraoAbertura.todosAtivos && padraoAbertura.todosDentroDe30d, padraoAbertura);
-  t('do vencimento mais próximo pro mais distante', padraoAbertura.sort==='venc-asc' && padraoAbertura.ordenadoPorVencimento, padraoAbertura);
-  t('e os dois filtros aparecem como chip, pra ficar claro que a tela não está mostrando tudo',
-    /Situação: ATIVO/.test(padraoAbertura.chips) && /Prazo: Vence em até 30 dias/.test(padraoAbertura.chips), padraoAbertura.chips);
+  t('mostra exatamente os contratos do ano corrente',
+    padraoAbertura.n===padraoAbertura.esperado && padraoAbertura.todosDoAno, padraoAbertura);
+  t('do maior número para o menor — o último cadastrado em cima',
+    padraoAbertura.sort==='num-desc' && padraoAbertura.decrescente, padraoAbertura);
+  t('e o filtro aparece como chip, pra ficar claro que a tela não mostra tudo',
+    new RegExp('Ano do contrato: '+padraoAbertura.ano).test(padraoAbertura.chips), padraoAbertura.chips);
   const N_PADRAO = padraoAbertura.esperado;   /* quantos contratos o padrão de abertura traz hoje */
 
-  console.log('\n4) A busca única procura em qualquer informação (sem os filtros do padrão de abertura atrapalhando)');
-  const ativos=await pg.evaluate(()=>{ limparColuna('sit'); limparColuna('venc'); return filtrados.length; });
-  t('sem filtro de situação nem de prazo, mostra todos os contratos', ativos===N, {esperado:N, veio:ativos});
+  console.log('\n4) A busca única procura em qualquer informação (sem o filtro de ano atrapalhando)');
+  const ativos=await pg.evaluate(()=>{ limparColuna('num'); return filtrados.length; });
+  t('sem o filtro de ano, mostra todos os contratos', ativos===N, {esperado:N, veio:ativos});
 
   const buscar = termo => pg.evaluate(async q=>{
     document.getElementById('fBusca').value=q;
@@ -420,13 +425,15 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const pgp=await b.newPage({viewport:{width:1280,height:900}});
   const errsPdf=[]; pgp.on('pageerror',e=>errsPdf.push(e.message));
   await abrirContratos(pgp, 'editar', jspdf);
-  const pdfs=await pgp.evaluate(()=>{
+  /* Geração ficou assíncrona: a logo do município vem de um arquivo, e o
+     PDF espera ela chegar antes de desenhar o cabeçalho. */
+  const pdfs=await pgp.evaluate(async ()=>{
     let salvo=null;
     const O=window.jspdf.jsPDF;
     window.jspdf.jsPDF=function(...a){ const d=new O(...a); d.save=n=>{salvo=n;}; return d; };
-    pdfDoFiltro();            const a=salvo; salvo=null;
-    abrirDet(1); pdfContratoAtual(); const c=salvo; salvo=null;
-    gerarRelatorio('geral','todos');
+    await pdfDoFiltro();                  const a=salvo; salvo=null;
+    abrirDet(1); await pdfContratoAtual(); const c=salvo; salvo=null;
+    await gerarRelatorio('geral','todos');
     window.jspdf.jsPDF=O;
     return {filtro:a, ficha:c, geral:salvo};
   });
@@ -910,7 +917,36 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('sem repetir o que já estava na tela', pagina2.repetidas===0, pagina2);
   t('e o botão some quando acabou', !pagina2.temBotaoMais, pagina2);
 
-  console.log('\n16) Valor em dinheiro do jeito que se escreve aqui');
+  console.log('\n16) O PDF só recebe letra que a fonte sabe desenhar');
+  /* As fontes de fábrica do jsPDF desenham o alfabeto ocidental e nada além.
+     Um caractere fora disso não sai errado só ele: a LINHA INTEIRA sai com
+     as letras esparramadas. O cadastro tem 75 setas "\u2192" e 28 de Wingdings
+     coladas do Word, sempre separando o valor total do mensal. */
+  const limpeza=await pg.evaluate(()=>{
+    const casos=[
+      ['R$ 34.200,00 \u2192 R$ 5.700,00', 'R$ 34.200,00 -> R$ 5.700,00'],
+      ['R$ 30.000,00 \uf0e0 R$ 5.000,00', 'R$ 30.000,00 -> R$ 5.000,00'],
+      ['Lote 01 \u2013 item 01', 'Lote 01 \u2013 item 01'],
+      ['\u201cOFICINAS\u201d de 30\u2019', '\u201cOFICINAS\u201d de 30\u2019'],
+      ['acentos: \u00e1\u00e9\u00ed\u00f3\u00fa \u00e7 \u00e3\u00f5', 'acentos: \u00e1\u00e9\u00ed\u00f3\u00fa \u00e7 \u00e3\u00f5']
+    ];
+    return casos.map(([de,esperado])=>({de, esperado, veio:pdfTexto(de)}));
+  });
+  limpeza.forEach((c,i)=>{ t('PDF, caso '+(i+1)+': o que a fonte não desenha vira algo que ela desenha',
+    c.veio===c.esperado, c); });
+  const sobrouPdf=await pg.evaluate(()=>{
+    const ok='\u2013\u2014\u2018\u2019\u201c\u201d\u2026\u20ac';
+    const ruins=[];
+    CONTRATOS.forEach(c=>['objeto','empresa','obs'].forEach(k=>{
+      for(const ch of pdfTexto(c[k]||''))
+        if(ch.codePointAt(0)>255 && ok.indexOf(ch)<0)
+          ruins.push({id:c.id, campo:k, ch:'U+'+ch.codePointAt(0).toString(16)});
+    }));
+    return ruins.slice(0,5);
+  });
+  t('nenhum dos contratos do cadastro leva caractere impossível para o PDF', sobrouPdf.length===0, sobrouPdf);
+
+  console.log('\n17) Valor em dinheiro do jeito que se escreve aqui');
   /* Os campos eram <input type="number">, que só aceita ponto decimal:
      quem digitava "1.234,56" — como está na planilha do setor — via o
      campo recusar em silêncio e o contrato ser salvo SEM VALOR. */
@@ -951,7 +987,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   });
   t('e ao reabrir o formulário o valor aparece formatado', reabre==='1.234,56', reabre);
 
-  console.log('\n17) "Limpar filtros" limpa mesmo');
+  console.log('\n18) "Limpar filtros" limpa mesmo');
   /* Limpava reaplicando os filtros de abertura: os dois chips continuavam
      na tela e quem clicou concluía que o botão não fazia nada — e quem
      procurava um contrato fora do recorte não achava nem depois de limpar. */
@@ -969,9 +1005,19 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* a tela ABRE no recorte de sempre — limpar é outra coisa */
   const pgAbre=await b.newPage({viewport:{width:1280,height:900}});
   await abrirContratos(pgAbre, 'editar');
-  const abertura=await pgAbre.evaluate(()=>document.getElementById('chipsAtivos').textContent);
-  t('mas a tela continua abrindo no que precisa de atenção',
-    /ATIVO/.test(abertura) && /30 dias/.test(abertura), abertura.trim());
+  const abertura=await pgAbre.evaluate(()=>({
+    chips: document.getElementById('chipsAtivos').textContent,
+    ordem: document.getElementById('fSort').value,
+    primeiro: filtrados[0] && {contr:filtrados[0].contr, ano:filtrados[0].ano},
+    soDoAno: filtrados.every(c=>c.ano===new Date().getFullYear())
+  }));
+  /* Quem chega de manhã quer ver o que entrou desde ontem: contratos do ano,
+     do último número para trás. */
+  t('a tela abre nos contratos do ano corrente',
+    new RegExp('Ano do contrato: '+new Date().getFullYear()).test(abertura.chips) && abertura.soDoAno, abertura);
+  t('e do último cadastrado para trás', abertura.ordem==='num-desc', abertura);
+  t('o primeiro da lista é o maior número do ano', abertura.primeiro
+    && abertura.primeiro.ano===new Date().getFullYear(), abertura.primeiro);
 
   /* buscar algo que existe fora do recorte não pode responder "não achei" e parar */
   const fora=await pgAbre.evaluate(()=>{
@@ -993,7 +1039,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     t('busca fora do recorte encontrou direto (nada a avisar)', true);
   }
 
-  console.log('\n18) O gerenciador de senhas não tem onde despejar a senha');
+  console.log('\n19) O gerenciador de senhas não tem onde despejar a senha');
   /* O Chrome ignora autocomplete="off" e chegou a preencher o campo de
      busca com a senha salva, porque o formulário de login continuava no
      documento — escondido, mas de pé — depois de a pessoa entrar. */
@@ -1021,7 +1067,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     digitou.valor==='medianeira' && !digitou.readonly, digitou);
   await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; aplicarFiltros(); });
 
-  console.log('\n19) Quem já está logado não vê o login piscar na abertura');
+  console.log('\n20) Quem já está logado não vê o login piscar na abertura');
   const piscou=await pg.evaluate(()=>window.__LOGIN_APARECEU);
   t('o formulário de login não aparece para quem já entrou', !piscou, {piscou});
   t('o portão abre num aviso neutro, não no formulário',

@@ -637,7 +637,7 @@
       <div class="fm-secao">Ordenar por</div>
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
         <optgroup label="Vencimento">
-          <option value="venc-asc" selected>Vencimento — mais próximo primeiro</option>
+          <option value="venc-asc">Vencimento — mais próximo primeiro</option>
           <option value="venc-desc">Vencimento — mais distante primeiro</option>
         </optgroup>
         <optgroup label="Valor">
@@ -645,7 +645,7 @@
           <option value="valor-asc">Valor — do menor para o maior</option>
         </optgroup>
         <optgroup label="Texto">
-          <option value="num-desc">Nº do contrato (mais recente)</option>
+          <option value="num-desc" selected>Nº do contrato (mais recente)</option>
           <option value="num-asc">Nº do contrato (mais antigo)</option>
           <option value="emp-asc">Empresa (A–Z)</option>
           <option value="emp-desc">Empresa (Z–A)</option>
@@ -1392,6 +1392,7 @@ function authShowApp(){
      morreria sem tentar de novo (foi assim que a Agenda ficou vazia). */
   iniciarListenerContratos();
   histMostrarBotoes();
+  carregarLogoPdf();   /* pronta antes de alguém pedir um PDF */
   RASCUNHO = lerRascunho();   /* rascunhos de antes do banco: viram só um aviso */
   avisoRascunho();
 }
@@ -1443,6 +1444,44 @@ function authStartGate(){
 }
 
 /* ══════════════ UTILIDADES ══════════════ */
+const CAMINHO_LOGO_PDF = '../logo-ijui-largo.jpg';
+
+/* ── O papel: cabeçalho, rodapé e o que a fonte do PDF sabe desenhar ──
+   Mesmo desenho dos Pedidos de Diligência do Sistema Interno, para o que
+   sai deste sistema não parecer de outra prefeitura: logo do município no
+   alto, título abaixo, e o rodapé com a linha fina, a identificação à
+   esquerda e a paginação à direita. */
+let _logoPdf = null;
+function carregarLogoPdf(){
+  if(_logoPdf) return Promise.resolve(_logoPdf);
+  return fetch(CAMINHO_LOGO_PDF).then(r => r.blob()).then(b => new Promise(ok => {
+    const fr = new FileReader();
+    fr.onload = () => { _logoPdf = fr.result; ok(_logoPdf); };
+    fr.onerror = () => ok(null);
+    fr.readAsDataURL(b);
+  })).catch(() => null);
+}
+
+/* As fontes que o jsPDF traz de fábrica desenham o alfabeto ocidental e mais
+   um punhado de sinais — e nada além disso. Um caractere fora dessa conta
+   não sai errado só ele: a LINHA INTEIRA sai com as letras esparramadas,
+   que foi o que apareceu nos relatórios. O cadastro tem 75 setas "→" e 28
+   setas de Wingdings coladas do Word, todas separando o valor total do
+   valor mensal — viram "->", que diz a mesma coisa e a fonte sabe escrever. */
+const PDF_TROCAS = [
+  [/[→⇒➡➔➜⟶]/g, '->'],
+  [/[\uD83C-\uDBFF][\uDC00-\uDFFF]/g, '->'],   /* setas fora do plano básico */
+  [/[•●▪]/g, '-'],
+  [/[‐‑‒]/g, '-'],
+  [/ /g, ' ']
+];
+function pdfTexto(v){
+  let t = String(v == null ? '' : v);
+  PDF_TROCAS.forEach(([de, para]) => { t = t.replace(de, para); });
+  /* o que sobrou fora do que a fonte conhece sai, em vez de estragar a linha */
+  return t.replace(/[^ -ÿ–—‘’“”…€]/g, '');
+}
+
 const HOJE = new Date(); HOJE.setHours(0,0,0,0);
 const fmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
@@ -1498,7 +1537,7 @@ function prepararContrato(c){
 /* ══════════════ ESTADO ══════════════ */
 /* Uma busca só, que varre tudo — e o resto do filtro mora dentro da tabela:
    cada coluna guarda o texto digitado no menu dela e as opções marcadas. */
-const F = { busca:'', sort:'venc-asc' };
+const F = { busca:'', sort:'num-desc' };   /* ver ORDEM_PADRAO, em initFiltros */
 const COLF = {};   /* col -> { txt:'', sel:{ grupo: Set(valores marcados) } } */
 let filtrados = [], mostrando = 0;
 const LOTE = 100;
@@ -1616,12 +1655,13 @@ function initFiltros(comPadrao){
     (FACETAS[col] || []).forEach(g => { COLF[col].sel[g.k] = new Set(); });
   });
   if(!comPadrao) return;
-  /* A tela abre no que precisa de atenção agora: contrato ativo (não
-     paralisado, não histórico) e vencendo nos próximos 30 dias, do mais
-     próximo pro mais distante — é o que alguém abre a tela pra ver. */
-  COLF.sit.sel.sit = new Set(['ATIVO']);
-  COLF.venc.sel.prazo = new Set(['Vence em até 30 dias']);
+  /* A tela abre nos contratos DO ANO, do último cadastrado para trás: quem
+     chega de manhã quer ver o que entrou desde ontem, e é o número do
+     contrato — que anda sempre para cima — que conta isso. O recorte por
+     vencimento continua a um clique na coluna Vencimento. */
+  COLF.num.sel.ano = new Set([String(new Date().getFullYear())]);
 }
+const ORDEM_PADRAO = 'num-desc';
 
 /* ══════════════ FILTRAGEM ══════════════ */
 /* A busca de cima: cada palavra digitada tem de aparecer em algum lugar do
@@ -1702,8 +1742,8 @@ function limparBusca(){
 function limparFiltros(){
   document.getElementById('fBusca').value = '';
   initFiltros(false);
-  F.sort = 'venc-asc';
-  document.getElementById('fSort').value = 'venc-asc';
+  F.sort = ORDEM_PADRAO;
+  document.getElementById('fSort').value = ORDEM_PADRAO;
   aplicarFiltros();
   if(popCol) renderPop();
   if(sheetAberta()) renderFiltrosMobile();
@@ -2545,81 +2585,102 @@ function repSelTodos(marcar){
 /* PDF direto do filtro da tela, sem abrir modal */
 function pdfDoFiltro(){
   if(!filtrados.length){ alert('Nenhum contrato no filtro atual. Ajuste a busca e tente novamente.'); return; }
-  gerarRelatorio('geral','filtro');
+  return gerarRelatorio('geral','filtro');
 }
 
 function pdfBase(){
   if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando. Aguarde alguns segundos e tente novamente.'); return null; }
   return new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
 }
-const PW=297, PH=210, ML=12, MR=12, MT=26, MB=14, CW=PW-ML-MR;
+/* MT sobe de 26 para 39: o cabeçalho passou a ter a logo do município, o
+   título e a linha de abrangência, como nos Pedidos de Diligência. */
+const PW=297, PH=210, ML=12, MR=12, MT=39, MB=16, CW=PW-ML-MR;
 
+/* A logo tem 3,087 de proporção (892x289): a altura sai da largura, senão
+   ela achata. 46mm de largura na primeira página, 26mm nas seguintes. */
+function pdfLogo(doc, larguraMm, y){
+  if(!_logoPdf) return;
+  try{ doc.addImage(_logoPdf, 'JPEG', (PW-larguraMm)/2, y, larguraMm, larguraMm/3.087); }catch(e){}
+}
 function pdfHeader(doc, titulo, sub){
-  doc.setFillColor(18,41,77); doc.rect(0,0,PW,18,'F');
-  doc.setFillColor(232,160,32); doc.rect(0,18,PW,1.2,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(12);
-  doc.text('PREFEITURA MUNICIPAL DE IJUÍ — GESTÃO DE CONTRATOS', ML, 8);
-  doc.setFontSize(10); doc.setTextColor(246,185,59);
-  doc.text(titulo.toUpperCase(), ML, 14.5);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(210,220,240);
-  const dt = new Date().toLocaleString('pt-BR');
-  doc.text('Emitido em ' + dt, PW-MR, 8, {align:'right'});
-  if(sub) doc.text(sub, PW-MR, 14.5, {align:'right'});
+  pdfLogo(doc, 46, 7);
+  doc.setFont('helvetica','bold'); doc.setFontSize(11.5); doc.setTextColor(18,41,77);
+  doc.text(pdfTexto(titulo), PW/2, 27.5, {align:'center'});
+  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,102,133);
+  if(sub){
+    const linhas = doc.splitTextToSize(pdfTexto(sub), CW-20);
+    doc.text(linhas.slice(0,2), PW/2, 32.5, {align:'center'});
+  }
+  doc.setDrawColor(232,160,32); doc.setLineWidth(.9);
+  doc.line(ML, MT-3.5, PW-MR, MT-3.5);
 }
 function pdfFooter(doc){
   const n = doc.getNumberOfPages();
+  const emitido = 'Emitido em ' + new Date().toLocaleString('pt-BR');
   for(let i=1;i<=n;i++){
     doc.setPage(i);
-    doc.setDrawColor(200,208,225); doc.setLineWidth(.3); doc.line(ML,PH-9,PW-MR,PH-9);
+    doc.setDrawColor(200,208,225); doc.setLineWidth(.2); doc.line(ML,PH-11,PW-MR,PH-11);
     doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,130,155);
-    doc.text('Sistema de Gestão de Contratos · Município de Ijuí (protótipo)', ML, PH-5);
-    doc.text(`Página ${i} de ${n}`, PW-MR, PH-5, {align:'right'});
+    doc.text('Município de Ijuí \u00b7 Capital Mundial das Etnias \u00b7 Gestão de Contratos', ML, PH-6.5);
+    doc.text(emitido, PW/2, PH-6.5, {align:'center'});
+    doc.text('Página '+i+' de '+n, PW-MR, PH-6.5, {align:'right'});
   }
 }
 
 /* colunas: Nº/Ano | Empresa | Objeto | Secretaria | Fiscais | Vencimento | Situação | Valor */
+/* O objeto é o que se lê no relatório; o resto é etiqueta. As larguras
+   foram redistribuídas para ele: 88mm -> 112mm, tirando das colunas que
+   sobravam espaço (empresa, fiscais, secretaria) e encurtando os títulos
+   que só serviam para ocupar a coluna. A soma tem de dar CW = 273. */
 const COLS = [
-  {t:'Nº/Ano', w:16, f:c=>`${c.contr}/${c.ano}`},
-  {t:'Empresa', w:44, f:c=>c.empresa||'—'},
-  {t:'Objeto', w:88, f:c=>c.objeto||'—'},
-  {t:'Secretaria', w:24, f:c=>c.secretarias.join(', ')||'—'},
-  {t:'Fiscais', w:34, f:c=>fiscais(c).join(', ')||'—'},
-  {t:'Vencimento', w:20, f:c=>fmtD(c.vencimento)},
-  {t:'Situação', w:22, f:c=>c.situacao||'—'},
-  {t:'Valor (R$)', w:25, f:c=>c.valor==null?'—':fmtBRL.format(c.valor).replace('R$','').trim(), right:true},
+  /* "39/2021" e "11/01/2022" não podem quebrar em duas linhas: a coluna
+     tem de caber o dado inteiro, senão o que se economiza em largura se
+     perde em altura de linha — e fica feio de ler. */
+  {t:'Nº/Ano', w:19, f:c=>`${c.contr}/${c.ano}`},
+  {t:'Empresa', w:37, f:c=>c.empresa||'—'},
+  {t:'Objeto', w:105, f:c=>c.objeto||'—'},
+  {t:'Secretaria', w:19, f:c=>c.secretarias.join(', ')||'—'},
+  {t:'Fiscais', w:28, f:c=>fiscais(c).join(', ')||'—'},
+  {t:'Venc.', w:20, f:c=>fmtD(c.vencimento)},
+  {t:'Situação', w:19, f:c=>c.situacao||'—'},
+  {t:'Valor (R$)', w:26, f:c=>c.valor==null?'—':fmtBRL.format(c.valor).replace('R$','').trim(), right:true},
 ];
+/* Corpo em 8,4 (era 7,3) e em PRETO (era um cinza-azulado): o relatório é
+   impresso e lido no papel, muitas vezes fotocopiado. LH acompanha. */
+const PDF_FS = 8.4, PDF_LH = 3.55;
 function pdfTableHeader(doc, y){
-  doc.setFillColor(26,58,107); doc.rect(ML,y,CW,7,'F');
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(255,255,255);
+  doc.setFillColor(26,58,107); doc.rect(ML,y,CW,7.4,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(255,255,255);
   let x=ML+2;
-  COLS.forEach(col=>{ doc.text(col.t, col.right? x+col.w-4 : x, y+4.7, col.right?{align:'right'}:undefined); x+=col.w; });
-  return y+7;
+  COLS.forEach(col=>{ doc.text(col.t, col.right? x+col.w-4 : x, y+5, col.right?{align:'right'}:undefined); x+=col.w; });
+  return y+7.4;
 }
 function pdfRows(doc, itens, yStart, tituloPag, sub){
   let y = yStart;
-  doc.setFont('helvetica','normal'); doc.setFontSize(7.3);
+  doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
   let zebra = false;
   itens.forEach(c=>{
-    const cells = COLS.map(col=>doc.splitTextToSize(String(col.f(c)), col.w-4.5));
-    const h = Math.max(...cells.map(l=>l.length))*3.1 + 2.6;
+    const cells = COLS.map(col=>doc.splitTextToSize(pdfTexto(col.f(c)), col.w-4.5));
+    const h = Math.max(...cells.map(l=>l.length))*PDF_LH + 3;
     if(y+h > PH-MB){
       doc.addPage(); pdfHeader(doc, tituloPag, sub); y = pdfTableHeader(doc, MT-4);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.3);
+      doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
     }
     if(zebra){ doc.setFillColor(238,242,250); doc.rect(ML,y,CW,h,'F'); }
     zebra = !zebra;
-    /* destaque vencimento */
     const d=c._d;
     let x=ML+2;
     COLS.forEach((col,i)=>{
+      /* O vencimento continua sendo a única coisa colorida: ali a cor não é
+         enfeite, é o aviso de que o prazo está em cima. O resto, preto. */
       if(i===5 && isAtivo(c) && d!==null && d<=30) doc.setTextColor(192,40,42);
       else if(i===5 && isAtivo(c) && d!==null && d<=90) doc.setTextColor(192,112,0);
-      else doc.setTextColor(35,42,60);
+      else doc.setTextColor(0,0,0);
       const lines = cells[i];
-      lines.forEach((ln,li)=> doc.text(ln, col.right? x+col.w-4 : x, y+3.4+li*3.1, col.right?{align:'right'}:undefined));
+      lines.forEach((ln,li)=> doc.text(ln, col.right? x+col.w-4 : x, y+3.7+li*PDF_LH, col.right?{align:'right'}:undefined));
       x+=col.w;
     });
-    doc.setTextColor(35,42,60);
+    doc.setTextColor(0,0,0);
     y += h;
   });
   return y;
@@ -2628,14 +2689,14 @@ function pdfGroupHeader(doc, txt, extra, y, tituloPag, sub){
   if(y+14 > PH-MB){ doc.addPage(); pdfHeader(doc, tituloPag, sub); y = MT-4; }
   doc.setFillColor(231,238,251); doc.rect(ML,y,CW,7.5,'F');
   doc.setDrawColor(46,93,168); doc.setLineWidth(.7); doc.line(ML,y,ML,y+7.5);
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(30,74,138);
-  doc.text(txt, ML+3, y+5.1);
-  if(extra){ doc.setFontSize(8); doc.text(extra, PW-MR-2, y+5.1, {align:'right'}); }
+  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(30,74,138);
+  doc.text(pdfTexto(txt), ML+3, y+5.1);
+  if(extra){ doc.setFontSize(8.5); doc.text(pdfTexto(extra), PW-MR-2, y+5.1, {align:'right'}); }
   return pdfTableHeader(doc, y+8.5);
 }
 function pdfSubtotal(doc, itens, y){
   if(y+7 > PH-MB) return y; /* subtotal cabe; se não, omite discretamente */
-  doc.setFont('helvetica','bold'); doc.setFontSize(7.8); doc.setTextColor(26,58,107);
+  doc.setFont('helvetica','bold'); doc.setFontSize(8.4); doc.setTextColor(26,58,107);
   doc.text(`Subtotal: ${itens.length} contrato(s)`, PW-MR-2, y+4, {align:'right'});
   return y+7;
 }
@@ -2663,6 +2724,9 @@ function scopeLabel(sc){
   return `Filtro da tela: ${filtrados.length} contrato(s)` + (p.length? ' — '+p.join(' · ') : '');
 }
 function gerarRelatorio(tipoForce, scopeForce){
+  return carregarLogoPdf().then(() => gerarRelatorioAgora(tipoForce, scopeForce));
+}
+function gerarRelatorioAgora(tipoForce, scopeForce){
   const tipo = tipoForce || tipoRel();
   const sc = scopeForce || repScope;
   const doc = pdfBase(); if(!doc) return;
@@ -2747,38 +2811,57 @@ function gerarRelatorio(tipoForce, scopeForce){
 }
 
 /* Ficha individual do contrato */
+/* A logo vem de um arquivo, não embutida em base64 nas duas telas: a
+   geração espera ela chegar. Já foi pedida na abertura da página, então na
+   prática a promessa já está resolvida quando alguém clica. */
 function pdfContratoAtual(){
+  return carregarLogoPdf().then(pdfContratoAgora);
+}
+function pdfContratoAgora(){
   const c = detAtual; if(!c) return;
   if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando. Aguarde e tente novamente.'); return; }
   const doc = new window.jspdf.jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const W=210, L=15, CWp=W-30;
-  doc.setFillColor(18,41,77); doc.rect(0,0,W,22,'F');
-  doc.setFillColor(232,160,32); doc.rect(0,22,W,1.2,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-  doc.text('PREFEITURA MUNICIPAL DE IJUÍ — GESTÃO DE CONTRATOS', L, 10);
-  doc.setFontSize(11); doc.setTextColor(246,185,59);
-  doc.text(`FICHA DO CONTRATO Nº ${c.contr}/${c.ano}`, L, 17.5);
-  let y = 33;
+  const W=210, H=297, L=18, R=18, CWp=W-L-R, PE=H-20;
+
+  /* Mesmo desenho dos Pedidos de Diligência: logo do município no alto,
+     título abaixo, e o rodapé com a linha fina e a paginação. */
+  function cabecalho(primeira){
+    const larg = primeira ? 46 : 26, topo = primeira ? 12 : 9;
+    if(_logoPdf){ try{ doc.addImage(_logoPdf,'JPEG',(W-larg)/2,topo,larg,larg/3.087); }catch(e){} }
+    if(!primeira) return 26;
+    let yy = 12 + 46/3.087 + 9;
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(18,41,77);
+    doc.text('Ficha do Contrato nº '+c.contr+'/'+c.ano, W/2, yy, {align:'center'}); yy += 6.5;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9.5); doc.setTextColor(90,102,133);
+    doc.text(pdfTexto(c.empresa || ''), W/2, yy, {align:'center'}); yy += 6;
+    doc.setDrawColor(232,160,32); doc.setLineWidth(.9); doc.line(L, yy, W-R, yy);
+    return yy + 9;
+  }
+  let y = cabecalho(true);
+
+  /* Rótulo em cinza pequeno, conteúdo em PRETO e maior: a ficha é impressa
+     e anexada em processo, então o que importa é ler no papel. */
   const item = (k,v)=>{
     if(!v) return;
-    doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(107,119,147);
-    doc.text(k.toUpperCase(), L, y); y+=4.5;
-    doc.setFont('helvetica','normal'); doc.setFontSize(10.5); doc.setTextColor(28,36,51);
-    const lines = doc.splitTextToSize(String(v), CWp);
-    lines.forEach(ln=>{ if(y>282){doc.addPage(); y=20;} doc.text(ln, L, y); y+=5; });
-    y+=3;
+    const linhas = doc.splitTextToSize(pdfTexto(v), CWp);
+    if(y + 4.5 + linhas.length*5 > PE && linhas.length <= 6){ doc.addPage(); y = cabecalho(false); }
+    doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(107,119,147);
+    doc.text(k.toUpperCase(), L, y); y += 4.8;
+    doc.setFont('helvetica','normal'); doc.setFontSize(11); doc.setTextColor(0,0,0);
+    linhas.forEach(ln=>{ if(y>PE){ doc.addPage(); y = cabecalho(false); } doc.text(ln, L, y); y += 5.2; });
+    y += 3.4;
   };
   item('Situação', c.situacao + (isAtivo(c)&&c._d!==null ? (c._d<0?` (vencido há ${-c._d} dias)`:` (faltam ${c._d} dias)`):''));
   item('Empresa', c.empresa);
-  item('Secretaria(s)', c.secretarias.join(', '));
+  item('Secretaria(s)', (c.secretarias||[]).join(', '));
   item('Modalidade', c.modalidade);
   item('Tipo de contrato', c.tipo);
   item('Objeto', c.objeto);
   const aditsPdf = Array.isArray(c.aditivos) ? c.aditivos : [];
   item('Valor total', money(c.valor) + (aditsPdf.length ? '  (contrato '+money(c.valorBase)+' + aditivos '+money(somaAditivos(c))+')' : ''));
   item('Vencimento', fmtD(c.vencimento) + (aditsPdf.some(a=>a.vencNovo) ? '  (original '+fmtD(c.vencimentoBase)+', alterado por aditivo)' : ''));
-  item('Fiscal administrativo', c.fiscalAdm.join(', '));
-  item('Fiscal técnico', c.fiscalTec.join(', '));
+  item('Fiscal administrativo', (c.fiscalAdm||[]).join(', '));
+  item('Fiscal técnico', (c.fiscalTec||[]).join(', '));
   item('Palavra-chave', c.palavra);
   item('Observações', c.obs);
   if(aditsPdf.length){
@@ -2791,9 +2874,20 @@ function pdfContratoAtual(){
       return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
     }).join('\n'));
   }
-  doc.setDrawColor(200,208,225); doc.line(L,287,W-15,287);
-  doc.setFontSize(7.5); doc.setTextColor(120,130,155);
-  doc.text('Emitido em ' + new Date().toLocaleString('pt-BR') + ' · Sistema de Gestão de Contratos (protótipo)', L, 292);
+
+  const total = doc.getNumberOfPages();
+  const emitido = 'Emitido em ' + new Date().toLocaleString('pt-BR');
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    doc.setDrawColor(200,208,225); doc.setLineWidth(.2); doc.line(L,H-15,W-R,H-15);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(120,130,155);
+    /* Em retrato a página é estreita: a frase inteira encostava na data do
+       meio. "Capital Mundial das Etnias" fica só no relatório, que é em
+       paisagem e tem espaço. */
+    doc.text('Município de Ijuí \u00b7 Gestão de Contratos', L, H-10.5);
+    doc.text(emitido, W/2, H-10.5, {align:'center'});
+    doc.text('Página '+i+' de '+total, W-R, H-10.5, {align:'right'});
+  }
   doc.save(`contrato_${c.contr}-${c.ano}.pdf`);
 }
 
@@ -2831,6 +2925,8 @@ function abrirContratoDaURL(){
 
 function iniciar(){
   CONTRATOS.forEach(prepararContrato);   /* datas, aditivos somados, índice da busca */
+  F.sort = ORDEM_PADRAO;
+  document.getElementById('fSort').value = ORDEM_PADRAO;
   marcarFonte();
   avisoRascunho();
   popularDatalists();

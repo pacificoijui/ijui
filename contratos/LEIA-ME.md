@@ -96,6 +96,19 @@ Depois disso quem manda é o banco. O arquivo do repositório fica como
 histórico — e o **Exportar JSON** da tela continua gerando uma cópia no
 mesmo formato quando você quiser atualizar esse histórico.
 
+## Relatórios e fichas em PDF
+
+Mesmo desenho dos Pedidos de Diligência do Sistema Interno: logo do
+município no alto, título abaixo, e o rodapé com a identificação e a
+paginação. Texto em preto, para o papel e a fotocópia.
+
+Um cuidado que não se vê: as fontes que o gerador de PDF traz de fábrica
+desenham o alfabeto ocidental e nada além. Um caractere fora dessa conta
+não sai errado só ele — a **linha inteira** sai com as letras esparramadas.
+O cadastro tem 75 setas `→` e 28 setas de Wingdings coladas do Word, todas
+separando o valor total do mensal; `pdfTexto()` troca por `->` antes de
+desenhar. Ao colar objeto novo vindo do Word, é isso que segura o estrago.
+
 ## Histórico de edições
 
 Toda gravação — contrato novo, edição, aditivo cadastrado, alterado ou
