@@ -300,6 +300,44 @@ que você mudar a sua senha, e o log passa a registrar você entrando todo dia
 Sem esses secrets o backup falha com a mensagem explicando isso — de
 propósito, para não gravar um backup vazio achando que está tudo bem.
 
+### A cota do Firestore
+
+O backup falhou uma vez com **HTTP 429** no meio, depois de o login já ter
+dado certo e as primeiras coleções já terem vindo. 429 não é credencial: é o
+Firestore dizendo que a cota acabou.
+
+Duas coisas causaram isso, e as duas estão consertadas:
+
+- **O horário.** A cota diária do Firestore vira à **meia-noite do
+  Pacífico**, e o backup rodava às 06:00 UTC — 23:00 de lá. Ou seja, na
+  última hora do dia de cota, depois de o setor inteiro ter usado o sistema o
+  dia todo. Agora roda às 09:00 UTC (06:00 em Brasília, 01:00 ou 02:00 no
+  Pacífico), logo depois de a cota zerar.
+- **A paciência.** Diante de um 429 o script esperava 12 segundos e desistia,
+  perdendo o backup do dia. Agora espera 30s, 60s, 120s e 240s — se for pico
+  de uso, passa. Se não passar, o recado diz que não é credencial, quando
+  tentar de novo, e onde olhar.
+
+**Mas o pano de fundo continua**, e vale saber antes que apareça de novo: as
+duas telas grandes carregam a coleção inteira a cada abertura.
+
+| | leituras por abertura |
+|---|---|
+| `/contratos/` | ~1.300 |
+| `/requisicao/` | ~3.600 |
+
+Dez aberturas de cada uma, num dia, dão perto de **49 mil leituras** — e o
+plano **Spark (gratuito) para em 50 mil por dia**. Com o setor inteiro
+usando, isso estoura, e quando estoura **o sistema para para todo mundo**,
+não só o backup: a tela abre e não carrega nada até a meia-noite do Pacífico.
+
+Onde conferir: **console.firebase.google.com → Uso e faturamento**. Ali se vê
+quantas leituras o projeto faz por dia e em qual plano ele está. Se estiver
+encostando no teto, o caminho barato é mudar para o plano **Blaze** (pago por
+uso): a mesma cota gratuita continua valendo e o que passa dela custa
+centavos por dia no volume deste sistema — muito mais barato que reprojetar
+as telas para carregar por pedaços.
+
 ### A lista de coleções envelhece calada
 
 A API REST do Firestore não lista coleções sem credencial de administrador do

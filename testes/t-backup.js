@@ -71,7 +71,35 @@ t('o fluxo passa os dois secrets para o script',
   /BACKUP_EMAIL: \$\{\{ secrets\.BACKUP_EMAIL \}\}/.test(fluxo)
   && /BACKUP_SENHA: \$\{\{ secrets\.BACKUP_SENHA \}\}/.test(fluxo));
 
-console.log('\n4) O dump não pode voltar para este repositório, que é público');
+console.log('\n4) A cota do Firestore, que já derrubou um backup');
+/* O backup rodava às 06:00 UTC — 23:00 no Pacífico, que é onde a cota
+   diária do Firestore vira à meia-noite. Ou seja: na ÚLTIMA hora do dia de
+   cota, depois de o setor inteiro ter usado o sistema o dia todo. Deu HTTP
+   429 no meio, no "rankings", e o dia se perdeu. */
+const cron = (fluxo.match(/cron: "([^"]+)"/) || [])[1] || '';
+const hora = Number((cron.split(' ')[1] || '-1'));
+/* Pacífico é UTC-7 no verão deles e UTC-8 no inverno. A hora tem de cair
+   depois da meia-noite de lá nos DOIS casos — e ainda de madrugada aqui. */
+const pdt = (hora - 7 + 24) % 24, pst = (hora - 8 + 24) % 24, br = (hora - 3 + 24) % 24;
+t('o backup roda depois de a cota do Firestore virar, e não antes',
+  hora >= 0 && pdt >= 0 && pdt < 6 && pst >= 0 && pst < 6,
+  {cron, pacifico_verao:pdt, pacifico_inverno:pst});
+t('e ainda de madrugada no Brasil, com o sistema parado', br >= 0 && br < 7, {brasilia:br});
+
+/* Esperar 12 segundos e desistir é o que fazia sentido para um soluço de
+   rede. Cota não passa em 12 segundos. */
+t('429 espera de verdade antes de desistir — minutos, não segundos',
+  /COTA_ESPERAS = \[30000, 60000, 120000, 240000\]/.test(script));
+t('e o soluço de rede continua com a espera curta, que é outro problema',
+  /REDE_TENTATIVAS = 4/.test(script));
+t('o recado do 429 explica que não é credencial e diz quando tentar de novo',
+  /cota do Firestore estourada/.test(script)
+  && /MEIA-NOITE DO PACIFICO/.test(script)
+  && /Nao e erro de credencial/.test(script));
+t('e aponta onde olhar se acontecer todo dia',
+  /Uso e faturamento/.test(script) && /50 mil por dia/.test(script));
+
+console.log('\n5) O dump não pode voltar para este repositório, que é público');
 /* Este repositório VIRA o site. Commitar o dump aqui publicaria o banco
    inteiro, coleção usuarios inclusa. */
 t('a cópia permanente vai para um repositório à parte',
@@ -79,7 +107,7 @@ t('a cópia permanente vai para um repositório à parte',
 t('e é pulada enquanto o token não existir, em vez de quebrar o backup',
   /if: env\.BACKUP_TOKEN != ''/.test(fluxo));
 
-console.log('\n5) O caminho está escrito onde se procura por ele');
+console.log('\n6) O caminho está escrito onde se procura por ele');
 t('CONTROLE-DE-ACESSO.md explica como criar a conta do backup',
   /## Backup diário/.test(doc) && /BACKUP_EMAIL/.test(doc) && /\+backup/.test(doc));
 

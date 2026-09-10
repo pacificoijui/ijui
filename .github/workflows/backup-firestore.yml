@@ -2,8 +2,15 @@ name: Backup diário do Firestore
 
 on:
   schedule:
-    # 06:00 UTC = 03:00 em Brasília, quando ninguém está mexendo no sistema.
-    - cron: "0 6 * * *"
+    # 09:00 UTC = 06:00 em Brasília, quando ninguém está mexendo no sistema.
+    #
+    # A hora nao e so pelo Brasil: a cota diaria do Firestore vira a
+    # MEIA-NOITE DO PACIFICO, e o backup rodava as 23:00 de la — na ultima
+    # hora do dia de cota, depois de o setor inteiro ter usado o sistema o
+    # dia todo. Deu HTTP 429 no meio do backup. Agora ele roda as 01:00 ou
+    # 02:00 do Pacifico (conforme o horario de verao de la), logo depois de
+    # a cota zerar, com o dia inteiro pela frente.
+    - cron: "0 9 * * *"
   # Permite rodar na hora, pelo botão "Run workflow" na aba Actions.
   workflow_dispatch:
 

@@ -133,7 +133,21 @@ async function entrar(chave) {
   TOKEN = d.idToken;
 }
 
-async function buscarJson(url, tentativa = 1) {
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Duas paciencias diferentes, porque sao dois problemas diferentes.
+//
+// Soluco de rede ou 5xx passa em segundos: 4 tentativas curtas resolvem.
+//
+// 429 e a cota do Firestore dizendo "chega" — nao passa em 12 segundos, que
+// era o que o backup esperava antes de desistir e perder o dia inteiro. Aqui
+// ele espera de verdade: 30s, 60s, 120s, 240s, ate uns 8 minutos no total. Se
+// for um pico de uso, passa; se for a cota DIARIA estourada, nao passa mesmo,
+// e ai o recado abaixo diz o que fazer em vez de deixar um "HTTP 429" seco.
+const REDE_TENTATIVAS = 4;
+const COTA_ESPERAS = [30000, 60000, 120000, 240000];
+
+async function buscarJson(url, tentativa = 1, esperaCota = 0) {
   let res;
   const opcoes = TOKEN ? { headers: { Authorization: `Bearer ${TOKEN}` } } : undefined;
   try {
@@ -141,14 +155,39 @@ async function buscarJson(url, tentativa = 1) {
   } catch (e) {
     // Falha de rede: tenta de novo antes de desistir, para nao perder o backup
     // do dia por causa de um soluco de conexao do runner.
-    if (tentativa >= 4) throw e;
-    await new Promise((r) => setTimeout(r, 2000 * tentativa));
-    return buscarJson(url, tentativa + 1);
+    if (tentativa >= REDE_TENTATIVAS) throw e;
+    await espera(2000 * tentativa);
+    return buscarJson(url, tentativa + 1, esperaCota);
   }
-  if (res.status === 429 || res.status >= 500) {
-    if (tentativa >= 4) throw new Error(`HTTP ${res.status} em ${url}`);
-    await new Promise((r) => setTimeout(r, 2000 * tentativa));
-    return buscarJson(url, tentativa + 1);
+  if (res.status === 429) {
+    const colecao = url.split("/documents/")[1]?.split("?")[0] || url;
+    if (esperaCota >= COTA_ESPERAS.length) {
+      throw new Error(
+        `cota do Firestore estourada ao ler "${colecao}" (HTTP 429).\n` +
+        "\n" +
+        "Nao e erro de credencial: o login funcionou e as colecoes anteriores\n" +
+        "vieram. O projeto e que nao esta deixando ler mais nada agora.\n" +
+        "\n" +
+        "A cota diaria do Firestore vira a MEIA-NOITE DO PACIFICO (04:00 ou\n" +
+        "05:00 em Brasilia, conforme o horario de verao de la). Se estourou, o\n" +
+        "backup automatico da noite seguinte ja pega a cota zerada — e para\n" +
+        "rodar na mao, espere passar desse horario.\n" +
+        "\n" +
+        "Se acontecer TODO dia, nao e pico de uso: e o plano. Veja em\n" +
+        "console.firebase.google.com -> Uso e faturamento quantas leituras o\n" +
+        "projeto faz por dia. O plano Spark (gratuito) para em 50 mil por dia,\n" +
+        "e cada abertura de /requisicao/ ou /contratos/ le a colecao inteira."
+      );
+    }
+    const ms = COTA_ESPERAS[esperaCota];
+    console.log(`  cota apertada em ${colecao} — esperando ${ms / 1000}s e tentando de novo`);
+    await espera(ms);
+    return buscarJson(url, tentativa, esperaCota + 1);
+  }
+  if (res.status >= 500) {
+    if (tentativa >= REDE_TENTATIVAS) throw new Error(`HTTP ${res.status} em ${url}`);
+    await espera(2000 * tentativa);
+    return buscarJson(url, tentativa + 1, esperaCota);
   }
   if (res.status === 403 || res.status === 401) {
     throw new Error(
