@@ -111,28 +111,87 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
   /* Etapa seguinte, dias depois: o empenho chega. */
   const idNova=await pg.evaluate(()=>REQS.find(r=>r._nova).id);
-  await pg.evaluate(id=>document.querySelector('td[data-id="'+id+'"][data-campo="empenho"]')
-    .dispatchEvent(new MouseEvent('dblclick',{bubbles:true})), idNova);
-  await pg.waitForTimeout(200);
+  await pg.click('td[data-id="'+idNova+'"][data-campo="empenho"]');
+  await pg.waitForTimeout(250);
   await pg.keyboard.type('4999 (GABI)');
   await pg.keyboard.press('Enter'); await pg.waitForTimeout(250);
   const empenhou=await pg.evaluate(id=>({
     valor:REQS.find(r=>r.id===id).empenho,
     naTela:document.querySelector('td[data-id="'+id+'"][data-campo="empenho"]').textContent.trim()
   }), idNova);
-  t('dois cliques numa célula preenchem a etapa seguinte',
+  t('um clique na célula preenche a etapa seguinte',
     empenhou.valor==='4999 (GABI)' && empenhou.naTela==='4999 (GABI)', empenhou);
 
   /* Esc desiste sem estragar o que estava lá. */
-  await pg.evaluate(id=>document.querySelector('td[data-id="'+id+'"][data-campo="credor"]')
-    .dispatchEvent(new MouseEvent('dblclick',{bubbles:true})), idNova);
-  await pg.waitForTimeout(150);
+  await pg.click('td[data-id="'+idNova+'"][data-campo="credor"]');
+  await pg.waitForTimeout(250);
   await pg.keyboard.type('LIXO QUE NAO PODE SALVAR');
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(250);
   const escapou=await pg.evaluate(id=>({credor:REQS.find(r=>r.id===id).credor,
     fichaAberta:document.getElementById('ovDet').classList.contains('open')}), idNova);
   t('Esc desiste da edição sem gravar', escapou.credor==='FORNECEDOR DE TESTE', escapou);
   t('e Esc na célula não fecha mais nada por tabela', !escapou.fichaAberta, escapou);
+
+  console.log('\n3b) A célula abre com um clique, e não se fecha sozinha');
+  /* A moldura azul que seguia o mouse cansava a vista e não dizia nada que
+     o cursor de texto já não diga. */
+  t('não há moldura de hover em toda célula', !/td\[data-campo\]:hover/.test(html));
+  t('e a célula abre com um clique, não com dois',
+    /data-campo="'\+campo\+'" onclick="editarCelula/.test(html), html.indexOf('editarCelula'));
+
+  /* Antes bastava o foco deixar o campo: clicar na borda da própria célula
+     fechava a edição no meio do preenchimento. */
+  await pg.click('td[data-id="'+idNova+'"][data-campo="credor"]');
+  await pg.waitForTimeout(200);
+  await pg.evaluate(()=>{ const td=document.querySelector('td.editando');
+    const r=td.getBoundingClientRect();
+    td.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,clientX:r.left+1,clientY:r.top+1})); });
+  await pg.waitForTimeout(200);
+  t('clicar na borda da célula não fecha a edição',
+    await pg.evaluate(()=>!!document.querySelector('td.editando')));
+
+  /* Clicar direto noutra célula salva esta e abre aquela, num clique só. */
+  await pg.evaluate(()=>{ document.querySelector('td.editando .cel-inp').value='CREDOR TROCADO'; });
+  await pg.click('td[data-id="'+idNova+'"][data-campo="modalidade"]');
+  await pg.waitForTimeout(300);
+  const pulou=await pg.evaluate(id=>({
+    credor:REQS.find(r=>r.id===id).credor,
+    abertoAgora:(document.querySelector('td.editando')||{dataset:{}}).dataset.campo
+  }), idNova);
+  t('clicar noutra célula salva esta e abre aquela', pulou.credor==='CREDOR TROCADO', pulou);
+  t('num clique só, sem precisar clicar duas vezes', pulou.abertoAgora==='modalidade', pulou);
+  await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
+
+  console.log('\n3c) O número da requisição abre num painel, não espremido na coluna');
+  /* São quatro coisas — secretaria, nº, ano e complemento — e a coluna tem
+     pouco mais de cem pixels: espremidos ali viravam "34…" e "20…". */
+  await pg.click('td[data-id="'+idNova+'"][data-campo="num"]');
+  await pg.waitForTimeout(250);
+  const painel=await pg.evaluate(()=>{
+    const p=document.getElementById('celPop'), r=p.getBoundingClientRect();
+    return {aberto:p.classList.contains('open'), largura:Math.round(r.width),
+      campos:[...p.querySelectorAll('[data-parte]')].map(e=>e.dataset.parte),
+      larguraNum:Math.round(p.querySelector('[data-parte="num"]').getBoundingClientRect().width),
+      colunaNum:Math.round(document.querySelector('td[data-campo="num"]').getBoundingClientRect().width),
+      dentroDaTela:r.left>=0 && r.right<=window.innerWidth};
+  });
+  t('abre um painel com os quatro campos',
+    painel.aberto && painel.campos.join('|')==='sec|num|ano|sufixo', painel);
+  t('mais largo que a coluna, e dentro da tela',
+    painel.largura>painel.colunaNum && painel.dentroDaTela, painel);
+  t('com o campo do número em tamanho de digitar', painel.larguraNum>80, painel);
+  await pg.click('#celPop [data-parte="ano"]');
+  await pg.waitForTimeout(150);
+  t('clicar de um campo para outro dentro do painel não fecha',
+    await pg.evaluate(()=>document.getElementById('celPop').classList.contains('open')));
+  await pg.fill('#celPop [data-parte="num"]','777');
+  await pg.click('.cel-pop-ok');
+  await pg.waitForTimeout(300);
+  const salvouNum=await pg.evaluate(id=>({num:REQS.find(r=>r.id===id).num,
+    rotulo:REQS.find(r=>r.id===id).rotulo,
+    fechou:!document.getElementById('celPop').classList.contains('open')}), idNova);
+  t('e o "Pronto" grava o número novo', salvouNum.num===777 && /777\/20/.test(salvouNum.rotulo), salvouNum);
+  t('fechando o painel junto', salvouNum.fechou, salvouNum);
 
   const guardado=await pg.evaluate(()=>{
     const rasc=JSON.parse(localStorage.getItem('requisicoes_ijui_rascunho')||'{}');

@@ -518,16 +518,18 @@
      A tabela é a folha de lançamento: dois cliques abrem a célula, Tab
      anda para a próxima coluna. O tracejado só aparece ao passar o mouse,
      para a lista continuar sendo uma lista e não um formulário. */
+  /* Nada de moldura seguindo o mouse: a tabela é para ser lida, e um
+     quadrado azul em cada célula por onde o cursor passa cansa a vista.
+     O cursor de texto já diz que dá para escrever ali. */
   .tab tbody td[data-campo] { cursor: text; }
-  .tab tbody td[data-campo]:hover { box-shadow: inset 0 0 0 1.5px var(--navy-light); border-radius: 6px; }
-  .tab tbody td.editando { background: #fff !important; box-shadow: inset 0 0 0 2px var(--navy); border-radius: 6px; padding: 4px 5px; }
-  .cel-inp { width: 100%; font-family: inherit; font-size: 13px; color: var(--text);
-    border: 1.5px solid var(--border); border-radius: 6px; padding: 5px 7px; outline: none;
-    background: #fff; box-sizing: border-box; }
-  .cel-inp:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
-  textarea.cel-inp { resize: vertical; min-height: 62px; line-height: 1.45; }
-  .cel-edit-num { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-  .cel-edit-num select { grid-column: 1 / -1; }
+  /* Enquanto edita, o campo OCUPA a célula inteira: sobrando canto vazio,
+     um clique na borda tirava o foco e fechava a edição no meio. */
+  .tab tbody td.editando { padding: 0 !important; background: #fff !important; }
+  .cel-inp { width: 100%; font-family: inherit; font-size: 13.5px; color: var(--text);
+    border: 2px solid var(--navy); border-radius: 6px; padding: 7px 8px; outline: none;
+    background: #fff; box-sizing: border-box; display: block; }
+  .cel-inp:focus { box-shadow: var(--ring); }
+  textarea.cel-inp { resize: vertical; min-height: 76px; line-height: 1.45; }
   .cel-vazia { color: #b8c2d6; font-style: italic; font-size: 12px; }
   .linha-nova > td { background: #fffaf0 !important; }
   .linha-nova > td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
@@ -535,6 +537,22 @@
   .acao-cel { background: none; border: none; cursor: pointer; font-size: 14px; padding: 2px 3px;
     opacity: .35; transition: opacity .14s; }
   .tab tbody tr:hover .acao-cel { opacity: 1; }
+  /* O número da requisição são quatro coisas (secretaria, nº, ano e o
+     complemento) e a coluna tem 120px: espremidos ali dentro viravam
+     "34…" e "20…". Abrem num painel ancorado na célula, com espaço e
+     rótulo em cada campo. */
+  .cel-pop { position: absolute; z-index: 700; background: #fff; border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-lg); padding: 14px; width: 268px; display: none; }
+  .cel-pop.open { display: block; }
+  .cel-pop-tit { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .6px; margin-bottom: 10px; }
+  .cel-pop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .cel-pop-grid label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 3px; }
+  .cel-pop-grid .larga { grid-column: 1 / -1; }
+  .cel-pop-pe { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
+  .cel-pop-dica { font-size: 11px; color: var(--muted); }
+  .cel-pop-ok { background: var(--navy); color: #fff; border: none; border-radius: 8px;
+    padding: 7px 15px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
     padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
   .dica-edicao { font-size: 11.5px; color: var(--muted); font-style: italic; }
@@ -607,7 +625,7 @@
 
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
-    <span class="dica-edicao">clique duas vezes numa célula para preencher</span>
+    <span class="dica-edicao">clique numa célula para preencher</span>
     <div class="chips" id="chipsAtivos"></div>
     <div class="toolbar-right">
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
@@ -717,6 +735,21 @@
 
 <!-- Sugestões de quem já foi credor e de modalidade já usada: aparecem
      enquanto se digita na célula. -->
+<!-- Editor do número da requisição (ver .cel-pop no estilo) -->
+<div class="cel-pop" id="celPop">
+  <div class="cel-pop-tit">Número da requisição</div>
+  <div class="cel-pop-grid">
+    <div class="larga"><label>Secretaria</label><select class="cel-inp" data-parte="sec"></select></div>
+    <div><label>Nº</label><input class="cel-inp" data-parte="num" type="number" inputmode="numeric"></div>
+    <div><label>Ano</label><input class="cel-inp" data-parte="ano" type="number" inputmode="numeric"></div>
+    <div class="larga"><label>Complemento (opcional)</label><input class="cel-inp" data-parte="sufixo" placeholder="A, B, CT…"></div>
+  </div>
+  <div class="cel-pop-pe">
+    <span class="cel-pop-dica">Esc desiste</span>
+    <button class="cel-pop-ok" onclick="fecharEdicao(true)">Pronto</button>
+  </div>
+</div>
+
 <datalist id="dlCredores"></datalist>
 <datalist id="dlModalidades"></datalist>
 
@@ -1125,7 +1158,7 @@ function badgeEmpenho(r){
    sendo preenchida aos poucos — recebida, objeto, empenho, contabilidade —
    e cada etapa é um clique duplo na coluna certa. */
 function cel(r, campo, conteudo, classe){
-  return '<td class="'+classe+'" data-id="'+r.id+'" data-campo="'+campo+'" ondblclick="editarCelula(this)">'
+  return '<td class="'+classe+'" data-id="'+r.id+'" data-campo="'+campo+'" onclick="editarCelula(this)">'
        + conteudo + '</td>';
 }
 function vazio(txt){ return '<span class="cel-vazia">'+(txt||'—')+'</span>'; }
@@ -1235,7 +1268,7 @@ function novaRequisicao(){
   renderFaixaSecretarias(); avisoRascunho(); aplicarFiltros();
   /* A primeira coisa que se preenche é a secretaria, quando a tela está em
      "Todas"; com uma secretaria escolhida, já é a data de recebimento. */
-  focarCelula(r.id, sec ? 'recebido' : 'num');
+  focarCelula(r.id, sec ? 'recebido' : 'num', true);
   toast(sec ? ('Requisição nº '+r.rotulo+' aberta em '+sec+'.') : 'Escolha a secretaria na primeira coluna.');
 }
 /* Desfazer o que foi mexido nesta linha. Se ela veio da planilha, volta a
@@ -1258,63 +1291,103 @@ function descartarLinha(id){
   toast(original ? 'Alterações desfeitas.' : 'Linha descartada.');
 }
 
-function focarCelula(id, campo){
+/* rolar: só quando a célula pode estar fora da vista (Tab, linha nova).
+   Num clique do mouse a célula já está debaixo do cursor — rolar a página
+   ali seria puxar o chão de quem acabou de mirar. */
+function focarCelula(id, campo, rolar){
   const td = document.querySelector('td[data-id="'+id+'"][data-campo="'+campo+'"]');
-  if(td){ td.scrollIntoView({block:'center', behavior:'smooth'}); editarCelula(td); }
+  if(!td) return;
+  if(rolar !== false) td.scrollIntoView({block:'center', behavior:'smooth'});
+  editarCelula(td);
 }
 const CAMPOS_ORDEM = ['num','recebido','credor','objeto','modalidade','empenho','contabilidade','valor'];
 const ROTULO_CAMPO = {num:'Requisição', recebido:'Recebida em', credor:'Credor', objeto:'Objeto',
   modalidade:'Modalidade', empenho:'Empenho', contabilidade:'P/ contabilidade', valor:'Valor'};
 
-let _editando = null;   /* {td, id, campo} enquanto uma célula está aberta */
+let _editando = null;   /* {td, id, campo, painel} enquanto uma célula está aberta */
 
 function editarCelula(td){
-  if(_editando) fecharEdicao(true);
+  if(_editando){
+    if(_editando.td === td) return;      /* já está aberta: clicar dentro não fecha */
+    fecharEdicao(true);
+  }
   const id = Number(td.dataset.id), campo = td.dataset.campo;
   const r = REQS.find(x=>x.id===id);
   if(!r) return;
-  _editando = {td, id, campo, html: td.innerHTML};
+  /* O número da requisição são quatro coisas — secretaria, nº, ano e o
+     complemento — e a coluna tem pouco mais de cem pixels: espremidos ali
+     dentro viravam "34…" e "20…". Esse abre num painel ancorado na célula,
+     com rótulo em cada campo. O resto edita no lugar mesmo. */
+  _editando = {td, id, campo, html: td.innerHTML, painel: campo==='num'};
   td.classList.add('editando');
-  td.innerHTML = editorHTML(r, campo);
-  const alvo = td.querySelector('input,select,textarea');
-  if(!alvo) return;
+  const alvo = campo==='num' ? abrirPainelNumero(td, r) : abrirEditorNaCelula(td, r, campo);
+  if(!alvo){ _editando = null; td.classList.remove('editando'); return; }
+  ligarTeclas(alvo, td, id, campo);
   alvo.focus();
   if(alvo.select) try{ alvo.select(); }catch(e){}
-  alvo.addEventListener('keydown', e=>{
-    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fecharEdicao(false); return; }
-    if(e.key==='Enter' && !(e.shiftKey && alvo.tagName==='TEXTAREA')){
-      e.preventDefault(); fecharEdicao(true); return;
-    }
-    if(e.key==='Tab'){
-      e.preventDefault();
-      const i = CAMPOS_ORDEM.indexOf(campo);
-      const prox = CAMPOS_ORDEM[e.shiftKey ? i-1 : i+1];
-      fecharEdicao(true);
-      if(prox) setTimeout(()=>focarCelula(id, prox), 0);
-    }
-  });
-  /* Sair da célula com o mouse também salva: ninguém deve perder o que
-     digitou por ter clicado noutro lugar. */
-  alvo.addEventListener('blur', ()=>{ if(_editando && _editando.td===td) fecharEdicao(true); });
 }
+function abrirEditorNaCelula(td, r, campo){
+  td.innerHTML = editorHTML(r, campo);
+  return td.querySelector('input,select,textarea');
+}
+function abrirPainelNumero(td, r){
+  const pop = document.getElementById('celPop');
+  pop.querySelector('[data-parte="sec"]').innerHTML =
+    (r.sec ? '' : '<option value="">escolha…</option>')
+    + SECRETARIAS.map(s=>'<option value="'+esc(s.sigla)+'"'+(s.sigla===r.sec?' selected':'')+'>'
+        + esc(s.sigla)+' — '+esc(s.nome.slice(0,34))+'</option>').join('');
+  pop.querySelector('[data-parte="num"]').value = r.num==null ? '' : r.num;
+  pop.querySelector('[data-parte="ano"]').value = r.ano || new Date().getFullYear();
+  pop.querySelector('[data-parte="sufixo"]').value = r.sufixo || '';
+  pop.classList.add('open');
+  const cx = td.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(cx.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
+  pop.style.top  = (cx.bottom + window.scrollY + 6) + 'px';
+  return pop.querySelector(r.sec ? '[data-parte="num"]' : '[data-parte="sec"]');
+}
+function ligarTeclas(alvo, td, id, campo){
+  const caixa = _editando.painel ? document.getElementById('celPop') : td;
+  caixa.querySelectorAll('input,select,textarea').forEach(el=>{
+    el.onkeydown = e=>{
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fecharEdicao(false); return; }
+      if(e.key==='Enter' && !(e.shiftKey && el.tagName==='TEXTAREA')){
+        e.preventDefault(); fecharEdicao(true); return;
+      }
+      if(e.key==='Tab' && !_editando.painel){
+        e.preventDefault();
+        const i = CAMPOS_ORDEM.indexOf(campo);
+        const prox = CAMPOS_ORDEM[e.shiftKey ? i-1 : i+1];
+        fecharEdicao(true);
+        if(prox) setTimeout(()=>focarCelula(id, prox), 0);
+      }
+    };
+  });
+}
+/* Sai da edição só quando o clique cai FORA de tudo o que é a edição. Antes
+   bastava o foco deixar o campo — e clicar na borda da célula, ou pular de
+   um campo do painel para outro, já fechava no meio do preenchimento. */
+document.addEventListener('mousedown', e=>{
+  if(!_editando) return;
+  if(e.target.closest('#celPop')) return;
+  if(e.target.closest('td.editando')) return;
+  /* Clicou direto noutra célula: salva esta e abre aquela na mesma ação. A
+     linha é redesenhada ao salvar, então o elemento clicado deixa de
+     existir — por isso o alvo é guardado antes e reaberto pelo id. */
+  const outra = e.target.closest('td[data-campo]');
+  const alvo = outra ? {id:Number(outra.dataset.id), campo:outra.dataset.campo} : null;
+  fecharEdicao(true);
+  if(alvo){ e.preventDefault(); setTimeout(()=>focarCelula(alvo.id, alvo.campo, false), 0); }
+}, true);
+
 function editorHTML(r, campo){
   const v = x => x==null ? '' : String(x);
-  if(campo==='num'){
-    const ops = SECRETARIAS.map(s=>'<option value="'+esc(s.sigla)+'"'+(s.sigla===r.sec?' selected':'')+'>'+esc(s.sigla)+'</option>').join('');
-    return '<div class="cel-edit-num">'
-      + '<select class="cel-inp" data-parte="sec">'+(r.sec?'':'<option value="">secretaria…</option>')+ops+'</select>'
-      + '<input class="cel-inp" data-parte="num" type="number" inputmode="numeric" value="'+v(r.num)+'" placeholder="nº">'
-      + '<input class="cel-inp" data-parte="ano" type="number" inputmode="numeric" value="'+v(r.ano)+'" placeholder="ano">'
-      + '<input class="cel-inp" data-parte="sufixo" value="'+esc(r.sufixo||'')+'" placeholder="A, B…">'
-      + '</div>';
-  }
   if(campo==='recebido' || campo==='contabilidade')
     return '<input class="cel-inp" type="date" value="'+v(r[campo])+'">';
   if(campo==='valor')
     return '<input class="cel-inp" inputmode="decimal" placeholder="0,00" value="'
          + (r.valor==null?'':fmtValorCampo.format(r.valor))+'">';
   if(campo==='objeto')
-    return '<textarea class="cel-inp" rows="3">'+esc(r.objeto||'')+'</textarea>';
+    return '<textarea class="cel-inp" rows="4">'+esc(r.objeto||'')+'</textarea>';
   if(campo==='credor')
     return '<input class="cel-inp" list="dlCredores" value="'+esc(r.credor||'')+'">';
   if(campo==='modalidade')
@@ -1323,13 +1396,17 @@ function editorHTML(r, campo){
 }
 function fecharEdicao(salvando){
   if(!_editando) return;
-  const {td, id, campo, html} = _editando;
-  _editando = null;                 /* antes de mexer no DOM, para o blur não reentrar */
+  const {td, id, campo, html, painel} = _editando;
+  const pop = document.getElementById('celPop');
+  const caixa = painel ? pop : td;
+  _editando = null;                 /* antes de mexer no DOM, para não reentrar */
   td.classList.remove('editando');
+  if(painel) pop.classList.remove('open');
   const r = REQS.find(x=>x.id===id);
-  if(!salvando || !r){ td.innerHTML = html; return; }
-  const pega = parte => { const e = td.querySelector('[data-parte="'+parte+'"]'); return e ? e.value.trim() : ''; };
-  const unico = td.querySelector('input,select,textarea');
+  const devolver = () => { td.innerHTML = html; };
+  if(!salvando || !r){ devolver(); return; }
+  const pega = parte => { const e = caixa.querySelector('[data-parte="'+parte+'"]'); return e ? e.value.trim() : ''; };
+  const unico = caixa.querySelector('input,select,textarea');
   const antes = JSON.stringify(paraGuardar(r));
   if(campo==='num'){
     const secNova = pega('sec');
@@ -1341,7 +1418,7 @@ function fecharEdicao(salvando){
     if(secNova && r.num==null) r.num = proximoNumero(secNova, r.ano);
   } else if(campo==='valor'){
     const n = lerValorTexto(unico.value);
-    if(isNaN(n)){ alert('Não entendi o valor “'+unico.value+'”.\n\nEscreva como 1.234,56 ou 1234,56.'); td.innerHTML = html; return; }
+    if(isNaN(n)){ alert('Não entendi o valor “'+unico.value+'”.\n\nEscreva como 1.234,56 ou 1234,56.'); devolver(); return; }
     r.valor = n;
   } else if(campo==='recebido' || campo==='contabilidade'){
     r[campo] = unico.value || null;
@@ -1351,8 +1428,8 @@ function fecharEdicao(salvando){
     r[campo] = unico.value.trim();
   }
   prepararReq(r);
-  if(JSON.stringify(paraGuardar(r)) === antes){ td.innerHTML = html; return; }
-  if(!salvarRequisicao(r)){ td.innerHTML = html; return; }
+  if(JSON.stringify(paraGuardar(r)) === antes){ devolver(); return; }
+  if(!salvarRequisicao(r)){ devolver(); return; }
   redesenharLinha(r);
   renderFaixaSecretarias(); popularDatalists(); avisoRascunho();
   if(document.getElementById('ovDet').classList.contains('open') && detAtual && detAtual.id===r.id) abrirDet(r.id);

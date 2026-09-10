@@ -15,6 +15,33 @@ o papel das abas da planilha e serve a duas coisas ao mesmo tempo:
   **próximo número dela** — cada secretaria tem a própria sequência, como
   cada aba tinha.
 
+## Lançar e editar na própria tabela
+
+A requisição não nasce pronta: chega, recebe data, depois objeto, depois o
+empenho, depois vai para a contabilidade. Um formulário com todos os campos
+obrigava a abrir e fechar um card a cada etapa — aqui a tabela **é** a folha
+de lançamento.
+
+- **＋ Nova requisição** abre uma linha no alto, já na secretaria escolhida
+  na faixa e com o próximo número dela, com a célula da data aberta.
+- **Um clique** em qualquer célula abre aquele campo para preencher, e
+  clicar direto noutra célula salva esta e abre aquela — sem clicar duas
+  vezes em nada.
+- **Tab** salva e anda para a próxima coluna, **Enter** salva, **Esc**
+  desiste. A edição só se fecha quando o clique cai fora dela: clicar na
+  borda da própria célula não interrompe o preenchimento.
+- O **número** abre num painel ancorado na célula, com Secretaria, Nº, Ano e
+  Complemento rotulados. São quatro coisas, e a coluna tem pouco mais de cem
+  pixels — espremidos ali dentro viravam "34…" e "20…".
+- A linha nova fica destacada e no topo, furando os filtros, enquanto está
+  sendo preenchida — senão ela sumiria da tela no instante em que nasce.
+  Trocar de secretaria ou limpar os filtros a solta.
+- O **↺** ao fim da linha desfaz o que foi mexido nela: se a linha veio da
+  planilha, volta ao que era lá; se foi criada aqui, sai da lista.
+
+Não há moldura seguindo o mouse pelas células: a tabela é para ser lida, e
+o cursor de texto já diz que dá para escrever ali.
+
 ## O que a tela mostra
 
 Busca única em tudo (credor, objeto, número, modalidade, empenho, valor) e
