@@ -112,6 +112,24 @@
   function authMkUser(dados){
     var u=Object.assign({
       providerData:[{providerId: dados.providerId||"password"}],
+      /* Reautenticação: o Firebase de verdade exige confirmar a conta antes
+         de um ato destrutivo (a exclusão de requisição pede isso).
+         window.__SENHA diz qual senha o stub aceita; sem ela, aceita
+         qualquer uma não vazia. */
+      reauthenticateWithCredential:function(cred){
+        var esperada = (typeof window!=="undefined" && window.__SENHA) || null;
+        var ok = cred && cred.senha && (!esperada || cred.senha === esperada);
+        if(ok) return Promise.resolve({user:authUser});
+        var e = new Error("The password is invalid."); e.code = "auth/wrong-password";
+        return Promise.reject(e);
+      },
+      reauthenticateWithPopup:function(){
+        if(typeof window!=="undefined" && window.__POPUP_RECUSA){
+          var e = new Error("popup closed"); e.code = "auth/popup-closed-by-user";
+          return Promise.reject(e);
+        }
+        return Promise.resolve({user:authUser});
+      },
       updateProfile:function(p){ if(p&&p.displayName!==undefined) u.displayName=p.displayName; return Promise.resolve(); }
     }, dados);
     return u;
@@ -273,6 +291,9 @@
     auth:function(){ return authApi; }
   };
   window.firebase.auth.GoogleAuthProvider=function(){};
+  window.firebase.auth.EmailAuthProvider={
+    credential:function(email, senha){ return {email:email, senha:senha}; }
+  };
   window.firebase.firestore.FieldValue={ serverTimestamp:function(){ return new Date(); } };
   /* Timestamp com toDate(), que é como a tela lê a data do histórico. */
   function MkTimestamp(d){ this._d=new Date(d); }

@@ -125,6 +125,30 @@ Despachou, a linha sai da fila. Quando não sobra nada, o botão fica verde
 (**"✅ nada aguardando despacho"**) e a tela diz que está em dia, em vez de
 dizer que não encontrou nada.
 
+## Procurar uma requisição pelo número
+
+O menu da coluna **REQUISIÇÃO** é uma busca por número: digite `248` e a
+`248/2026` aparece na lista para marcar. Uma lista de anos não respondia
+"onde está a 248?"; uma lista de números sim.
+
+## Excluir uma requisição
+
+Quem preenche pode excluir, pela ficha (🔍 → **🗑️ Excluir**). Duas travas:
+
+1. **A senha.** Antes de apagar, o Firebase reautentica a conta — senha para
+   quem entrou com senha, a janela do Google para quem entrou pelo Google. Um
+   computador deixado aberto no balcão não pode virar uma exclusão. A tela
+   nunca vê nem guarda a senha; quem confere é o Firebase.
+2. **Requisição já despachada não sai.** O despacho é decisão do Diretor, e
+   quem preenche não pode mexer nele — se pudesse apagar a requisição
+   inteira, apagaria o despacho junto, e a trava vazaria pelo delete. Para
+   excluir uma despachada, o Diretor tira o despacho primeiro. As regras do
+   Firestore recusam, não só a tela.
+
+A exclusão fica no **registro de atividades** com a requisição inteira
+guardada — e de lá o botão **↶ Restaurar** a traz de volta, com o mesmo
+número e o mesmo conteúdo.
+
 ## Registro de atividades
 
 O botão **🕘 Atividades** abre quem mexeu no quê, e quando. Toda gravação
@@ -188,6 +212,24 @@ então isso acontece uma vez por pessoa.
 
 Trocar de secretaria é **outra consulta**, do tamanho dela — não é filtro de
 tela. É a diferença entre esconder linhas e não as ler.
+
+**E dentro da secretaria, só os dois últimos meses.** É o que o setor tem em
+mãos no dia a dia. SMS tem 1.007 requisições; abrir custa **145**. O resto
+vem com um clique — o botão **"Ver requisições mais antigas"** no fim da
+lista, ou abrir o menu de qualquer coluna (as contagens dele mentiriam com
+dois meses na mão). Depois disso aquela secretaria fica **completa para o
+resto da visita**: sair e voltar não relê nada.
+
+As requisições **sem data de recebimento** vêm sempre, por consulta própria —
+é como uma requisição nasce enquanto está sendo lançada, e sumir com ela no
+instante em que é criada seria o pior defeito possível numa tela de
+lançamento.
+
+> **Índice necessário no Firestore.** O recorte por data usa `sec` + `recebido`
+> na mesma consulta, e isso exige um **índice composto**. Enquanto ele não
+> existir a tela não quebra: cai na secretaria inteira e avisa no console do
+> navegador, com o link que cria o índice em um clique. Custa mais leitura
+> até alguém clicar.
 
 **Cada secretaria visitada fica aberta.** Voltar para uma que você já abriu é
 instantâneo e não custa leitura nenhuma — e ela chegou atualizada enquanto

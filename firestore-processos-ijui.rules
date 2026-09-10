@@ -238,13 +238,25 @@ service cloud.firestore {
     // requisição não pode tocar nos campos do despacho, e o Diretor não
     // pode tocar em NADA além deles. Sem isso, "só o Diretor decide a
     // modalidade" seria promessa de tela — e tela se contorna.
+    // Excluir existe, e é a única coisa aqui que apaga cadastro — por isso
+    // vem com duas travas:
+    //
+    //  · a tela pede a SENHA de quem está excluindo antes de chamar (o
+    //    Firebase reautentica a conta), para um computador deixado aberto
+    //    não virar uma exclusão;
+    //  · e uma requisição JÁ DESPACHADA não sai. O despacho é decisão do
+    //    Diretor, e quem preenche não pode mexer nele — se pudesse apagar a
+    //    requisição inteira, apagaria o despacho junto, e a trava do
+    //    despacho vazaria por aqui. Para excluir uma despachada, o Diretor
+    //    tira o despacho primeiro.
+    function temDespacho(){ return resource.data.get('despacho', '') != ''; }
     match /requisicoes/{id} {
       allow get, list: if requisicao();
       allow create: if requisicaoEdit() &&
         !(request.resource.data.get('despacho', '') != '');
       allow update: if (requisicaoEdit() && !mexeuNoDespacho())
                     || (requisicaoDiretor() && soMexeuNoDespacho());
-      allow delete: if false;
+      allow delete: if requisicaoEdit() && !temDespacho();
     }
 
     // Histórico de edições dos contratos: um registro por gravação, com o

@@ -583,6 +583,14 @@
     padding: 7px 15px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
     padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
+  .btn-excluir { background:#fff; border:1.5px solid #e3b3b3; color:var(--red); border-radius:10px;
+    padding:10px 16px; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;
+    margin-right:auto; transition:background .15s; }
+  .btn-excluir:hover { background:#fdf3f3; }
+  .antigas-box { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+    padding: 16px 12px 4px; text-align: center; }
+  .antigas-txt { font-size: 12.5px; color: var(--muted); }
+  .antigas-txt b { color: var(--navy); font-weight: 700; }
   .dica-edicao { font-size: 11.5px; color: var(--muted); font-style: italic; }
   .dica-btn { background: var(--amber-bg); border: 1.5px solid #f0dca3; color: #7a5b00; border-radius: 20px;
     padding: 4px 13px; font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
@@ -758,6 +766,8 @@
   <div class="load-wrap" id="loadWrap" style="display:none">
     <button class="btn-ghost" onclick="renderMais()" id="btnMais">Carregar mais ↓</button>
   </div>
+  <!-- O recorte de dois meses, e como pedir o resto daquela secretaria. -->
+  <div id="antigas"></div>
 </main>
 
 <div class="mobile-bar">
@@ -804,6 +814,8 @@
     <div class="modal-header"><h2 id="detTitle">Requisição</h2><button class="modal-close" onclick="fecharDet()">✕</button></div>
     <div class="modal-body" id="detBody"></div>
     <div class="modal-footer">
+      <!-- Excluir fica longe do botão principal, e pede a senha antes. -->
+      <button class="btn-excluir" id="btnExcluirReq" style="display:none">🗑️ Excluir</button>
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
       <button class="btn-primary" onclick="pdfRequisicaoAtual()">🖨️ Ficha em PDF</button>
     </div>
@@ -967,6 +979,36 @@ function authEsqueciSenha(){
     .then(() => alert('Enviamos um e-mail para ' + email + ' com um link para redefinir a senha.'))
     .catch(e => authErr(authMsgErro(e)));
 }
+/* ── Confirmar quem é, antes de apagar ──
+   Excluir é a única coisa no sistema que apaga cadastro, e um computador
+   deixado aberto no balcão não pode virar uma exclusão. Então antes de
+   apagar o Firebase reautentica a conta: senha, para quem entrou com
+   senha; a janela do Google, para quem entrou pelo Google.
+
+   Não é a tela conferindo a senha — é o Firebase. A tela nunca vê nem
+   guarda nada; se a reautenticação falhar, a exclusão simplesmente não
+   acontece. */
+function confirmarIdentidade(){
+  const u = firebase.auth().currentUser;
+  if(!u) return Promise.reject(new Error('Sessão encerrada. Entre de novo.'));
+  const porGoogle = (u.providerData || []).some(p => p && p.providerId === 'google.com');
+  if(porGoogle){
+    return u.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider())
+      .catch(e => {
+        if(e.code === 'auth/popup-closed-by-user') throw new Error('Confirmação cancelada.');
+        throw new Error('Não consegui confirmar sua conta: ' + e.message);
+      });
+  }
+  const senha = prompt('Para excluir, confirme a sua senha:');
+  if(senha === null) return Promise.reject(new Error('Confirmação cancelada.'));
+  if(!senha) return Promise.reject(new Error('Senha em branco.'));
+  const cred = firebase.auth.EmailAuthProvider.credential(u.email, senha);
+  return u.reauthenticateWithCredential(cred).catch(e => {
+    throw new Error(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
+      ? 'Senha incorreta. A requisição não foi excluída.'
+      : 'Não consegui confirmar sua conta: ' + e.message);
+  });
+}
 function authLogout(){
   if(!confirm('Deseja sair do sistema?')) return;
   firebase.auth().signOut();
@@ -1121,6 +1163,8 @@ let FONTE_DADOS = 'nenhuma';
    secretaria, trabalha ENTRE elas. Para ele a consulta é a fila —
    as requisições nascidas no sistema, de todas as secretarias, que é um
    punhado. Ver "fila do Diretor", mais abaixo. */
+const MESES_NOME = ['janeiro','fevereiro','março','abril','maio','junho','julho',
+                    'agosto','setembro','outubro','novembro','dezembro'];
 const ANO_ATUAL = new Date().getFullYear();
 const LEMBRAR_SEC = 'requisicoes_ijui_secretaria';
 
@@ -1194,15 +1238,92 @@ const FILA_DIRETOR = '§fila';
    numa secretaria como qualquer pessoa. */
 let MODO_FILA = false;
 
-function ouvirSecretaria(sigla){
-  if(ABERTAS.has(sigla)) return;
+/* Primeiro dia do mês anterior, em ISO: a fronteira do recorte de
+   abertura. Dois meses é o que o setor tem em mãos no dia a dia. */
+function inicioDaJanela(){
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+}
+function nomeDaJanela(){
+  const m = new Date().getMonth();
+  return MESES_NOME[m] + ' e ' + MESES_NOME[(m+11)%12];
+}
+
+/* Uma secretaria tem dois estados de carga: os DOIS ÚLTIMOS MESES, que é
+   como ela abre, e COMPLETA, quando alguém pede o resto. Completa uma vez,
+   fica completa: trocar de secretaria e voltar não relê nada.
+
+   O recorte por data precisa de um índice composto no Firestore (sec +
+   recebido). Enquanto ele não existir, a consulta falha com
+   "failed-precondition" — e aí a tela cai na secretaria inteira em vez de
+   ficar em branco. Custa mais leitura, mas nunca deixa ninguém sem tela. */
+function consultaDaSecretaria(sigla, completa){
   const col = firebase.firestore().collection('requisicoes');
-  const entrada = {unsub:null, lista:null};
+  return completa ? col.where('sec','==',sigla)
+                  : col.where('sec','==',sigla).where('recebido','>=',inicioDaJanela());
+}
+function ouvirSecretaria(sigla, completa){
+  const ja = ABERTAS.get(sigla);
+  if(ja && (ja.completa || !completa)) return;
+  if(ja && ja.unsub) ja.unsub();          /* trocando recorte: solta o antigo */
+  const entrada = ja || {unsub:null, lista:null, completa:false};
+  entrada.completa = !!completa;
   ABERTAS.set(sigla, entrada);
-  entrada.unsub = col.where('sec', '==', sigla).onSnapshot(snap => {
-    entrada.lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-    if(SEC_ATUAL === sigla) mostrar(sigla, entrada.lista);
-  }, e => mostrarErroCarregar(e));
+  const aplicar = lista => {
+    entrada.lista = lista;
+    if(SEC_ATUAL === sigla && !MODO_FILA) mostrar(sigla, lista);
+  };
+  const naLeva = snap => snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+  if(completa){
+    entrada.unsub = consultaDaSecretaria(sigla, true)
+      .onSnapshot(snap => aplicar(naLeva(snap)), e => mostrarErroCarregar(e));
+    return;
+  }
+  /* Recorte de dois meses + as sem data de recebimento, que é como uma
+     requisição nasce enquanto está sendo lançada. Sumir com ela no instante
+     em que é criada seria o pior defeito possível numa tela de lançamento. */
+  const levas = [null, null];
+  const juntar = () => { if(!levas.some(l => l === null)) aplicar([].concat(levas[0], levas[1])); };
+  const unsubs = [];
+  const cair = e => {
+    if(e && e.code === 'failed-precondition'){
+      /* Falta o índice composto. Não é hora de deixar a tela em branco. */
+      console.warn('sem índice para o recorte de dois meses — lendo a secretaria inteira. '
+                 + 'Crie o índice pelo link que o Firestore mostra abaixo:', e.message);
+      unsubs.forEach(f => f());
+      _semIndice = true;
+      ABERTAS.delete(sigla);
+      ouvirSecretaria(sigla, true);
+      return;
+    }
+    mostrarErroCarregar(e);
+  };
+  unsubs.push(consultaDaSecretaria(sigla, false)
+    .onSnapshot(snap => { levas[0] = naLeva(snap); juntar(); }, cair));
+  unsubs.push(firebase.firestore().collection('requisicoes')
+    .where('sec','==',sigla).where('recebido','==',null)
+    .onSnapshot(snap => { levas[1] = naLeva(snap); juntar(); }, cair));
+  entrada.unsub = () => unsubs.forEach(f => f());
+}
+let _semIndice = false;
+
+/* "Ver as mais antigas": troca o recorte daquela secretaria pelo cadastro
+   inteiro dela, uma vez só. Depois disso ela fica completa para o resto da
+   visita — voltar nela não relê nada. */
+function verTudoDaSecretaria(){
+  const sigla = SEC_ATUAL;
+  if(!sigla) return;
+  const ja = ABERTAS.get(sigla);
+  if(ja && ja.completa) return;
+  _carregandoSec = true;
+  marcarCarregando();
+  ouvirSecretaria(sigla, true);
+}
+function secCompleta(sigla){
+  const e = ABERTAS.get(sigla || SEC_ATUAL);
+  return !!(e && e.completa);
 }
 /* A fila do Diretor são as requisições NASCIDAS no sistema — as que têm
    "criadaEm". O que veio da planilha já foi contratado antes de a coluna
@@ -1244,7 +1365,7 @@ function ligarConsultas(){
   REQS = [];
   _carregandoSec = true;
   marcarCarregando();
-  ouvirSecretaria(SEC_ATUAL);
+  ouvirSecretaria(SEC_ATUAL, false);
 }
 
 /* Trocar de secretaria: se ela já foi aberta nesta visita, aparece na hora
@@ -1272,6 +1393,19 @@ function marcarDica(){
     return;
   }
   dica.textContent = reqPodeEditar() ? 'clique numa célula para preencher' : 'seu acesso é de leitura';
+}
+/* Chegou ao fim da lista e a secretaria está só nos dois últimos meses:
+   o resto existe, está no banco, e vem com um clique. Depois disso ela
+   fica completa para o resto da visita. */
+function marcarBotaoAntigas(){
+  const box = document.getElementById('antigas');
+  if(!box) return;
+  if(MODO_FILA || !SEC_ATUAL || secCompleta() || _carregandoSec){ box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="antigas-box">'
+    + '<span class="antigas-txt">Mostrando <b>' + esc(nomeDaJanela()) + '</b> de '
+    + esc(SEC_ATUAL) + '. O resto do cadastro dela continua no banco.</span>'
+    + '<button class="btn-ghost" onclick="verTudoDaSecretaria()">Ver requisições mais antigas</button>'
+    + '</div>';
 }
 function marcarCarregando(){
   const alvo = document.getElementById('vazio');
@@ -1436,7 +1570,13 @@ function ordemMes(rotulo){
 function situacaoEmpenho(r){ return r.empenho ? 'Empenhada' : 'Falta empenhar'; }
 
 const FACETAS = {
-  num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'],
+  /* Procurar um número é a busca mais comum desta coluna — "onde está a
+     248?". Uma lista de anos não responde isso; uma lista de NÚMEROS sim,
+     e a caixa de busca do menu a filtra enquanto se digita. O ano fica
+     depois, útil quando alguém traz as mais antigas. */
+  num:   [ {k:'nreq', t:'Número da requisição', v:r=>[r.rotulo || '(sem número)'],
+            ordem:a=>{ const m=/^(\d+)\/(\d{4})/.exec(a); return m ? Number(m[2])*10000+Number(m[1]) : -1; }},
+           {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'],
             ordem:a=>Number(a)||-1} ],
   receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], ordem:ordemMes} ],
   desp:  [ {k:'desp', t:'Despacho do Diretor', v:r=>[estadoDespacho(r)],
@@ -1531,7 +1671,9 @@ function filaAguardando(){
    "Empenhada / Falta empenhar", e quem digita "4695" ali está procurando o
    número do empenho. */
 const TEXTO_COL = {
-  num:   r => r.rotulo + ' ' + r.sec,
+  /* Só o número: quem digita "248" nesta coluna procura a 248, não uma
+     sigla que por acaso tenha 248 dentro. */
+  num:   r => r.rotulo,
   receb: r => fmtD(r.recebido),
   desp:  r => estadoDespacho(r),
   cred:  r => r.credor,
@@ -1657,12 +1799,19 @@ function limparColunaAtual(){ if(popCol) limparColuna(popCol); }
 
 /* ══════════════ MENU DE FILTRO DA COLUNA ══════════════ */
 let popCol = null;
+/* O menu de coluna conta as linhas de cada opção. Com dois meses na mão,
+   "setembro — 115" seria só o que está carregado, e quem procura um número
+   antigo não o acharia. Abrir o menu é pedir para ver a secretaria toda. */
 function abrirFiltroCol(ev, col){
+  verTudoDaSecretaria();
   ev.stopPropagation();
   if(popCol===col){ fecharPop(); return; }
   popCol = col;
   const pop = document.getElementById('popFiltro');
-  document.getElementById('popTit').textContent = 'Filtrar por ' + NOME_COL[col].toLowerCase();
+  document.getElementById('popTit').textContent = col==='num'
+    ? 'Procurar requisição' : 'Filtrar por ' + NOME_COL[col].toLowerCase();
+  document.getElementById('popBusca').placeholder = col==='num'
+    ? 'Nº da requisição — ex.: 248' : 'Procurar nesta coluna…';
   document.getElementById('popBusca').value = COLF[col].txt || '';
   pop.classList.add('open');
   const btn = ev.currentTarget || document.querySelector('.cf[data-col="'+col+'"]');
@@ -1750,6 +1899,7 @@ function marcarBotoesColuna(){
 /* ══════════════ FILTROS NO CELULAR ══════════════ */
 function sheetAberta(){ return document.getElementById('ovFiltros').classList.contains('open'); }
 function abrirFiltrosMobile(){
+  verTudoDaSecretaria();
   document.getElementById('ovFiltros').classList.add('open');
   const alvo = document.getElementById('fSortMobile');
   alvo.innerHTML = document.getElementById('fSort').innerHTML;
@@ -1843,10 +1993,16 @@ function renderMais(){
   if(!filtrados.length && !SEC_ATUAL && !MODO_FILA){ telaEscolhaSecretaria(); return; }
   /* Secretaria carregada e sem nenhuma requisição: não é "não encontrei". */
   if(!filtrados.length && !REQS.length && SEC_ATUAL){
-    document.getElementById('vazio').innerHTML =
-      '<div class="empty"><span>📭</span>Nenhuma requisição em <b>'+esc(nomeSecretaria(SEC_ATUAL))+'</b> ainda.'
-      + (reqPodeEditar() ? '<br><span style="font-size:13px">Use “＋ Nova requisição” para lançar a primeira.</span>' : '')
-      + '</div>';
+    document.getElementById('vazio').innerHTML = secCompleta()
+      ? '<div class="empty"><span>📭</span>Nenhuma requisição em <b>'+esc(nomeSecretaria(SEC_ATUAL))+'</b> ainda.'
+        + (reqPodeEditar() ? '<br><span style="font-size:13px">Use “＋ Nova requisição” para lançar a primeira.</span>' : '')
+        + '</div>'
+      /* Vazio nos dois meses NÃO é secretaria vazia: é um começo de mês
+         calmo. Confundir os dois faria a tela dizer que não há cadastro. */
+      : '<div class="empty"><span>📭</span>Nenhuma requisição de <b>'+esc(SEC_ATUAL)
+        + '</b> recebida em <b>'+esc(nomeDaJanela())+'</b>.<br>'
+        + '<span style="font-size:13px">O cadastro dela continua no banco — '
+        + '<u style="cursor:pointer" onclick="verTudoDaSecretaria()">ver as mais antigas</u>.</span></div>';
     document.getElementById('loadWrap').style.display='none';
     document.getElementById('resultCount').innerHTML='';
     return;
@@ -1882,6 +2038,7 @@ function renderMais(){
   document.getElementById('resultCount').innerHTML =
     'Exibindo <b>'+mostrando+'</b> de <b>'+filtrados.length+'</b> '
     + (filtrados.length>1 ? 'requisições' : 'requisição');
+  marcarBotaoAntigas();
 }
 
 /* ══════════════ FICHA ══════════════ */
@@ -1907,6 +2064,13 @@ function abrirDet(id){
     + linha('Empenho', r.empenho ? esc(r.empenho) : '<i style="color:var(--muted)">ainda não empenhada</i>')
     + linha('P/ contabilidade em', fmtD(r.contabilidade));
   document.getElementById('ovDet').classList.add('open');
+  const btn = document.getElementById('btnExcluirReq');
+  if(btn){
+    /* Só quem preenche, e só numa requisição sem despacho: com despacho o
+       botão sumiria a decisão do Diretor junto. */
+    btn.style.display = (reqPodeEditar() && !r.despacho) ? '' : 'none';
+    btn.onclick = () => excluirRequisicao(r.id);
+  }
 }
 function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
 
@@ -1960,6 +2124,38 @@ function novaRequisicao(){
 /* Desfazer o que foi mexido nesta linha. Se ela veio da planilha, volta a
    ser o que era lá — não some do cadastro; quem foi criado aqui, esse sim
    sai da lista, senão uma linha aberta por engano ficaria para sempre. */
+/* Excluir de vez. Duas travas antes de chegar ao banco, e uma terceira lá
+   dentro: as regras recusam apagar uma requisição JÁ DESPACHADA — apagá-la
+   apagaria o despacho junto, e a trava do despacho vazaria por aqui. */
+function excluirRequisicao(id){
+  const r = REQS.find(x => x.id === id);
+  if(!r) return;
+  if(!reqPodeEditar()){ alert('Você está em modo somente visualização.'); return; }
+  if(r.despacho){
+    alert('A requisição nº ' + (r.rotulo || 'sem número') + ' já foi despachada como “'
+        + r.despacho + '”.\n\nExcluir apagaria o despacho do Diretor junto. '
+        + 'Para excluir, peça a ele que retire o despacho primeiro.');
+    return;
+  }
+  if(!confirm('Excluir a requisição nº ' + (r.rotulo || 'sem número') + '?\n\n'
+      + (r.credor ? r.credor + '\n' : '') + (r.objeto ? r.objeto + '\n' : '')
+      + '\nIsso apaga o cadastro dela. Fica registrado em Atividades, com o conteúdo '
+      + 'inteiro — dá para voltar atrás por lá.')) return;
+  confirmarIdentidade()
+    .then(() => docReq(id).delete())
+    .then(() => {
+      /* O registro guarda a requisição INTEIRA: é o que permite desfazer. */
+      histAcumular('excluiu', 'todos', Object.assign({}, paraGuardar(r)), r);
+      const i = REQS.findIndex(x => x.id === id);
+      if(i >= 0) REQS.splice(i, 1);
+      fecharDet();
+      renderFaixaSecretarias(); popularDatalists(); aplicarFiltros();
+      toast('Requisição excluída.');
+    })
+    .catch(e => alert(e && e.code === 'permission-denied'
+      ? 'O banco não aceitou a exclusão.\n\nRequisição já despachada não pode ser apagada.'
+      : (e.message || String(e))));
+}
 function descartarLinha(id){
   const i = REQS.findIndex(x=>x.id===id);
   if(i < 0) return;
@@ -2194,9 +2390,12 @@ function paraGuardar(r){
    fica um dado na tela que não existe no cadastro. */
 const CAMPOS_DO_NUMERO = ['sec','num','ano','sufixo'];
 const CAMPOS_DO_DESPACHO = ['despacho','despachoPor','despachoEm'];
+const CAMPOS_TODOS = ['sec','num','ano','sufixo','recebido','despacho','despachoPor',
+  'despachoEm','credor','objeto','modalidade','empenho','contabilidade','valor','criadaEm'];
 function camposGravados(campo){
   if(campo==='num') return CAMPOS_DO_NUMERO;
   if(campo==='despacho') return CAMPOS_DO_DESPACHO;
+  if(campo==='todos') return CAMPOS_TODOS;
   return [campo];
 }
 /* Os campos que um registro do histórico devolve ao desfazer. */
@@ -2413,6 +2612,7 @@ const HIST_ACOES = {
   criou:     'lançou a requisição',
   editou:    'alterou',
   despachou: 'despachou',
+  excluiu:   'excluiu a requisição',
   desfez:    'desfez uma alteração em'
 };
 function histQuando(ts){
@@ -2422,12 +2622,15 @@ function histQuando(ts){
 }
 /* Quem pode desfazer ESTE registro. A divisão de poderes do despacho vale
    aqui igual: senão o desfazer seria o buraco por onde ela vaza. */
+function ehExclusao(h){ return h.acao === 'excluiu'; }
 function histCampos(h){ return (h.campos && h.campos.length) ? h.campos : (h.campo ? camposGravados(h.campo) : []); }
 function ehDespacho(h){ return histCampos(h).indexOf('despacho') >= 0; }
 /* A divisão de poderes do despacho vale aqui igual: senão o desfazer seria
    o buraco por onde ela vaza. */
 function histPodeDesfazer(h){
-  if(!h.antes || !histCampos(h).length) return false;
+  if(!h.antes) return false;
+  if(ehExclusao(h)) return reqPodeEditar();   /* devolver ao cadastro é recriar */
+  if(!histCampos(h).length) return false;
   return ehDespacho(h) ? reqPodeDespachar() : reqPodeEditar();
 }
 
@@ -2450,7 +2653,8 @@ function histRender(){
        desfazer não se aplica, e a linha diz por quê. */
     const acao = h.antes
       ? (histPodeDesfazer(h)
-          ? '<button class="usr-btn" onclick="histDesfazer(\'' + h._id + '\')">↶ Desfazer</button>'
+          ? '<button class="usr-btn" onclick="histDesfazer(\'' + h._id + '\')">'
+            + (ehExclusao(h) ? '↶ Restaurar' : '↶ Desfazer') + '</button>'
           : (ehDespacho(h)
               ? '<div class="hist-nota">só o Diretor desfaz um despacho</div>' : ''))
       : '<div class="hist-nota">requisição nova — não há versão anterior para voltar</div>';
@@ -2492,6 +2696,17 @@ function histDesfazer(idRegistro){
     alert(ehDespacho(h)
       ? 'Só quem tem o acesso de Diretor desfaz um despacho.'
       : 'Você está em modo somente visualização.');
+    return;
+  }
+  /* Desfazer uma exclusão é recriar a requisição inteira, com o mesmo id e
+     o mesmo conteúdo — não é devolver um campo. */
+  if(ehExclusao(h)){
+    if(!confirm('Trazer de volta a requisição nº ' + (h.rotulo || 'sem número') + '?')) return;
+    docReq(h.antes.id).set(paraGuardar(h.antes)).then(() => {
+      toast('Requisição restaurada.');
+      return histAcumular('desfez', 'todos', null, h.antes);
+    }).then(() => abrirHistorico())
+      .catch(e => alert('Não consegui restaurar: ' + (e.message || e)));
     return;
   }
   const campos = histCampos(h);
@@ -2715,6 +2930,7 @@ function marcarTotal(){
   }
   chip.textContent = SEC_ATUAL
     ? REQS.length.toLocaleString('pt-BR') + ' EM ' + SEC_ATUAL
+      + (secCompleta() ? '' : ' · ' + nomeDaJanela().toUpperCase())
     : 'ESCOLHA UMA SECRETARIA';
 }
 /* As requisições NÃO são pedidas na abertura da página: quem as pede é o

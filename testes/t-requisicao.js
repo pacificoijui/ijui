@@ -43,7 +43,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     REQS.every(r=>['credor','empenho','modalidade','objeto'].every(k=>r[k]!=='-')),
     REQS.filter(r=>r.empenho==='-').slice(0,3));
   t('a página não carrega as requisições embutidas no HTML',
-    html.indexOf('"credor":')<0 && html.length<150*1024, {kb:Math.round(html.length/1024)});
+    html.indexOf('"credor":')<0 && html.length<175*1024, {kb:Math.round(html.length/1024)});
 
   t('a página não carrega as requisições sem passar pelo portão',
     /iniciarListenerRequisicoes/.test(html) && !/^carregarTudo\(\);/m.test(html));
@@ -122,8 +122,49 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     chip:document.getElementById('chipTotal').textContent
   }));
   t('abre dentro de uma secretaria', recorte.sec==='SMS', recorte);
-  t('e lê do banco só o tamanho dela',
+  t('e lê do banco só um pedaço dela',
     recorte.leu>0 && recorte.leu < recorte.noBanco/3, {leu:recorte.leu, tem:recorte.noBanco});
+  /* Dentro da secretaria, ainda só os dois últimos meses: é o que o setor
+     tem em mãos no dia a dia. O resto vem com um clique — e fica. */
+  const janela=await pg.evaluate(()=>{
+    const ini=inicioDaJanela();
+    return {ini, completa:secCompleta(),
+      todasNaJanela:REQS.every(r=>!r.recebido || r.recebido>=ini),
+      naSecretaria:Object.values(window.__STORE.requisicoes).filter(r=>r.sec==='SMS').length,
+      leu:REQS.length,
+      botao:(document.getElementById('antigas')||{}).textContent||''};
+  });
+  t('e dentro dela, só os dois últimos meses',
+    !janela.completa && janela.todasNaJanela && janela.leu < janela.naSecretaria, janela);
+  /* Sem data de recebimento é como uma requisição NASCE. Sumir com ela no
+     instante em que é criada seria o pior defeito de uma tela de
+     lançamento — por isso essas vêm por consulta própria. */
+  t('mas as sem data de recebimento vêm junto',
+    await pg.evaluate(()=>REQS.some(r=>!r.recebido)));
+  t('e a tela oferece as mais antigas, dizendo o que está mostrando',
+    /mais antigas/.test(janela.botao), janela.botao.slice(0,90));
+
+  const expandiu=await pg.evaluate(()=>{ verTudoDaSecretaria(); return true; });
+  /* Esperar o DADO chegar, não a marca de "completa" — ela é posta antes,
+     no instante em que a consulta troca. */
+  await pg.waitForFunction(()=>secCompleta('SMS')
+    && REQS.some(r=>r.recebido && r.recebido < inicioDaJanela()),null,{timeout:20000});
+  await pg.waitForTimeout(200);
+  const completa=await pg.evaluate(()=>({leu:REQS.length, completa:secCompleta(),
+    botao:(document.getElementById('antigas')||{}).textContent||''}));
+  t('o botão traz o cadastro inteiro daquela secretaria',
+    expandiu && completa.completa && completa.leu>janela.leu, completa);
+  t('e some depois disso, porque não há mais o que trazer', completa.botao==='', completa.botao);
+
+  /* Completa uma vez, fica completa: sair e voltar não relê nada. */
+  await pg.evaluate(()=>escolherSecretaria('SMA'));
+  await pg.waitForFunction(()=>SEC_ATUAL==='SMA'&&REQS.length>0,null,{timeout:15000});
+  const voltouCompleta=await pg.evaluate(()=>{
+    escolherSecretaria('SMS');
+    return {completa:secCompleta('SMS'), leu:REQS.length};
+  });
+  t('e trocar de secretaria e voltar não a devolve recortada',
+    voltouCompleta.completa && voltouCompleta.leu===completa.leu, {voltouCompleta, antes:completa.leu});
   t('nenhuma requisição de outra secretaria veio junto', recorte.todasDaSec, recorte);
   t('o chip do topo diz de qual secretaria são as que estão na tela',
     /EM SMS/.test(recorte.chip), recorte.chip);
@@ -163,10 +204,10 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             sec:SEC_ATUAL, n:REQS.length, abertas:[...ABERTAS.keys()]};
   });
   t('voltar a uma secretaria já aberta é instantâneo — sem esperar o banco',
-    volta.sec==='SMS' && volta.n>100, volta);
+    volta.sec==='SMS' && volta.n>0, volta);
   t('e sem consulta nova: não se paga duas vezes pelos mesmos documentos',
     volta.consultasDepois===volta.consultasAntes && volta.abertas.length===2, volta);
-  await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>100,null,{timeout:15000});
+  await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>0,null,{timeout:15000});
 
   console.log('\n1d) A busca global saiu — procurar é procurar numa coluna');
   t('não há mais barra de "pesquisar em tudo"',
@@ -526,7 +567,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      poucas que de fato esperam. */
   await pg.setViewportSize({width:1440,height:950});
   await pg.evaluate(()=>{ escolherSecretaria('SMS'); limparFiltros(); });
-  await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>100,null,{timeout:15000});
+  await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>0,null,{timeout:15000});
   const estados=await pg.evaluate(()=>({
     daPlanilha:REQS.filter(r=>!r.criadaEm && !r.despacho).length,
     aguardando:REQS.filter(aguardaDespacho).length,
@@ -555,6 +596,65 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     facetas.some(x=>/Aguardando despacho/.test(x)) && facetas.some(x=>/Veio da planilha/.test(x)),
     facetas.slice(0,9));
   await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
+
+  console.log('\n7b2) Excluir requisição: pede a senha, e não passa por cima do despacho');
+  /* Excluir é a única coisa que apaga cadastro. Um computador deixado
+     aberto no balcão não pode virar uma exclusão. */
+  await pg.evaluate(()=>{ window.__SENHA='certa'; });
+  const paraApagar=await pg.evaluate(()=>{
+    const r=REQS.find(x=>!x.despacho && x._gravada);
+    return {id:r.id, rotulo:r.rotulo};
+  });
+
+  /* Senha errada: não apaga nada. */
+  await pg.evaluate(()=>{ window.prompt=()=>'errada'; });
+  await pg.evaluate(id=>excluirRequisicao(id), paraApagar.id);
+  await pg.waitForTimeout(700);
+  const comSenhaErrada=await pg.evaluate(id=>
+    firebase.firestore().collection('requisicoes').doc(String(id)).get()
+      .then(d=>({existe:d.exists, avisos:(window.__A||[]).slice(-1)})), paraApagar.id);
+  t('senha errada não exclui', comSenhaErrada.existe, comSenhaErrada);
+  t('e diz que a requisição continua lá', /não foi excluída/.test(String(comSenhaErrada.avisos)),
+    comSenhaErrada.avisos);
+
+  /* Cancelar o pedido de senha também não apaga. */
+  await pg.evaluate(()=>{ window.prompt=()=>null; });
+  await pg.evaluate(id=>excluirRequisicao(id), paraApagar.id);
+  await pg.waitForTimeout(600);
+  t('cancelar a confirmação não exclui',
+    await pg.evaluate(id=>firebase.firestore().collection('requisicoes').doc(String(id)).get()
+      .then(d=>d.exists), paraApagar.id));
+
+  /* Senha certa: apaga, e deixa o rastro com a requisição inteira. */
+  await pg.evaluate(()=>{ window.prompt=()=>'certa'; });
+  await pg.evaluate(id=>excluirRequisicao(id), paraApagar.id);
+  await pg.waitForTimeout(900);
+  const apagou=await pg.evaluate(id=>histFechar().then(()=>
+    firebase.firestore().collection('requisicoes').doc(String(id)).get().then(d=>({
+      existe:d.exists, naTela:REQS.some(r=>r.id===id)
+    }))), paraApagar.id);
+  t('com a senha certa, exclui', !apagou.existe && !apagou.naTela, apagou);
+  const rastro=await pg.evaluate(()=>
+    firebase.firestore().collection('requisicoes_historico').get()
+      .then(s=>s.docs.map(d=>d.data()).filter(h=>h.acao==='excluiu')));
+  t('e o registro guarda a requisição inteira, para poder voltar',
+    rastro.length===1 && rastro[0].antes && rastro[0].antes.id===paraApagar.id, rastro.length);
+
+  /* A trava do despacho não pode vazar pelo delete: apagar uma despachada
+     apagaria a decisão do Diretor junto. */
+  const despachada=await pg.evaluate(()=>{
+    const r=REQS.find(x=>x._gravada);
+    r.despacho='Pregão'; prepararReq(r); redesenharLinha(r);
+    excluirRequisicao(r.id);
+    return {id:r.id, aviso:(window.__A||[]).slice(-1)[0]||''};
+  });
+  await pg.waitForTimeout(400);
+  t('requisição já despachada não é excluída pela tela',
+    /despachada/.test(despachada.aviso), despachada.aviso.slice(0,90));
+  t('e ela continua no banco',
+    await pg.evaluate(id=>firebase.firestore().collection('requisicoes').doc(String(id)).get()
+      .then(d=>d.exists), despachada.id));
+  await pg.evaluate(id=>{ const r=REQS.find(x=>x.id===id); r.despacho=''; prepararReq(r); redesenharLinha(r); }, despachada.id);
 
   console.log('\n7c) O registro de atividades');
   /* Toda gravação deixa rastro: quem foi, que campo, quando, e o valor
@@ -760,14 +860,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      olhar uma secretaria inteira para decidir. Antes, clicar numa
      secretaria não trazia nada — a consulta dele ignorava a escolha. */
   await dir.pg.evaluate(()=>escolherSecretaria('SMDS'));
-  await dir.pg.waitForFunction(()=>!MODO_FILA && SEC_ATUAL==='SMDS' && REQS.length>100,null,{timeout:15000});
+  await dir.pg.waitForFunction(()=>!MODO_FILA && SEC_ATUAL==='SMDS' && REQS.length>0,null,{timeout:15000});
   const navegou=await dir.pg.evaluate(()=>({
     fila:MODO_FILA, sec:SEC_ATUAL, n:REQS.length,
     todasDaSec:REQS.every(r=>r.sec==='SMDS'),
     chip:document.getElementById('chipTotal').textContent,
     dica:document.getElementById('dicaEdicao').textContent
   }));
-  t('o Diretor também navega pelas secretarias', navegou.n>100 && navegou.todasDaSec, navegou);
+  t('o Diretor também navega pelas secretarias', navegou.n>0 && navegou.todasDaSec, navegou);
   t('e o chip acompanha o recorte em que ele está', /EM SMDS/.test(navegou.chip), navegou.chip);
   /* O contador continua vivo fora da fila: a consulta dela fica ouvindo. */
   t('mas o contador da fila continua certo, mesmo fora dela',
@@ -827,7 +927,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   await ver.pg.evaluate(()=>escolherSecretaria('SMDS'));
   await ver.pg.waitForFunction(()=>SEC_ATUAL==='SMDS'&&REQS.length>0,null,{timeout:15000});
   t('e alcança qualquer secretaria trocando na faixa — o recorte é economia, não trava',
-    await ver.pg.evaluate(()=>REQS.length>100 && REQS.every(r=>r.sec==='SMDS')));
+    await ver.pg.evaluate(()=>REQS.length>0 && REQS.every(r=>r.sec==='SMDS')));
   t('a tela avisa que o acesso é de leitura', /só visualização/.test(soOlha.chip), soOlha.chip);
   t('nenhuma célula abre para ele — nem a do despacho', soOlha.travadas, soOlha);
   t('e não há botão de lançar requisição', soOlha.botao==='none', soOlha);

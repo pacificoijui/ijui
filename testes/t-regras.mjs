@@ -59,6 +59,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, "status", "st1"),      { nome: "Em andamento" });
   await setDoc(doc(db, "contratos", "1"),     { contr: 1, ano: 2026, empresa: "X" });
   await setDoc(doc(db, "requisicoes", "1"),   { num: 1, ano: 2026, sec: "GP", credor: "X", despacho: "" });
+  await setDoc(doc(db, "requisicoes", "r-livre"),      { num: 90, ano: 2026, sec: "GP", despacho: "" });
+  await setDoc(doc(db, "requisicoes", "r-despachada"), { num: 91, ano: 2026, sec: "GP", despacho: "Pregão" });
   await setDoc(doc(db, "decisoes", "d1"),     { texto: "…", assinantes: [] });
   await setDoc(doc(db, "rankings", "p1"),     { itens: [] });
   await setDoc(doc(db, "usuarios", "velho1"), { usuario: "julio" });
@@ -189,6 +191,20 @@ await t("nem o administrador",
   nega(deleteDoc(doc(como(CONTAS.admin), "contratos_historico", "h-recente"))));
 await t("o que passou dos 365 dias, sim: é a limpeza da tela",
   pode(deleteDoc(doc(como(CONTAS.soContrato), "contratos_historico", "h-vencido"))));
+
+console.log("\n3b) Excluir requisição: existe, mas não por cima de um despacho");
+/* Excluir é a única coisa que apaga cadastro. A tela pede a senha antes;
+   as regras cuidam do resto — e o resto é o despacho. */
+await t("quem só visualiza não exclui",
+  nega(deleteDoc(doc(como(CONTAS.reqVer), "requisicoes", "r-livre"))));
+await t("quem preenche exclui uma requisição sem despacho",
+  pode(deleteDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-livre"))));
+/* Se pudesse apagar a despachada, apagaria o despacho junto — e a trava do
+   despacho, que o update protege, vazaria pelo delete. */
+await t("mas NÃO exclui uma já despachada — apagaria o despacho junto",
+  nega(deleteDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-despachada"))));
+await t("e o Diretor também não exclui: ele decide, não cadastra",
+  nega(deleteDoc(doc(como(CONTAS.diretor), "requisicoes", "r-despachada"))));
 
 console.log("\n4b) Registro das requisições: o Diretor também deixa rastro");
 await t("quem não tem o painel não lê o registro",
