@@ -315,6 +315,49 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('o total em reais saiu de cima da tabela',
     !/total <b>/.test(await pg.evaluate(()=>document.getElementById('resultCount').innerHTML)));
 
+  console.log('\n4b) Digitar na busca abre o recorte — o campo diz "em tudo"');
+  /* A pessoa está numa secretaria (a faixa do alto É um filtro) e vai
+     procurar um credor que está noutra. Com o recorte de pé, a resposta
+     era "nenhuma requisição" para um registro que existe — uma aba ao
+     lado. O nome do campo promete o contrário. */
+  await pg.evaluate(()=>{ limparFiltros(); escolherSecretaria('SMS'); });
+  await pg.waitForTimeout(200);
+  const alvoFora=await pg.evaluate(()=>{
+    const r=REQS.find(x=>x.sec!=='SMS' && x.credor && x.credor.length>10);
+    return {credor:r.credor, sec:r.sec};
+  });
+  await pg.click('#fBusca');
+  await pg.fill('#fBusca', alvoFora.credor);
+  await pg.waitForTimeout(300);
+  const abriu=await pg.evaluate(()=>({
+    sec:SEC_ATUAL, achou:filtrados.length,
+    busca:document.getElementById('fBusca').value,
+    chips:document.getElementById('chipsAtivos').textContent,
+    aviso:document.getElementById('toast').textContent
+  }));
+  t('buscar volta para todas as secretarias e acha o que está noutra',
+    abriu.sec==='' && abriu.achou>0, abriu);
+  t('sem apagar o que foi digitado', abriu.busca===alvoFora.credor, abriu);
+  t('e sem sobrar chip de filtro', abriu.chips==='', abriu);
+  t('a tela avisa que abriu, em vez de mudar sozinha e calada',
+    /Filtros abertos/.test(abriu.aviso), abriu.aviso);
+
+  /* Só a PRIMEIRA letra abre: filtrar depois de buscar é cruzar as duas
+     coisas de propósito, e aí o filtro tem de ficar. */
+  await pg.evaluate(()=>{ COLF.emp.sel.sit=new Set(['Empenhada']); aplicarFiltros(); });
+  await pg.fill('#fBusca', alvoFora.credor+' x');
+  await pg.waitForTimeout(250);
+  t('continuar digitando não desfaz um filtro posto depois da busca',
+    await pg.evaluate(()=>COLF.emp.sel.sit.size===1));
+  await pg.fill('#fBusca', '');
+  await pg.waitForTimeout(200);
+  await pg.fill('#fBusca', alvoFora.credor);
+  await pg.waitForTimeout(300);
+  t('e recomeçar uma busca do zero abre de novo',
+    await pg.evaluate(()=>COLF.emp.sel.sit.size===0));
+  await pg.evaluate(()=>limparFiltros());
+  await pg.waitForTimeout(200);
+
   console.log('\n5) Falta empenhar: a coluna vazia da planilha, à vista');
   const emp=await pg.evaluate(()=>{
     limparFiltros();

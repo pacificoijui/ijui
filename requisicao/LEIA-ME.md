@@ -54,6 +54,13 @@ filtro por coluna como numa planilha. A busca de cada coluna procura no que
 **aquela coluna mostra**: digitar o número do empenho na coluna Empenho acha
 o empenho, e o menu diz quantas requisições ele está segurando.
 
+A busca do alto diz "pesquisar em tudo", e é isso que ela faz: ao **começar**
+uma busca, ela abre o recorte da tela — volta para todas as secretarias e
+limpa os filtros de coluna —, e avisa. Sem isso a resposta era "nenhuma
+requisição" para um registro que existe, só que na aba do lado. Só a
+primeira letra abre: se você filtrar depois de buscar, é porque quis cruzar
+as duas coisas, e o filtro fica.
+
 A coluna Empenho mostra o número quando existe e **"falta empenhar"** quando
 não. Não é situação inventada: é a coluna EMPENHO vazia na planilha, que é
 justamente o que se procura ao abrir o arquivo.

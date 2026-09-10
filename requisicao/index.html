@@ -698,7 +698,7 @@
              data-lpignore="true" data-1p-ignore data-form-type="other"
              onfocus="this.removeAttribute('readonly')"
              placeholder="Pesquisar em tudo — credor, objeto, nº, modalidade, empenho, valor…"
-             oninput="aplicarFiltros()">
+             oninput="buscarEmTudo()">
       <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
     </div>
   </div>
@@ -1489,11 +1489,45 @@ function marcarSetas(){
   const th = document.querySelector('.tab thead th.c-'+({num:'req',receb:'receb',cred:'cred',valor:'val'}[campo]||''));
   if(th && th.querySelector('.seta')) th.querySelector('.seta').textContent = dir==='desc' ? '▼' : '▲';
 }
-function limparBusca(){ document.getElementById('fBusca').value=''; aplicarFiltros(); }
+/* ── "Pesquisar em tudo" tem de procurar em tudo mesmo ──
+   A tela quase nunca está inteira à vista: abre numa secretaria escolhida
+   na faixa, com um filtro de coluna de ontem ainda de pé. Digitar aqui com
+   esse recorte valendo respondia "nenhuma requisição" para um registro que
+   existe — só que na aba do lado. O nome do campo promete o contrário.
+
+   Então a busca abre o recorte no instante em que COMEÇA, e avisa. Quem
+   quiser cruzar busca com filtro põe o filtro depois, e aí ele fica: só a
+   primeira letra limpa, as seguintes não mexem em mais nada. */
+let _buscaAnterior = '';
+function temRecorte(){
+  return !!SEC_ATUAL || COLUNAS.some(col=>{
+    const f = COLF[col];
+    return !!f.txt || (FACETAS[col]||[]).some(g=>f.sel[g.k] && f.sel[g.k].size);
+  });
+}
+function buscarEmTudo(){
+  const agora = document.getElementById('fBusca').value.trim();
+  const comecou = !!agora && !_buscaAnterior;
+  _buscaAnterior = agora;
+  if(comecou && temRecorte()){
+    soltarNova();
+    limparBuscaDoMenu();
+    initFiltros();
+    SEC_ATUAL = '';
+    renderFaixaSecretarias();
+    aplicarFiltros();
+    if(popCol) renderPop();
+    if(sheetAberta()) renderFiltrosMobile();
+    toast('Filtros abertos — a busca procura em todas as secretarias.');
+    return;
+  }
+  aplicarFiltros();
+}
+function limparBusca(){ document.getElementById('fBusca').value=''; buscarEmTudo(); }
 function limparFiltros(){
   soltarNova();
   limparBuscaDoMenu();
-  document.getElementById('fBusca').value='';
+  document.getElementById('fBusca').value=''; _buscaAnterior='';
   initFiltros();
   SEC_ATUAL = '';
   F.sort = ORDEM_PADRAO;

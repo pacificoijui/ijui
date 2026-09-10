@@ -1039,6 +1039,55 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     t('busca fora do recorte encontrou direto (nada a avisar)', true);
   }
 
+  /* ── Digitar na busca abre o recorte, porque o campo diz "em tudo" ──
+     A tela abre só com os contratos do ano. Quem procura uma empresa de
+     2019 ali digita, recebe "nenhum contrato" e conclui que não existe —
+     mas existe, está fora do recorte. */
+  const pgB=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgB, 'editar');
+  const antesDeBuscar=await pgB.evaluate(()=>({
+    chips:document.getElementById('chipsAtivos').textContent,
+    linhas:filtrados.length, total:CONTRATOS.length
+  }));
+  t('a tela abre recortada (é o comportamento de sempre)',
+    antesDeBuscar.chips!=='' && antesDeBuscar.linhas<antesDeBuscar.total, antesDeBuscar);
+
+  const velho=await pgB.evaluate(()=>{
+    const c=CONTRATOS.find(x=>!filtrados.includes(x) && x.empresa && x.empresa.length>8);
+    return {empresa:c.empresa, ano:c.ano};
+  });
+  await pgB.click('#fBusca');
+  await pgB.fill('#fBusca', velho.empresa);
+  await pgB.waitForTimeout(300);
+  const buscou=await pgB.evaluate(()=>({
+    chips:document.getElementById('chipsAtivos').textContent,
+    achou:filtrados.length,
+    busca:document.getElementById('fBusca').value,
+    anos:[...new Set(filtrados.map(c=>c.ano))].length,
+    aviso:document.getElementById('toast').textContent
+  }));
+  t('digitar na busca abre os filtros e acha o contrato antigo',
+    buscou.achou>0 && buscou.chips==='', buscou);
+  t('sem apagar o que foi digitado', buscou.busca===velho.empresa, buscou);
+  t('e a tela avisa que abriu, em vez de mudar sozinha e calada',
+    /Filtros abertos/.test(buscou.aviso), buscou.aviso);
+
+  /* Mas só a PRIMEIRA letra abre: quem filtra depois de buscar está
+     cruzando as duas coisas de propósito, e o filtro tem de ficar. */
+  await pgB.evaluate(()=>{ COLF.sit.sel.sit=new Set(['Vigente']); aplicarFiltros(); });
+  await pgB.fill('#fBusca', velho.empresa+' x');
+  await pgB.waitForTimeout(250);
+  t('continuar digitando não desfaz um filtro posto depois da busca',
+    await pgB.evaluate(()=>COLF.sit.sel.sit.size===1));
+
+  /* Apagar a busca e recomeçar volta a abrir. */
+  await pgB.fill('#fBusca', '');
+  await pgB.waitForTimeout(200);
+  await pgB.fill('#fBusca', velho.empresa);
+  await pgB.waitForTimeout(300);
+  t('e recomeçar uma busca do zero abre de novo',
+    await pgB.evaluate(()=>COLF.sit.sel.sit.size===0));
+
   console.log('\n19) O gerenciador de senhas não tem onde despejar a senha');
   /* O Chrome ignora autocomplete="off" e chegou a preencher o campo de
      busca com a senha salva, porque o formulário de login continuava no

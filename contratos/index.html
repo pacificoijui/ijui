@@ -555,7 +555,7 @@
              data-lpignore="true" data-1p-ignore data-form-type="other"
              onfocus="this.removeAttribute('readonly')"
              placeholder="Pesquisar em tudo — empresa, objeto, nº, fiscal, secretaria, valor…"
-             oninput="aplicarFiltros()">
+             oninput="buscarEmTudo()">
       <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
     </div>
   </div>
@@ -1736,13 +1736,45 @@ function marcarSetas(){
     if(th.dataset.ord === campo) th.classList.add(dir === 'asc' ? 'ord-asc' : 'ord-desc');
   });
 }
+/* ── "Pesquisar em tudo" tem de procurar em tudo mesmo ──
+   A tela abre recortada de propósito — só os contratos DO ANO —, e isso é
+   bom para quem chega de manhã e ruim para quem vem procurar. Digitar o
+   nome de uma empresa de 2019 aqui devolvia "nenhum contrato", com o
+   contrato existindo: estava fora do recorte, não fora do cadastro. O nome
+   do campo promete o contrário do que acontecia.
+
+   Então a busca abre o recorte no instante em que COMEÇA, e avisa. Quem
+   quiser cruzar busca com filtro põe o filtro depois, e aí ele fica: só a
+   primeira letra limpa, as seguintes não mexem em mais nada. */
+let _buscaAnterior = '';
+function temRecorte(){
+  return COLUNAS.some(col => {
+    const f = COLF[col];
+    return !!f.txt || Object.keys(f.sel).some(k => f.sel[k].size);
+  });
+}
+function buscarEmTudo(){
+  const agora = document.getElementById('fBusca').value.trim();
+  const comecou = !!agora && !_buscaAnterior;
+  _buscaAnterior = agora;
+  if(comecou && temRecorte()){
+    if(popCol) document.getElementById('popBusca').value = '';
+    initFiltros(false);
+    aplicarFiltros();
+    if(popCol) renderPop();
+    if(sheetAberta()) renderFiltrosMobile();
+    toast('Filtros abertos — a busca procura em todos os anos.');
+    return;
+  }
+  aplicarFiltros();
+}
 function limparBusca(){
   document.getElementById('fBusca').value = '';
-  aplicarFiltros();
+  buscarEmTudo();
   document.getElementById('fBusca').focus();
 }
 function limparFiltros(){
-  document.getElementById('fBusca').value = '';
+  document.getElementById('fBusca').value = ''; _buscaAnterior = '';
   /* A caixa do menu de coluna também: deixá-la escrita depois de limpar
      mostra um filtro que não está mais valendo. */
   if(popCol) document.getElementById('popBusca').value = '';

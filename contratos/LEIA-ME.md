@@ -41,6 +41,18 @@ da primeira importação**. Ele não é mais a fonte da tela: se o Firestore
 negar a leitura, a tela mostra o erro em vez de cair no arquivo — o arquivo
 é público, e usá-lo como plano B furaria a proteção inteira.
 
+## A tela abre recortada, e a busca abre o recorte
+
+A tela abre nos contratos **do ano corrente**, do último cadastrado para
+trás: quem chega de manhã quer ver o que entrou desde ontem.
+
+Isso é bom para quem chega e ruim para quem vem procurar — e o campo do
+alto diz "pesquisar em tudo". Então ao **começar** uma busca ele limpa os
+filtros de coluna (o recorte do ano incluso) e avisa na tela. Antes,
+procurar uma empresa de 2019 respondia "nenhum contrato" para um contrato
+que existe. Só a primeira letra abre: se você filtrar depois de buscar, é
+porque quis cruzar as duas coisas, e o filtro fica.
+
 ## Cadastro, edição e aditivos
 
 A tela cadastra contrato novo, edita contrato existente e registra aditivos
