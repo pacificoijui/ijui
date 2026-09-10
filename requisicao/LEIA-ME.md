@@ -86,6 +86,33 @@ mais nada** da requisição: para ele, todas as outras células estão trancadas
 O despacho grava junto **quem assinou e quando**, e aparece na ficha e no
 relatório em PDF.
 
+### O que veio da planilha não pede despacho
+
+A coluna tem **três** estados, não dois. As requisições da migração já foram
+contratadas antes de a coluna existir: nelas o campo fica **vazio**, um traço
+como o de qualquer outro campo em branco — sem convite e sem cadeado, porque
+ali não há decisão pendente. Oferecer "despachar" em milhares de linhas
+antigas esconderia, no meio delas, as poucas que de fato esperam.
+
+O que separa uma coisa da outra é o campo **`criadaEm`**: quem nasce nesta
+tela ganha a data, quem veio do arquivo não tem. A célula antiga continua
+abrindo para o Diretor, se um caso antigo precisar mesmo de decisão — o que
+sai é o barulho, não a possibilidade.
+
+### A fila do Diretor
+
+Quem só despacha **abre na fila**, não no cadastro: as requisições
+aguardando despacho, de **todas as secretarias**. Ele não trabalha dentro de
+uma secretaria — trabalha entre elas —, e abrir em "todas as 3.617" seria
+pedir que procurasse o próprio trabalho.
+
+O número no alto da tela conta a fila, não o cadastro: **"5 aguardando
+despacho"**. Despachou, a linha sai da fila. Quando não sobra nada, a tela
+diz que está em dia em vez de dizer que não encontrou nada.
+
+É sugestão de abertura, não cela: o filtro aparece nos chips com o ✕, e um
+clique em "Limpar filtros" mostra o cadastro inteiro.
+
 A trava não é da tela — a tela só avisa antes. Quem barra de verdade são as
 regras do Firestore, que olham **quais campos mudaram** em cada gravação:
 uma alteração que toca no despacho vinda de quem só preenche é recusada, e

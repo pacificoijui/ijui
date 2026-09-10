@@ -1135,7 +1135,7 @@ function iniciarListenerRequisicoes(){
 }
 function montarPrimeiraCarga(lista){
   REQS = lista.map(prepararReq);
-  initFiltros();
+  initFiltros(true);
   marcarTotal();
   renderFaixaSecretarias();
   popularDatalists();
@@ -1321,6 +1321,23 @@ const NOME_COL = {num:'Requisição', receb:'Recebida', desp:'Diretor', cred:'Cr
    previstas, e quem lança a requisição não escolhe nenhuma delas. */
 const MODALIDADES_DESPACHO = ['Pregão','Concorrência','Dispensa por limite',
   'Dispensa por justificativa','Inexigibilidade','Ata de Registro de Preços'];
+/* O despacho tem TRÊS estados, não dois, e o terceiro é o que a migração
+   trouxe: as 3.617 requisições que vieram da planilha já foram contratadas
+   antes de a coluna existir. Oferecer "despachar" nelas encheria a tela de
+   um convite para decidir o que já foi decidido — e esconderia, no meio de
+   milhares, as poucas que de fato esperam o Diretor.
+
+   O que separa uma coisa da outra é "criadaEm": quem nasce nesta tela
+   ganha a data, quem veio do arquivo não tem. Não é um campo de enfeite —
+   é a fronteira entre o histórico e o fluxo. */
+const AGUARDANDO = 'Aguardando despacho';
+const DA_PLANILHA = 'Veio da planilha';
+function nasceuNoSistema(r){ return !!r.criadaEm; }
+function estadoDespacho(r){
+  if(r.despacho) return r.despacho;
+  return nasceuNoSistema(r) ? AGUARDANDO : DA_PLANILHA;
+}
+function aguardaDespacho(r){ return estadoDespacho(r) === AGUARDANDO; }
 const COL_FEMININA = ['num','mod'];
 const COLF = {};
 
@@ -1349,8 +1366,8 @@ function situacaoEmpenho(r){ return r.empenho ? 'Empenhada' : 'Falta empenhar'; 
 const FACETAS = {
   num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'], desc:true} ],
   receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], desc:true} ],
-  desp:  [ {k:'desp', t:'Despacho do Diretor', v:r=>[r.despacho || '(sem despacho)'],
-            ordemFixa: MODALIDADES_DESPACHO.concat('(sem despacho)')} ],
+  desp:  [ {k:'desp', t:'Despacho do Diretor', v:r=>[estadoDespacho(r)],
+            ordemFixa: [AGUARDANDO].concat(MODALIDADES_DESPACHO).concat(DA_PLANILHA)} ],
   cred:  [ {k:'cred', t:'Credor', v:r=>[r.credor || '(sem credor)']} ],
   obj:   [ {k:'obj', t:'Objeto', v:r=>[r.objeto || '(sem objeto)']} ],
   mod:   [ {k:'mod', t:'Modalidade', v:r=>[r.modalidade || '(sem modalidade)']} ],
@@ -1361,12 +1378,24 @@ const FACETAS = {
             ordemFixa:FAIXAS_VALOR.map(f=>f[0]).concat('(sem valor)')} ]
 };
 
-function initFiltros(){
+function initFiltros(comPadrao){
   COLUNAS.forEach(col=>{
     COLF[col] = {txt:'', sel:{}};
     (FACETAS[col]||[]).forEach(g=>{ COLF[col].sel[g.k] = new Set(); });
   });
+  /* O Diretor abre na fila dele. Para quem preenche, a tela é o cadastro da
+     sua secretaria; para quem despacha, é uma lista de pendências de TODAS
+     elas — ele não trabalha dentro de uma secretaria, trabalha entre elas.
+     Abrir em "todas as 3.617" seria pedir que ele procurasse o trabalho.
+     O filtro aparece nos chips, com o ✕: é sugestão de abertura, não cela. */
+  if(comPadrao && soDespacha()){
+    COLF.desp.sel.desp = new Set([AGUARDANDO]);
+    SEC_ATUAL = '';
+  }
 }
+/* Quem só despacha — o Diretor de verdade, não o administrador, que também
+   preenche e para quem a fila não é a tela inteira. */
+function soDespacha(){ return reqPodeDespachar() && !reqPodeEditar(); }
 
 /* ══════════════ A FAIXA DAS SECRETARIAS ══════════════
    É a primeira coisa da tela porque é a primeira decisão de quem usa: a
@@ -1420,7 +1449,7 @@ function passaBusca(r){
 const TEXTO_COL = {
   num:   r => r.rotulo + ' ' + r.sec,
   receb: r => fmtD(r.recebido),
-  desp:  r => r.despacho,
+  desp:  r => estadoDespacho(r),
   cred:  r => r.credor,
   obj:   r => r.objeto,
   mod:   r => r.modalidade,
@@ -1720,6 +1749,11 @@ function cel(r, campo, conteudo, classe){
    para os outros, o cadeado que diz de quem é a caneta. */
 function celDespacho(r){
   if(r.despacho) return '<span class="desp">'+esc(r.despacho)+'</span>';
+  /* Veio da planilha: nada. Um traço como o de qualquer campo vazio, sem
+     convite e sem cadeado — porque ali não há decisão pendente. A célula
+     continua abrindo para o Diretor, se um caso antigo precisar mesmo de
+     despacho; o que sai é o barulho, não a possibilidade. */
+  if(!nasceuNoSistema(r)) return vazio();
   return reqPodeDespachar()
     ? '<span class="desp-vazio">✍️ despachar</span>'
     : '<span class="desp-vazio">🔒 aguardando</span>';
@@ -1750,6 +1784,16 @@ function renderMais(){
   if(!filtrados.length){
     /* "Não encontrei" é resposta ruim quando o registro existe e só está
        fora do recorte da tela. */
+    /* Fila vazia não é busca sem resultado: é trabalho em dia. */
+    if(soDespacha() && COLF.desp.sel.desp.has(AGUARDANDO) && !F.busca){
+      document.getElementById('vazio').innerHTML =
+        '<div class="empty"><span>✅</span>Nenhuma requisição aguardando despacho.<br>'
+        + '<span style="font-size:13px">Assim que uma secretaria lançar, ela aparece aqui sozinha — '
+        + 'ou <u style="cursor:pointer" onclick="limparFiltros()">veja o cadastro inteiro</u>.</span></div>';
+      document.getElementById('loadWrap').style.display='none';
+      document.getElementById('resultCount').innerHTML='';
+      return;
+    }
     const soBusca = REQS.filter(passaBusca).length;
     document.getElementById('vazio').innerHTML =
       '<div class="empty"><span>🔍</span>Nenhuma requisição com esses filtros.<br>'
@@ -1827,7 +1871,11 @@ function novaRequisicao(){
     id: proximoId(), sec: sec, ano: ano,
     num: sec ? proximoNumero(sec, ano) : null, sufixo: '',
     recebido: null, credor: '', objeto: '', valor: null,
-    modalidade: '', empenho: '', contabilidade: '', _nova: true
+    modalidade: '', empenho: '', contabilidade: '',
+    /* A data de nascimento é o que põe esta requisição no fluxo do
+       despacho — e distingue as daqui das que vieram da planilha. */
+    criadaEm: new Date().toISOString(),
+    _nova: true
   };
   prepararReq(r);
   REQS.push(r);
@@ -2295,7 +2343,16 @@ document.addEventListener('keydown', e=>{
 });
 function marcarTotal(){
   const chip = document.getElementById('chipTotal');
-  if(chip) chip.textContent = REQS.length.toLocaleString('pt-BR') + ' REQUISIÇÕES';
+  if(!chip) return;
+  /* Para o Diretor, o número que importa não é o tamanho do cadastro: é o
+     tamanho da fila dele. */
+  if(soDespacha()){
+    const n = REQS.filter(aguardaDespacho).length;
+    chip.textContent = n === 0 ? 'NADA AGUARDANDO DESPACHO'
+      : n.toLocaleString('pt-BR') + ' AGUARDANDO DESPACHO';
+    return;
+  }
+  chip.textContent = REQS.length.toLocaleString('pt-BR') + ' REQUISIÇÕES';
 }
 /* As requisições NÃO são pedidas na abertura da página: quem as pede é o
    portão, depois de confirmar que a pessoa entrou e tem o painel liberado

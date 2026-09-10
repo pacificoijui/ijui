@@ -56,6 +56,13 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const jspdf=fs.readFileSync('node_modules/jspdf/dist/jspdf.umd.min.js','utf8');
   const stub=fs.readFileSync('fbstub3.js','utf8');
   const seedReqs={}; REQS.forEach(r => { seedReqs[String(r.id)]=r; });
+  /* As 3.6 mil vieram da planilha e são histórico. A fila do Diretor só
+     existe com requisições nascidas NO SISTEMA — as que têm "criadaEm". */
+  const NASCIDAS = REQS.slice(0, 4).map(r => r.id);
+  NASCIDAS.forEach((id, i) => {
+    seedReqs[String(id)] = Object.assign({}, seedReqs[String(id)],
+      {criadaEm:'2026-09-1'+i+'T10:00:00.000Z', despacho:'', despachoPor:'', despachoEm:''});
+  });
   function seedCom(nivel){
     return {
       requisicoes: seedReqs,
@@ -407,13 +414,68 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   console.log('\nerros JS:', errs.length?errs:'nenhum');
   t('nenhum erro de JavaScript', errs.length===0, errs);
 
+  console.log('\n7b) O que veio da planilha não pede despacho');
+  /* As 3.617 requisições da migração já foram contratadas antes de a coluna
+     existir. Oferecer "despachar" nelas encheria a tela de um convite para
+     decidir o que já foi decidido — e esconderia, no meio de milhares, as
+     poucas que de fato esperam. */
+  await pg.setViewportSize({width:1440,height:950});
+  await pg.evaluate(()=>limparFiltros());
+  await pg.waitForTimeout(250);
+  const estados=await pg.evaluate(()=>({
+    daPlanilha:REQS.filter(r=>!r.criadaEm && !r.despacho).length,
+    aguardando:REQS.filter(aguardaDespacho).length,
+    celulaHistorica:(()=>{
+      const r=REQS.find(x=>!x.criadaEm && !x.despacho);
+      return celDespacho(r);
+    })(),
+    celulaNova:(()=>{
+      const r=REQS.find(x=>x.criadaEm && !x.despacho);
+      return r ? celDespacho(r) : '';
+    })()
+  }));
+  t('quase tudo veio da planilha e fica quieto', estados.daPlanilha>3000, estados.daPlanilha);
+  t('a célula do histórico é um traço — sem convite e sem cadeado',
+    /cel-vazia/.test(estados.celulaHistorica) && !/despachar|aguardando/.test(estados.celulaHistorica),
+    estados.celulaHistorica);
+  /* 4 semeadas + a que a seção 3 lançou nesta mesma tela. */
+  t('e só as nascidas no sistema pedem decisão',
+    estados.aguardando===5 && /despachar|aguardando/.test(estados.celulaNova), estados);
+  const facetas=await pg.evaluate(()=>{
+    limparFiltros();
+    abrirFiltroCol({stopPropagation(){}, currentTarget:document.querySelector('.cf[data-col="desp"]')}, 'desp');
+    return [...document.querySelectorAll('#popLista .op-txt')].map(e=>e.textContent.trim());
+  });
+  t('e o filtro da coluna separa os três estados',
+    facetas.some(x=>/Aguardando despacho/.test(x)) && facetas.some(x=>/Veio da planilha/.test(x)),
+    facetas.slice(0,9));
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
+
   console.log('\n8) O Diretor: despacha a modalidade, e só');
   /* "somente quem eu poder marcar como o diretor vai poder alterar, e o
      diretor nao vai poder mexer em nenhum campo da planilha, somente
      naquele." É literalmente isto que esta seção confere. */
   const dir=await abrir('diretor', jspdf);
-  await dir.pg.evaluate(()=>{ escolherSecretaria('SMS'); });
-  await dir.pg.waitForTimeout(200);
+  /* Ele não trabalha DENTRO de uma secretaria: trabalha entre elas. A tela
+     abre na fila — o que aguarda despacho, de todas —, senão ele teria de
+     procurar as poucas pendentes no meio de 3,6 mil já contratadas. */
+  const fila=await dir.pg.evaluate(()=>({
+    sec:SEC_ATUAL, mostrando:filtrados.length,
+    todasAguardam:filtrados.every(aguardaDespacho),
+    secretariasNaTela:[...new Set(filtrados.map(r=>r.sec))].length,
+    chip:document.getElementById('chipTotal').textContent,
+    chips:document.getElementById('chipsAtivos').textContent,
+    temX:!!document.querySelector('#chipsAtivos .chip-x')
+  }));
+  t('o Diretor abre na fila dele, não no cadastro inteiro',
+    fila.mostrando>0 && fila.todasAguardam && fila.mostrando<100, fila);
+  t('de todas as secretarias, não de uma', fila.sec==='', fila);
+  t('e o chip do topo conta a fila, não o tamanho do cadastro',
+    /AGUARDANDO DESPACHO/.test(fila.chip), fila.chip);
+  /* Sugestão de abertura, não cela: o filtro aparece nos chips, com o ✕. */
+  t('o filtro fica à vista e dá para tirar',
+    /Aguardando despacho/.test(fila.chips) && fila.temX, fila);
+
   const papel=await dir.pg.evaluate(()=>({
     chip:document.getElementById('authUserChip').textContent,
     dica:document.getElementById('dicaEdicao').textContent,
@@ -462,17 +524,29 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const despachou=await dir.pg.evaluate(id=>
     firebase.firestore().collection('requisicoes').doc(String(id)).get().then(d=>({
       doc:d.data(),
-      naTela:document.querySelector('td[data-id="'+id+'"][data-campo="despacho"]').textContent.trim()
+      aindaNaFila:filtrados.some(r=>r.id===id),
+      fila:filtrados.length
     })), alvo);
   t('o despacho grava a modalidade escolhida',
     despachou.doc.despacho==='Dispensa por limite', despachou.doc);
   t('assinado por quem despachou', despachou.doc.despachoPor==='Pedro Pacífico', despachou.doc);
   t('com a data do despacho', /^\d{4}-\d{2}-\d{2}/.test(despachou.doc.despachoEm||''), despachou.doc);
-  t('e aparece na linha na hora', /Dispensa por limite/.test(despachou.naTela), despachou.naTela);
+  /* Fila é fila: despachou, saiu. É o que faz o Diretor sempre olhar para
+     o que falta, sem ter de lembrar onde parou. */
+  t('e a requisição sai da fila assim que é despachada',
+    !despachou.aindaNaFila && despachou.fila===fila.mostrando-1, despachou);
   t('num clique só — despacho é decisão, não formulário',
     await dir.pg.evaluate(()=>!document.getElementById('despPop').classList.contains('open')));
 
   /* Despachou errado: dá para tirar, e só aí a opção aparece. */
+  /* Ela saiu da fila; para reabri-la, o filtro da própria modalidade — que
+     é como o Diretor reveria um despacho que deu errado. */
+  await dir.pg.evaluate(()=>{
+    limparFiltros();
+    COLF.desp.sel.desp = new Set(['Dispensa por limite']);
+    aplicarFiltros();
+  });
+  await dir.pg.waitForTimeout(250);
   await dir.pg.click('td[data-id="'+alvo+'"][data-campo="despacho"]');
   await dir.pg.waitForTimeout(250);
   const comLimpar=await dir.pg.evaluate(()=>({
@@ -493,6 +567,18 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }, alvo);
   t('mas ele não abre o credor nem chamando editarCelula por fora',
     !naMarra.abriu && !naMarra.podeCredor, naMarra);
+  /* O histórico fica quieto na tela, mas a capacidade não se perde: se um
+     caso antigo precisar mesmo de despacho, a célula abre. */
+  const antiga=await dir.pg.evaluate(()=>{
+    limparFiltros();                 /* sai da fila, vê o cadastro inteiro */
+    /* Uma das que estão DESENHADAS — a tabela só monta as 100 primeiras. */
+    const r=filtrados.slice(0,80).find(x=>!x.criadaEm && !x.despacho);
+    const td=document.querySelector('td[data-id="'+r.id+'"][data-campo="despacho"]');
+    return {traco:/cel-vazia/.test(celDespacho(r)), clicavel:!!(td && td.getAttribute('onclick')),
+            textoNaTela:td ? td.textContent.trim() : null};
+  });
+  t('e uma requisição antiga fica quieta, mas continua abrindo se ele precisar',
+    antiga.traco && antiga.clicavel, antiga);
   t('e a coluna DIRETOR também filtra e sai no relatório',
     /{k:'desp', t:'Despacho do Diretor'/.test(html) && /{t:'Diretor',    w:\d+/.test(html));
   /* Larguras medidas, não chutadas: apertar a coluna de olho produz
