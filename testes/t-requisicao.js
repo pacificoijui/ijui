@@ -218,6 +218,29 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e com o próximo número DELA, não do cadastro inteiro', nova.num===nova.maiorSMS+1, nova);
   t('com a célula da data já aberta para digitar', nova.campoAberto==='recebido', nova);
 
+  /* A requisição chega HOJE — é o dia em que está sendo lançada. Deixar em
+     branco fazia todo mundo digitar a mesma data, todo dia. */
+  const datas=await pg.evaluate(()=>{
+    const r=REQS.find(x=>x._nova);
+    return {recebido:r.recebido, hoje:hojeISO(),
+            noEditor:document.querySelector('td.editando .cel-inp').value};
+  });
+  t('a nova já nasce recebida hoje', datas.recebido===datas.hoje, datas);
+  t('e o campo aberto mostra essa data, pronta para trocar se precisar',
+    datas.noEditor===datas.hoje, datas);
+
+  /* "Falta empenhar" é aviso sobre requisição que EXISTE e está pendente.
+     Numa linha ainda sendo lançada era aviso falso — e em âmbar, gritando,
+     enquanto a pessoa preenchia as primeiras colunas. */
+  const semGrito=await pg.evaluate(()=>{
+    const r=REQS.find(x=>x._nova);
+    return {nova:badgeEmpenho(r), antiga:badgeEmpenho(REQS.find(x=>!x._nova && !x.empenho))};
+  });
+  t('a linha que está nascendo não grita "falta empenhar"',
+    /cel-vazia/.test(semGrito.nova) && !/falta empenhar/.test(semGrito.nova), semGrito.nova);
+  t('mas uma requisição de verdade sem empenho continua avisando',
+    /falta empenhar/.test(semGrito.antiga), semGrito.antiga);
+
   await pg.fill('td.editando .cel-inp', '2026-09-10');
   await pg.keyboard.press('Tab'); await pg.waitForTimeout(250);
   t('Tab salva e anda para a próxima coluna',
@@ -236,7 +259,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   });
   t('a requisição vai se preenchendo campo a campo',
     andou.credor==='FORNECEDOR DE TESTE' && andou.objeto==='OBJETO DE TESTE', andou);
-  t('e enquanto não tem empenho, a linha diz isso', /falta empenhar/.test(andou.naTela), andou.naTela.slice(0,90));
+  /* Enquanto ela está sendo lançada, a coluna do empenho espera quieta —
+     o aviso de pendência é sobre requisição que já existe, não sobre uma
+     que a pessoa ainda está digitando. */
+  t('e a coluna do empenho não grita pendência no meio do lançamento',
+    !/falta empenhar/.test(andou.naTela), andou.naTela.slice(0,90));
   t('o credor entra em maiúsculas, como o resto do cadastro', andou.credor===andou.credor.toUpperCase());
 
   /* Etapa seguinte, dias depois: o empenho chega. */
@@ -261,6 +288,37 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     fichaAberta:document.getElementById('ovDet').classList.contains('open')}), idNova);
   t('Esc desiste da edição sem gravar', escapou.credor==='FORNECEDOR DE TESTE', escapou);
   t('e Esc na célula não fecha mais nada por tabela', !escapou.fichaAberta, escapou);
+
+  console.log('\n3a2) As datas abrem em hoje, e continuam sendo escolha de quem preenche');
+  /* Contabilidade é etapa posterior: não se preenche no nascimento, mas
+     quando alguém marca, é o dia de hoje. */
+  await pg.click('td[data-id="'+idNova+'"][data-campo="contabilidade"]');
+  await pg.waitForTimeout(250);
+  t('campo de data vazio abre em hoje',
+    (await pg.evaluate(()=>document.querySelector('td.editando .cel-inp').value))
+      === (await pg.evaluate(()=>hojeISO())));
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(350);
+  t('e um Enter grava a data de hoje',
+    (await pg.evaluate(i=>REQS.find(r=>r.id===i).contabilidade, idNova))
+      === (await pg.evaluate(()=>hojeISO())));
+  /* Automático não é imposto. */
+  await pg.click('td[data-id="'+idNova+'"][data-campo="contabilidade"]');
+  await pg.waitForTimeout(250);
+  await pg.fill('td.editando .cel-inp','2026-03-15');
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(350);
+  t('mas dá para trocar a data, que é o ponto',
+    (await pg.evaluate(i=>REQS.find(r=>r.id===i).contabilidade, idNova))==='2026-03-15');
+  /* E uma data que já existe não é sobrescrita por hoje ao abrir. */
+  const jaTinha=await pg.evaluate(()=>{
+    const r=filtrados.find(x=>x.recebido && !x._nova);
+    const td=document.querySelector('td[data-id="'+r.id+'"][data-campo="recebido"]');
+    editarCelula(td);
+    const v=document.querySelector('td.editando .cel-inp').value;
+    fecharEdicao(false);
+    return {guardada:r.recebido, noEditor:v};
+  });
+  t('e data já preenchida abre na data dela, não em hoje',
+    jaTinha.noEditor===jaTinha.guardada, jaTinha);
 
   console.log('\n3b) A célula abre com um clique, e não se fecha sozinha');
   /* A moldura azul que seguia o mouse cansava a vista e não dizia nada que

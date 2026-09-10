@@ -1674,10 +1674,16 @@ function renderFiltrosMobile(){
 }
 
 /* ══════════════ TABELA ══════════════ */
+/* "Falta empenhar" é um aviso sobre uma requisição que EXISTE e está
+   pendente. Numa linha que ainda está sendo lançada — a pessoa preencheu a
+   data e está na terceira coluna — o aviso é falso: não falta nada, ela
+   ainda nem chegou lá. E ficava em âmbar, gritando, enquanto ela digitava.
+   Enquanto a linha é nova, a coluna espera quieta como qualquer campo
+   vazio; o aviso volta assim que ela deixa de estar em lançamento. */
 function badgeEmpenho(r){
-  return r.empenho
-    ? '<span class="badge badge-ok">'+esc(r.empenho)+'</span>'
-    : '<span class="badge badge-falta">falta empenhar</span>';
+  if(r.empenho) return '<span class="badge badge-ok">'+esc(r.empenho)+'</span>';
+  if(r._nova) return vazio();
+  return '<span class="badge badge-falta">falta empenhar</span>';
 }
 /* Cada célula carrega o campo que representa: é o que permite editar no
    lugar, com dois cliques, em vez de abrir um formulário. A requisição vai
@@ -1838,7 +1844,9 @@ function novaRequisicao(){
   const r = {
     id: proximoId(), sec: sec, ano: ano,
     num: sec ? proximoNumero(sec, ano) : null, sufixo: '',
-    recebido: null, credor: '', objeto: '', valor: null,
+    /* Nasce recebida hoje: é o dia em que ela está sendo lançada. Um clique
+       na célula muda, se tiver chegado antes. */
+    recebido: hojeISO(), credor: '', objeto: '', valor: null,
     modalidade: '', empenho: '', contabilidade: '',
     /* A data de nascimento é o que põe esta requisição no fluxo do
        despacho — e distingue as daqui das que vieram da planilha. */
@@ -1985,10 +1993,19 @@ document.addEventListener('mousedown', e=>{
   if(alvo){ e.preventDefault(); setTimeout(()=>focarCelula(alvo.id, alvo.campo, false), 0); }
 }, true);
 
+/* Hoje, em ISO — é o que os campos de data oferecem quando estão vazios. */
+function hojeISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')
+       + '-' + String(d.getDate()).padStart(2,'0');
+}
 function editorHTML(r, campo){
   const v = x => x==null ? '' : String(x);
+  /* Data vazia abre em HOJE: a requisição chega hoje, e vai para a
+     contabilidade no dia em que alguém marca isso. Quem precisa de outra
+     data troca ali mesmo — o campo continua sendo um seletor de data. */
   if(campo==='recebido' || campo==='contabilidade')
-    return '<input class="cel-inp" type="date" value="'+v(r[campo])+'">';
+    return '<input class="cel-inp" type="date" value="'+(v(r[campo]) || hojeISO())+'">';
   if(campo==='valor')
     return '<input class="cel-inp" inputmode="decimal" placeholder="0,00" value="'
          + (r.valor==null?'':fmtValorCampo.format(r.valor))+'">';

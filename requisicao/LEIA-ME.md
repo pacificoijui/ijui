@@ -27,6 +27,13 @@ de lançamento.
 
 - **＋ Nova requisição** abre uma linha no alto, já na secretaria escolhida
   na faixa e com o próximo número dela, com a célula da data aberta.
+- As **datas abrem em hoje**: a requisição nasce recebida no dia em que está
+  sendo lançada, e o campo de contabilidade, quando vazio, abre no dia de
+  hoje — um Enter e está gravado. Automático não é imposto: a data continua
+  sendo um seletor, e trocar é um clique.
+- Enquanto a linha está **sendo lançada**, a coluna do empenho espera quieta.
+  "Falta empenhar" é aviso sobre requisição que já existe e está pendente;
+  numa linha que a pessoa ainda está digitando era aviso falso, e em âmbar.
 - **Um clique** em qualquer célula abre aquele campo para preencher, e
   clicar direto noutra célula salva esta e abre aquela — sem clicar duas
   vezes em nada.
