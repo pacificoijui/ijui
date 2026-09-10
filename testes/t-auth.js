@@ -369,6 +369,60 @@ async function entrarComGoogle(pg, user){
   t('e o resumo de acessos diz isso por extenso',
     /Requisições \(diretor\)/.test(await pgRq.evaluate(()=>authResumoAcessos({requisicao:'diretor'}))));
 
+  console.log('\n10bis) A tela mostra a lista inteira, e o convite tem os mesmos painéis');
+  /* Duas coisas que quebraram ao tirar o painel de dentro do modal e pôr
+     numa página só. */
+  const pgTela=await b.newPage({viewport:{width:1280,height:1000}});
+  await abrirUsuarios(pgTela, {usuarios_v2:{
+    'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true,
+               acessos:{agenda:'editar',pregoeiro:'editar',contratos:'editar',requisicao:'editar'}, provedor:'google.com'},
+    'u-a':{email:'a@ijui.rs.gov.br', nome:'Ana',    status:'aprovado', isAdmin:false, provedor:'password',
+           acessos:{agenda:'editar',pregoeiro:'ver',contratos:'editar',requisicao:'nenhum'}},
+    'u-b':{email:'b@ijui.rs.gov.br', nome:'Bianca', status:'aprovado', isAdmin:false, provedor:'password',
+           acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'nenhum',requisicao:'diretor'}},
+    'u-c':{email:'c@ijui.rs.gov.br', nome:'Carla',  status:'aprovado', isAdmin:false, provedor:'password',
+           acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'editar',requisicao:'editar'}},
+    'u-d':{email:'d@ijui.rs.gov.br', nome:'Dora',   status:'aprovado', isAdmin:false, provedor:'password',
+           acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'ver',requisicao:'ver'}}}},
+    {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  /* Dentro do modal, 220px com rolagem própria fazia sentido. Numa página
+     inteira, a caixinha cortava a terceira pessoa no meio, sem barra à
+     vista — e quem rolava a página não via nada acontecer. */
+  const lista=await pgTela.evaluate(()=>{
+    const l=document.getElementById('usrAprovadosLista');
+    return {cortada:l.scrollHeight>l.clientHeight+1, linhas:l.querySelectorAll('.usr-row').length,
+      ultima:!!document.getElementById('aprRq_u-d')};
+  });
+  t('a lista de usuários cresce em vez de virar uma caixinha com rolagem',
+    !lista.cortada && lista.linhas===5, lista);
+  t('e a última pessoa da lista está lá inteira, com os seletores dela',
+    lista.ultima, lista);
+
+  /* O formulário de convite tinha os painéis escritos à mão no HTML: ficou
+     nos três antigos quando as Requisições entraram, e todo convite
+     preparado nascia sem elas, sem nada na tela dizendo por quê. */
+  const convite=await pgTela.evaluate(()=>({
+    selects:[...document.querySelectorAll('#cvNiveis select')].map(s=>s.id),
+    opcoesRq:[...(document.getElementById('cvRq')||{options:[]}).options].map(o=>o.value)
+  }));
+  t('o convite por e-mail oferece os mesmos quatro painéis das linhas',
+    convite.selects.join('|')==='cvAg|cvPr|cvCt|cvRq', convite);
+  t('com o nível Diretor entre eles, como no resto da tela',
+    convite.opcoesRq.join('|')==='nenhum|ver|editar|diretor', convite);
+  t('e nenhum painel escrito à mão sobrou no HTML do convite',
+    !/<select id="cv(Ag|Pr|Ct|Rq)"/.test(fs.readFileSync('../usuarios/index.html','utf8')));
+
+  await pgTela.evaluate(()=>{
+    document.getElementById('cvNome').value='Nova Diretora';
+    document.getElementById('cvEmail').value='diretora@ijui.rs.gov.br';
+    document.getElementById('cvRq').value='diretor';
+    convitesSalvar();
+  });
+  await pgTela.waitForTimeout(500);
+  const guardado=await pgTela.evaluate(()=>Object.values(window.__STORE.usuarios_v2_convites||{})[0]);
+  t('e um convite preparado como Diretor grava isso mesmo',
+    guardado && guardado.acessos.requisicao==='diretor', guardado);
+
   console.log('\n10c) A tela de Usuários é só de administrador');
   /* Ela deixou de ser um botão escondido no meio do Sistema Interno: quem
      não é administrador e abre o endereço recebe um recado, não o painel. */
