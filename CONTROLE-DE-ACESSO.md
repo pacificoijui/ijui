@@ -265,22 +265,53 @@ O backup automático (GitHub Actions, `.github/workflows/backup-firestore.yml`)
 lia as coleções com a chave web pública. **Isso parou de funcionar quando as
 regras foram fechadas** — listar coleção passou a exigir conta aprovada.
 Agora ele entra com uma conta admin do próprio sistema, e para isso precisa
-de dois secrets no repositório:
+de dois secrets no repositório.
 
-1. Crie uma conta de e-mail/senha só para isso (na tela de login, "Criar uma
-   conta" — pode ser um e-mail seu com `+backup`, tipo
-   `seuemail+backup@gmail.com`), e **aprove como administrador** no painel
-   Usuários. Precisa ser admin porque o backup também copia o cadastro de
-   contas.
-2. No GitHub: **Settings → Secrets and variables → Actions → New repository
+### Por que não dá para usar a sua conta
+
+O backup entra pela API `accounts:signInWithPassword` — **e-mail e senha**.
+Quem entra no sistema **pelo Google não tem senha no Firebase**: não existe
+senha para pôr no secret. A conta de quem administra o dia a dia costuma ser
+justamente essa, então ela não serve aqui — não é preferência, é técnico.
+
+E mesmo com uma conta admin de e-mail/senha nas mãos, usar a sua seria ruim:
+a senha vira um secret do repositório (quem tiver admin no GitHub pode
+trocá-la, e um workflow novo pode imprimi-la), o backup para calado no dia em
+que você mudar a sua senha, e o log passa a registrar você entrando todo dia
+às 3 da manhã.
+
+### O caminho
+
+1. Crie uma conta de e-mail/senha **só para isso**, na tela de login →
+   "Criar uma conta". O truque do `+` do Gmail resolve o incômodo:
+   `seuemail+backup@gmail.com` chega na sua caixa normal, mas para o
+   Firebase é outra conta, com senha própria — uma senha que você inventa,
+   usa só ali e não digita em lugar nenhum.
+2. Em **`/usuarios/`**, aprove essa conta e marque **☑ Administrador**.
+   Precisa ser admin porque o backup também copia o cadastro de contas
+   (`usuarios_v2`), que só admin consegue listar.
+3. No GitHub: **Settings → Secrets and variables → Actions → New repository
    secret**, criando dois:
    - `BACKUP_EMAIL` — o e-mail dessa conta
    - `BACKUP_SENHA` — a senha dela
-3. Rode uma vez na mão para conferir: aba **Actions** → "Backup diário do
+4. Rode uma vez na mão para conferir: aba **Actions** → "Backup diário do
    Firestore" → **Run workflow**.
 
 Sem esses secrets o backup falha com a mensagem explicando isso — de
 propósito, para não gravar um backup vazio achando que está tudo bem.
+
+### A lista de coleções envelhece calada
+
+A API REST do Firestore não lista coleções sem credencial de administrador do
+Google Cloud, então `backup-firestore.mjs` traz a lista **escrita à mão**.
+Coleção nova entra no sistema, ninguém lembra do backup, e o job segue verde
+copiando tudo menos ela — aconteceu com `editais` e de novo com
+`requisicoes`.
+
+`testes/t-backup.js` é o alarme: ele lê os `match /X/{id}` deste arquivo de
+regras (que é a lista de verdade do que existe) e compara com a lista do
+script. Coleção com regra e sem backup faz o teste falhar dizendo o nome
+dela e onde acrescentar.
 
 ## Requisições — e o quarto nível, "Diretor"
 

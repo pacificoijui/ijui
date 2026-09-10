@@ -45,6 +45,7 @@ const LICITACOES = [
   "usuarios_v2_convites",
   "contratos",
   "contratos_historico",  // quem editou o que, e o desfazer: some sozinho em 365 dias
+  "requisicoes",          // as requisicoes das secretarias, com o despacho do Diretor
   "status",
   "agentes",
   "observacoes",
@@ -114,6 +115,11 @@ async function entrar(chave) {
       "com uma conta admin do sistema. Ver CONTROLE-DE-ACESSO.md, secao \"Backup diario\"."
     );
   }
+  // Tem de ser conta de E-MAIL/SENHA. Conta que entra pelo Google nao tem
+  // senha no Firebase — nao existe senha para por no secret —, entao a conta
+  // de quem administra o sistema no dia a dia normalmente NAO serve aqui.
+  // Crie uma so para o backup (o truque do "+" do Gmail resolve:
+  // fulano+backup@gmail.com chega na mesma caixa e e outra conta).
   const r = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${chave}`,
     {
@@ -147,8 +153,8 @@ async function buscarJson(url, tentativa = 1) {
   if (res.status === 403 || res.status === 401) {
     throw new Error(
       `sem permissao para ler ${url.split("/documents/")[1]?.split("?")[0] || url}.\n` +
-      "A conta em BACKUP_EMAIL precisa ser ADMIN do sistema (o painel Usuarios,\n" +
-      "dentro do Sistema Interno, marca isso). Ver CONTROLE-DE-ACESSO.md."
+      "A conta em BACKUP_EMAIL precisa ser ADMIN do sistema (a tela /usuarios/\n" +
+      "marca isso, na linha da conta). Ver CONTROLE-DE-ACESSO.md."
     );
   }
   if (!res.ok) throw new Error(`HTTP ${res.status} em ${url}`);
