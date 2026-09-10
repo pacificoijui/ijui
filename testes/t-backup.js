@@ -86,10 +86,37 @@ t('o backup roda depois de a cota do Firestore virar, e não antes',
   {cron, pacifico_verao:pdt, pacifico_inverno:pst});
 t('e ainda de madrugada no Brasil, com o sistema parado', br >= 0 && br < 7, {brasilia:br});
 
-/* Esperar 12 segundos e desistir é o que fazia sentido para um soluço de
-   rede. Cota não passa em 12 segundos. */
-t('429 espera de verdade antes de desistir — minutos, não segundos',
-  /COTA_ESPERAS = \[30000, 60000, 120000, 240000\]/.test(script));
+/* Semanal, no sábado, por decisão de quem cuida do sistema: aqui o backup é
+   a segunda rede. A primeira, contra o que mais acontece de verdade — uma
+   edição errada —, é o histórico dos contratos com desfazer. */
+const diaSemana = (cron.split(' ')[4] || '').trim();
+t('roda uma vez por semana, no sábado', diaSemana === '6', {cron});
+/* 09:00 UTC no sábado ainda é sábado em Brasília e no Pacífico: uma hora
+   mais cedo e o backup cairia na sexta de lá, dentro do expediente. */
+t('e é sábado nos três fusos, sem virar o dia', hora - 8 >= 0 && hora < 24,
+  {utc:hora, brasilia:br, pacifico_inverno:pst});
+/* O buraco de até 7 dias entre um backup e o seguinte se fecha rodando na
+   mão antes do que é arriscado — e para isso o botão precisa existir. */
+t('e dá para rodar na mão antes de uma importação ou migração',
+  /workflow_dispatch:/.test(fluxo));
+t('com o porquê e o quando escritos no próprio fluxo, não só aqui',
+  /SEMANAL, e nao diario/.test(fluxo) && /RODE NA MAO/.test(fluxo));
+
+/* 429 são dois problemas com a mesma cara, e a escada tem de servir aos
+   dois: o limite por minuto da REST, que se recompõe em segundos e é o
+   caso comum, e a cota diária estourada, que não passa em minuto nenhum.
+   Começar por 30s fazia o backup levar uns 20 minutos e ser cancelado na
+   mão achando que tinha travado. */
+const escada = (script.match(/COTA_ESPERAS = \[([^\]]+)\]/) || [])[1] || '';
+const ms = escada.split(',').map(function(n){ return Number(n.trim()); });
+t('a escada do 429 começa curta, para o caso comum passar despercebido',
+  ms.length >= 4 && ms[0] > 0 && ms[0] <= 5000, ms);
+t('e vai longe o bastante para cobrir a cota diária, sem desistir cedo',
+  ms.reduce(function(a,b){ return a+b; }, 0) >= 240000, ms);
+t('cada degrau é maior que o anterior',
+  ms.every(function(v,i){ return i===0 || v>ms[i-1]; }), ms);
+/* Uma pausa entre coleções sai mais barata do que levar o 429 e esperar. */
+t('e há um respiro entre uma coleção e a seguinte', /await espera\(700\)/.test(script));
 t('e o soluço de rede continua com a espera curta, que é outro problema',
   /REDE_TENTATIVAS = 4/.test(script));
 t('o recado do 429 explica que não é credencial e diz quando tentar de novo',

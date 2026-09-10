@@ -139,13 +139,22 @@ const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 //
 // Soluco de rede ou 5xx passa em segundos: 4 tentativas curtas resolvem.
 //
-// 429 e a cota do Firestore dizendo "chega" — nao passa em 12 segundos, que
-// era o que o backup esperava antes de desistir e perder o dia inteiro. Aqui
-// ele espera de verdade: 30s, 60s, 120s, 240s, ate uns 8 minutos no total. Se
-// for um pico de uso, passa; se for a cota DIARIA estourada, nao passa mesmo,
-// e ai o recado abaixo diz o que fazer em vez de deixar um "HTTP 429" seco.
+// 429 sao DOIS problemas com a mesma cara, e a espera precisa servir aos
+// dois:
+//
+//   · o limite por minuto da API REST, que se recompoe em SEGUNDOS. E o
+//     comum: cada colecao leva um 429 na cara e passa na tentativa
+//     seguinte. Comecar esperando 30s aqui fazia o backup inteiro levar
+//     uns 20 minutos, e foi cancelado na mao achando que tinha travado;
+//   · a cota DIARIA estourada (plano Spark), que nao passa em minuto
+//     nenhum — so a meia-noite do Pacifico.
+//
+// Por isso a escada comeca curta e vai longe: 3s resolve o caso comum sem
+// ninguem perceber, e quem chegar ao fim dos 5 minutos e porque bateu no
+// segundo caso — ai o recado abaixo diz o que fazer, em vez de deixar um
+// "HTTP 429" seco no log.
 const REDE_TENTATIVAS = 4;
-const COTA_ESPERAS = [30000, 60000, 120000, 240000];
+const COTA_ESPERAS = [3000, 8000, 20000, 45000, 90000, 180000];
 
 async function buscarJson(url, tentativa = 1, esperaCota = 0) {
   let res;
@@ -265,7 +274,12 @@ async function main() {
     const destino = join(saida, dia, fonte.projeto);
     mkdirSync(join(destino, "raw"), { recursive: true });
     const contagem = {};
+    let primeira = true;
     for (const nome of fonte.colecoes) {
+      // Um respiro entre colecoes. Sai mais barato nao tropecar no limite
+      // por minuto do que levar o 429 e ter de esperar a escada inteira.
+      if (!primeira) await espera(700);
+      primeira = false;
       const { docs, docsBrutos } = await baixarColecao(nome, fonte.projeto, fonte.chave);
       writeFileSync(
         join(destino, `${nome}.json`),

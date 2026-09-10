@@ -2,7 +2,18 @@ name: Backup diário do Firestore
 
 on:
   schedule:
-    # 09:00 UTC = 06:00 em Brasília, quando ninguém está mexendo no sistema.
+    # Sabado, 09:00 UTC = 06:00 de sabado em Brasilia — ninguem no sistema.
+    #
+    # SEMANAL, e nao diario, por decisao de quem cuida do sistema: o backup
+    # aqui e a segunda rede, nao a primeira. A primeira, contra o que mais
+    # acontece (edicao errada), e o historico de edicoes dos contratos, com
+    # desfazer, que guarda 365 dias. O preco de ser semanal esta anotado e e
+    # real: entre um backup e o seguinte cabem ate 7 dias de lancamento.
+    #
+    # Antes de qualquer coisa arriscada — importacao grande, migracao,
+    # limpeza em massa — RODE NA MAO primeiro, pelo botao "Run workflow"
+    # abaixo. E o que fecha o buraco dos 7 dias exatamente quando ele
+    # importa.
     #
     # A hora nao e so pelo Brasil: a cota diaria do Firestore vira a
     # MEIA-NOITE DO PACIFICO, e o backup rodava as 23:00 de la — na ultima
@@ -10,7 +21,7 @@ on:
     # dia todo. Deu HTTP 429 no meio do backup. Agora ele roda as 01:00 ou
     # 02:00 do Pacifico (conforme o horario de verao de la), logo depois de
     # a cota zerar, com o dia inteiro pela frente.
-    - cron: "0 9 * * *"
+    - cron: "0 9 * * 6"
   # Permite rodar na hora, pelo botão "Run workflow" na aba Actions.
   workflow_dispatch:
 
@@ -49,6 +60,10 @@ jobs:
         with:
           name: backup-firestore-${{ steps.nome.outputs.dia }}
           path: backup/
+          # Semanal: 90 dias guardavam ~90 backups diarios e agora guardariam
+          # so 13. O teto do GitHub e 90 dias, entao quem cobre o passado
+          # longo e o repositorio privado abaixo — nele cada backup e um
+          # commit, e o historico do git nao expira.
           retention-days: 90
           if-no-files-found: error
 

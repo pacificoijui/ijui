@@ -261,6 +261,26 @@ guarda quem era na hora da edição, que é o que um histórico deve fazer.
 
 ## Backup diário
 
+### Quando roda, e o que ele cobre
+
+**Sábado de manhã, uma vez por semana.** É a segunda rede de proteção, não a
+primeira: contra o que mais acontece de verdade — alguém editar um contrato
+errado — quem responde é o **histórico de edições**, que guarda 365 dias e
+tem botão de desfazer. O backup existe para o que o histórico não alcança:
+uma importação que sobrescreve em massa, uma conta comprometida, um bug numa
+gravação.
+
+O preço de ser semanal é real e está aqui para ninguém se surpreender:
+**entre um backup e o seguinte cabem até 7 dias de lançamento**. Se algo
+assim acontecer numa quinta, o backup mais novo é do sábado anterior.
+
+Por isso: **antes de qualquer coisa arriscada — importação grande, migração,
+limpeza em massa — rode o backup na mão**, em Actions → "Backup diário do
+Firestore" → **Run workflow**. É o que fecha esse buraco exatamente quando
+ele importa.
+
+### Como ele entra no banco
+
 O backup automático (GitHub Actions, `.github/workflows/backup-firestore.yml`)
 lia as coleções com a chave web pública. **Isso parou de funcionar quando as
 regras foram fechadas** — listar coleção passou a exigir conta aprovada.
@@ -314,12 +334,22 @@ Duas coisas causaram isso, e as duas estão consertadas:
   dia todo. Agora roda às 09:00 UTC (06:00 em Brasília, 01:00 ou 02:00 no
   Pacífico), logo depois de a cota zerar.
 - **A paciência.** Diante de um 429 o script esperava 12 segundos e desistia,
-  perdendo o backup do dia. Agora espera 30s, 60s, 120s e 240s — se for pico
-  de uso, passa. Se não passar, o recado diz que não é credencial, quando
-  tentar de novo, e onde olhar.
+  perdendo o backup do dia. Agora a escada começa em 3s e vai até 180s. O
+  começo curto é de propósito: 429 são **dois** problemas com a mesma cara —
+  o limite por minuto da API REST, que se recompõe em segundos e é o caso
+  comum, e a cota diária estourada, que não passa em minuto nenhum. Uma
+  escada que começava em 30s fazia o backup inteiro levar uns 20 minutos e
+  ser cancelado na mão, achando que tinha travado. Se chegar ao fim da
+  escada, o recado diz que não é credencial, quando tentar de novo, e onde
+  olhar.
 
-**Mas o pano de fundo continua**, e vale saber antes que apareça de novo: as
-duas telas grandes carregam a coleção inteira a cada abertura.
+O projeto passou para o plano **Blaze** depois disso, o que tira a parede da
+cota diária: passando do limite gratuito, o excedente é cobrado (centavos, no
+volume deste sistema) em vez de o banco parar de responder.
+
+**Mas o pano de fundo continua**, e vale saber antes de abrir o sistema para
+mais secretarias: as duas telas grandes carregam a coleção inteira a cada
+abertura.
 
 | | leituras por abertura |
 |---|---|
