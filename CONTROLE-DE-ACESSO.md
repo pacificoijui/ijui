@@ -423,6 +423,13 @@ pessoa nem viu. `testes/t-regras.mjs` confere cada um desses casos no
 emulador oficial do Firestore, e `testes/t-requisicao.js` confere o que a
 tela deixa clicar.
 
+A mesma divisão vale no **registro de atividades**
+(`requisicoes_historico`): quem preenche desfaz o que preencheu, e só o
+Diretor desfaz um despacho — senão o desfazer seria o buraco por onde a
+trava vaza. E as regras deixam **tanto quem edita quanto o Diretor**
+gravarem registro: se só "editar" pudesse, o ato que mais precisa de rastro
+seria justamente o único sem nenhum.
+
 O administrador é o único que acumula: ele pode despachar e preencher —
 poderia se marcar Diretor a qualquer momento, então negar seria só somar um
 passo.
