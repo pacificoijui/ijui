@@ -1,6 +1,6 @@
 # Requisições a conferir
 
-Gerado a partir da planilha em 09/09/2026. São 64 registros em que a planilha estava ambígua e o conversor teve de decidir, mais 90 número(s) repetido(s) dentro da mesma secretaria.
+Gerado a partir da planilha em 10/09/2026. São 64 registros em que a planilha estava ambígua e o conversor teve de decidir, mais 91 número(s) repetido(s) dentro da mesma secretaria.
 
 ## Onde o conversor teve de decidir
 
@@ -71,7 +71,7 @@ Gerado a partir da planilha em 09/09/2026. São 64 registros em que a planilha e
 | SMEL | **011/2026** | requisição | `01/11/2026 (virou data no Excel)` | **011/2026** |
 | SMEL | **012/2026** | requisição | `01/12/2026 (virou data no Excel)` | **012/2026** |
 
-## Número repetido na mesma secretaria (90)
+## Número repetido na mesma secretaria (91)
 
 A planilha traz mais de uma linha com o mesmo número. Entraram todas.
 
@@ -93,6 +93,7 @@ A planilha traz mais de uma linha com o mesmo número. Entraram todas.
 | SMDS | **210/2026** | 2 |
 | SMDS | **217/2026** | 2 |
 | SMDS | **266/2026** | 2 |
+| SMDS | **329/2026** | 2 |
 | SMEL | **023/2026** | 2 |
 | SMEL | **063/2026** | 2 |
 | SMEL | **114/2026** | 2 |
