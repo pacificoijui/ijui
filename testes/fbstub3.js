@@ -18,7 +18,9 @@
   var STORE={}, LISTENERS={};
   function notifyCollection(name){
     var items=Object.keys(STORE[name]||{}).map(function(id){ return {id:id, data:STORE[name][id]}; });
-    (LISTENERS[name]||[]).forEach(function(cb){ cb(makeSnap(items, name)); });
+    /* Listener de coleção recebe a leva pronta; listener de CONSULTA monta a
+       dele (a função não usa o argumento e refaz os filtros). */
+    (LISTENERS[name]||[]).slice().forEach(function(cb){ cb(makeSnap(items, name)); });
   }
   function collection(name){
     STORE[name]=STORE[name]||{};
@@ -158,6 +160,26 @@
   /* Consulta com where/orderBy/limit encadeáveis, resolvida no .get(). */
   function makeQuery(name, filtros, ordem, lim, depois){
     function valorDe(v){ return (v && typeof v.toDate === 'function') ? v.toDate().getTime() : v; }
+    /* Aplica os where/orderBy/limit a uma lista de itens. Serve ao get() e
+       ao onSnapshot da consulta, que precisam concordar. */
+    function aplicar(items){
+      filtros.forEach(function(f){
+        items=items.filter(function(it){
+          var a=valorDe(it.data[f.campo]), b=valorDe(f.valor);
+          if(f.op==='<')  return a<b;
+          if(f.op==='<=') return a<=b;
+          if(f.op==='>')  return a>b;
+          if(f.op==='>=') return a>=b;
+          return a===b;
+        });
+      });
+      if(ordem) items.sort(function(x,y){
+        var a=valorDe(x.data[ordem.campo]), b=valorDe(y.data[ordem.campo]);
+        var r = a<b ? -1 : a>b ? 1 : 0;
+        return ordem.dir==='desc' ? -r : r;
+      });
+      return items;
+    }
     var api={
       where:function(campo,op,valor){ return makeQuery(name, filtros.concat([{campo:campo,op:op,valor:valor}]), ordem, lim, depois); },
       orderBy:function(campo,dir){ return makeQuery(name, filtros, {campo:campo,dir:dir||'asc'}, lim, depois); },
@@ -165,6 +187,24 @@
       /* startAfter: continua a lista de onde a página anterior parou — é
          como o histórico dos contratos busca as edições mais antigas. */
       startAfter:function(v){ return makeQuery(name, filtros, ordem, lim, v); },
+      /* Consulta AO VIVO. A tela de requisições lê só um recorte do banco
+         (este mês e o anterior; o ano, quando se busca) — sem isto o stub
+         entregaria a coleção inteira e o teste do recorte passaria sem
+         testar nada, que é o defeito que ele existe para pegar. */
+      onSnapshot:function(cb, erro){
+        function entregar(){
+          STORE[name]=STORE[name]||{};
+          var items=aplicar(Object.keys(STORE[name]).map(function(id){
+            return {id:id, data:STORE[name][id]};
+          }));
+          if(lim) items=items.slice(0, lim);
+          try{ cb(makeSnap(items, name)); }catch(e){ if(erro) erro(e); else throw e; }
+        }
+        LISTENERS[name]=LISTENERS[name]||[];
+        LISTENERS[name].push(entregar);
+        setTimeout(entregar, 10);
+        return function(){ var i=LISTENERS[name].indexOf(entregar); if(i>=0) LISTENERS[name].splice(i,1); };
+      },
       get:function(){
         STORE[name]=STORE[name]||{};
         var items=Object.keys(STORE[name]).map(function(id){ return {id:id,data:STORE[name][id]}; });

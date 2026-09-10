@@ -584,6 +584,14 @@
     padding: 7px 15px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
     padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
+  /* O recorte que está carregado, e o convite para pedir mais. Fica ao lado
+     da contagem porque é o que dá sentido a ela. */
+  .escopo { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .escopo-txt b { color: var(--navy); font-weight: 700; }
+  .escopo-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px;
+    padding: 3px 11px; font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    transition: border-color .15s, background .15s; white-space: nowrap; }
+  .escopo-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
   .dica-edicao { font-size: 11.5px; color: var(--muted); font-style: italic; }
   @media (max-width: 900px) { .dica-edicao { display: none; } }
 
@@ -707,6 +715,9 @@
 
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
+    <!-- Diz que pedaço do banco está na mão, e como pedir mais. Sem isto,
+         "312 requisições" pareceria o cadastro inteiro. -->
+    <div class="escopo" id="escopo"></div>
     <span class="dica-edicao" id="dicaEdicao">clique numa célula para preencher</span>
     <div class="chips" id="chipsAtivos"></div>
     <div class="toolbar-right">
@@ -1092,6 +1103,50 @@ let REQS = [];
 let SECRETARIAS = [];
 let FONTE_DADOS = 'nenhuma';
 
+/* ══════════════ QUANTO DO BANCO A TELA PUXA ══════════════
+   A tela carregava a coleção inteira a cada visita. Com 3,6 mil requisições
+   já custa; com cinco anos de cadastro seriam 20 mil documentos lidos toda
+   vez que alguém aperta F5 para olhar o mês corrente. E o preço cresce
+   sozinho: quem abrir a tela em 2030 paga por 2026.
+
+   Então a tela pede ao banco em três degraus, e sobe um degrau só quando
+   quem está usando faz algo que precisa de mais. O que não é pedido não é
+   lido nem cobrado — são consultas ao Firestore (where), não filtro de tela.
+
+     recentes  abrir o sistema      este mês e o anterior
+     ano       buscar ou filtrar    o ano corrente inteiro
+     tudo      o botão              o cadastro, todos os anos
+
+   Sobe sozinho e não desce: quem já pagou pela leitura não paga de novo
+   dentro da mesma visita.
+
+   Cada degrau tem uma consulta a mais para o que ficaria de fora por ser
+   nulo — where('recebido','>=',...) não casa com data em branco, e é
+   justamente em branco que nasce uma requisição enquanto está sendo
+   lançada. Sumir com ela no instante em que é criada seria o pior defeito
+   possível numa tela de lançamento. */
+const MESES_NOME = ['janeiro','fevereiro','março','abril','maio','junho','julho',
+                    'agosto','setembro','outubro','novembro','dezembro'];
+const ANO_ATUAL = new Date().getFullYear();
+const ESCOPOS = ['recentes', 'ano', 'tudo'];
+let ESCOPO = 'recentes';
+let _buscandoMais = false;
+
+/* Primeiro dia do mês anterior, em ISO — a fronteira do degrau de baixo. */
+function inicioDaJanela(){
+  const d = new Date();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+}
+function nomeDoEscopo(){
+  if(ESCOPO === 'tudo') return 'todos os anos';
+  if(ESCOPO === 'ano')  return String(ANO_ATUAL);
+  const d = new Date(), m = d.getMonth();
+  const nome = i => MESES_NOME[(i+12)%12];
+  return nome(m) + ' e ' + nome(m-1);
+}
+
 function carregarDoArquivo(){
   return fetch('dados/requisicoes.json', {cache:'no-cache'}).then(r => {
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -1121,17 +1176,75 @@ function iniciarListenerRequisicoes(){
   arquivoDoRepositorio()
     .then(d => { SECRETARIAS = d.secretarias || []; })
     .catch(e => console.warn('lista de secretarias:', e.message))
-    .then(() => {
-      let primeira = true;
-      firebase.firestore().collection('requisicoes').onSnapshot(snap => {
-        const lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-        if(!lista.length && primeira){ telaBancoVazio(); conferirImportacao(); return; }
-        FONTE_DADOS = 'firestore';
-        if(primeira){ primeira = false; montarPrimeiraCarga(lista); }
-        else reaplicarAoVivo(lista);
-        conferirImportacao();
-      }, e => mostrarErroCarregar(e));
-    });
+    .then(ligarConsultas);
+}
+
+let _desligar = [];
+let _primeiraCarga = true;
+function ligarConsultas(){
+  _desligar.forEach(f => f());
+  _desligar = [];
+  const col = firebase.firestore().collection('requisicoes');
+  /* Duas consultas no modo econômico, uma só quando se pede tudo. As levas
+     chegam separadas e a tela só se monta com todas na mão — senão a
+     primeira apareceria sozinha e a segunda piscaria por cima. */
+  const consultas = ESCOPO === 'tudo' ? [col]
+    : ESCOPO === 'ano'
+      ? [col.where('ano', '==', ANO_ATUAL), col.where('ano', '==', null)]
+      : [col.where('recebido', '>=', inicioDaJanela()), col.where('recebido', '==', null)];
+  const levas = consultas.map(() => null);
+  consultas.forEach((q, i) => {
+    _desligar.push(q.onSnapshot(snap => {
+      levas[i] = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+      if(levas.some(l => l === null)) return;
+      const lista = [].concat.apply([], levas);
+      /* Vazio no recorte dos dois meses NÃO é banco vazio: é um começo de
+         mês calmo. Confundir os dois faria a tela oferecer a primeira
+         importação por cima de um cadastro de 3,6 mil. */
+      if(!lista.length && _primeiraCarga && ESCOPO === 'tudo'){
+        telaBancoVazio(); conferirImportacao(); return;
+      }
+      FONTE_DADOS = 'firestore';
+      if(_primeiraCarga){ _primeiraCarga = false; montarPrimeiraCarga(lista); }
+      else reaplicarAoVivo(lista);
+      _buscandoMais = false;
+      conferirImportacao();
+      marcarEscopo();
+    }, e => mostrarErroCarregar(e)));
+  });
+}
+/* Sobe de degrau: refaz a consulta pedindo mais ao banco. Não passa por
+   montarPrimeiraCarga — a tela já está montada, e refazê-la apagaria a
+   busca que a pessoa acabou de digitar, que foi justamente o que pediu
+   mais dados. Devolve true se realmente subiu, para quem chamou saber se
+   vale avisar que está esperando. */
+function subirEscopo(nivel){
+  if(ESCOPOS.indexOf(nivel) <= ESCOPOS.indexOf(ESCOPO)) return false;
+  ESCOPO = nivel;
+  _buscandoMais = true;
+  marcarEscopo();
+  ligarConsultas();
+  return true;
+}
+function verTudo(){ if(!subirEscopo('tudo')) return; }
+/* Voltar ao barato: quem fechou a busca não precisa continuar pagando por
+   cinco anos de cadastro no resto da visita. */
+function voltarAoRecente(){
+  ESCOPO = 'recentes';
+  marcarEscopo();
+  ligarConsultas();
+}
+function marcarEscopo(){
+  const box = document.getElementById('escopo');
+  if(!box) return;
+  if(_buscandoMais){
+    box.innerHTML = '<span class="escopo-txt">buscando no banco…</span>';
+    return;
+  }
+  const rotulo = '<span class="escopo-txt">mostrando <b>' + esc(nomeDoEscopo()) + '</b></span>';
+  box.innerHTML = rotulo + (ESCOPO === 'tudo'
+    ? '<button class="escopo-btn" onclick="voltarAoRecente()" title="Volta a ler do banco só os dois últimos meses">↩ só os últimos meses</button>'
+    : '<button class="escopo-btn" onclick="verTudo()" title="Busca no banco os anos anteriores — só quando você pede">＋ anos anteriores</button>');
 }
 function montarPrimeiraCarga(lista){
   REQS = lista.map(prepararReq);
@@ -1213,6 +1326,10 @@ function avisoImportacao(andamento){
 }
 function conferirImportacao(){
   if(_importando || !podeImportar()) return Promise.resolve();
+  /* Só faz sentido comparar o arquivo com o banco INTEIRO. Com dois meses
+     na mão, a conta daria "faltam 3.500" e ofereceria subir de novo o
+     cadastro todo — um botão perigoso nascido de uma conta errada. */
+  if(ESCOPO !== 'tudo'){ _faltamImportar = null; avisoImportacao(); return Promise.resolve(); }
   const noBanco = new Set(REQS.filter(r=>r._gravada).map(r => String(r.id)));
   return arquivoDoRepositorio().then(d => {
     _faltamImportar = (d.requisicoes||[]).filter(r => !noBanco.has(String(r.id)));
@@ -1356,16 +1473,25 @@ function faixaValor(r){
 function mesDe(iso){
   if(!iso) return '(sem data)';
   const [a,m] = iso.split('-');
-  return ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto',
-          'setembro','outubro','novembro','dezembro'][Number(m)-1] + ' de ' + a;
+  return MESES_NOME[Number(m)-1] + ' de ' + a;
+}
+/* "setembro de 2026" ordenado como texto dá setembro, outubro, março, maio —
+   alfabético, que numa lista de meses não quer dizer nada. A chave numérica
+   devolve a ordem do calendário; o que não é mês (uma data em branco) vai
+   para o fim. */
+function ordemMes(rotulo){
+  const m = /^(.+) de (\d{4})$/.exec(rotulo);
+  if(!m) return -1;
+  return Number(m[2]) * 100 + (MESES_NOME.indexOf(m[1]) + 1);
 }
 /* "Falta empenhar" não é invenção: é a coluna EMPENHO vazia na planilha,
    que é justamente o que o setor procura quando abre a planilha. */
 function situacaoEmpenho(r){ return r.empenho ? 'Empenhada' : 'Falta empenhar'; }
 
 const FACETAS = {
-  num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'], desc:true} ],
-  receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], desc:true} ],
+  num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'],
+            ordem:a=>Number(a)||-1} ],
+  receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], ordem:ordemMes} ],
   desp:  [ {k:'desp', t:'Despacho do Diretor', v:r=>[estadoDespacho(r)],
             ordemFixa: [AGUARDANDO].concat(MODALIDADES_DESPACHO).concat(DA_PLANILHA)} ],
   cred:  [ {k:'cred', t:'Credor', v:r=>[r.credor || '(sem credor)']} ],
@@ -1373,7 +1499,7 @@ const FACETAS = {
   mod:   [ {k:'mod', t:'Modalidade', v:r=>[r.modalidade || '(sem modalidade)']} ],
   emp:   [ {k:'sit', t:'Situação', v:r=>[situacaoEmpenho(r)], ordemFixa:['Empenhada','Falta empenhar']},
            {k:'nEmp', t:'Número do empenho', v:r=>[r.empenho || '(sem empenho)']} ],
-  cont:  [ {k:'mesC', t:'Mês na contabilidade', v:r=>[mesDe(r.contabilidade)], desc:true} ],
+  cont:  [ {k:'mesC', t:'Mês na contabilidade', v:r=>[mesDe(r.contabilidade)], ordem:ordemMes} ],
   valor: [ {k:'faixa', t:'Faixa de valor', v:faixaValor,
             ordemFixa:FAIXAS_VALOR.map(f=>f[0]).concat('(sem valor)')} ]
 };
@@ -1429,6 +1555,11 @@ function soltarNova(){
   REQS.forEach(r=>{ delete r._nova; });
 }
 function escolherSecretaria(sigla){
+  /* A faixa é um filtro, e os números dentro dos botões são contagens: com
+     dois meses carregados eles diriam "SMS 47" onde há mil. Entrar numa
+     secretaria é pedir para ver a secretaria, não os dois últimos meses
+     dela. */
+  if(sigla) subirEscopo('ano');
   soltarNova();
   SEC_ATUAL = sigla;
   renderFaixaSecretarias();
@@ -1538,6 +1669,10 @@ function buscarEmTudo(){
   const agora = document.getElementById('fBusca').value.trim();
   const comecou = !!agora && !_buscaAnterior;
   _buscaAnterior = agora;
+  /* "Pesquisar em tudo" com dois meses na mão não é pesquisar em tudo.
+     Procurar é o momento em que vale pagar pelo ano inteiro — e é uma vez
+     por visita, porque o degrau não desce sozinho. */
+  if(agora) subirEscopo('ano');
   if(comecou && temRecorte()){
     soltarNova();
     limparBuscaDoMenu();
@@ -1610,7 +1745,12 @@ function limparColunaAtual(){ if(popCol) limparColuna(popCol); }
 
 /* ══════════════ MENU DE FILTRO DA COLUNA ══════════════ */
 let popCol = null;
+/* O menu de coluna conta as linhas de cada opção. Com dois meses na mão,
+   "setembro de 2026 — 115" seria só o que está carregado, e a pessoa
+   escolheria um recorte achando que viu o ano. Abrir o menu é pedir para
+   ver o ano. */
 function abrirFiltroCol(ev, col){
+  subirEscopo('ano');
   ev.stopPropagation();
   if(popCol===col){ fecharPop(); return; }
   popCol = col;
@@ -1647,6 +1787,7 @@ function renderPop(){
     base.forEach(r=>g.v(r).forEach(v=>{ conta[v]=(conta[v]||0)+1; }));
     let chaves = Object.keys(conta);
     if(g.ordemFixa) chaves.sort((a,b)=>g.ordemFixa.indexOf(a)-g.ordemFixa.indexOf(b));
+    else if(g.ordem) chaves.sort((a,b)=>(g.ordem(b)-g.ordem(a)) || b.localeCompare(a,'pt-BR'));
     else if(g.desc) chaves.sort((a,b)=>b.localeCompare(a,'pt-BR'));
     else chaves.sort((a,b)=>a.localeCompare(b,'pt-BR'));
     const vis = chaves.filter(k=>!busca || normalizar(k).includes(busca));
@@ -1703,6 +1844,7 @@ function marcarBotoesColuna(){
 /* ══════════════ FILTROS NO CELULAR ══════════════ */
 function sheetAberta(){ return document.getElementById('ovFiltros').classList.contains('open'); }
 function abrirFiltrosMobile(){
+  subirEscopo('ano');
   document.getElementById('ovFiltros').classList.add('open');
   const alvo = document.getElementById('fSortMobile');
   alvo.innerHTML = document.getElementById('fSort').innerHTML;
@@ -1781,6 +1923,27 @@ function linhaHTML(r){
 }
 function renderMais(){
   const corpo = document.getElementById('corpo');
+  if(!filtrados.length && _buscandoMais){
+    /* Subir de degrau é uma ida ao banco. Dizer "nenhuma requisição" no meio
+       dela seria mentir por meio segundo — e é justo o meio segundo em que
+       a pessoa está olhando. */
+    document.getElementById('vazio').innerHTML =
+      '<div class="empty"><span>⏳</span>Buscando no banco…</div>';
+    document.getElementById('loadWrap').style.display='none';
+    document.getElementById('resultCount').innerHTML='';
+    return;
+  }
+  /* Nada nos dois últimos meses, e nenhum filtro: não é "não encontrei",
+     é um recorte pequeno num cadastro grande. */
+  if(!filtrados.length && !REQS.length && ESCOPO !== 'tudo' && !F.busca){
+    document.getElementById('vazio').innerHTML =
+      '<div class="empty"><span>📭</span>Nenhuma requisição recebida em <b>'+esc(nomeDoEscopo())+'</b>.<br>'
+      + '<span style="font-size:13px">O cadastro inteiro continua no banco — '
+      + '<u style="cursor:pointer" onclick="verTudo()">ver todos os anos</u>.</span></div>';
+    document.getElementById('loadWrap').style.display='none';
+    document.getElementById('resultCount').innerHTML='';
+    return;
+  }
   if(!filtrados.length){
     /* "Não encontrei" é resposta ruim quando o registro existe e só está
        fora do recorte da tela. */
@@ -1800,7 +1963,10 @@ function renderMais(){
       + (soBusca
           ? soBusca + (soBusca>1?' requisições combinam':' requisição combina') + ' com a busca fora dos filtros atuais — '
             + '<u style="cursor:pointer" onclick="limparSoFiltros()">ver assim mesmo</u>.'
-          : 'Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.')
+          : (ESCOPO !== 'tudo'
+              ? 'A tela está mostrando <b>'+esc(nomeDoEscopo())+'</b> — '
+                + '<u style="cursor:pointer" onclick="verTudo()">procurar em todos os anos</u>.'
+              : 'Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.'))
       + '</div>';
     document.getElementById('loadWrap').style.display='none';
     document.getElementById('resultCount').innerHTML='';
@@ -2352,7 +2518,8 @@ function marcarTotal(){
       : n.toLocaleString('pt-BR') + ' AGUARDANDO DESPACHO';
     return;
   }
-  chip.textContent = REQS.length.toLocaleString('pt-BR') + ' REQUISIÇÕES';
+  chip.textContent = REQS.length.toLocaleString('pt-BR') + ' REQUISIÇÕES'
+    + (ESCOPO === 'tudo' ? '' : ' · ' + nomeDoEscopo().toUpperCase());
 }
 /* As requisições NÃO são pedidas na abertura da página: quem as pede é o
    portão, depois de confirmar que a pessoa entrou e tem o painel liberado

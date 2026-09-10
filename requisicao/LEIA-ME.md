@@ -119,6 +119,44 @@ uma alteração que toca no despacho vinda de quem só preenche é recusada, e
 uma que toca em qualquer outro campo vinda do Diretor também. Por isso a
 tela grava **campo a campo**, e não o documento inteiro.
 
+## Quanto do banco a tela puxa
+
+A tela carregava a coleção inteira a cada visita. Com 3,6 mil requisições já
+custa; com cinco anos de cadastro seriam 20 mil documentos lidos toda vez que
+alguém aperta F5 para olhar o mês corrente — e o preço cresce sozinho: quem
+abrir a tela em 2030 paga por 2026.
+
+Então ela pede ao banco em **três degraus**, e sobe um degrau só quando quem
+está usando faz algo que precisa de mais:
+
+| Degrau | Quando | O que lê |
+|---|---|---|
+| `recentes` | abrir o sistema | este mês e o anterior |
+| `ano` | buscar, filtrar, entrar numa secretaria | o ano corrente inteiro |
+| `tudo` | o botão **＋ anos anteriores** | o cadastro, todos os anos |
+
+Na abertura isso é **555 documentos em vez de 3.617 — 85% a menos**. São
+consultas ao Firestore (`where`), não filtro de tela: o que não é pedido não
+é lido nem cobrado.
+
+Sobe sozinho e **não desce**: quem já pagou pela leitura não paga de novo
+dentro da mesma visita. O botão `↩ só os últimos meses` volta ao barato.
+
+A tela **diz** que recorte está mostrando, ao lado da contagem e no chip do
+topo — senão "555 requisições" pareceria o cadastro inteiro.
+
+Cada degrau tem uma consulta a mais para o que ficaria de fora por ser nulo:
+`where('recebido','>=',…)` não casa com data em branco, e **é justamente em
+branco que uma requisição nasce** enquanto está sendo lançada. Sumir com ela
+no instante em que é criada seria o pior defeito possível numa tela de
+lançamento.
+
+Duas armadilhas que isso abriu, e que estão fechadas: nenhuma requisição nos
+dois últimos meses **não** é banco vazio (a tela dizia "importe o cadastro"
+por cima de 3,6 mil registros), e a conferência com o arquivo do repositório
+só roda no degrau `tudo` — no recorte ela concluiria que faltam 3.500 e
+ofereceria subir tudo de novo.
+
 ## Onde ficam os dados
 
 No Firestore do projeto `processos-ijui`, coleção `requisicoes` — o mesmo

@@ -43,7 +43,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     REQS.every(r=>['credor','empenho','modalidade','objeto'].every(k=>r[k]!=='-')),
     REQS.filter(r=>r.empenho==='-').slice(0,3));
   t('a página não carrega as requisições embutidas no HTML',
-    html.indexOf('"credor":')<0 && html.length<130*1024, {kb:Math.round(html.length/1024)});
+    html.indexOf('"credor":')<0 && html.length<150*1024, {kb:Math.round(html.length/1024)});
 
   t('a página não carrega as requisições sem passar pelo portão',
     /iniciarListenerRequisicoes/.test(html) && !/^carregarTudo\(\);/m.test(html));
@@ -58,10 +58,15 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const seedReqs={}; REQS.forEach(r => { seedReqs[String(r.id)]=r; });
   /* As 3.6 mil vieram da planilha e são histórico. A fila do Diretor só
      existe com requisições nascidas NO SISTEMA — as que têm "criadaEm". */
+  const hoje = new Date().toISOString().slice(0,10);
   const NASCIDAS = REQS.slice(0, 4).map(r => r.id);
   NASCIDAS.forEach((id, i) => {
+    /* Recém-nascida é, por definição, recente: entra no recorte de abertura.
+       A primeira fica SEM data de recebimento, que é como uma requisição
+       nasce de verdade — e é o caso que só a consulta dos nulos alcança. */
     seedReqs[String(id)] = Object.assign({}, seedReqs[String(id)],
-      {criadaEm:'2026-09-1'+i+'T10:00:00.000Z', despacho:'', despachoPor:'', despachoEm:''});
+      {criadaEm:new Date().toISOString(), recebido: i===0 ? null : hoje,
+       ano:new Date().getFullYear(), despacho:'', despachoPor:'', despachoEm:''});
   });
   function seedCom(nivel){
     return {
@@ -89,12 +94,73 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     });
     await pg.goto('http://127.0.0.1:8099/requisicao/index.html',{waitUntil:'networkidle'});
     if(esperarLista!==false)
-      await pg.waitForFunction(()=>typeof REQS!=='undefined'&&REQS.length>1000,null,{timeout:30000});
+      await pg.waitForFunction(()=>typeof REQS!=='undefined'&&REQS.length>50,null,{timeout:30000});
     else await pg.waitForTimeout(900);
     await pg.evaluate(()=>{ window.confirm=()=>true; window.alert=m=>{(window.__A=window.__A||[]).push(m);}; });
+    /* A tela abre lendo só os dois últimos meses. Quase todo teste daqui
+       para baixo fala do cadastro inteiro, então sobe para "tudo" — o que
+       também é o caminho de quem busca ou filtra. */
+    if(esperarLista==='tudo'){
+      await pg.evaluate(()=>verTudo());
+      await pg.waitForFunction(()=>ESCOPO==='tudo' && !_buscandoMais,null,{timeout:30000});
+    }
     return {pg, ctx, errs};
   }
   const {pg, errs} = await abrir('editar', jspdf);
+
+  console.log('\n1b) A tela abre lendo dois meses do banco, não o cadastro inteiro');
+  /* Com cinco anos de cadastro seriam 20 mil documentos lidos toda vez que
+     alguém aperta F5 para olhar o mês corrente — e o preço cresce sozinho:
+     quem abrir a tela em 2030 paga por 2026. */
+  const abertura=await pg.evaluate(()=>{
+    const ini=inicioDaJanela();
+    return {escopo:ESCOPO, carregou:REQS.length, noBanco:Object.keys(window.__STORE.requisicoes).length,
+      janela:ini,
+      todasDentro:REQS.every(r=>!r.recebido || r.recebido>=ini),
+      rotulo:document.getElementById('escopo').textContent,
+      chip:document.getElementById('chipTotal').textContent};
+  });
+  t('abre no recorte dos dois últimos meses', abertura.escopo==='recentes', abertura);
+  t('e lê do banco uma fração do cadastro',
+    abertura.carregou>0 && abertura.carregou < abertura.noBanco/3,
+    {leu:abertura.carregou, tem:abertura.noBanco});
+  t('tudo o que veio é do recorte, ou está sem data (nascendo agora)',
+    abertura.todasDentro, abertura.janela);
+  /* Sem dizer o recorte, "555 requisições" pareceria o cadastro inteiro. */
+  t('a tela diz que recorte está mostrando', /mostrando/.test(abertura.rotulo), abertura.rotulo);
+  t('e o chip do topo também', /·/.test(abertura.chip), abertura.chip);
+
+  /* A requisição que nasce não tem data de recebimento — e é justamente aí
+     que ela some, se a consulta for só por data. */
+  const nascendo=await pg.evaluate(()=>{
+    const semData=REQS.filter(r=>!r.recebido).length;
+    return {semData, temConsultaPropria:true};
+  });
+  t('as sem data de recebimento vêm junto, senão a recém-criada sumiria',
+    nascendo.semData>0, nascendo);
+
+  console.log('\n1c) Buscar e filtrar sobem o degrau: aí sim custa o ano');
+  await pg.click('#fBusca');
+  await pg.fill('#fBusca','banrisul');
+  await pg.waitForTimeout(900);
+  const buscou=await pg.evaluate(()=>({escopo:ESCOPO, carregou:REQS.length}));
+  t('digitar na busca passa a ler o ano inteiro do banco',
+    buscou.escopo==='ano' && buscou.carregou>abertura.carregou, buscou);
+  await pg.fill('#fBusca','');
+  await pg.waitForTimeout(300);
+  t('e não desce sozinho — quem já pagou a leitura não paga de novo',
+    (await pg.evaluate(()=>ESCOPO))==='ano');
+
+  await pg.evaluate(()=>verTudo());
+  await pg.waitForFunction(()=>ESCOPO==='tudo' && !_buscandoMais,null,{timeout:30000});
+  const tudo=await pg.evaluate(()=>({escopo:ESCOPO, carregou:REQS.length,
+    rotulo:document.getElementById('escopo').textContent}));
+  t('e o botão traz os anos anteriores, quando alguém pede',
+    tudo.escopo==='tudo' && tudo.carregou>3000, tudo);
+  t('com o caminho de volta ao barato à vista', /últimos meses/.test(tudo.rotulo), tudo.rotulo);
+  await pg.evaluate(()=>limparFiltros());
+  await pg.waitForTimeout(300);
+
   t('quem já entrou não vê o formulário de login piscar',
     !(await pg.evaluate(()=>window.__LOGIN_APARECEU)));
   t('e a tela mostra o NOME de quem entrou, não o e-mail',
@@ -614,7 +680,12 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     botao:getComputedStyle(document.querySelector('.header-actions .so-editor')).display,
     linhas:filtrados.length
   }));
-  t('ele enxerga o cadastro inteiro', soOlha.linhas>1000, soOlha.linhas);
+  t('ele abre no mesmo recorte de todo mundo', soOlha.linhas>0, soOlha.linhas);
+  /* Ler é o que ele PODE fazer: o recorte é economia, não permissão. */
+  await ver.pg.evaluate(()=>verTudo());
+  await ver.pg.waitForFunction(()=>ESCOPO==='tudo' && !_buscandoMais,null,{timeout:30000});
+  t('e alcança o cadastro inteiro se pedir — o recorte é economia, não trava',
+    await ver.pg.evaluate(()=>REQS.length>3000));
   t('a tela avisa que o acesso é de leitura', /só visualização/.test(soOlha.chip), soOlha.chip);
   t('nenhuma célula abre para ele — nem a do despacho', soOlha.travadas, soOlha);
   t('e não há botão de lançar requisição', soOlha.botao==='none', soOlha);
