@@ -42,6 +42,17 @@ async function abrirPregoeiro(pg, seedExtra, authSeed){
   await pg.goto('http://127.0.0.1:8099/pregoeiro/index.html',{waitUntil:'networkidle'});
   await pg.waitForTimeout(700);
 }
+/* Aprovar conta e distribuir acesso saiu de dentro do Sistema Interno e
+   virou tela própria: /usuarios/, só para administrador. Quem não é
+   administrador e abre o endereço recebe um recado, não o painel. */
+async function abrirUsuarios(pg, seedExtra, authSeed){
+  await pg.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:(r.request().url().includes('firestore')||r.request().url().includes('auth'))?stub:'/*noop*/'}));
+  await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seedBase(seedExtra));
+  if(authSeed) await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; }, authSeed);
+  await pg.goto('http://127.0.0.1:8099/usuarios/index.html',{waitUntil:'networkidle'});
+  await pg.waitForTimeout(700);
+}
 async function entrarComGoogle(pg, user){
   await pg.evaluate((u)=>{ window.__AUTH_GOOGLE_USER=u; }, user);
   await pg.click('#authBtnGoogle');
@@ -96,17 +107,21 @@ async function entrarComGoogle(pg, user){
   const admin=await pg2.evaluate(()=>({
     perfil: window.__STORE.usuarios_v2['g-pedro'],
     appAberto: document.getElementById('authGate').style.display==='none',
-    botaoUsuarios: document.getElementById('btnUsuarios').style.display
+    botaoUsuarios: document.getElementById('btnUsuarios').style.display,
+    linkUsuarios: document.getElementById('btnUsuarios').getAttribute('href')
   }));
   t('mesmo em maiúsculas, o e-mail de resgate é reconhecido', admin.perfil && admin.perfil.status==='aprovado', admin.perfil);
   t('nasce administrador', admin.perfil && admin.perfil.isAdmin===true, admin.perfil);
   t('com acesso de editar à Agenda e ao Sistema Interno', admin.perfil && admin.perfil.acessos.agenda==='editar' && admin.perfil.acessos.pregoeiro==='editar', admin.perfil);
   t('entra direto no sistema, sem esperar aprovação', admin.appAberto, admin);
-  t('e vê o botão de gerenciar usuários', admin.botaoUsuarios==='', admin.botaoUsuarios);
+  t('e vê o botão de gerenciar usuários', admin.botaoUsuarios==='inline-flex', admin.botaoUsuarios);
+  /* O painel saiu de dentro do Sistema Interno: o botão agora é um link
+     para a tela própria, que só administrador abre. */
+  t('que agora leva para a tela própria de usuários', admin.linkUsuarios==='../usuarios/', admin.linkUsuarios);
 
   console.log('\n3) Painel do admin: aprovar pendente, aplicar convite, proteger o único admin, ver contas antigas');
   let pg3=await b.newPage({viewport:{width:1300,height:900}});
-  await abrirPregoeiro(pg3, {
+  await abrirUsuarios(pg3, {
     usuarios_v2:{
       'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true, acessos:{agenda:'editar',pregoeiro:'editar'}, provedor:'google.com'},
       'g-bianca':{email:'bianca.nova@gmail.com', nome:'Bianca', status:'pendente', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'nenhum'}, provedor:'google.com'}
@@ -115,8 +130,6 @@ async function entrarComGoogle(pg, user){
       cv1:{nome:'Bianca', email:'bianca.nova@gmail.com', acessos:{agenda:'editar',pregoeiro:'ver'}}
     }
   }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pg3.evaluate(()=>abrirModalUsuarios());
-  await pg3.waitForTimeout(400);
 
   const comConvite=await pg3.evaluate(()=>document.getElementById('usrPendentesLista').innerHTML);
   t('o pedido da Bianca aparece esperando aprovação', /Bianca/.test(comConvite), comConvite.slice(0,200));
@@ -304,14 +317,12 @@ async function entrarComGoogle(pg, user){
 
   console.log('\n10) Contratos é o terceiro painel do mesmo cadastro');
   let pg10=await b.newPage({viewport:{width:1300,height:900}});
-  await abrirPregoeiro(pg10, {
+  await abrirUsuarios(pg10, {
     usuarios_v2:{
       'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true, acessos:{agenda:'editar',pregoeiro:'editar',contratos:'editar'}, provedor:'google.com'},
       'g-rita':{email:'rita@example.com', nome:'Rita', status:'pendente', isAdmin:false, acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'nenhum'}, provedor:'google.com'}
     }
   }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pg10.evaluate(()=>abrirModalUsuarios());
-  await pg10.waitForTimeout(400);
   t('o painel Usuários mostra os três painéis',
     await pg10.evaluate(()=>!!document.getElementById('pendAg_g-rita') && !!document.getElementById('pendPr_g-rita') && !!document.getElementById('pendCt_g-rita')));
 
@@ -325,6 +336,57 @@ async function entrarComGoogle(pg, user){
   const resumo=await pg10.evaluate(()=>authResumoAcessos({agenda:'ver', pregoeiro:'nenhum', contratos:'editar'}));
   t('o resumo de acessos fala dos três painéis',
     /Agenda \(visualizar\)/.test(resumo) && /Contratos \(editar\)/.test(resumo) && !/Sistema Interno/.test(resumo), resumo);
+
+  console.log('\n10b) Requisições é o quarto painel, e traz um nível a mais: Diretor');
+  const pgRq=await b.newPage({viewport:{width:1300,height:900}});
+  await abrirUsuarios(pgRq, {usuarios_v2:{
+    'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true,
+               acessos:{agenda:'editar',pregoeiro:'editar',contratos:'editar',requisicao:'editar'}, provedor:'google.com'},
+    'g-nara':{email:'nara@example.com', nome:'Nara', status:'pendente', isAdmin:false,
+              acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'nenhum',requisicao:'nenhum'}, provedor:'google.com'}}},
+    {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  const seletor=await pgRq.evaluate(()=>{
+    const e=document.getElementById('pendRq_g-nara');
+    return {existe:!!e, opcoes:e?[...e.options].map(o=>o.value):[],
+            contratos:[...document.getElementById('pendCt_g-nara').options].map(o=>o.value)};
+  });
+  t('o painel Usuários mostra também as Requisições', seletor.existe, seletor);
+  /* "somente quem eu poder marcar como o diretor vai poder alterar" — é
+     aqui que essa marcação existe, e só nas Requisições. */
+  t('só ele oferece o nível Diretor',
+    seletor.opcoes.join('|')==='nenhum|ver|editar|diretor'
+    && seletor.contratos.join('|')==='nenhum|ver|editar', seletor);
+
+  await pgRq.evaluate(()=>{
+    document.getElementById('pendRq_g-nara').value='diretor';
+    usuariosAprovar('g-nara');
+  });
+  await pgRq.waitForFunction(()=>window.__STORE.usuarios_v2['g-nara'].status==='aprovado',null,{timeout:10000});
+  const diretora=await pgRq.evaluate(()=>window.__STORE.usuarios_v2['g-nara']);
+  t('dá para marcar alguém como Diretor das Requisições, e só isso',
+    diretora.acessos.requisicao==='diretor' && diretora.acessos.contratos==='nenhum'
+    && diretora.acessos.agenda==='nenhum' && diretora.acessos.pregoeiro==='nenhum', diretora.acessos);
+  t('e o resumo de acessos diz isso por extenso',
+    /Requisições \(diretor\)/.test(await pgRq.evaluate(()=>authResumoAcessos({requisicao:'diretor'}))));
+
+  console.log('\n10c) A tela de Usuários é só de administrador');
+  /* Ela deixou de ser um botão escondido no meio do Sistema Interno: quem
+     não é administrador e abre o endereço recebe um recado, não o painel. */
+  const pgNaoAdm=await b.newPage({viewport:{width:1300,height:900}});
+  await abrirUsuarios(pgNaoAdm, {usuarios_v2:{
+    'g-serli':{email:'serli@ijui.rs.gov.br', nome:'Serli', status:'aprovado', isAdmin:false,
+               acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar', requisicao:'editar'},
+               provedor:'password'}}},
+    {uid:'g-serli', email:'serli@ijui.rs.gov.br', displayName:'Serli', photoURL:''});
+  const semAdmin=await pgNaoAdm.evaluate(()=>({
+    portao:document.getElementById('authGate').style.display,
+    recado:document.body.textContent,
+    listaCarregou:!!(document.getElementById('usrPendentesLista')||{}).textContent
+  }));
+  t('quem tem acesso a tudo, menos administrador, não entra',
+    semAdmin.portao!=='none', semAdmin.portao);
+  t('e o recado diz que a tela é de administrador, sem parecer erro',
+    /só de administrador/.test(semAdmin.recado), semAdmin.recado.slice(0,160));
 
   console.log('\n11) O link de consulta (?consulta=1) pede login em vez de dar erro de permissão');
   /* Esse painel LISTA a coleção de processos inteira, e listar exige conta
@@ -363,7 +425,7 @@ async function entrarComGoogle(pg, user){
      acaba chamada de "contratos", que é o pedaço do e-mail. Quem aprova é
      quem sabe de quem é a conta, e corrige ali mesmo. */
   const pgNome=await b.newPage({viewport:{width:1280,height:900}});
-  await abrirPregoeiro(pgNome, {usuarios_v2:{
+  await abrirUsuarios(pgNome, {usuarios_v2:{
     'g-adm':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado', isAdmin:true,
              acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'}, provedor:'google.com'},
     'u-setor':{email:'contratos@ijui.rs.gov.br', nome:'contratos', status:'pendente', isAdmin:false,
@@ -371,8 +433,6 @@ async function entrarComGoogle(pg, user){
     'u-serli':{email:'serli@ijui.rs.gov.br', nome:'Serli', status:'aprovado', isAdmin:false,
              acessos:{agenda:'nenhum', pregoeiro:'nenhum', contratos:'ver'}, provedor:'password'}}},
     {uid:'g-adm', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pgNome.evaluate(()=>abrirModalUsuarios());
-  await pgNome.waitForTimeout(500);
   const campos=await pgNome.evaluate(()=>({
     pendente: (document.getElementById('pendNome_u-setor')||{}).value,
     aprovado: (document.getElementById('aprNome_u-serli')||{}).value,

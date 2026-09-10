@@ -40,9 +40,12 @@ service cloud.firestore {
     // valor padrão, um documento de conta sem "acessos" (ou sem aquele
     // painel) simplesmente não tem acesso, em vez de virar erro.
     function bruto(painel) { return perfil().get('acessos', {}).get(painel, 'nenhum'); }
+    // 'diretor' só existe no painel de Requisições, e precisa passar por
+    // aqui: sem ele na lista, o Diretor cairia em 'nenhum' e não leria nem
+    // a própria tela que tem de despachar.
     function nivel(painel) {
       return bruto(painel) == true ? 'editar'
-           : (bruto(painel) == 'ver' || bruto(painel) == 'editar') ? bruto(painel)
+           : (bruto(painel) in ['ver', 'editar', 'diretor']) ? bruto(painel)
            : 'nenhum';
     }
     // Admin sempre edita tudo — é o próprio propósito do cargo.
@@ -51,6 +54,7 @@ service cloud.firestore {
     function agenda()    { return temAcesso('agenda'); }
     function pregoeiro() { return temAcesso('pregoeiro'); }
     function contratos() { return temAcesso('contratos'); }
+    function requisicao(){ return temAcesso('requisicao'); }
     function algum()     { return agenda() || pregoeiro(); }
     // Pontos facultativos e aniversários dos servidores são os mesmos para a
     // Agenda de Licitações e para a Agenda de Contratos, lidos das mesmas
@@ -65,6 +69,23 @@ service cloud.firestore {
     function agendaEdit()    { return podeEditar('agenda'); }
     function pregoeiroEdit() { return podeEditar('pregoeiro'); }
     function contratosEdit() { return podeEditar('contratos'); }
+    // Requisições têm um papel a mais que os outros painéis: o Diretor. Ele
+    // NÃO edita a requisição — só despacha a modalidade, que é o ato dele.
+    // Quem tem "editar" preenche tudo, menos o despacho. São dois poderes
+    // que não se encontram, de propósito: o despacho é decisão, o resto é
+    // registro. O administrador alcança os dois, porque pode se marcar
+    // Diretor a qualquer momento — negar aqui só somaria um passo.
+    function requisicaoEdit(){ return podeEditar('requisicao'); }
+    function requisicaoDiretor(){
+      return aprovado() && (admin() || nivel('requisicao') == 'diretor');
+    }
+    function camposDespacho(){ return ['despacho','despachoPor','despachoEm']; }
+    function mexeuNoDespacho(){
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(camposDespacho());
+    }
+    function soMexeuNoDespacho(){
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(camposDespacho());
+    }
     function algumEdit()     { return agendaEdit() || pregoeiroEdit(); }
 
     // ── Contas e permissões ──────────────────────────────────────────────
@@ -90,9 +111,10 @@ service cloud.firestore {
       // dois casos o resultado é o mesmo: nasce sem poder nenhum.
       function nascePendente(d) {
         return d.status == 'pendente' && d.isAdmin == false &&
-          (d.get('acessos', {}).get('agenda', 'nenhum')    in ['nenhum', false]) &&
-          (d.get('acessos', {}).get('pregoeiro', 'nenhum') in ['nenhum', false]) &&
-          (d.get('acessos', {}).get('contratos', 'nenhum') in ['nenhum', false]);
+          (d.get('acessos', {}).get('agenda', 'nenhum')     in ['nenhum', false]) &&
+          (d.get('acessos', {}).get('pregoeiro', 'nenhum')  in ['nenhum', false]) &&
+          (d.get('acessos', {}).get('contratos', 'nenhum')  in ['nenhum', false]) &&
+          (d.get('acessos', {}).get('requisicao', 'nenhum') in ['nenhum', false]);
       }
       function nasceResgate(d) {
         return request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
@@ -204,6 +226,24 @@ service cloud.firestore {
     match /contratos/{id} {
       allow get, list: if contratos();
       allow create, update: if contratosEdit();
+      allow delete: if false;
+    }
+
+    // ── Requisições ──────────────────────────────────────────────────────
+    // Uma linha por requisição, com o número, o credor, o objeto, o empenho
+    // e o despacho do Diretor. Como os contratos, não há link público: ver
+    // exige o painel liberado.
+    //
+    // A trava que dá sentido ao despacho está no update: quem preenche a
+    // requisição não pode tocar nos campos do despacho, e o Diretor não
+    // pode tocar em NADA além deles. Sem isso, "só o Diretor decide a
+    // modalidade" seria promessa de tela — e tela se contorna.
+    match /requisicoes/{id} {
+      allow get, list: if requisicao();
+      allow create: if requisicaoEdit() &&
+        !(request.resource.data.get('despacho', '') != '');
+      allow update: if (requisicaoEdit() && !mexeuNoDespacho())
+                    || (requisicaoDiretor() && soMexeuNoDespacho());
       allow delete: if false;
     }
 

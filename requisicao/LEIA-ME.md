@@ -1,8 +1,11 @@
-# Requisições — `/requisicao/` (protótipo)
+# Requisições — `/requisicao/`
 
 Controle das requisições do município, uma tela para o que hoje é a planilha
-`REQUISIÇÕES 2026.xlsx`: **uma aba por secretaria**, sempre as mesmas oito
-colunas.
+`REQUISIÇÕES 2026.xlsx`: **uma aba por secretaria**, sempre as mesmas
+colunas — mais a coluna **DIRETOR**, que a planilha não tinha.
+
+A tela é fechada: mesma conta do resto do sistema, sem link público. Ver
+[CONTROLE-DE-ACESSO.md](../CONTROLE-DE-ACESSO.md).
 
 ## A faixa de secretarias
 
@@ -36,8 +39,10 @@ de lançamento.
 - A linha nova fica destacada e no topo, furando os filtros, enquanto está
   sendo preenchida — senão ela sumiria da tela no instante em que nasce.
   Trocar de secretaria ou limpar os filtros a solta.
-- O **↺** ao fim da linha desfaz o que foi mexido nela: se a linha veio da
-  planilha, volta ao que era lá; se foi criada aqui, sai da lista.
+- A linha nova **só vai para o banco no primeiro campo preenchido**. Até lá
+  o **✕** ao fim dela a descarta — depois disso não há como apagar
+  requisição, nem pela tela nem pelas regras, e uma linha em branco aberta
+  por engano viraria lixo permanente.
 
 Não há moldura seguindo o mouse pelas células: a tabela é para ser lida, e
 o cursor de texto já diz que dá para escrever ali.
@@ -57,17 +62,46 @@ Relatório em PDF do filtro atual e ficha em PDF de uma requisição, no mesmo
 papel dos Contratos e dos Pedidos de Diligência: logo do município, título,
 rodapé com paginação.
 
-## Isto ainda é protótipo
+## A coluna DIRETOR — o despacho
 
-Não há banco de dados nem contas. A lista vem de `dados/requisicoes.json` e
-**o que você salvar fica só neste navegador**, com aviso amarelo na tela;
-"Exportar JSON" gera o arquivo para substituir o do repositório.
+Entre **Recebida** e **Credor** há uma coluna que **não é campo da
+planilha: é uma decisão**. Ela diz por qual caminho a contratação segue, e
+tem seis opções, nenhuma delas escrita à mão:
 
-O passo seguinte, quando o desenho estiver aprovado, é o mesmo caminho que
-os Contratos fizeram: coleção no Firestore do projeto `processos-ijui`, mais
-um painel em `acessos` (`requisicao`), regras, e o histórico de edições.
-Enquanto isso não acontece, duas pessoas mexendo ao mesmo tempo **não** se
-enxergam.
+> Pregão · Concorrência · Dispensa por limite · Dispensa por justificativa ·
+> Inexigibilidade · Ata de Registro de Preços
+
+Quem preenche a requisição **não escolhe nenhuma delas** — para essas
+pessoas a célula aparece com um cadeado e não abre. Quem despacha é só quem
+tiver o nível **Diretor** no painel de Usuários, e esse alguém **não mexe em
+mais nada** da requisição: para ele, todas as outras células estão trancadas.
+
+O despacho grava junto **quem assinou e quando**, e aparece na ficha e no
+relatório em PDF.
+
+A trava não é da tela — a tela só avisa antes. Quem barra de verdade são as
+regras do Firestore, que olham **quais campos mudaram** em cada gravação:
+uma alteração que toca no despacho vinda de quem só preenche é recusada, e
+uma que toca em qualquer outro campo vinda do Diretor também. Por isso a
+tela grava **campo a campo**, e não o documento inteiro.
+
+## Onde ficam os dados
+
+No Firestore do projeto `processos-ijui`, coleção `requisicoes` — o mesmo
+projeto e o mesmo cadastro de contas (`usuarios_v2`) da Agenda, do Sistema
+Interno e dos Contratos. Duas pessoas mexendo ao mesmo tempo se enxergam:
+o que uma salva aparece na tela da outra sem recarregar, e é assim que o
+despacho do Diretor chega a quem lançou.
+
+`dados/requisicoes.json` continua no repositório, mas só serve a duas
+coisas: a **lista de secretarias** e a **primeira carga**. Com o banco
+vazio, um administrador vê na tela o botão de importar; a importação sobe em
+lotes, é retomável e reenviar o que já subiu não duplica nada (o id do
+documento é o id da requisição). Se o arquivo for atualizado pela planilha
+do setor, um aviso amarelo oferece subir só o que falta.
+
+O arquivo **não** é espelho do banco: depois da primeira carga, quem manda é
+o Firestore.
 
 ## A planilha e o conversor
 

@@ -130,6 +130,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <style>
   /* Paleta unificada com a agenda.html — mesmas variáveis e valores nos dois arquivos */
+  #btnUsuarios{align-items:center;text-decoration:none}
   :root {
     /* ── Paleta "Mosaico das Etnias" — identidade unificada com o guia de Ramais ── */
     --noite:#081C52; --marinho:#12306B; --real:#1440A8; --real-2:#1E52CC;
@@ -1711,7 +1712,7 @@
       <button class="btn-ghost" onclick="abrirModalAgentes()">&#128100; Agentes</button>
       <button class="btn-ghost" onclick="abrirModalStatus()">&#127381; Status</button>
       <button class="btn-ghost" onclick="window.location.href='/'">&#128197; Agenda</button>
-      <button class="btn-ghost" id="btnUsuarios" onclick="abrirModalUsuarios()" style="display:none">&#128273; Usuários</button>
+      <a class="btn-ghost" id="btnUsuarios" href="../usuarios/" style="display:none">&#128273; Usuários</a>
       <button class="btn-ghost" onclick="abrirModalEmail()">&#9993; E-mails</button>
       <button class="btn-ghost" onclick="copiarLinkConsulta()" title="Copia um link de visualização — sem senha, sem edição — para compartilhar com colegas">&#128279;</button>
       <span class="auth-chip" id="authUserChip" style="display:none"></span>
@@ -2235,56 +2236,7 @@
 </div>
 
 
-
-<div class="overlay" id="modalUsuarios">
-  <div class="modal" style="max-width:600px">
-    <div class="modal-header">
-      <h2>Usuários do Sistema</h2>
-      <button class="modal-close" onclick="fecharModalUsuarios()">&#10005;</button>
-    </div>
-    <div class="modal-body" style="gap:18px">
-      <div style="background:#f1f9f3;border:1.5px solid #bfe3c6;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1b5e20;line-height:1.5">
-        As pessoas se cadastram sozinhas (Google ou e-mail/senha) e entram como <b>pendentes</b>, sem acesso a nada.
-        Aprove aqui e marque a quais painéis cada uma tem acesso.
-      </div>
-
-      <div class="usr-secao">
-        <div class="usr-secao-tit">Aguardando aprovação</div>
-        <div id="usrPendentesLista" class="usr-lista"></div>
-      </div>
-
-      <div class="usr-secao">
-        <div class="usr-secao-tit">Usuários</div>
-        <div id="usrAprovadosLista" class="usr-lista"></div>
-      </div>
-
-      <div class="usr-secao">
-        <div class="usr-secao-tit">Convites preparados por e-mail</div>
-        <div style="display:flex;flex-direction:column;gap:8px;background:#f7f9fd;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
-          <div class="row">
-            <div class="field"><label>Nome</label><input type="text" id="cvNome" placeholder="Nome da pessoa"></div>
-            <div class="field"><label>E-mail</label><input type="email" id="cvEmail" placeholder="pessoa@gmail.com"></div>
-          </div>
-          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-            <label class="usr-chk usr-chk-sel">Agenda <select id="cvAg"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
-            <label class="usr-chk usr-chk-sel">Sistema Interno <select id="cvPr"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
-            <label class="usr-chk usr-chk-sel">Contratos <select id="cvCt"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
-            <button class="btn-save" onclick="convitesSalvar()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">Preparar convite</button>
-          </div>
-        </div>
-        <div id="usrConvitesLista" class="usr-lista"></div>
-      </div>
-
-      <details class="usr-secao">
-        <summary class="usr-secao-tit" style="cursor:pointer">Contas antigas (usuário/senha, ainda não migraram)</summary>
-        <div id="usrAntigosLista" class="usr-lista" style="margin-top:10px"></div>
-      </details>
-    </div>
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="fecharModalUsuarios()">Fechar</button>
-    </div>
-  </div>
-</div>
+<!-- O cadastro de contas virou página própria: /usuarios/ -->
 
 <!-- MODAL E-MAILS DE CONCLUSAO -->
 <div class="overlay" id="modalEmail">
@@ -2500,7 +2452,6 @@
 <div class="toast" id="toast">&#10003; <span id="toastMsg"></span></div>
 
 
-
 <!-- RANKING PANEL — inserido antes do script principal -->
 <div id="rankingPanel">
   <!-- Cabeçalho de impressão (oculto na tela, aparece em todas as páginas impressas) -->
@@ -2671,8 +2622,6 @@
     </div>
   </div>
 </div>
-
-
 
 
 <script>
@@ -8737,7 +8686,6 @@ function rkAbrirSessaoPublica(){
 })();
 
 
-
 /* ══════════════════════════════════════════════════════════════════════════
    DECISÕES DO PREGOEIRO
    Registro, organização e geração de decisões formais vinculadas aos
@@ -11087,7 +11035,6 @@ function copiarLinkConsulta(){
 })();
 
 
-
 /* ════════════════════════════════════════════════════════════════
    LOGIN / CONTROLE DE ACESSO
    Contas de verdade pelo Firebase Authentication (Google ou e-mail/senha).
@@ -11109,8 +11056,6 @@ function copiarLinkConsulta(){
    regras): ?ranking=, ?assinar=, ?assinatura=, ?hab=, ?venc=, ?consulta=.
    ════════════════════════════════════════════════════════════════ */
 var usuariosV2ColRef   = db.collection("usuarios_v2");
-var convitesColRef     = db.collection("usuarios_v2_convites");
-var usuariosAntigosRef = db.collection("usuarios");           /* só leitura, cadastro pré-migração */
 var AUTH_BOOTSTRAP_ADMIN_EMAIL = "pedrohhpacifico@gmail.com";
 var authCurrentUser  = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
 var authFirebaseUser = null;   /* objeto de firebase.auth().currentUser */
@@ -11127,7 +11072,7 @@ var AUTH_MODO_COMPARTILHADO = false;   /* link público (?ranking=, ?assinar=...
    ninguém. */
 function authNormalizaNivel(v){
   if(v===true) return "editar";
-  if(v==="ver"||v==="editar") return v;
+  if(v==="ver"||v==="editar"||v==="diretor") return v;
   return "nenhum";
 }
 function authNivelDe(u, painel){
@@ -11162,10 +11107,11 @@ var AUTH_PAINEIS=[
   {id:"pregoeiro", nome:"Sistema Interno", sufixo:"Pr"},
   {id:"contratos", nome:"Contratos",       sufixo:"Ct"}
 ];
+var AUTH_ROTULO_NIVEL={ver:"visualizar", editar:"editar", diretor:"diretor"};
 function authResumoAcessos(acessos){
   var partes=AUTH_PAINEIS.map(function(p){
     var n=authNormalizaNivel(acessos && acessos[p.id]);
-    return n==="nenhum" ? null : p.nome+" ("+(n==="editar"?"editar":"visualizar")+")";
+    return n==="nenhum" ? null : p.nome+" ("+(AUTH_ROTULO_NIVEL[n]||n)+")";
   }).filter(Boolean);
   return partes.length ? partes.join(", ") : "nenhum acesso";
 }
@@ -11262,7 +11208,7 @@ function authPerfilPadrao(user, extra){
     provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
     status: "pendente",
     isAdmin: false,
-    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum"},
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum", requisicao:"nenhum"},
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }, extra||{});
 }
@@ -11277,7 +11223,7 @@ function authAoAutenticar(user){
     if(doc.exists) return;
     var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
     return ref.set(authPerfilPadrao(user, ehResgate ? {
-      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar",contratos:"editar"}
+      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar",contratos:"editar",requisicao:"editar"}
     } : {}));
   }).then(function(){
     authPerfilUnsub=ref.onSnapshot(function(doc){
@@ -11330,7 +11276,7 @@ function authShowApp(){
   var chip=document.getElementById("authUserChip");
   if(chip && authCurrentUser){ chip.textContent="👤 "+(authCurrentUser.nome||authCurrentUser.email); chip.style.display="inline-flex"; }
   var btn=document.getElementById("btnUsuarios");
-  if(btn) btn.style.display = authIsAdmin() ? "" : "none";
+  if(btn) btn.style.display = authIsAdmin() ? "inline-flex" : "none";
   iniciarListenersProtegidos();
   authAtualizarBannerSoLeitura("pregoeiro");
 }
@@ -11393,242 +11339,10 @@ firebase.auth().onAuthStateChanged(authAoAutenticar);
    toggles de acesso) e os convites preparados por e-mail antes da pessoa
    sequer entrar. Mais uma lista de só-leitura com o cadastro antigo, pra
    acompanhar quem ainda falta migrar. */
-var _usuariosV2Cache=[], _convitesCache=[];
-function abrirModalUsuarios(){
-  if(!authIsAdmin()){ alert("Só administradores podem gerenciar usuários."); return; }
-  document.getElementById("modalUsuarios").classList.add("open");
-  convitesLimparForm();
-  usuariosV2Renderizar();
-}
-function fecharModalUsuarios(){ document.getElementById("modalUsuarios").classList.remove("open"); }
+/* O cadastro de contas virou página própria (/usuarios/): decide quem
+   entra em TODOS os painéis, não só neste, e não devia ficar escondido
+   atrás de outra porta. O botão do cabeçalho leva para lá. */
 
-function usuariosV2Renderizar(){
-  Promise.all([
-    usuariosV2ColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({uid:d.id}, d.data()); }); }),
-    convitesColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); }),
-    usuariosAntigosRef.get().then(function(s){ return s.docs.map(function(d){ return d.data(); }); }).catch(function(){ return []; })
-  ]).then(function(r){
-    _usuariosV2Cache=r[0]; _convitesCache=r[1];
-    usuariosRenderPendentes(r[0], r[1]);
-    usuariosRenderAprovados(r[0]);
-    convitesRenderLista(r[1], r[0]);
-    usuariosRenderAntigos(r[2]);
-  }).catch(function(e){
-    document.getElementById("usrPendentesLista").innerHTML='<div class="usr-vazio">Erro ao carregar: '+escHtml(e.message)+'</div>';
-  });
-}
-function authOpcoesNivel(atual){
-  return [["nenhum","Sem acesso"],["ver","Visualizar"],["editar","Editar"]].map(function(o){
-    return '<option value="'+o[0]+'"'+(atual===o[0]?' selected':'')+'>'+o[1]+'</option>';
-  }).join('');
-}
-/* O nome que aparece nas telas e no histórico dos contratos. Vem do que a
-   pessoa digitou ao criar a conta, ou do nome da conta Google — mas uma
-   caixa de setor entra sem nome nenhum e acaba chamada de "contratos",
-   pedaço do e-mail. Quem aprova corrige aqui e salva com o resto da linha. */
-function usrCampoNome(u, prefixo){
-  var valor = (u.nome && u.nome !== (u.email||"").split("@")[0]) ? u.nome : "";
-  return '<input class="usr-nome-inp" id="'+prefixo+'Nome_'+u.uid+'" value="'+escHtml(valor)
-    +'" placeholder="Nome da pessoa" title="Nome de quem usa esta conta" maxlength="80"'
-    +' autocomplete="off" spellcheck="false">';
-}
-function usrLerNome(prefixo, uid, u){
-  var el = document.getElementById(prefixo+'Nome_'+uid);
-  var v = el ? el.value.trim() : "";
-  /* Em branco não apaga o que já havia: fica o nome de antes. */
-  return v || (u && u.nome) || "";
-}
-function usrChipsAcesso(u, prefixo){
-  return AUTH_PAINEIS.map(function(p){
-    return '<label class="usr-chk usr-chk-sel">'+p.nome+' <select id="'+prefixo+p.sufixo+'_'+u.uid+'">'
-      +authOpcoesNivel(authNivelDe(u,p.id))+'</select></label>';
-  }).join('');
-}
-/* Lê os três selects de uma linha do painel e devolve o objeto acessos. */
-function usrLerAcessos(prefixo, uid){
-  var acessos={};
-  AUTH_PAINEIS.forEach(function(p){
-    var el=document.getElementById(prefixo+p.sufixo+'_'+uid);
-    acessos[p.id]=(el&&el.value)||"nenhum";
-  });
-  return acessos;
-}
-function usrNenhumAcesso(acessos){
-  return AUTH_PAINEIS.every(function(p){ return authNormalizaNivel(acessos[p.id])==="nenhum"; });
-}
-function usuariosRenderPendentes(usuarios, convites){
-  var box=document.getElementById("usrPendentesLista");
-  var pendentes=usuarios.filter(function(u){ return u.status==="pendente"; });
-  if(!pendentes.length){ box.innerHTML='<div class="usr-vazio">Ninguém esperando aprovação.</div>'; return; }
-  box.innerHTML=pendentes.map(function(u){
-    var convite=convites.find(function(c){ return (c.email||"").toLowerCase()===(u.email||"").toLowerCase(); });
-    var avisoConvite = convite
-      ? '<div class="usr-convite-match">★ convite preparado: '+authResumoAcessos(convite.acessos)+
-        ' <button class="usr-btn" onclick="usuariosAplicarConvite(\''+u.uid+'\',\''+convite.id+'\')">Aplicar</button></div>'
-      : '';
-    return '<div class="usr-row usr-row-col"><div class="usr-info">'
-      +usrCampoNome(u,'pend')
-      +'<div class="usr-login">'+escHtml(u.email)+'</div>'
-      + avisoConvite
-      +'<div class="usr-chks">'+usrChipsAcesso(u,'pend')+'</div>'
-      +'</div><div class="usr-acts">'
-      +'<button class="usr-btn ok" onclick="usuariosAprovar(\''+u.uid+'\')">Aprovar</button>'
-      +'<button class="usr-btn del" onclick="usuariosRecusar(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\')">Recusar</button>'
-      +'</div></div>';
-  }).join('');
-}
-function usuariosAprovar(uid){
-  var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
-  var acessos=usrLerAcessos('pend', uid);
-  /* Aprovar sem liberar nenhum painel é quase sempre engano: a pessoa fica
-     "aprovada" no cadastro mas continua vendo a tela de espera, e quem
-     aprovou acha que liberou. */
-  if(usrNenhumAcesso(acessos) &&
-     !confirm("Nenhum painel foi liberado (todos em \"Sem acesso\").\n\nA pessoa vai continuar vendo \"aguardando liberação\".\n\nAprovar mesmo assim?")) return;
-  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos, nome:usrLerNome('pend', uid, u) })
-    .then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-function usuariosRecusar(uid, nome){
-  if(!confirm('Recusar o pedido de "'+nome+'"? A conta é apagada; a pessoa pode se cadastrar de novo se for engano.')) return;
-  usuariosV2ColRef.doc(uid).delete().then(function(){ toast("Pedido recusado."); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-function usuariosAplicarConvite(uid, conviteId){
-  var convite=_convitesCache.find(function(c){ return c.id===conviteId; });
-  if(!convite) return;
-  var acessos={};
-  AUTH_PAINEIS.forEach(function(p){ acessos[p.id]=authNormalizaNivel(convite.acessos && convite.acessos[p.id]); });
-  var uConv=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
-  /* O convite foi preparado com o nome de quem se esperava: ele vale mais do
-     que o pedaço do e-mail com que a conta nasceu. */
-  var nomeConv=(convite.nome||"").trim() || usrLerNome('pend', uid, uConv);
-  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos, nome:nomeConv})
-    .then(function(){ return convitesColRef.doc(conviteId).delete(); })
-    .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-
-function usuariosRenderAprovados(usuarios){
-  var box=document.getElementById("usrAprovadosLista");
-  var aprovados=usuarios.filter(function(u){ return u.status==="aprovado"||u.status==="bloqueado"; });
-  aprovados.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||"",'pt-BR'); });
-  if(!aprovados.length){ box.innerHTML='<div class="usr-vazio">Nenhum usuário aprovado ainda.</div>'; return; }
-  /* Só conta quem realmente PODE administrar: um admin bloqueado não abre
-     o sistema, então deixá-lo no total permitiria bloquear ou rebaixar o
-     último admin em atividade e ninguém mais entraria no painel. */
-  var totalAdmins=usuarios.filter(function(u){ return u.isAdmin && u.status==="aprovado"; }).length;
-  box.innerHTML=aprovados.map(function(u){
-    var euMesmo=authCurrentUser && authCurrentUser.uid===u.uid;
-    var bloqueado=u.status==="bloqueado";
-    return '<div class="usr-row usr-row-col'+(bloqueado?' usr-bloqueado':'')+'"><div class="usr-info">'
-      +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'
-      +usrCampoNome(u,'apr')
-      +(euMesmo?'<span style="color:var(--muted);font-size:11px">(você)</span>':'')
-      +(u.isAdmin?'<span class="badge-tipo" style="font-size:10px;padding:2px 7px;border-radius:8px">admin</span>':'')
-      +(bloqueado?'<span style="color:var(--red);font-size:11px;font-weight:700">BLOQUEADO</span>':'')
-      +'</div>'
-      +'<div class="usr-login">'+escHtml(u.email)+'</div>'
-      +'<div class="usr-chks">'+usrChipsAcesso(u,'apr')+'<label class="usr-chk"><input type="checkbox" id="aprAdmin_'+u.uid+'"'+(u.isAdmin?' checked':'')+'> Administrador</label></div>'
-      +'</div><div class="usr-acts">'
-      +'<button class="usr-btn" title="Salvar alterações" onclick="usuariosSalvarAcessos(\''+u.uid+'\','+totalAdmins+')">&#128190;</button>'
-      +(u.provedor==="password" ? '<button class="usr-btn" title="Enviar redefinição de senha" onclick="usuariosEnviarReset(\''+escHtml(escJs(u.email))+'\')">&#128273;</button>' : '')
-      +(bloqueado
-        ? '<button class="usr-btn ok" title="Reativar" onclick="usuariosReativar(\''+u.uid+'\')">&#10003;</button>'
-        : '<button class="usr-btn del" title="Bloquear" onclick="usuariosBloquear(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">&#128683;</button>')
-      +'<button class="usr-btn del" title="Excluir" onclick="usuariosExcluirV2(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">&#128465;</button>'
-      +'</div></div>';
-  }).join('');
-}
-function usuariosSalvarAcessos(uid, totalAdmins){
-  var ad=document.getElementById('aprAdmin_'+uid);
-  var viraAdmin=!!(ad&&ad.checked);
-  var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
-  if(u && u.isAdmin && !viraAdmin && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
-  var acessos=usrLerAcessos('apr', uid);
-  /* Mesmo cuidado da aprovação: deixar tudo em "Sem acesso" devolve a
-     pessoa para a tela de espera, e quem salvou não fica sabendo. Admin
-     não entra na conversa — ele abre tudo de qualquer jeito. */
-  if(!viraAdmin && usrNenhumAcesso(acessos) &&
-     !confirm("Nenhum painel ficou liberado (todos em \"Sem acesso\").\n\n"
-              +"A pessoa volta a ver \"aguardando liberação\".\n\nSalvar mesmo assim?")) return;
-  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin, nome:usrLerNome('apr', uid, u) })
-    .then(function(){ toast("Alterações salvas."); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-function usuariosBloquear(uid, nome, totalAdmins, ehAdmin){
-  if(ehAdmin && totalAdmins<=1){ alert("Não é possível bloquear o único administrador."); return; }
-  if(!confirm('Bloquear o acesso de "'+nome+'"? A pessoa continua com a conta, mas não entra em nada até ser reativada.')) return;
-  usuariosV2ColRef.doc(uid).update({status:"bloqueado"}).then(function(){ toast("Usuário bloqueado."); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-function usuariosReativar(uid){
-  usuariosV2ColRef.doc(uid).update({status:"aprovado"}).then(function(){ toast("Usuário reativado."); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-function usuariosExcluirV2(uid, nome, totalAdmins, ehAdmin){
-  if(ehAdmin && totalAdmins<=1){ alert("Não é possível excluir o único administrador."); return; }
-  if(!confirm('Excluir "'+nome+'"? A pessoa precisaria se cadastrar de novo (e ser aprovada de novo) para voltar a entrar.')) return;
-  usuariosV2ColRef.doc(uid).delete().then(function(){
-    toast("Usuário excluído.");
-    if(authCurrentUser && authCurrentUser.uid===uid){ firebase.auth().signOut(); return; }
-    usuariosV2Renderizar();
-  }).catch(function(e){ alert("Erro: "+e.message); });
-}
-function usuariosEnviarReset(email){
-  firebase.auth().sendPasswordResetEmail(email)
-    .then(function(){ toast("E-mail de redefinição enviado para "+email+"."); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-
-/* ── Convites (pré-cadastro por e-mail) ──
-   Não dá acesso sozinho: é só um lembrete. Quando a pessoa se cadastrar com
-   esse e-mail, o convite aparece destacado na lista de pendentes, e um
-   clique aplica exatamente o acesso preparado aqui. */
-function convitesLimparForm(){
-  ["cvNome","cvEmail"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
-  AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); if(e) e.value="nenhum"; });
-}
-function convitesSalvar(){
-  var nome=(document.getElementById("cvNome").value||"").trim();
-  var email=(document.getElementById("cvEmail").value||"").trim().toLowerCase();
-  if(!email){ alert("Informe o e-mail."); return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
-  var acessos={};
-  AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); acessos[p.id]=(e&&e.value)||"nenhum"; });
-  convitesColRef.add({nome:nome, email:email, acessos:acessos, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
-    .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
-    .catch(function(e){ alert("Erro: "+e.message); });
-}
-function convitesRenderLista(convites, usuarios){
-  var box=document.getElementById("usrConvitesLista");
-  if(!convites.length){ box.innerHTML='<div class="usr-vazio">Nenhum convite preparado.</div>'; return; }
-  box.innerHTML=convites.map(function(c){
-    var jaEntrou=usuarios.some(function(u){ return (u.email||"").toLowerCase()===(c.email||"").toLowerCase(); });
-    return '<div class="usr-row"><div class="usr-info">'
-      +'<div class="usr-nome">'+escHtml(c.nome||c.email)+'</div>'
-      +'<div class="usr-login">'+escHtml(c.email)+' — '+authResumoAcessos(c.acessos)+(jaEntrou?' <b style="color:var(--green)">· já se cadastrou, veja em Pendentes</b>':'')+'</div>'
-      +'</div><div class="usr-acts"><button class="usr-btn del" onclick="convitesCancelar(\''+c.id+'\')">&#128465;</button></div></div>';
-  }).join('');
-}
-function convitesCancelar(id){
-  convitesColRef.doc(id).delete().then(function(){ toast("Convite cancelado."); usuariosV2Renderizar(); });
-}
-
-/* ── Contas antigas (usuário/senha, pré-migração) ──
-   Só leitura: mostra quem ainda não recriou a conta, pra saber quem falta
-   avisar. Não autentica mais ninguém — a coleção "usuarios" ficou fechada. */
-function usuariosRenderAntigos(antigos){
-  var box=document.getElementById("usrAntigosLista");
-  if(!box) return;
-  if(!antigos.length){ box.innerHTML='<div class="usr-vazio">Nenhuma conta antiga registrada.</div>'; return; }
-  box.innerHTML=antigos.map(function(a){
-    return '<div class="usr-row"><div class="usr-info">'
-      +'<div class="usr-nome">'+escHtml(a.nome||a.usuario)+'</div>'
-      +'<div class="usr-login">login antigo: '+escHtml(a.usuario)+'</div>'
-      +'</div></div>';
-  }).join('');
-}
 
 /* ══ MODO COMPARTILHADO VENCEDORES (?venc=ID) ═══════════════════════════════
    Página pública de leitura para a secretaria se organizar. Espelha em tempo
@@ -11789,7 +11503,6 @@ document.addEventListener("keydown", function(e){
     ["modalStatus", fecharModalStatus],
     ["modalDec", fecharModalDec],
     ["modalDil", fecharModalDil],
-    ["modalUsuarios", fecharModalUsuarios],
     ["modalProcesso", fecharModal]
   ];
   for(var i=0;i<modais.length;i++){

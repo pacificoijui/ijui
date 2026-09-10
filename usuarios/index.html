@@ -1,0 +1,887 @@
+<!--
+  Usuários — /usuarios/  (só administrador)
+
+  O cadastro de contas morava dentro do Sistema Interno, num modal. Virou
+  página própria porque não é assunto de licitação: é aqui que se decide
+  quem entra em TODOS os painéis — Agenda, Sistema Interno, Contratos e
+  Requisições — e a porta não devia ficar escondida atrás de outra porta.
+
+  As regras do Firestore só deixam LISTAR usuarios_v2 para quem é admin,
+  então esta tela sem admin não teria o que mostrar de qualquer jeito: o
+  portão aqui é cortesia, a trava é do lado do servidor.
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#12306B">
+<meta name="robots" content="noindex">
+<link rel="icon" href="../logo-ijui.jpg">
+<link rel="apple-touch-icon" href="../logo-ijui.jpg">
+<title>Usuários – Município de Ijuí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    /* ── Paleta "Mosaico das Etnias" — identidade unificada com o guia de Ramais ── */
+    --noite:#081C52; --marinho:#12306B; --real:#1440A8; --real-2:#1E52CC;
+    --vermelho:#E3242B; --laranja:#F26B21; --amarelo:#FFC20E;
+    --verde:#8CC63F; --verde-2:#1E7A34; --petroleo:#0B6E7F;
+    --faixa: linear-gradient(90deg,var(--vermelho) 0 14%,var(--laranja) 0 28%,var(--amarelo) 0 42%,var(--verde) 0 58%,var(--verde-2) 0 72%,var(--petroleo) 0 86%,var(--real) 0 100%);
+    /* ── Aliases legados (mapeados para a nova paleta) ── */
+    --navy:      var(--marinho);
+    --navy-mid:  var(--real);
+    --navy-dark: var(--noite);
+    --navy-light:var(--real-2);
+    --gold:      var(--amarelo);
+    --gold-light:var(--laranja);
+    --card:      #FFFFFF;
+    --bg:        #F2F5FB;
+    --text:      #101A33;
+    --muted:     #5A6685;
+    --border:    #E3E8F4;
+    --shadow:    0 1px 2px rgba(8,28,82,.06),0 8px 28px -12px rgba(8,28,82,.18);
+    --shadow-md: 0 6px 22px rgba(8,28,82,0.12);
+    --shadow-lg: 0 18px 50px rgba(8,28,82,0.25);
+    --blue-bg:   #E8EEFB;
+    --blue-text: var(--real);
+    --green:     #1E7A34;  --green-bg:  #EAF6EC;
+    --red:       #E3242B;  --red-bg:    #FDECEC;
+    --amber:     #C05300;  --amber-bg:  #FEF0E3;
+    --today:     #FFF7DD;
+    --radius:    18px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Sora',system-ui,sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased; }
+  a { color: inherit; }
+  header { background:#fff; padding:0 32px; position:sticky; top:0; z-index:100;
+    box-shadow:0 3px 16px rgba(15,32,80,.15);
+    border-bottom:4px solid; border-image:linear-gradient(90deg,var(--navy) 0%,var(--navy-light) 55%,var(--gold) 100%) 1; }
+  .header-inner { max-width:1000px; margin:0 auto; display:flex; align-items:center; justify-content:space-between;
+    min-height:74px; gap:20px; flex-wrap:wrap; }
+  .logo-wrap { display:flex; align-items:center; gap:14px; }
+  .logo-mark { width:46px; height:46px; border-radius:12px; background:#fff; display:flex; align-items:center;
+    justify-content:center; box-shadow:0 2px 8px rgba(26,58,107,.18), inset 0 0 0 1.5px var(--border); padding:6px; }
+  .logo-mark img { width:100%; height:100%; object-fit:contain; display:block; }
+  .logo-text h1 { font-size:18px; color:var(--navy); font-weight:700; }
+  .logo-text p { font-size:11.5px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+  .header-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .chip-auth { display:inline-flex; align-items:center; font-size:12px; font-weight:700; color:var(--navy);
+    background:var(--blue-bg); padding:5px 11px; border-radius:20px; }
+  .voltar { display:inline-flex; align-items:center; gap:5px; text-decoration:none; font-size:13px; font-weight:700;
+    color:var(--navy); background:var(--bg); border:1.5px solid var(--border); border-radius:10px; padding:8px 14px; }
+  .voltar:hover { background:var(--blue-bg); border-color:var(--navy-light); }
+  main { max-width:1000px; margin:0 auto; padding:24px 32px 70px; }
+  .cartao { background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow-md);
+    padding:24px; display:flex; flex-direction:column; gap:18px; }
+  #toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(14px); background:var(--navy);
+    color:#fff; padding:11px 20px; border-radius:11px; font-size:13.5px; font-weight:600; opacity:0;
+    pointer-events:none; transition:.22s; z-index:900; box-shadow:var(--shadow-lg); }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  @keyframes slideUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+  @media (max-width:768px){
+    header { padding:0 14px; } main { padding:16px 14px 60px; } .cartao { padding:16px; }
+    .usr-row { flex-direction:column; align-items:stretch; }
+  }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(8,18,45,0.58); z-index: 600; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .overlay.open { display: flex; }
+  .modal { background: var(--card); border-radius: 16px; box-shadow: var(--shadow-lg); width: 100%; max-width: 600px; margin: 20px; overflow: hidden; animation: slideUp 0.22s ease; max-height: 92vh; overflow-y: auto; }
+  .modal-header { background: linear-gradient(135deg, var(--navy-dark), var(--navy)); padding: 19px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1; border-bottom: 3px solid var(--navy-light); }
+  .modal-header h2 { font-size: 18px; color: #fff; font-weight: 700; }
+  .modal-close { background: rgba(255,255,255,0.15); border: none; color: #fff; width: 30px; height: 30px; border-radius: 6px; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+  .modal-close:hover { background: rgba(255,255,255,0.30); }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 17px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 7px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Sora', system-ui, sans-serif; font-size: 14px; color: var(--text); background: #f8fafd; outline: none; transition: border 0.15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--navy-light); background: #fff; }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .row { display: flex; gap: 14px; }
+  .row .field { flex: 1; }
+  .modal-footer { padding: 15px 24px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; background: #f7f9fd; position: sticky; bottom: 0; }
+  .btn-cancel { padding: 10px 20px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; font-family: 'Sora', system-ui, sans-serif; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  .btn-cancel:hover { border-color: var(--muted); color: var(--text); }
+  .btn-save { padding: 10px 26px; border-radius: 8px; border: none; background: var(--navy); color: #fff; font-family: 'Sora', system-ui, sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.1s; }
+  .btn-save:hover { background: var(--navy-light); transform: translateY(-1px); }
+  .toast { position: fixed; bottom: 28px; right: 28px; background: var(--navy); color: #fff; padding: 13px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; box-shadow: var(--shadow-lg); z-index: 999; display: none; align-items: center; gap: 8px; animation: toastIn 0.22s ease; border-left: 4px solid var(--navy-light); }
+  .toast.show { display: flex; }
+  .modal { margin: 0; border-radius: 16px 16px 0 0; max-width: 100%; width: 100%; position: fixed; bottom: 0; max-height: 92vh; }
+  .overlay { align-items: flex-end; }
+  .modal-body { padding: 18px; }
+  .modal-header { padding: 16px 18px; }
+  .modal-footer { padding: 12px 18px; }
+  .row { flex-direction: column; gap: 12px; }
+  .hbs-sbtn.sel-inab {border-color:#A32D2D;background:#A32D2D;color:#fff;box-shadow:0 3px 10px rgba(163,45,45,.25)}
+  .hbs-sbtn.sel-hab {border-color:#1E5F3A;background:#1E5F3A;color:#fff;box-shadow:0 3px 10px rgba(30,95,58,.25)}
+  .htec-tbtn.sel-sim {border-color:#1E5F3A;background:#1E5F3A;color:#fff}
+  .htec-tbtn.sel-nao {border-color:#A32D2D;background:#A32D2D;color:#fff}
+  .rks-sbtn.rks-sbtn-rp:not(.sel-rp):active {border-color:#A32D2D;color:#A32D2D}
+  .rks-sbtn.rks-sbtn-ap:not(.sel-ap):active {border-color:#1E5F3A;color:#1E5F3A}
+  .rks-sbtn.rks-sbtn-rp:hover:not(.sel-rp) {border-color:#A32D2D;color:#A32D2D;background:#fff5f5}
+  .rks-sbtn.rks-sbtn-ap:hover:not(.sel-ap) {border-color:#1E5F3A;color:#1E5F3A;background:#f3fbf6}
+  .rks-sbtn.sel-rp {border-color:#A32D2D;background:#A32D2D;color:#fff;box-shadow:0 3px 10px rgba(163,45,45,.28)}
+  .rks-sbtn.sel-ap {border-color:#1E5F3A;background:#1E5F3A;color:#fff;box-shadow:0 3px 10px rgba(30,95,58,.28)}
+  .rks-sbtn.sel-dil {border-color:#1d4ed8;background:#1d4ed8;color:#fff;box-shadow:0 3px 10px rgba(29,78,216,.28)}
+  body.consulta-mode>*:not(#consultaPanel):not(#authGate) {display:none!important}
+  /* ── Login / Portão de acesso ── */
+  #authGate {position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#1a3a6b,#0d1f3d);padding:18px;font-family:'Sora',system-ui,sans-serif;-webkit-text-size-adjust:100%}
+  .auth-card {background:#fff;border-radius:16px;padding:26px 24px;width:100%;max-width:380px;box-shadow:0 12px 40px rgba(0,0,0,.3);box-sizing:border-box}
+  .auth-logo {height:48px;width:auto;display:block;margin:2px auto 14px;border-radius:6px}
+  .auth-title {font-size:18px;font-weight:800;color:#1a3a6b;text-align:center;margin:0 0 2px;line-height:1.2}
+  .auth-sub {font-size:11.5px;color:#8590a8;text-align:center;margin:0 0 18px;letter-spacing:.3px}
+  .auth-first {font-size:12.5px;color:#556;background:#f0f4fb;border-radius:8px;padding:9px 11px;margin:0 0 14px;text-align:center}
+  .auth-label {display:block;font-size:11px;font-weight:700;color:#445;text-transform:uppercase;letter-spacing:.4px;margin:11px 0 4px}
+  .auth-input {width:100%;padding:11px 13px;border:1px solid #c8d0e0;border-radius:9px;font-size:15px;box-sizing:border-box}
+  .auth-input:focus {outline:none;border-color:#1a3a6b;box-shadow:0 0 0 3px rgba(26,58,107,.12)}
+  .auth-btn {width:100%;margin-top:18px;padding:13px;border:none;border-radius:10px;background:#1a3a6b;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+  .auth-btn:hover {background:#16315b}
+  .auth-btn:disabled {opacity:.6;cursor:default}
+  .auth-err {color:#c0392b;font-size:12.5px;margin-top:12px;text-align:center;min-height:16px;line-height:1.4}
+  .auth-chip {font-size:12px;font-weight:700;color:var(--navy);background:var(--blue-bg);border:1px solid var(--border);padding:7px 11px;border-radius:8px;white-space:nowrap;display:inline-flex;align-items:center}
+  .auth-btn-google {background:#fff;color:#3c4043;border:1.5px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:0}
+  .auth-btn-google:hover {background:#f8f9fa}
+  .auth-divider {display:flex;align-items:center;gap:10px;margin:16px 0;color:#9aa5bd;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+  .auth-divider::before,.auth-divider::after {content:"";flex:1;height:1px;background:#e3e8f2}
+  .auth-links {display:flex;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .auth-link-btn {background:none;border:none;color:#1a3a6b;font-size:12.5px;font-weight:700;cursor:pointer;padding:2px 0;text-decoration:underline}
+  .auth-pendente-perfil {display:flex;align-items:center;gap:12px;background:#f4f7fc;border-radius:10px;padding:12px;margin:6px 0 14px}
+  .auth-pend-foto {width:44px;height:44px;border-radius:50%;background:#dde4f0;object-fit:cover;flex-shrink:0}
+  .auth-pend-nome {font-weight:700;color:#1c2433;font-size:14px}
+  .auth-pend-email {font-size:12px;color:#8590a8;margin-top:1px}
+  .usr-secao {display:flex;flex-direction:column;gap:8px}
+  .usr-secao-tit {font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .usr-lista {display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto}
+  .usr-vazio {font-size:12.5px;color:var(--muted);text-align:center;padding:10px 0}
+  .usr-row {display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#fafbfd}
+  .usr-row.usr-bloqueado {background:#fdf0f0;border-color:#f0cccc}
+  .usr-row .usr-info {min-width:0;flex:1}
+  .usr-row .usr-nome {font-weight:700;color:var(--navy);font-size:14px}
+  /* O nome é editável ali mesmo: quando alguém entra com uma caixa de setor
+     ("contratos@ijui.rs.gov.br") o nome nasce sendo o pedaço do e-mail, e
+     quem aprova é quem sabe de quem é a conta. Parece texto até receber o
+     cursor, para a linha não virar um formulário. */
+  .usr-row .usr-nome-inp {font-weight:700;color:var(--navy);font-size:14px;font-family:inherit;
+    border:1.5px solid transparent;border-radius:7px;background:transparent;padding:2px 6px;
+    margin:-2px 0 0 -6px;width:min(280px,100%);outline:none;transition:border-color .14s,background .14s}
+  .usr-row .usr-nome-inp:hover {border-color:var(--border);background:#fff}
+  .usr-row .usr-nome-inp:focus {border-color:var(--navy-light);background:#fff;box-shadow:0 0 0 3px rgba(46,93,168,.13)}
+  .usr-row .usr-nome-inp::placeholder {font-weight:500;color:#b0bacc;font-style:italic}
+  .usr-row .usr-login {font-size:12px;color:var(--muted);margin-top:1px}
+  .usr-row .usr-acts {display:flex;gap:6px;flex-shrink:0;padding-top:1px}
+  .usr-btn {border:1px solid #cfd6e4;background:#fff;border-radius:7px;padding:6px 9px;font-size:13px;cursor:pointer;color:var(--navy)}
+  .usr-btn.del {border-color:#e3b3b3;color:#c0392b}
+  .usr-btn.ok {border-color:#a8d9b4;color:#1b7a34}
+  .usr-chks {display:flex;gap:14px;margin-top:7px;flex-wrap:wrap}
+  .usr-chk {display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);cursor:pointer;user-select:none}
+  .usr-chk input {width:14px;height:14px;accent-color:var(--navy-light);margin:0}
+  .usr-chk-sel select {font-size:11.5px;padding:3px 6px;border-radius:6px;border:1.5px solid var(--border);color:var(--navy);background:#fff;cursor:pointer}
+  .usr-convite-match {font-size:11.5px;font-weight:700;color:#8a6d1f;background:#fbf5e6;border:1px solid #ecd9a4;border-radius:7px;padding:5px 8px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .auth-chip {background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--amarelo);border-radius:12px}
+  .btn-save {background:var(--real);border-radius:12px}
+  .btn-save:hover {background:var(--real-2)}
+  .btn-cancel {border-radius:12px}
+  /* ── Campos / foco ── */
+  .search-box input,.filtro-input,.filtro-select,.field input,.field select,.field textarea {border-radius:11px}
+  .search-box input:focus,.filtro-input:focus,.filtro-select:focus,
+  .field input:focus,.field select:focus,.field textarea:focus {
+    border-color:var(--real-2);box-shadow:0 0 0 3px rgba(20,64,168,.12);
+  }
+  /* ── Modais ── */
+  .modal {border-radius:var(--radius)}
+  .modal-header {border-bottom:none}
+  .modal-header::after {content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--faixa)}
+  .modal-close {border-radius:8px}
+  .rks-sbtn.sel-ap,.hbs-sbtn.sel-hab {background:var(--verde-2);border-color:var(--verde-2);box-shadow:0 3px 10px rgba(30,122,52,.28)}
+  .rks-sbtn.sel-rp,.hbs-sbtn.sel-inab {background:var(--vermelho);border-color:var(--vermelho);box-shadow:0 3px 10px rgba(227,36,43,.28)}
+  .rks-sbtn.sel-dil {background:var(--real);border-color:var(--real);box-shadow:0 3px 10px rgba(20,64,168,.28)}
+  /* ── Login (portão de acesso) ── */
+  #authGate {background:radial-gradient(1000px 520px at 15% -10%,#1E52CC 0%,transparent 55%),linear-gradient(160deg,#0D2B7E 0%,#081C52 75%)}
+  .auth-card {border-radius:20px;position:relative;overflow:hidden}
+  .auth-card::before {content:"";position:absolute;top:0;left:0;right:0;height:5px;background:var(--faixa)}
+  .auth-title {color:var(--marinho);font-weight:800}
+  .auth-btn {background:var(--real);border-radius:12px}
+  .auth-btn:hover {background:var(--real-2)}
+  .auth-input {border-radius:11px}
+  .auth-input:focus {border-color:var(--real-2);box-shadow:0 0 0 3px rgba(20,64,168,.12)}
+  .toast {border-radius:99px;border-left:none;background:var(--noite);box-shadow:0 10px 30px rgba(8,28,82,.4)}
+</style>
+</head>
+<body>
+<div id="authGate">
+  <div class="auth-card">
+    <img class="auth-logo" id="authLogo" alt="">
+    <h1 class="auth-title">Gestão de Processos Licitatórios</h1>
+    <p class="auth-sub">Município de Ijuí · COPAM</p>
+
+    <!-- Enquanto o Firebase confere se já existe sessão nesta máquina, quem
+         já está logado não pode ver o formulário de login piscando: o portão
+         mostra este aviso e, só se não houver ninguém logado, dá lugar ao
+         formulário (authStartGate). -->
+    <div id="authCarregando"><p class="auth-sub">Verificando seu acesso…</p></div>
+
+    <div id="authEntradaBox" style="display:none">
+      <button id="authBtnGoogle" class="auth-btn auth-btn-google" type="button" onclick="authGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18" style="flex-shrink:0"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62Z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.9v2.33A9 9 0 0 0 9 18Z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.9A9 9 0 0 0 0 9c0 1.45.35 2.83.9 4.03l3.05-2.33Z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .9 4.97l3.05 2.33C4.66 5.17 6.65 3.58 9 3.58Z"/></svg>
+        Entrar com Google
+      </button>
+      <div class="auth-divider"><span>ou</span></div>
+      <label class="auth-label">E-mail</label>
+      <input id="authEmail" class="auth-input" type="email" autocomplete="email" placeholder="seu@email.com">
+      <label class="auth-label">Senha</label>
+      <input id="authPass" type="password" class="auth-input" autocomplete="current-password" placeholder="senha">
+      <button id="authBtnEntrar" class="auth-btn" type="button" onclick="authEntrarSenha()">Entrar</button>
+      <div class="auth-links">
+        <button class="auth-link-btn" type="button" onclick="authSetModo('criar')">Criar uma conta</button>
+        <button class="auth-link-btn" type="button" onclick="authEsqueciSenha()">Esqueci minha senha</button>
+      </div>
+    </div>
+
+    <div id="authCriarBox" style="display:none">
+      <p class="auth-first">Crie sua conta para pedir acesso ao sistema. Depois de criar, um administrador precisa liberar o que você vai poder ver.</p>
+      <label class="auth-label">Nome completo</label>
+      <input id="authNomeC" class="auth-input" placeholder="Seu nome">
+      <label class="auth-label">E-mail</label>
+      <input id="authEmailC" class="auth-input" type="email" autocomplete="email" placeholder="seu@email.com">
+      <label class="auth-label">Senha</label>
+      <input id="authPassC" type="password" class="auth-input" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+      <label class="auth-label">Confirmar senha</label>
+      <input id="authPass2" type="password" class="auth-input" autocomplete="new-password" placeholder="repita a senha">
+      <button id="authBtnCriar" class="auth-btn" type="button" onclick="authCriarConta()">Criar conta</button>
+      <div class="auth-links">
+        <button class="auth-link-btn" type="button" onclick="authSetModo('entrar')">Já tenho conta — entrar</button>
+      </div>
+    </div>
+
+    <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <!-- Tela de espera: a conta existe, mas nenhum painel foi liberado ainda -->
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img class="auth-logo" id="authLogoPend" alt="">
+    <h1 class="auth-title">Aguardando liberação</h1>
+    <div class="auth-pendente-perfil">
+      <img id="authPendFoto" class="auth-pend-foto" alt="">
+      <div>
+        <div class="auth-pend-nome" id="authPendNome"></div>
+        <div class="auth-pend-email" id="authPendEmail"></div>
+      </div>
+    </div>
+    <p class="auth-first" id="authPendMsg">Sua conta foi criada. Peça para um administrador liberar o seu acesso.</p>
+    <button class="auth-btn" type="button" onclick="authLogout()" style="background:#8590a8">Sair</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-mark"><img src="../logo-ijui.jpg" alt="Brasão de Ijuí"></div>
+      <div class="logo-text">
+        <h1>Usuários</h1>
+        <p>Município de Ijuí · Quem entra em cada painel</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="authUserChip" class="chip-auth" style="display:none"></span>
+      <button class="usr-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+      <a class="voltar" href="../pregoeiro/">← Sistema Interno</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="cartao">
+<div class="modal-body" style="gap:18px">
+      <div style="background:#f1f9f3;border:1.5px solid #bfe3c6;border-radius:10px;padding:11px 14px;font-size:12.5px;color:#1b5e20;line-height:1.5">
+        As pessoas se cadastram sozinhas (Google ou e-mail/senha) e entram como <b>pendentes</b>, sem acesso a nada.
+        Aprove aqui e marque a quais painéis cada uma tem acesso.
+      </div>
+
+      <div class="usr-secao">
+        <div class="usr-secao-tit">Aguardando aprovação</div>
+        <div id="usrPendentesLista" class="usr-lista"></div>
+      </div>
+
+      <div class="usr-secao">
+        <div class="usr-secao-tit">Usuários</div>
+        <div id="usrAprovadosLista" class="usr-lista"></div>
+      </div>
+
+      <div class="usr-secao">
+        <div class="usr-secao-tit">Convites preparados por e-mail</div>
+        <div style="display:flex;flex-direction:column;gap:8px;background:#f7f9fd;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px">
+          <div class="row">
+            <div class="field"><label>Nome</label><input type="text" id="cvNome" placeholder="Nome da pessoa"></div>
+            <div class="field"><label>E-mail</label><input type="email" id="cvEmail" placeholder="pessoa@gmail.com"></div>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
+            <label class="usr-chk usr-chk-sel">Agenda <select id="cvAg"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
+            <label class="usr-chk usr-chk-sel">Sistema Interno <select id="cvPr"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
+            <label class="usr-chk usr-chk-sel">Contratos <select id="cvCt"><option value="nenhum" selected>Sem acesso</option><option value="ver">Visualizar</option><option value="editar">Editar</option></select></label>
+            <button class="btn-save" onclick="convitesSalvar()" style="padding:7px 16px;font-size:12.5px;margin-left:auto">Preparar convite</button>
+          </div>
+        </div>
+        <div id="usrConvitesLista" class="usr-lista"></div>
+      </div>
+
+      <details class="usr-secao">
+        <summary class="usr-secao-tit" style="cursor:pointer">Contas antigas (usuário/senha, ainda não migraram)</summary>
+        <div id="usrAntigosLista" class="usr-lista" style="margin-top:10px"></div>
+      </details>
+    </div>
+
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCH8DKzE8oPaQ3HpAex-3iqEaReKon05lM",
+    authDomain: "processos-ijui.firebaseapp.com",
+    projectId: "processos-ijui",
+    storageBucket: "processos-ijui.firebasestorage.app",
+    messagingSenderId: "385308750932",
+    appId: "1:385308750932:web:65e94a26e71451995fe9c1"
+  });
+  const db = firebase.firestore();
+</script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   LOGIN / CONTROLE DE ACESSO
+   Contas de verdade pelo Firebase Authentication (Google ou e-mail/senha).
+   Cada pessoa se cadastra sozinha; a conta nasce "pendente", sem acesso a
+   nenhum painel. Só um administrador, no painel "Usuários", decide o que
+   ela vai poder ver — Agenda, Sistema Interno (este arquivo), ou os dois.
+
+   Perfil de permissão: coleção "usuarios_v2", um documento por pessoa, com
+   o ID do documento IGUAL ao uid do Firebase Auth (nunca um id aleatório) —
+   é o que permite a regra do Firestore dizer "só o dono deste uid lê/edita
+   este documento" sem precisar de nenhuma consulta.
+
+   O cadastro antigo (usuário/senha, coleção "usuarios") fica só de
+   referência, pra acompanhar quem ainda não migrou — não autentica mais
+   ninguém, porque manter aquele mecanismo exigia a coleção aberta pra
+   leitura pública (inclusive os hashes de senha). Ver ../FIRESTORE-RULES.md.
+
+   Links externos que continuam sem exigir login (ver comentário nas
+   regras): ?ranking=, ?assinar=, ?assinatura=, ?hab=, ?venc=, ?consulta=.
+   ════════════════════════════════════════════════════════════════ */
+var usuariosV2ColRef   = db.collection("usuarios_v2");
+var convitesColRef     = db.collection("usuarios_v2_convites");
+var usuariosAntigosRef = db.collection("usuarios");           /* só leitura, cadastro pré-migração */
+var AUTH_BOOTSTRAP_ADMIN_EMAIL = "pedrohhpacifico@gmail.com";
+var authCurrentUser  = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+var authFirebaseUser = null;   /* objeto de firebase.auth().currentUser */
+var authModo = "entrar";
+var authPerfilUnsub = null;
+
+/* ── Nível de acesso por painel: "nenhum" | "ver" | "editar" ──
+   acessos.agenda/acessos.pregoeiro guardam um desses três textos. Contas
+   aprovadas ANTES desta mudança guardam "true"/"false" (o modelo antigo, só
+   liberado/bloqueado) — authNormalizaNivel trata os dois formatos igual,
+   pra não precisar migrar nada: true vira "editar", false/ausente vira
+   "nenhum". Administrador sempre edita tudo, senão não teria como aprovar
+   ninguém. */
+function authNormalizaNivel(v){
+  if(v===true) return "editar";
+  if(v==="ver"||v==="editar"||v==="diretor") return v;
+  return "nenhum";
+}
+function authNivelDe(u, painel){
+  if(!u) return "nenhum";
+  if(u.isAdmin) return "editar";
+  return authNormalizaNivel(u.acessos && u.acessos[painel]);
+}
+
+function authIsAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
+
+/* Este arquivo serve duas telas: o Sistema Interno inteiro e, pelo link
+   "?consulta=1", um painel só de leitura para os colegas acompanharem os
+   processos pendentes. O painel de consulta não mostra nada do sistema
+   interno — nenhum botão de edição —, então exige menos: basta ter acesso
+   a algum painel, que é exatamente o que as regras do Firestore pedem para
+   listar processos. */
+
+/* Os três painéis que uma conta pode ter, na ordem em que aparecem no
+   painel Usuários. Contratos entrou aqui (mesmo projeto do Firebase, mesma
+   conta) — ver contratos/LEIA-ME.md. */
+/* Os painéis do sistema, em um lugar só: acrescentar um é acrescentar uma
+   linha aqui. "niveis" fora do comum é o caso das Requisições, que têm um
+   quarto papel — o Diretor, que NÃO edita a requisição e só despacha a
+   modalidade. Ver requisicao/LEIA-ME.md. */
+var AUTH_NIVEIS_PADRAO=[["nenhum","Sem acesso"],["ver","Visualizar"],["editar","Editar"]];
+var AUTH_PAINEIS=[
+  {id:"agenda",    nome:"Agenda",          sufixo:"Ag"},
+  {id:"pregoeiro", nome:"Sistema Interno", sufixo:"Pr"},
+  {id:"contratos", nome:"Contratos",       sufixo:"Ct"},
+  {id:"requisicao",nome:"Requisições",     sufixo:"Rq",
+   niveis: AUTH_NIVEIS_PADRAO.concat([["diretor","Diretor (só despacha)"]])}
+];
+var AUTH_ROTULO_NIVEL={ver:"visualizar", editar:"editar", diretor:"diretor"};
+function authResumoAcessos(acessos){
+  var partes=AUTH_PAINEIS.map(function(p){
+    var n=authNormalizaNivel(acessos && acessos[p.id]);
+    return n==="nenhum" ? null : p.nome+" ("+(AUTH_ROTULO_NIVEL[n]||n)+")";
+  }).filter(Boolean);
+  return partes.length ? partes.join(", ") : "nenhum acesso";
+}
+
+function authErr(msg){ var e=document.getElementById("authErr"); if(e) e.textContent=msg||""; }
+function authSetModo(m){
+  authModo=m;
+  document.getElementById("authEntradaBox").style.display=(m==="entrar")?"block":"none";
+  document.getElementById("authCriarBox").style.display=(m==="criar")?"block":"none";
+  authErr("");
+}
+function authBtnCarregando(id, texto){
+  var b=document.getElementById(id); if(!b) return function(){};
+  var original=b.textContent;
+  b.disabled=true; b.textContent=texto;
+  return function(){ b.disabled=false; b.textContent=original; };
+}
+function authMsgErro(e){
+  var m={
+    "auth/invalid-email":"E-mail inválido.",
+    "auth/user-not-found":"Não existe conta com esse e-mail.",
+    "auth/wrong-password":"Senha incorreta.",
+    "auth/invalid-login-credentials":"E-mail ou senha incorretos.",
+    "auth/invalid-credential":"E-mail ou senha incorretos.",
+    "auth/email-already-in-use":"Já existe conta com esse e-mail. Tente entrar em vez de criar.",
+    "auth/weak-password":"Senha muito fraca (mínimo 6 caracteres).",
+    "auth/too-many-requests":"Muitas tentativas. Aguarde um pouco e tente de novo."
+  };
+  return m[e.code] || ("Erro: "+e.message);
+}
+
+/* ── Entrada ── */
+function authGoogle(){
+  if(AUTH_MODO_COMPARTILHADO) return;
+  authErr("");
+  var provider=new firebase.auth.GoogleAuthProvider();
+  var restaurar=authBtnCarregando("authBtnGoogle","Entrando...");
+  firebase.auth().signInWithPopup(provider).catch(function(e){
+    restaurar();
+    if(e.code==="auth/popup-closed-by-user") return;
+    if(e.code==="auth/popup-blocked"){ authErr("O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo."); return; }
+    authErr("Não foi possível entrar com o Google: "+e.message);
+  });
+}
+function authEntrarSenha(){
+  var email=(document.getElementById("authEmail").value||"").trim().toLowerCase();
+  var senha=document.getElementById("authPass").value||"";
+  if(!email||!senha){ authErr("Informe e-mail e senha."); return; }
+  authErr("");
+  var restaurar=authBtnCarregando("authBtnEntrar","Entrando...");
+  firebase.auth().signInWithEmailAndPassword(email,senha).catch(function(e){
+    restaurar(); authErr(authMsgErro(e));
+  });
+}
+function authCriarConta(){
+  var nome=(document.getElementById("authNomeC").value||"").trim();
+  var email=(document.getElementById("authEmailC").value||"").trim().toLowerCase();
+  var senha=document.getElementById("authPassC").value||"";
+  var senha2=document.getElementById("authPass2").value||"";
+  if(!nome||!email||!senha){ authErr("Preencha todos os campos."); return; }
+  if(senha.length<6){ authErr("A senha deve ter ao menos 6 caracteres."); return; }
+  if(senha!==senha2){ authErr("As senhas não conferem."); return; }
+  authErr("");
+  var restaurar=authBtnCarregando("authBtnCriar","Criando...");
+  firebase.auth().createUserWithEmailAndPassword(email,senha)
+    .then(function(cred){ return cred.user.updateProfile({displayName:nome}); })
+    .catch(function(e){ restaurar(); authErr(authMsgErro(e)); });
+}
+function authEsqueciSenha(){
+  var email=(document.getElementById("authEmail").value||"").trim().toLowerCase();
+  if(!email){ authErr("Digite seu e-mail no campo acima primeiro."); return; }
+  authErr("");
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function(){ alert("Enviamos um e-mail para "+email+" com um link para redefinir a senha."); })
+    .catch(function(e){ authErr(authMsgErro(e)); });
+}
+function authLogout(){
+  if(!confirm("Deseja sair do sistema?")) return;
+  firebase.auth().signOut();
+}
+
+/* ── Perfil (coleção usuarios_v2) ──
+   Roda toda vez que o Firebase confirma quem está autenticado. Garante que
+   o documento de permissão exista (criando-o na primeira vez, "pendente" e
+   sem nenhum acesso — exceto o e-mail de resgate, que já nasce admin com
+   tudo liberado, pra nunca faltar alguém capaz de aprovar os outros) e
+   passa a ouvir esse documento ao vivo: se um admin mudar o acesso de
+   alguém, a tela dessa pessoa atualiza sozinha, sem precisar relogar. */
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email||"").toLowerCase(),
+    nome:  user.displayName || (user.email||"").split("@")[0],
+    foto:  user.photoURL || "",
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
+    status: "pendente",
+    isAdmin: false,
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum", requisicao:"nenhum"},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra||{});
+}
+
+/* Liga as coleções protegidas exatamente na primeira vez em que o acesso é
+   confirmado — seja na entrada normal, seja numa aprovação que chega ao
+   vivo com a aba já aberta (ver o comentário completo lá em cima, perto
+   de "const db"). A guarda evita reanexar tudo de novo a cada chamada de
+   authShowApp (ex.: um admin trocando outro campo do próprio perfil). */
+
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(function(id){
+    var i=document.getElementById(id);
+    if(!i) return;
+    if(desligar){ i.value=""; i.disabled=true; }
+    else i.disabled=false;
+  });
+}
+function authOcultarCarregando(){
+  var c=document.getElementById("authCarregando");
+  if(c) c.style.display="none";
+}
+
+var _usuariosV2Cache=[], _convitesCache=[];
+function abrirModalUsuarios(){
+  if(!authIsAdmin()){ alert("Só administradores podem gerenciar usuários."); return; }
+  document.getElementById("modalUsuarios").classList.add("open");
+  convitesLimparForm();
+  usuariosV2Renderizar();
+}
+function fecharModalUsuarios(){ document.getElementById("modalUsuarios").classList.remove("open"); }
+
+function usuariosV2Renderizar(){
+  Promise.all([
+    usuariosV2ColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({uid:d.id}, d.data()); }); }),
+    convitesColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); }),
+    usuariosAntigosRef.get().then(function(s){ return s.docs.map(function(d){ return d.data(); }); }).catch(function(){ return []; })
+  ]).then(function(r){
+    _usuariosV2Cache=r[0]; _convitesCache=r[1];
+    usuariosRenderPendentes(r[0], r[1]);
+    usuariosRenderAprovados(r[0]);
+    convitesRenderLista(r[1], r[0]);
+    usuariosRenderAntigos(r[2]);
+  }).catch(function(e){
+    document.getElementById("usrPendentesLista").innerHTML='<div class="usr-vazio">Erro ao carregar: '+escHtml(e.message)+'</div>';
+  });
+}
+function authOpcoesNivel(atual, painel){
+  var niveis = (painel && painel.niveis) || AUTH_NIVEIS_PADRAO;
+  return niveis.map(function(o){
+    return '<option value="'+o[0]+'"'+(atual===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  }).join('');
+}
+/* O nome que aparece nas telas e no histórico dos contratos. Vem do que a
+   pessoa digitou ao criar a conta, ou do nome da conta Google — mas uma
+   caixa de setor entra sem nome nenhum e acaba chamada de "contratos",
+   pedaço do e-mail. Quem aprova corrige aqui e salva com o resto da linha. */
+function usrCampoNome(u, prefixo){
+  var valor = (u.nome && u.nome !== (u.email||"").split("@")[0]) ? u.nome : "";
+  return '<input class="usr-nome-inp" id="'+prefixo+'Nome_'+u.uid+'" value="'+escHtml(valor)
+    +'" placeholder="Nome da pessoa" title="Nome de quem usa esta conta" maxlength="80"'
+    +' autocomplete="off" spellcheck="false">';
+}
+function usrLerNome(prefixo, uid, u){
+  var el = document.getElementById(prefixo+'Nome_'+uid);
+  var v = el ? el.value.trim() : "";
+  /* Em branco não apaga o que já havia: fica o nome de antes. */
+  return v || (u && u.nome) || "";
+}
+function usrChipsAcesso(u, prefixo){
+  return AUTH_PAINEIS.map(function(p){
+    return '<label class="usr-chk usr-chk-sel">'+p.nome+' <select id="'+prefixo+p.sufixo+'_'+u.uid+'">'
+      +authOpcoesNivel(authNivelDe(u,p.id), p)+'</select></label>';
+  }).join('');
+}
+/* Lê os três selects de uma linha do painel e devolve o objeto acessos. */
+function usrLerAcessos(prefixo, uid){
+  var acessos={};
+  AUTH_PAINEIS.forEach(function(p){
+    var el=document.getElementById(prefixo+p.sufixo+'_'+uid);
+    acessos[p.id]=(el&&el.value)||"nenhum";
+  });
+  return acessos;
+}
+function usrNenhumAcesso(acessos){
+  return AUTH_PAINEIS.every(function(p){ return authNormalizaNivel(acessos[p.id])==="nenhum"; });
+}
+function usuariosRenderPendentes(usuarios, convites){
+  var box=document.getElementById("usrPendentesLista");
+  var pendentes=usuarios.filter(function(u){ return u.status==="pendente"; });
+  if(!pendentes.length){ box.innerHTML='<div class="usr-vazio">Ninguém esperando aprovação.</div>'; return; }
+  box.innerHTML=pendentes.map(function(u){
+    var convite=convites.find(function(c){ return (c.email||"").toLowerCase()===(u.email||"").toLowerCase(); });
+    var avisoConvite = convite
+      ? '<div class="usr-convite-match">★ convite preparado: '+authResumoAcessos(convite.acessos)+
+        ' <button class="usr-btn" onclick="usuariosAplicarConvite(\''+u.uid+'\',\''+convite.id+'\')">Aplicar</button></div>'
+      : '';
+    return '<div class="usr-row usr-row-col"><div class="usr-info">'
+      +usrCampoNome(u,'pend')
+      +'<div class="usr-login">'+escHtml(u.email)+'</div>'
+      + avisoConvite
+      +'<div class="usr-chks">'+usrChipsAcesso(u,'pend')+'</div>'
+      +'</div><div class="usr-acts">'
+      +'<button class="usr-btn ok" onclick="usuariosAprovar(\''+u.uid+'\')">Aprovar</button>'
+      +'<button class="usr-btn del" onclick="usuariosRecusar(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\')">Recusar</button>'
+      +'</div></div>';
+  }).join('');
+}
+function usuariosAprovar(uid){
+  var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
+  var acessos=usrLerAcessos('pend', uid);
+  /* Aprovar sem liberar nenhum painel é quase sempre engano: a pessoa fica
+     "aprovada" no cadastro mas continua vendo a tela de espera, e quem
+     aprovou acha que liberou. */
+  if(usrNenhumAcesso(acessos) &&
+     !confirm("Nenhum painel foi liberado (todos em \"Sem acesso\").\n\nA pessoa vai continuar vendo \"aguardando liberação\".\n\nAprovar mesmo assim?")) return;
+  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos, nome:usrLerNome('pend', uid, u) })
+    .then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosRecusar(uid, nome){
+  if(!confirm('Recusar o pedido de "'+nome+'"? A conta é apagada; a pessoa pode se cadastrar de novo se for engano.')) return;
+  usuariosV2ColRef.doc(uid).delete().then(function(){ toast("Pedido recusado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosAplicarConvite(uid, conviteId){
+  var convite=_convitesCache.find(function(c){ return c.id===conviteId; });
+  if(!convite) return;
+  var acessos={};
+  AUTH_PAINEIS.forEach(function(p){ acessos[p.id]=authNormalizaNivel(convite.acessos && convite.acessos[p.id]); });
+  var uConv=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
+  /* O convite foi preparado com o nome de quem se esperava: ele vale mais do
+     que o pedaço do e-mail com que a conta nasceu. */
+  var nomeConv=(convite.nome||"").trim() || usrLerNome('pend', uid, uConv);
+  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos, nome:nomeConv})
+    .then(function(){ return convitesColRef.doc(conviteId).delete(); })
+    .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+
+function usuariosRenderAprovados(usuarios){
+  var box=document.getElementById("usrAprovadosLista");
+  var aprovados=usuarios.filter(function(u){ return u.status==="aprovado"||u.status==="bloqueado"; });
+  aprovados.sort(function(a,b){ return (a.nome||"").localeCompare(b.nome||"",'pt-BR'); });
+  if(!aprovados.length){ box.innerHTML='<div class="usr-vazio">Nenhum usuário aprovado ainda.</div>'; return; }
+  /* Só conta quem realmente PODE administrar: um admin bloqueado não abre
+     o sistema, então deixá-lo no total permitiria bloquear ou rebaixar o
+     último admin em atividade e ninguém mais entraria no painel. */
+  var totalAdmins=usuarios.filter(function(u){ return u.isAdmin && u.status==="aprovado"; }).length;
+  box.innerHTML=aprovados.map(function(u){
+    var euMesmo=authCurrentUser && authCurrentUser.uid===u.uid;
+    var bloqueado=u.status==="bloqueado";
+    return '<div class="usr-row usr-row-col'+(bloqueado?' usr-bloqueado':'')+'"><div class="usr-info">'
+      +'<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'
+      +usrCampoNome(u,'apr')
+      +(euMesmo?'<span style="color:var(--muted);font-size:11px">(você)</span>':'')
+      +(u.isAdmin?'<span class="badge-tipo" style="font-size:10px;padding:2px 7px;border-radius:8px">admin</span>':'')
+      +(bloqueado?'<span style="color:var(--red);font-size:11px;font-weight:700">BLOQUEADO</span>':'')
+      +'</div>'
+      +'<div class="usr-login">'+escHtml(u.email)+'</div>'
+      +'<div class="usr-chks">'+usrChipsAcesso(u,'apr')+'<label class="usr-chk"><input type="checkbox" id="aprAdmin_'+u.uid+'"'+(u.isAdmin?' checked':'')+'> Administrador</label></div>'
+      +'</div><div class="usr-acts">'
+      +'<button class="usr-btn" title="Salvar alterações" onclick="usuariosSalvarAcessos(\''+u.uid+'\','+totalAdmins+')">&#128190;</button>'
+      +(u.provedor==="password" ? '<button class="usr-btn" title="Enviar redefinição de senha" onclick="usuariosEnviarReset(\''+escHtml(escJs(u.email))+'\')">&#128273;</button>' : '')
+      +(bloqueado
+        ? '<button class="usr-btn ok" title="Reativar" onclick="usuariosReativar(\''+u.uid+'\')">&#10003;</button>'
+        : '<button class="usr-btn del" title="Bloquear" onclick="usuariosBloquear(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">&#128683;</button>')
+      +'<button class="usr-btn del" title="Excluir" onclick="usuariosExcluirV2(\''+u.uid+'\',\''+escHtml(escJs(u.nome||u.email))+'\','+totalAdmins+','+(u.isAdmin?1:0)+')">&#128465;</button>'
+      +'</div></div>';
+  }).join('');
+}
+function usuariosSalvarAcessos(uid, totalAdmins){
+  var ad=document.getElementById('aprAdmin_'+uid);
+  var viraAdmin=!!(ad&&ad.checked);
+  var u=_usuariosV2Cache.find(function(x){ return x.uid===uid; });
+  if(u && u.isAdmin && !viraAdmin && totalAdmins<=1){ alert("Precisa existir ao menos um administrador."); return; }
+  var acessos=usrLerAcessos('apr', uid);
+  /* Mesmo cuidado da aprovação: deixar tudo em "Sem acesso" devolve a
+     pessoa para a tela de espera, e quem salvou não fica sabendo. Admin
+     não entra na conversa — ele abre tudo de qualquer jeito. */
+  if(!viraAdmin && usrNenhumAcesso(acessos) &&
+     !confirm("Nenhum painel ficou liberado (todos em \"Sem acesso\").\n\n"
+              +"A pessoa volta a ver \"aguardando liberação\".\n\nSalvar mesmo assim?")) return;
+  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin, nome:usrLerNome('apr', uid, u) })
+    .then(function(){ toast("Alterações salvas."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosBloquear(uid, nome, totalAdmins, ehAdmin){
+  if(ehAdmin && totalAdmins<=1){ alert("Não é possível bloquear o único administrador."); return; }
+  if(!confirm('Bloquear o acesso de "'+nome+'"? A pessoa continua com a conta, mas não entra em nada até ser reativada.')) return;
+  usuariosV2ColRef.doc(uid).update({status:"bloqueado"}).then(function(){ toast("Usuário bloqueado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosReativar(uid){
+  usuariosV2ColRef.doc(uid).update({status:"aprovado"}).then(function(){ toast("Usuário reativado."); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosExcluirV2(uid, nome, totalAdmins, ehAdmin){
+  if(ehAdmin && totalAdmins<=1){ alert("Não é possível excluir o único administrador."); return; }
+  if(!confirm('Excluir "'+nome+'"? A pessoa precisaria se cadastrar de novo (e ser aprovada de novo) para voltar a entrar.')) return;
+  usuariosV2ColRef.doc(uid).delete().then(function(){
+    toast("Usuário excluído.");
+    if(authCurrentUser && authCurrentUser.uid===uid){ firebase.auth().signOut(); return; }
+    usuariosV2Renderizar();
+  }).catch(function(e){ alert("Erro: "+e.message); });
+}
+function usuariosEnviarReset(email){
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function(){ toast("E-mail de redefinição enviado para "+email+"."); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+
+/* ── Convites (pré-cadastro por e-mail) ──
+   Não dá acesso sozinho: é só um lembrete. Quando a pessoa se cadastrar com
+   esse e-mail, o convite aparece destacado na lista de pendentes, e um
+   clique aplica exatamente o acesso preparado aqui. */
+function convitesLimparForm(){
+  ["cvNome","cvEmail"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+  AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); if(e) e.value="nenhum"; });
+}
+function convitesSalvar(){
+  var nome=(document.getElementById("cvNome").value||"").trim();
+  var email=(document.getElementById("cvEmail").value||"").trim().toLowerCase();
+  if(!email){ alert("Informe o e-mail."); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
+  var acessos={};
+  AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); acessos[p.id]=(e&&e.value)||"nenhum"; });
+  convitesColRef.add({nome:nome, email:email, acessos:acessos, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
+    .catch(function(e){ alert("Erro: "+e.message); });
+}
+function convitesRenderLista(convites, usuarios){
+  var box=document.getElementById("usrConvitesLista");
+  if(!convites.length){ box.innerHTML='<div class="usr-vazio">Nenhum convite preparado.</div>'; return; }
+  box.innerHTML=convites.map(function(c){
+    var jaEntrou=usuarios.some(function(u){ return (u.email||"").toLowerCase()===(c.email||"").toLowerCase(); });
+    return '<div class="usr-row"><div class="usr-info">'
+      +'<div class="usr-nome">'+escHtml(c.nome||c.email)+'</div>'
+      +'<div class="usr-login">'+escHtml(c.email)+' — '+authResumoAcessos(c.acessos)+(jaEntrou?' <b style="color:var(--green)">· já se cadastrou, veja em Pendentes</b>':'')+'</div>'
+      +'</div><div class="usr-acts"><button class="usr-btn del" onclick="convitesCancelar(\''+c.id+'\')">&#128465;</button></div></div>';
+  }).join('');
+}
+function convitesCancelar(id){
+  convitesColRef.doc(id).delete().then(function(){ toast("Convite cancelado."); usuariosV2Renderizar(); });
+}
+
+/* ── Contas antigas (usuário/senha, pré-migração) ──
+   Só leitura: mostra quem ainda não recriou a conta, pra saber quem falta
+   avisar. Não autentica mais ninguém — a coleção "usuarios" ficou fechada. */
+function usuariosRenderAntigos(antigos){
+  var box=document.getElementById("usrAntigosLista");
+  if(!box) return;
+  if(!antigos.length){ box.innerHTML='<div class="usr-vazio">Nenhuma conta antiga registrada.</div>'; return; }
+  box.innerHTML=antigos.map(function(a){
+    return '<div class="usr-row"><div class="usr-info">'
+      +'<div class="usr-nome">'+escHtml(a.nome||a.usuario)+'</div>'
+      +'<div class="usr-login">login antigo: '+escHtml(a.usuario)+'</div>'
+      +'</div></div>';
+  }).join('');
+}
+
+
+/* ══════════════ ESTA TELA: SÓ ADMINISTRADOR ══════════════
+   O cadastro de contas morava dentro do Sistema Interno, num modal. Virou
+   página própria porque não é assunto de licitação: decide quem entra em
+   TODOS os painéis — Agenda, Sistema Interno, Contratos e Requisições. E
+   porque a porta ficava escondida atrás de outra porta.
+
+   Quem não é administrador não passa daqui, mesmo tendo conta boa: as
+   regras do Firestore só deixam LISTAR usuarios_v2 para admin, então esta
+   tela sem admin não teria o que mostrar de qualquer jeito. */
+function authAoAutenticar(user){
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub=null; }
+  authFirebaseUser = user || null;
+  if(!user){ authCurrentUser=null; authStartGate(); return; }
+
+  var ref = usuariosV2ColRef.doc(user.uid);
+  ref.get().then(function(doc){
+    if(doc.exists) return;
+    var ehResgate = (user.email||"").toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:"aprovado", isAdmin:true,
+      acessos:{agenda:"editar", pregoeiro:"editar", contratos:"editar", requisicao:"editar"}
+    } : {}));
+  }).then(function(){
+    authPerfilUnsub = ref.onSnapshot(function(doc){
+      /* Conta excluída com a aba aberta: sair devolve o portão. */
+      if(!doc.exists){ authCurrentUser=null; firebase.auth().signOut(); return; }
+      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
+      if(authIsAdmin()) authShowApp(); else authShowSemPermissao();
+    }, function(e){ console.warn("perfil:", e.message); });
+  }).catch(function(e){ authErr("Erro ao preparar sua conta: "+e.message); });
+}
+function authShowApp(){
+  authOcultarCarregando();
+  authCamposLogin(true);
+  document.getElementById("authGate").style.display = "none";
+  var chip = document.getElementById("authUserChip");
+  if(chip && authCurrentUser){
+    chip.textContent = "\u{1F464} " + (authCurrentUser.nome || authCurrentUser.email);
+    chip.style.display = "inline-flex";
+  }
+  var sair = document.getElementById("btnSair"); if(sair) sair.style.display = "";
+  usuariosV2Renderizar();
+}
+/* Conta boa, mas sem ser administrador: não é caso de pedir liberação num
+   painel — é dizer que esta tela não é para ela, e por onde entrar. */
+function authShowSemPermissao(){
+  authOcultarCarregando();
+  document.getElementById("authGate").style.display = "flex";
+  document.getElementById("authEntradaBox").style.display = "none";
+  document.getElementById("authCriarBox").style.display = "none";
+  document.getElementById("authPendenteCard").style.display = "block";
+  document.getElementById("authPendNome").textContent  = authCurrentUser.nome || "";
+  document.getElementById("authPendEmail").textContent = authCurrentUser.email || "";
+  var foto = document.getElementById("authPendFoto");
+  if(foto) foto.src = authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  document.getElementById("authPendMsg").innerHTML = authCurrentUser.status === "bloqueado"
+    ? "Seu acesso foi bloqueado por um administrador."
+    : "Esta tela é só de administrador.<br>Para trabalhar, use "
+      + '<a href="../" style="color:#fff;text-decoration:underline">a Agenda</a>, '
+      + '<a href="../pregoeiro/" style="color:#fff;text-decoration:underline">o Sistema Interno</a>, '
+      + '<a href="../contratos/" style="color:#fff;text-decoration:underline">os Contratos</a> ou '
+      + '<a href="../requisicao/" style="color:#fff;text-decoration:underline">as Requisições</a>.';
+}
+function authStartGate(){
+  authOcultarCarregando();
+  authCamposLogin(false);
+  document.getElementById("authGate").style.display = "flex";
+  document.getElementById("authPendenteCard").style.display = "none";
+  authSetModo("entrar");
+  ["authEmail","authPass","authNomeC","authEmailC","authPassC","authPass2"].forEach(function(id){
+    var i = document.getElementById(id);
+    if(i && !i._authEnterBound){
+      i._authEnterBound = true;
+      i.addEventListener("keydown", function(e){ if(e.key==="Enter"){ (authModo==="criar")?authCriarConta():authEntrarSenha(); } });
+    }
+  });
+}
+/* O painel é a página: não há mais o que fechar. */
+function fecharModalUsuarios(){}
+var toastT = null;
+function toast(msg){
+  var el = document.getElementById("toast");
+  el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastT);
+  toastT = setTimeout(function(){ el.classList.remove("show"); }, 2600);
+}
+function escHtml(s){ return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function escJs(s){ return (s||"").toString().replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
+
+firebase.auth().onAuthStateChanged(authAoAutenticar);
+
+</script>
+</body>
+</html>

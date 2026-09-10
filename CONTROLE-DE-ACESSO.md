@@ -20,14 +20,15 @@ aquele painel específico** — em vez de abertas por necessidade técnica.
 2. Ao entrar pela primeira vez, a conta nasce **pendente**, sem acesso a
    nada — nem à Agenda, nem ao Sistema Interno. A tela mostra "Aguardando
    liberação" com o nome, foto e e-mail de quem entrou.
-3. Um administrador abre **Usuários** (dentro do Sistema Interno) e vê o
-   pedido esperando. Marca ali mesmo, painel por painel (Agenda, Sistema
-   Interno, Contratos), um de três níveis — **Sem acesso**, **Visualizar**
-   ou **Editar** — e aprova.
+3. Um administrador abre **Usuários** — a tela própria em `/usuarios/`, à
+   qual só administrador tem entrada — e vê o pedido esperando. Marca ali
+   mesmo, painel por painel (Agenda, Sistema Interno, Contratos,
+   Requisições), um de três níveis — **Sem acesso**, **Visualizar** ou
+   **Editar** — e aprova.
 4. A liberação chega **na hora**, sem precisar relogar: quem estava com a
    aba aberta na tela de espera vê o sistema abrir sozinho.
 
-## Os três painéis
+## Os quatro painéis
 
 Uma conta só, com um nível para cada painel:
 
@@ -36,10 +37,19 @@ Uma conta só, com um nível para cada painel:
 | **Agenda** | a agenda pública de licitações | `/` |
 | **Sistema Interno** | a central do pregoeiro | `/pregoeiro/` |
 | **Contratos** | o cadastro de contratos e aditivos | `/contratos/` |
+| **Requisições** | as requisições das secretarias | `/requisicao/` |
 
-Os três moram no mesmo projeto do Firebase e usam a **mesma conta**: quem
+Os quatro moram no mesmo projeto do Firebase e usam a **mesma conta**: quem
 cuida só de contrato ganha nível em Contratos e "Sem acesso" nos outros
-dois, e continua sendo uma pessoa, uma conta, aprovada num lugar só.
+três, e continua sendo uma pessoa, uma conta, aprovada num lugar só.
+
+A tela onde isso tudo se marca é **`/usuarios/`**. Ela não fica mais dentro
+do Sistema Interno: aprovar conta e distribuir acesso é trabalho de
+administrador, não do pregoeiro, e uma tela só de administrador é mais
+fácil de guardar do que um botão escondido no meio de outra. Quem não é
+administrador e abre o endereço recebe um recado dizendo isso, e os links
+para voltar. O Sistema Interno continua com o botão **Usuários** no topo —
+mas só aparece para administrador, e é um link para `/usuarios/`.
 
 ## Três níveis por painel: Sem acesso / Visualizar / Editar
 
@@ -184,6 +194,9 @@ rápido) e aprove cada uma no painel **Usuários**.
 | `pregoeiro/index.html` (mesmo bloco + painel "Usuários") | portão de acesso do Sistema Interno, e onde o admin aprova/gerencia |
 | `testes/t-auth.js` | confere cadastro → pendente → aprovação → acesso ao vivo, o e-mail de resgate, convites, e a proteção do último admin |
 | `contratos/index.html` (bloco "CONTAS E PERMISSÕES") | portão de acesso dos Contratos, no mesmo cadastro |
+| `requisicao/index.html` (mesmo bloco) | portão de acesso das Requisições, e a trava do despacho do Diretor |
+| `usuarios/index.html` | a tela de Usuários: aprovar contas, marcar níveis, convites e contas antigas — só administrador |
+| `testes/t-requisicao.js` | confere a tela das Requisições e a coluna DIRETOR: quem preenche não despacha, quem despacha não preenche |
 | `testes/t-regras.mjs` | roda as regras no emulador oficial do Firestore e confere quem pode o quê, caso a caso |
 | `testes/fbstub3.js` | o Firestore E o Firebase Auth falsos usados nos testes (`firebase.auth()` simulado, sem rede nenhuma) |
 
@@ -268,3 +281,53 @@ de dois secrets no repositório:
 
 Sem esses secrets o backup falha com a mensagem explicando isso — de
 propósito, para não gravar um backup vazio achando que está tudo bem.
+
+## Requisições — e o quarto nível, "Diretor"
+
+Requisições é o quarto painel, no mesmo cadastro de contas, e é fechado
+como Contratos: **sem conta aprovada com o painel liberado, a lista nem
+chega ao navegador**, e a tela não cai no `dados/requisicoes.json` quando o
+Firestore nega — esse arquivo é público, e cair nele furaria a proteção.
+
+O que este painel tem de diferente é um nível a mais. Além de **Sem
+acesso**, **Visualizar** e **Editar**, existe **Diretor** — e ele não é
+"Editar com mais poder": é outra coisa.
+
+| Nível | O que faz |
+|---|---|
+| Sem acesso | nem entra |
+| Visualizar | vê tudo, não grava nada |
+| Editar | preenche a requisição inteira, **menos o despacho** |
+| Diretor | **só** despacha a modalidade, e não toca em mais nada |
+
+A coluna **DIRETOR** da tela é um despacho: por qual caminho a contratação
+segue. Seis opções, nenhuma escrita à mão — Pregão, Concorrência, Dispensa
+por limite, Dispensa por justificativa, Inexigibilidade, Ata de Registro de
+Preços. Quem preenche a requisição vê a coluna com um cadeado; quem tem
+Diretor vê exatamente o contrário: a coluna do despacho aberta e todo o
+resto da linha trancado.
+
+**Editar e Diretor não se encontram de propósito.** O despacho é decisão, o
+resto é registro, e quem faz uma coisa não faz a outra. As regras do
+Firestore são o que garante isso de verdade — elas olham **quais campos
+mudaram** em cada gravação:
+
+- quem tem **Editar** grava qualquer campo, desde que a gravação **não
+  toque** em `despacho`, `despachoPor` ou `despachoEm` — nem escondendo a
+  mudança no meio de outras;
+- quem tem **Diretor** grava **só** esses três campos, e nada mais;
+- ninguém apaga requisição.
+
+Por isso a tela grava **campo a campo** e não o documento inteiro: regravar
+tudo a cada tecla faria uma gravação legítima esbarrar num campo que a
+pessoa nem viu. `testes/t-regras.mjs` confere cada um desses casos no
+emulador oficial do Firestore, e `testes/t-requisicao.js` confere o que a
+tela deixa clicar.
+
+O administrador é o único que acumula: ele pode despachar e preencher —
+poderia se marcar Diretor a qualquer momento, então negar seria só somar um
+passo.
+
+A primeira importação é feita **pela própria tela**, como nos Contratos:
+entre como administrador em `/requisicao/` com o banco vazio e clique em
+**"Importar as requisições agora"**. Ver `requisicao/LEIA-ME.md`.

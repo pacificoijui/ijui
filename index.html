@@ -1113,7 +1113,7 @@ var authPerfilUnsub = null;
    usuarios_v2, quem gerencia os níveis é sempre o painel Usuários de lá. */
 function authNormalizaNivel(v){
   if(v===true) return "editar";
-  if(v==="ver"||v==="editar") return v;
+  if(v==="ver"||v==="editar"||v==="diretor") return v;
   return "nenhum";
 }
 function authNivelDe(u, painel){
@@ -1212,7 +1212,7 @@ function authPerfilPadrao(user, extra){
     provedor: (user.providerData[0] && user.providerData[0].providerId) || "password",
     status: "pendente",
     isAdmin: false,
-    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum"},
+    acessos: {agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum", requisicao:"nenhum"},
     criadoEm: firebase.firestore.FieldValue.serverTimestamp()
   }, extra||{});
 }
@@ -1226,7 +1226,7 @@ function authAoAutenticar(user){
     if(doc.exists) return;
     var ehResgate=(user.email||"").toLowerCase()===AUTH_BOOTSTRAP_ADMIN_EMAIL;
     return ref.set(authPerfilPadrao(user, ehResgate ? {
-      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar",contratos:"editar"}
+      status:"aprovado", isAdmin:true, acessos:{agenda:"editar",pregoeiro:"editar",contratos:"editar",requisicao:"editar"}
     } : {}));
   }).then(function(){
     authPerfilUnsub=ref.onSnapshot(function(doc){

@@ -37,7 +37,6 @@ const SEED={
     ['Modal processo',        ()=>editarProcesso('p1'),      ()=>fecharModal()],
     ['Modal status',          ()=>abrirModalStatus(),        ()=>fecharModalStatus()],
     ['Modal agentes',         ()=>abrirModalAgentes(),       ()=>fecharModalAgentes()],
-    ['Modal usuários',        ()=>abrirModalUsuarios(),      ()=>fecharModalUsuarios()],
     ['Modal e-mail',          ()=>abrirModalEmail(),         ()=>fecharModalEmail()],
   ];
   for(const [nome, abrir, fechar] of TELAS){
@@ -53,6 +52,21 @@ const SEED={
       console.log(`  ✗ ${nome} — exceção: ${e.message.split('\n')[0].slice(0,110)}`);
     }
   }
+  /* Usuários saiu daqui e virou tela própria (/usuarios/), só de
+     administrador — por isso não está na lista de modais acima. */
+  try{
+    const pgU=await b.newPage({viewport:{width:1300,height:950}});
+    pgU.on('pageerror',e=>errs.push('usuarios: '+e.message));
+    await pgU.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:(r.request().url().includes('firestore')||r.request().url().includes('auth'))?stub:'/*noop*/'}));
+    await pgU.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+    await pgU.addInitScript((sd)=>{ window.__SEED=sd; }, SEED);
+    await pgU.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'teste-admin', email:'pedrohhpacifico@gmail.com', displayName:'QA', photoURL:''});
+    await pgU.goto('http://127.0.0.1:8099/usuarios/index.html',{waitUntil:'networkidle'});
+    await pgU.waitForTimeout(900);
+    const abriu=await pgU.evaluate(()=>document.getElementById('authGate').style.display==='none');
+    console.log(`  ${abriu?'✓':'✗'} Tela de usuários (/usuarios/)`);
+  }catch(e){ console.log('  ✗ Tela de usuários — exceção: '+e.message.split('\n')[0].slice(0,110)); }
+
   console.log('\nerros acumulados:', errs.length?errs.slice(0,12):'nenhum ✓');
   await b.close();
 })();

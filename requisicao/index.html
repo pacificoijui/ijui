@@ -7,10 +7,15 @@
   quem a próxima requisição nasce, já com o próximo número daquela
   secretaria.
 
-  Protótipo de propósito: os dados vêm de dados/requisicoes.json (gerado da
-  planilha por ferramentas/planilha-para-json.py) e o que se altera fica
-  guardado neste navegador, com aviso na tela. Ligar no Firebase, no mesmo
-  cadastro de contas dos Contratos, é o passo seguinte — ver LEIA-ME.md.
+  As requisições ficam no Firestore, no mesmo projeto e no mesmo cadastro de
+  contas da Agenda, do Sistema Interno e dos Contratos — com senha, e sem
+  link público. O arquivo dados/requisicoes.json (gerado da planilha por
+  ferramentas/planilha-para-json.py) serve só à primeira carga e à lista de
+  secretarias.
+
+  A coluna DIRETOR é o despacho: uma lista fechada de seis modalidades que
+  só quem tem o acesso "Diretor" pode assinar — e quem tem esse acesso não
+  mexe em mais nada da requisição. Ver LEIA-ME.md e CONTROLE-DE-ACESSO.md.
 -->
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -25,6 +30,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <style>
   :root {
@@ -93,7 +101,7 @@
   .btn-ghost { background: var(--bg); color: var(--navy); border: 1.5px solid var(--border); padding: 9px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.18s, border-color .15s; }
   .btn-ghost:hover { background: var(--blue-bg); border-color: var(--navy-light); }
   .btn-ghost.active { background: var(--navy); color: #fff; border-color: var(--navy); }
-  .proto-chip { background: var(--amber-bg); color: var(--amber); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .5px; }
+  .proto-chip { background: var(--blue-bg); color: var(--blue-text); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .5px; }
 
   main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
 
@@ -500,6 +508,16 @@
     .mb-btn { font-size: 11.5px; padding: 11px 4px; min-width: 84px; }
   }
 
+  /* ── O despacho do Diretor ──
+     Coluna de leitura para quase todo mundo: só quem tem o papel de Diretor
+     a abre. O cadeado não é enfeite — diz de quem é a caneta. */
+  .desp { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700;
+    background:var(--blue-bg); color:var(--blue-text); border-radius:20px; padding:3px 9px; }
+  .desp-vazio { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600;
+    color:var(--muted); font-style:italic; }
+  td.c-desp.travada { cursor: not-allowed; }
+  .c-desp { width: 10%; }
+
   /* ── A faixa das secretarias ──
      Fica colada no cabeçalho porque é a primeira decisão de quem usa: a
      planilha tinha uma aba por secretaria, e a pessoa trabalha dentro da
@@ -551,6 +569,17 @@
   .cel-pop-grid .larga { grid-column: 1 / -1; }
   .cel-pop-pe { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 12px; }
   .cel-pop-dica { font-size: 11px; color: var(--muted); }
+  /* O despacho não cabe espremido na coluna: "Dispensa por justificativa"
+     num select de 130px vira "— sem despach". E não é um campo que se
+     digita — é uma decisão entre seis, então abre como lista de opções. */
+  .desp-pop { width: 244px; }
+  .desp-ops { display: flex; flex-direction: column; gap: 4px; }
+  .desp-op { display: block; width: 100%; text-align: left; background: #fff; border: 1.5px solid var(--border);
+    border-radius: 9px; padding: 8px 11px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--text); cursor: pointer; transition: border-color .12s, background .12s; }
+  .desp-op:hover, .desp-op:focus { border-color: var(--navy-light); background: var(--blue-bg); outline: none; }
+  .desp-op.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .desp-op.limpar { color: var(--muted); font-style: italic; font-weight: 500; }
   .cel-pop-ok { background: var(--navy); color: #fff; border: none; border-radius: 8px;
     padding: 7px 15px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
@@ -559,14 +588,14 @@
   @media (max-width: 900px) { .dica-edicao { display: none; } }
 
   /* colunas desta tela */
-  .c-req   { width: 9%; }
-  .c-receb { width: 7%; white-space: nowrap; }
-  .c-cred  { width: 17%; }
-  .c-obj   { width: 30%; }
-  .c-mod   { width: 10%; }
-  .c-emp   { width: 10%; }
-  .c-cont  { width: 7%; white-space: nowrap; }
-  .c-val   { width: 10%; text-align: right; white-space: nowrap; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
+  .c-req   { width: 8%; }
+  .c-receb { width: 6%; white-space: nowrap; }
+  .c-cred  { width: 15%; }
+  .c-obj   { width: 26%; }
+  .c-mod   { width: 9%; }
+  .c-emp   { width: 9%; }
+  .c-cont  { width: 6%; white-space: nowrap; }
+  .c-val   { width: 9%; text-align: right; white-space: nowrap; font-weight: 800; color: #000; font-variant-numeric: tabular-nums; }
   .n-sec { display: block; font-size: 10.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
   .badge-ok    { background: var(--green-bg); color: var(--green); }
   .badge-falta { background: var(--amber-bg); color: var(--amber); }
@@ -582,6 +611,57 @@
 </style>
 </head>
 <body>
+<div id="authGate">
+  <!-- Enquanto o Firebase confere se já existe sessão nesta máquina, quem já
+       está logado não pode ver o formulário de login piscando: o portão abre
+       neste aviso e, só se não houver ninguém logado, dá lugar ao formulário
+       (authStartGate). -->
+  <div class="auth-card" id="authCarregando">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Requisições</h1>
+    <p class="auth-sub">Verificando seu acesso…</p>
+  </div>
+
+  <div class="auth-card" id="authEntradaBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Requisições</h1>
+    <p class="auth-sub">Entre com a mesma conta do sistema de licitações e contratos.</p>
+    <button class="auth-google" id="authBtnGoogle" onclick="authGoogle()">
+      <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.1 5.5c4.2-3.9 6.9-9.7 6.9-16.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.4-4.6 2.3-8.8 2.3-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="auth-ou"><span>ou</span></div>
+    <input type="email" id="authEmail" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPass" class="auth-input" placeholder="Senha" autocomplete="current-password">
+    <button class="auth-btn" id="authBtnEntrar" onclick="authEntrarSenha()">Entrar</button>
+    <div class="auth-links">
+      <a href="#" onclick="authEsqueciSenha();return false;">Esqueci a senha</a>
+      <a href="#" onclick="authSetModo('criar');return false;">Criar uma conta</a>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <div class="auth-card" id="authCriarBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Criar conta</h1>
+    <p class="auth-sub">Depois de criada, um administrador libera o seu acesso.</p>
+    <input type="text" id="authNomeC" class="auth-input" placeholder="Nome completo" autocomplete="name">
+    <input type="email" id="authEmailC" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPassC" class="auth-input" placeholder="Senha (mínimo 6 caracteres)" autocomplete="new-password">
+    <input type="password" id="authPass2" class="auth-input" placeholder="Repita a senha" autocomplete="new-password">
+    <button class="auth-btn" id="authBtnCriar" onclick="authCriarConta()">Criar conta</button>
+    <div class="auth-links"><a href="#" onclick="authSetModo('entrar');return false;">Já tenho conta</a></div>
+  </div>
+
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img id="authPendFoto" class="auth-foto" alt="">
+    <div class="auth-pend-nome" id="authPendNome"></div>
+    <div class="auth-pend-email" id="authPendEmail"></div>
+    <p class="auth-sub" id="authPendMsg"></p>
+    <button class="auth-btn ghost" onclick="authLogout()">Sair</button>
+  </div>
+</div>
+
 <header>
   <div class="header-inner">
     <div class="logo-wrap">
@@ -593,8 +673,10 @@
       </div>
     </div>
     <div class="header-actions">
-      <span class="proto-chip" id="chipTotal">PROTÓTIPO</span>
-      <button class="btn-ghost" onclick="novaRequisicao()">＋ Nova requisição</button>
+      <span class="proto-chip" id="chipTotal">CARREGANDO</span>
+      <span id="authUserChip" class="chip-auth" style="display:none"></span>
+      <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+      <button class="btn-ghost so-editor" onclick="novaRequisicao()">＋ Nova requisição</button>
       <button class="btn-gold" onclick="pdfDoFiltro()">🖨️ PDF do filtro</button>
     </div>
   </div>
@@ -621,11 +703,11 @@
     </div>
   </div>
 
-  <div id="avisoRascunho"></div>
+  <div id="avisoImportacao"></div>
 
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
-    <span class="dica-edicao">clique numa célula para preencher</span>
+    <span class="dica-edicao" id="dicaEdicao">clique numa célula para preencher</span>
     <div class="chips" id="chipsAtivos"></div>
     <div class="toolbar-right">
       <select class="sort-sel" id="fSort" onchange="aplicarFiltros()">
@@ -655,6 +737,7 @@
         <tr>
           <th class="c-req"   onclick="ordenarPor('num')">REQUISIÇÃO <span class="seta"></span></th>
           <th class="c-receb" onclick="ordenarPor('receb')">RECEBIDA <span class="seta"></span></th>
+          <th class="c-desp">DIRETOR</th>
           <th class="c-cred"  onclick="ordenarPor('cred')">CREDOR <span class="seta"></span></th>
           <th class="c-obj">OBJETO</th>
           <th class="c-mod">MODALIDADE</th>
@@ -666,6 +749,7 @@
         <tr class="th-filtros">
           <th><button class="cf" data-col="num"  onclick="abrirFiltroCol(event,'num')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
           <th><button class="cf" data-col="receb" onclick="abrirFiltroCol(event,'receb')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
+          <th><button class="cf" data-col="desp" onclick="abrirFiltroCol(event,'desp')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
           <th><button class="cf" data-col="cred" onclick="abrirFiltroCol(event,'cred')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
           <th><button class="cf" data-col="obj"  onclick="abrirFiltroCol(event,'obj')"><span class="cf-txt">Todos</span><span class="cf-seta">▼</span></button></th>
           <th><button class="cf" data-col="mod"  onclick="abrirFiltroCol(event,'mod')"><span class="cf-txt">Todas</span><span class="cf-seta">▼</span></button></th>
@@ -685,7 +769,7 @@
 </main>
 
 <div class="mobile-bar">
-  <button class="mb-btn mb-primary" onclick="novaRequisicao()">＋ Requisição</button>
+  <button class="mb-btn mb-primary so-editor" onclick="novaRequisicao()">＋ Requisição</button>
   <button class="mb-btn mb-primary" onclick="abrirFiltrosMobile()">Filtros</button>
   <button class="mb-btn mb-gold" onclick="pdfDoFiltro()">🖨️ PDF</button>
 </div>
@@ -750,29 +834,439 @@
   </div>
 </div>
 
+<!-- Despacho do Diretor: seis opções, uma decisão. Um clique escolhe e
+     grava — não é formulário, é despacho. -->
+<div class="cel-pop desp-pop" id="despPop">
+  <div class="cel-pop-tit">Despacho do Diretor</div>
+  <input type="hidden" data-parte="despacho">
+  <div class="desp-ops" id="despOps"></div>
+  <div class="cel-pop-pe"><span class="cel-pop-dica">Esc desiste</span></div>
+</div>
+
 <datalist id="dlCredores"></datalist>
 <datalist id="dlModalidades"></datalist>
 
 <div id="toast"></div>
 
 <script>
+/* ══════════════ CONTAS E PERMISSÕES ══════════════
+   As Requisições usam a MESMA conta do resto do sistema: o mesmo projeto do
+   Firebase e a mesma coleção "usuarios_v2" da Agenda, do Sistema Interno e
+   dos Contratos — só que olhando o painel "requisicao" dentro de "acessos".
+
+   Como nos Contratos, aqui NADA é público: sem conta aprovada com o painel
+   liberado, a lista nem chega ao navegador.
+
+   Quatro níveis, um a mais que os outros painéis:
+     Sem acesso  → nem entra;
+     Visualizar  → vê tudo, não grava nada;
+     Editar      → preenche a requisição inteira, MENOS o despacho;
+     Diretor     → só despacha a modalidade, e não toca em mais nada.
+
+   Editar e Diretor não se encontram de propósito: o despacho é decisão, o
+   resto é registro. A trava de verdade são as regras do Firestore; o que
+   esta tela faz é avisar antes, com todas as letras. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCH8DKzE8oPaQ3HpAex-3iqEaReKon05lM",
+  authDomain: "processos-ijui.firebaseapp.com",
+  projectId: "processos-ijui",
+  storageBucket: "processos-ijui.firebasestorage.app",
+  messagingSenderId: "385308750932",
+  appId: "1:385308750932:web:65e94a26e71451995fe9c1"
+};
+const AUTH_BOOTSTRAP_ADMIN_EMAIL = 'pedrohhpacifico@gmail.com';
+let authCurrentUser = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+let authPerfilUnsub = null;
+let usuariosV2ColRef = null;
+let authModo = 'entrar';
+
+/* Mesma normalização dos outros painéis: contas aprovadas antes do modelo
+   de três níveis guardam true/false, e continuam valendo sem migração. */
+function authNormalizaNivel(v){
+  if(v === true) return 'editar';
+  if(v === 'ver' || v === 'editar' || v === 'diretor') return v;
+  return 'nenhum';
+}
+function reqNivel(){
+  if(!authCurrentUser || authCurrentUser.status !== 'aprovado') return 'nenhum';
+  if(authCurrentUser.isAdmin) return 'editar';
+  return authNormalizaNivel(authCurrentUser.acessos && authCurrentUser.acessos.requisicao);
+}
+function reqPodeVer(){ return reqNivel() !== 'nenhum'; }
+/* Quem preenche a requisição: tudo menos o despacho. O Diretor não entra
+   aqui — ele só assina a modalidade. */
+function reqPodeEditar(){ return reqNivel() === 'editar' || ehAdmin(); }
+/* Quem despacha: o Diretor, e o administrador — que pode se marcar Diretor
+   a qualquer momento, então negar aqui só somaria um passo. */
+function reqPodeDespachar(){ return reqNivel() === 'diretor' || ehAdmin(); }
+function ehAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
+
+/* ── Portão de acesso ── */
+function authEl(id){ return document.getElementById(id); }
+function authErr(msg){ const e = authEl('authErr'); if(e) e.textContent = msg || ''; }
+function authSetModo(m){
+  authModo = m;
+  authEl('authEntradaBox').style.display = (m === 'entrar') ? 'block' : 'none';
+  authEl('authCriarBox').style.display   = (m === 'criar')  ? 'block' : 'none';
+  authErr('');
+}
+function authMsgErro(e){
+  const m = {
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/user-not-found':'Não existe conta com esse e-mail.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':'Já existe conta com esse e-mail. Tente entrar em vez de criar.',
+    'auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.'
+  };
+  return m[e.code] || ('Erro: ' + e.message);
+}
+function authGoogle(){
+  authErr('');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(e => {
+    if(e.code === 'auth/popup-closed-by-user') return;
+    if(e.code === 'auth/popup-blocked'){ authErr('O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo.'); return; }
+    authErr('Não foi possível entrar com o Google: ' + e.message);
+  });
+}
+function authEntrarSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  const senha = authEl('authPass').value || '';
+  if(!email || !senha){ authErr('Informe e-mail e senha.'); return; }
+  authErr('');
+  firebase.auth().signInWithEmailAndPassword(email, senha).catch(e => authErr(authMsgErro(e)));
+}
+function authCriarConta(){
+  const nome  = (authEl('authNomeC').value || '').trim();
+  const email = (authEl('authEmailC').value || '').trim().toLowerCase();
+  const senha = authEl('authPassC').value || '';
+  const senha2 = authEl('authPass2').value || '';
+  if(!nome || !email || !senha){ authErr('Preencha todos os campos.'); return; }
+  if(senha.length < 6){ authErr('A senha deve ter ao menos 6 caracteres.'); return; }
+  if(senha !== senha2){ authErr('As senhas não conferem.'); return; }
+  authErr('');
+  firebase.auth().createUserWithEmailAndPassword(email, senha)
+    .then(cred => cred.user.updateProfile({displayName: nome}))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authEsqueciSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  if(!email){ authErr('Digite seu e-mail no campo acima primeiro.'); return; }
+  authErr('');
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => alert('Enviamos um e-mail para ' + email + ' com um link para redefinir a senha.'))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  firebase.auth().signOut();
+}
+
+/* ── Perfil (usuarios_v2) ── */
+function iniciarAutenticacaoRequisicoes(){
+  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
+  firebase.auth().onAuthStateChanged(authAoAutenticar);
+}
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email || '').toLowerCase(),
+    nome:  user.displayName || (user.email || '').split('@')[0],
+    foto:  user.photoURL || '',
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || 'password',
+    status: 'pendente',
+    isAdmin: false,
+    acessos: {agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum', requisicao:'nenhum'},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra || {});
+}
+function authAoAutenticar(user){
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub = null; }
+  if(!user){ authCurrentUser = null; authStartGate(); return; }
+
+  const ref = usuariosV2ColRef.doc(user.uid);
+  ref.get().then(doc => {
+    if(doc.exists) return;
+    const ehResgate = (user.email || '').toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:'aprovado', isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar', requisicao:'editar'}
+    } : {}));
+  }).then(() => {
+    authPerfilUnsub = ref.onSnapshot(doc => {
+      /* Conta excluída por um admin com a aba aberta: sair devolve o portão. */
+      if(!doc.exists){ authCurrentUser = null; firebase.auth().signOut(); return; }
+      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
+      if(reqPodeVer()) authShowApp(); else authShowPendente();
+    }, e => console.warn('perfil: sem permissão de leitura (' + e.message + ')'));
+  }).catch(e => authErr('Erro ao preparar sua conta: ' + e.message));
+}
+
+function authShowApp(){
+  authCamposLogin(true);
+  authEl('authGate').style.display = 'none';
+  const chip = authEl('authUserChip');
+  if(chip && authCurrentUser){
+    /* O papel fica escrito ao lado do nome: o Diretor precisa saber, ao
+       abrir, que ali ele despacha e não preenche. */
+    const papel = reqPodeDespachar() && !reqPodeEditar() ? ' · diretor'
+                : reqPodeEditar() ? '' : ' · só visualização';
+    chip.textContent = '👤 ' + (authCurrentUser.nome || authCurrentUser.email) + papel;
+    chip.style.display = 'inline-flex';
+  }
+  const sair = authEl('btnSair'); if(sair) sair.style.display = '';
+  /* Quem não preenche não vê o botão de lançar. A trava de verdade são as
+     regras do Firestore; esconder botão é cortesia. */
+  document.querySelectorAll('.so-editor').forEach(el => { el.style.display = reqPodeEditar() ? '' : 'none'; });
+  const dica = authEl('dicaEdicao');
+  if(dica) dica.textContent = reqPodeEditar() ? 'clique numa célula para preencher'
+                            : reqPodeDespachar() ? 'clique na coluna DIRETOR para despachar'
+                            : 'seu acesso é de leitura';
+  /* Só agora — com o acesso confirmado — as requisições são pedidas ao
+     Firestore. Ligar antes tomaria "permissão negada" e o listener morreria
+     sem tentar de novo. */
+  iniciarListenerRequisicoes();
+  carregarLogoPdf();
+}
+function authShowPendente(){
+  authOcultarCarregando();
+  authEl('authGate').style.display = 'flex';
+  authEl('authEntradaBox').style.display = 'none';
+  authEl('authCriarBox').style.display = 'none';
+  authErr('');
+  authEl('authPendenteCard').style.display = 'block';
+  authEl('authPendNome').textContent  = authCurrentUser.nome || '';
+  authEl('authPendEmail').textContent = authCurrentUser.email || '';
+  const foto = authEl('authPendFoto');
+  foto.src = authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  authEl('authPendMsg').textContent = authCurrentUser.status === 'bloqueado'
+    ? 'Seu acesso foi bloqueado por um administrador.'
+    : 'Sua conta foi criada. Peça para um administrador liberar o painel de Requisições para você.';
+}
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(!i) return;
+    if(desligar){ i.value = ''; i.disabled = true; }
+    else i.disabled = false;
+  });
+}
+function authOcultarCarregando(){
+  const c = authEl('authCarregando');
+  if(c) c.style.display = 'none';
+}
+function authStartGate(){
+  authCamposLogin(false);
+  authOcultarCarregando();
+  authEl('authGate').style.display = 'flex';
+  authEl('authPendenteCard').style.display = 'none';
+  authSetModo('entrar');
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(i && !i._enterBound){
+      i._enterBound = true;
+      i.addEventListener('keydown', e => { if(e.key === 'Enter'){ (authModo === 'criar') ? authCriarConta() : authEntrarSenha(); } });
+    }
+  });
+}
+
+
+
 /* ══════════════ DADOS ══════════════
-   Protótipo: a lista vem de dados/requisicoes.json, gerado da planilha do
-   setor (requisicao/ferramentas/planilha-para-json.py). Ainda não há banco
-   nem contas — o que se altera aqui fica guardado NESTE navegador e vira
-   arquivo pelo "Exportar JSON". Ligar no Firebase, com o mesmo cadastro de
-   contas dos Contratos, é o passo seguinte; ver requisicao/LEIA-ME.md. */
+   As requisições ficam no Firestore (coleção "requisicoes"), no mesmo
+   projeto da Agenda, do Sistema Interno e dos Contratos. Nada é carregado
+   na abertura da página: quem carrega é o portão de acesso, depois de
+   confirmar que a pessoa entrou e tem o painel Requisições liberado
+   (iniciarListenerRequisicoes, chamado por authShowApp).
+
+   O arquivo dados/requisicoes.json continua no repositório, mas só como
+   origem da PRIMEIRA carga e da lista de secretarias — nunca como espelho
+   do que está no banco. */
 let REQS = [];
 let SECRETARIAS = [];
-/* O que veio da planilha, intocado: é para onde uma linha volta quando se
-   desfazem as alterações feitas neste navegador. */
-const ORIGINAIS = new Map();
+let FONTE_DADOS = 'nenhuma';
 
 function carregarDoArquivo(){
   return fetch('dados/requisicoes.json', {cache:'no-cache'}).then(r => {
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.json();
   });
+}
+/* O arquivo é lido uma vez por visita: a conferência roda a cada
+   atualização ao vivo e não pode virar uma ida ao servidor por vez. */
+let _arquivoPromessa = null;
+function arquivoDoRepositorio(){
+  if(!_arquivoPromessa) _arquivoPromessa = carregarDoArquivo();
+  return _arquivoPromessa;
+}
+
+function docReq(id){ return firebase.firestore().collection('requisicoes').doc(String(id)); }
+
+/* Ouvir a coleção ao vivo é o que permite o setor preencher e o Diretor
+   despachar ao mesmo tempo: o despacho aparece na tela de quem lançou sem
+   F5, e vice-versa. A primeira leva monta a tela; as seguintes só
+   atualizam o que mudou. */
+let _listenerLigado = false;
+function iniciarListenerRequisicoes(){
+  if(_listenerLigado) return;
+  _listenerLigado = true;
+  /* As secretarias vêm do arquivo: são a lista fixa das abas da planilha,
+     não dado de cadastro. Sem elas a faixa do topo nasceria vazia. */
+  arquivoDoRepositorio()
+    .then(d => { SECRETARIAS = d.secretarias || []; })
+    .catch(e => console.warn('lista de secretarias:', e.message))
+    .then(() => {
+      let primeira = true;
+      firebase.firestore().collection('requisicoes').onSnapshot(snap => {
+        const lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+        if(!lista.length && primeira){ telaBancoVazio(); conferirImportacao(); return; }
+        FONTE_DADOS = 'firestore';
+        if(primeira){ primeira = false; montarPrimeiraCarga(lista); }
+        else reaplicarAoVivo(lista);
+        conferirImportacao();
+      }, e => mostrarErroCarregar(e));
+    });
+}
+function montarPrimeiraCarga(lista){
+  REQS = lista.map(prepararReq);
+  initFiltros();
+  marcarTotal();
+  renderFaixaSecretarias();
+  popularDatalists();
+  aplicarFiltros();
+}
+/* Reaplica a lista do Firestore SEM zerar os filtros de quem está na tela,
+   e sem atropelar quem está com uma célula aberta: a atualização ao vivo
+   nunca pode apagar o que está sendo digitado. */
+let _redesenhoPendente = null;
+function reaplicarAoVivo(lista){
+  if(_editando){ _redesenhoPendente = lista; return; }
+  _redesenhoPendente = null;
+  /* A linha que está sendo lançada agora fica fixada no topo até a pessoa
+     dizer que acabou (soltarNova). Se a leva do banco a devolvesse como uma
+     linha qualquer, ela sumiria dos filtros no meio do preenchimento — que
+     é justamente quando ainda não tem nada preenchido para passar neles. */
+  const emLancamento = new Set(REQS.filter(r => r._nova).map(r => r.id));
+  const naoGravadas = REQS.filter(r => r._nova && !r._gravada);
+  REQS = lista.map(r => { if(emLancamento.has(r.id)) r._nova = true; return prepararReq(r); })
+              .concat(naoGravadas.filter(r => !lista.some(x => x.id === r.id)));
+  marcarTotal();
+  renderFaixaSecretarias();
+  popularDatalists();
+  aplicarFiltros();
+  if(detAtual && document.getElementById('ovDet').classList.contains('open')){
+    const atualizado = REQS.find(x => x.id === detAtual.id);
+    if(atualizado) abrirDet(atualizado.id);
+  }
+}
+function despacharRedesenhoPendente(){
+  if(_redesenhoPendente && !_editando) reaplicarAoVivo(_redesenhoPendente);
+}
+function mostrarErroCarregar(e){
+  console.error('Erro ao carregar as requisições:', e);
+  const alvo = document.getElementById('vazio');
+  if(alvo) alvo.innerHTML =
+    '<div class="empty"><span>⚠️</span>Não foi possível carregar as requisições.<br>'+esc(e.message)+'</div>';
+}
+
+/* ══════════════ PRIMEIRA CARGA ══════════════
+   A coleção nasce vazia. Em vez de exigir terminal e credencial de
+   administrador (as regras negam gravação sem login, e é assim que tem de
+   ser), a própria tela sobe o dados/requisicoes.json — logada, com a conta
+   de quem está olhando.
+
+   Sobe em lotes, e com a armadilha que já mordeu na importação dos
+   contratos em mente: assim que o primeiro lote entra, o banco deixa de
+   estar vazio e o listener monta a lista por cima da tela de importação.
+   Por isso o andamento fica num aviso próprio, que o redesenho não apaga,
+   e a conferência com o arquivo é permanente. Reenviar requisição que já
+   está lá não duplica nada: o id do documento é o id da requisição. */
+function podeImportar(){ return !!(reqPodeEditar() && ehAdmin()); }
+let _importando = false;
+let _faltamImportar = null;
+let _recadoImportacao = '';
+
+function avisoImportacao(andamento){
+  const box = document.getElementById('avisoImportacao');
+  if(!box) return;
+  if(andamento !== undefined){
+    _recadoImportacao = andamento;
+    box.innerHTML = '<div class="aviso aviso-azul">'+esc(andamento)+'</div>';
+    return;
+  }
+  if(_importando) return;
+  if(!podeImportar() || !_faltamImportar || !_faltamImportar.length){
+    box.innerHTML = _recadoImportacao ? '<div class="aviso aviso-azul">'+esc(_recadoImportacao)+'</div>' : '';
+    return;
+  }
+  const n = _faltamImportar.length;
+  box.innerHTML = '<div class="aviso aviso-amarelo"><b>'+n
+    + (n>1 ? ' requisições do arquivo ainda não estão no banco.' : ' requisição do arquivo ainda não está no banco.')
+    + '</b> Ou a importação parou no meio, ou o arquivo foi atualizado pela planilha do setor.'
+    + '<button class="acao" onclick="importarDoArquivo()">Subir as que faltam</button></div>';
+}
+function conferirImportacao(){
+  if(_importando || !podeImportar()) return Promise.resolve();
+  const noBanco = new Set(REQS.filter(r=>r._gravada).map(r => String(r.id)));
+  return arquivoDoRepositorio().then(d => {
+    _faltamImportar = (d.requisicoes||[]).filter(r => !noBanco.has(String(r.id)));
+    avisoImportacao();
+  }).catch(e => { console.error('conferência com o arquivo:', e); });
+}
+function telaBancoVazio(){
+  const alvo = document.getElementById('vazio');
+  if(!alvo) return;
+  alvo.innerHTML = '<div class="empty"><span>📥</span>O banco de requisições ainda está vazio.'
+    + (podeImportar()
+        ? '<br><span style="font-size:13px" id="impQuantos">Conferindo o arquivo do repositório…</span>'
+          + '<div style="margin-top:14px"><button class="btn-gold" onclick="importarDoArquivo()">Importar as requisições agora</button></div>'
+        : '<br><span style="font-size:13px">Peça a um administrador para fazer a primeira importação.</span>')
+    + '</div>';
+  document.getElementById('loadWrap').style.display = 'none';
+  if(podeImportar()) arquivoDoRepositorio().then(d => {
+    const q = document.getElementById('impQuantos');
+    if(q) q.textContent = 'São ' + (d.requisicoes||[]).length.toLocaleString('pt-BR')
+      + ' requisições no arquivo do repositório, prontas para subir.';
+  }).catch(()=>{});
+}
+function importarDoArquivo(){
+  if(_importando) return;
+  if(!podeImportar()){ alert('Só um administrador com permissão de edição pode importar.'); return; }
+  _importando = true;
+  avisoImportacao('Lendo o arquivo…');
+  arquivoDoRepositorio().then(d => {
+    const noBanco = new Set(REQS.filter(r=>r._gravada).map(r => String(r.id)));
+    const faltam = (d.requisicoes||[]).filter(r => !noBanco.has(String(r.id)));
+    if(!faltam.length){ avisoImportacao('O banco já tem as requisições do arquivo.'); return; }
+    if(!confirm('Subir '+faltam.length+' requisição(ões) do arquivo para o banco?\n\nNão feche a página até terminar.')){
+      _faltamImportar = faltam; _importando = false; avisoImportacao(); return;
+    }
+    const db = firebase.firestore();
+    const lotes = [];
+    for(let i=0;i<faltam.length;i+=200) lotes.push(faltam.slice(i,i+200));
+    let feitos = 0;
+    return lotes.reduce((p,lote)=>p.then(()=>{
+      const batch = db.batch();
+      lote.forEach(r => batch.set(db.collection('requisicoes').doc(String(r.id)), paraGuardar(r)));
+      return batch.commit().then(()=>{
+        feitos += lote.length;
+        avisoImportacao('Enviando… '+feitos+' de '+faltam.length+' — não feche a página.');
+      });
+    }), Promise.resolve()).then(()=>{
+      avisoImportacao('Pronto: '+feitos+' requisição(ões) subiram para o banco.');
+    });
+  }).catch(e=>{
+    console.error('importação:', e);
+    avisoImportacao('A importação parou: '+e.message);
+    alert('Não consegui terminar a importação: '+e.message
+      + '\n\nO que já subiu continua no banco. Clique em "Subir as que faltam" para continuar de onde parou.');
+  }).then(()=>{ _importando = false; conferirImportacao(); });
 }
 
 /* ══════════════ UTILIDADES ══════════════ */
@@ -801,7 +1295,7 @@ function prepararReq(r){
 }
 function textoTudo(r){
   if(r._txt===undefined){
-    r._txt = normalizar([r.rotulo, r.sec, r.credor, r.objeto, r.modalidade, r.empenho,
+    r._txt = normalizar([r.rotulo, r.sec, r.credor, r.objeto, r.modalidade, r.empenho, r.despacho,
       fmtD(r.recebido), fmtD(r.contabilidade), money(r.valor)].join(' '));
   }
   return r._txt;
@@ -818,9 +1312,15 @@ let SEC_ATUAL = '';          /* '' = todas; é também a secretaria de quem lan�
 let formId = null;
 let detAtual = null;
 
-const COLUNAS = ['num','receb','cred','obj','mod','emp','cont','valor'];
-const NOME_COL = {num:'Requisição', receb:'Recebida', cred:'Credor', obj:'Objeto',
+const COLUNAS = ['num','receb','desp','cred','obj','mod','emp','cont','valor'];
+const NOME_COL = {num:'Requisição', receb:'Recebida', desp:'Diretor', cred:'Credor', obj:'Objeto',
                   mod:'Modalidade', emp:'Empenho', cont:'P/ contabilidade', valor:'Valor'};
+/* ── O despacho do Diretor ──
+   As seis modalidades que o Diretor pode assinar. A lista é fechada de
+   propósito: despacho não é campo livre — é uma decisão entre opções
+   previstas, e quem lança a requisição não escolhe nenhuma delas. */
+const MODALIDADES_DESPACHO = ['Pregão','Concorrência','Dispensa por limite',
+  'Dispensa por justificativa','Inexigibilidade','Ata de Registro de Preços'];
 const COL_FEMININA = ['num','mod'];
 const COLF = {};
 
@@ -849,6 +1349,8 @@ function situacaoEmpenho(r){ return r.empenho ? 'Empenhada' : 'Falta empenhar'; 
 const FACETAS = {
   num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'], desc:true} ],
   receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], desc:true} ],
+  desp:  [ {k:'desp', t:'Despacho do Diretor', v:r=>[r.despacho || '(sem despacho)'],
+            ordemFixa: MODALIDADES_DESPACHO.concat('(sem despacho)')} ],
   cred:  [ {k:'cred', t:'Credor', v:r=>[r.credor || '(sem credor)']} ],
   obj:   [ {k:'obj', t:'Objeto', v:r=>[r.objeto || '(sem objeto)']} ],
   mod:   [ {k:'mod', t:'Modalidade', v:r=>[r.modalidade || '(sem modalidade)']} ],
@@ -890,7 +1392,13 @@ function nomeSecretaria(sigla){
    enquanto a pessoa está preenchendo. Trocar de secretaria, limpar os
    filtros ou abrir outra requisição é dizer "acabei com aquela": aí ela
    volta a ser uma linha como as outras, no lugar dela. */
-function soltarNova(){ REQS.forEach(r=>{ delete r._nova; }); }
+function soltarNova(){
+  /* Linha aberta e deixada em branco não chegou ao banco e não vira
+     registro: some junto com o destaque, em vez de ficar na tela fingindo
+     ser uma requisição. */
+  REQS = REQS.filter(r => r._gravada || !r._nova);
+  REQS.forEach(r=>{ delete r._nova; });
+}
 function escolherSecretaria(sigla){
   soltarNova();
   SEC_ATUAL = sigla;
@@ -912,6 +1420,7 @@ function passaBusca(r){
 const TEXTO_COL = {
   num:   r => r.rotulo + ' ' + r.sec,
   receb: r => fmtD(r.recebido),
+  desp:  r => r.despacho,
   cred:  r => r.credor,
   obj:   r => r.objeto,
   mod:   r => r.modalidade,
@@ -1157,9 +1666,29 @@ function badgeEmpenho(r){
    lugar, com dois cliques, em vez de abrir um formulário. A requisição vai
    sendo preenchida aos poucos — recebida, objeto, empenho, contabilidade —
    e cada etapa é um clique duplo na coluna certa. */
+/* Quem pode mexer em QUE campo. O despacho é do Diretor e só dele; todo o
+   resto é de quem preenche — e os dois papéis não se encontram. Esconder o
+   clique é cortesia: a trava de verdade são as regras do Firestore, que
+   recusam a gravação mesmo que alguém force a mão pelo console. */
+function podeMexer(campo){
+  return campo==='despacho' ? reqPodeDespachar() : reqPodeEditar();
+}
 function cel(r, campo, conteudo, classe){
-  return '<td class="'+classe+'" data-id="'+r.id+'" data-campo="'+campo+'" onclick="editarCelula(this)">'
-       + conteudo + '</td>';
+  const livre = podeMexer(campo);
+  const dica = campo==='despacho'
+    ? 'Só quem tem o acesso de Diretor despacha a modalidade.'
+    : 'Você não tem permissão para editar as requisições.';
+  return '<td class="'+classe+(livre?'':' travada')+'" data-id="'+r.id+'" data-campo="'+campo+'"'
+       + (livre ? ' onclick="editarCelula(this)"' : ' title="'+dica+'"')
+       + '>' + conteudo + '</td>';
+}
+/* Vazio não é "—" aqui: é um estado do fluxo. Para o Diretor, é o convite;
+   para os outros, o cadeado que diz de quem é a caneta. */
+function celDespacho(r){
+  if(r.despacho) return '<span class="desp">'+esc(r.despacho)+'</span>';
+  return reqPodeDespachar()
+    ? '<span class="desp-vazio">✍️ despachar</span>'
+    : '<span class="desp-vazio">🔒 aguardando</span>';
 }
 function vazio(txt){ return '<span class="cel-vazia">'+(txt||'—')+'</span>'; }
 function linhaHTML(r){
@@ -1169,6 +1698,7 @@ function linhaHTML(r){
   return '<tr data-id="'+r.id+'"'+(r._nova?' class="linha-nova"':'')+'>'
     + cel(r,'num',   numero + sec, 'c-req')
     + cel(r,'recebido', r.recebido ? fmtD(r.recebido) : vazio(), 'c-receb')
+    + cel(r,'despacho', celDespacho(r), 'c-desp')
     + cel(r,'credor', r.credor ? esc(r.credor) : vazio(), 'c-cred')
     + cel(r,'objeto', r.objeto ? esc(r.objeto) : vazio(), 'c-obj')
     + cel(r,'modalidade', r.modalidade ? esc(r.modalidade) : vazio(), 'c-mod')
@@ -1177,9 +1707,8 @@ function linhaHTML(r){
     + cel(r,'valor', r.valor==null ? vazio() : fmtBRL.format(r.valor), 'c-val')
     + '<td class="c-acao">'
       + '<button class="acao-cel" title="Abrir a ficha" onclick="abrirDet('+r.id+')">🔍</button>'
-      + (RASCUNHO[r.id] ? '<button class="acao-cel" title="'
-          + (ORIGINAIS.has(r.id) ? 'Desfazer as alterações desta linha' : 'Descartar esta linha')
-          + '" onclick="descartarLinha('+r.id+')">↺</button>' : '')
+      + ((r._nova && !r._gravada) ? '<button class="acao-cel" title="Descartar esta linha"'
+          + ' onclick="descartarLinha('+r.id+')">✕</button>' : '')
     + '</td></tr>';
 }
 function renderMais(){
@@ -1224,6 +1753,10 @@ function abrirDet(id){
     + linha('Objeto', esc(r.objeto))
     + '<hr class="det-hr">'
     + linha('Valor', '<b style="font-size:16px">'+money(r.valor)+'</b>')
+    + linha('Despacho do Diretor', r.despacho
+        ? '<b>'+esc(r.despacho)+'</b>'+(r.despachoPor ? ' <span style="color:var(--muted);font-size:12px">— '
+            +esc(r.despachoPor)+(r.despachoEm ? ', '+fmtD(String(r.despachoEm).slice(0,10)) : '')+'</span>' : '')
+        : '<i style="color:var(--muted)">ainda sem despacho</i>')
     + linha('Modalidade', esc(r.modalidade))
     + linha('Recebida em', fmtD(r.recebido))
     + linha('Empenho', r.empenho ? esc(r.empenho) : '<i style="color:var(--muted)">ainda não empenhada</i>')
@@ -1264,8 +1797,10 @@ function novaRequisicao(){
   };
   prepararReq(r);
   REQS.push(r);
-  if(!salvarRequisicao(r)) { REQS.pop(); return; }
-  renderFaixaSecretarias(); avisoRascunho(); aplicarFiltros();
+  /* Ela ainda NÃO vai para o banco: uma linha em branco criada por engano
+     viraria lixo permanente, porque as regras não deixam apagar
+     requisição. Vai no primeiro campo preenchido (salvarRequisicao). */
+  renderFaixaSecretarias(); aplicarFiltros();
   /* A primeira coisa que se preenche é a secretaria, quando a tela está em
      "Todas"; com uma secretaria escolhida, já é a data de recebimento. */
   focarCelula(r.id, sec ? 'recebido' : 'num', true);
@@ -1277,18 +1812,12 @@ function novaRequisicao(){
 function descartarLinha(id){
   const i = REQS.findIndex(x=>x.id===id);
   if(i < 0) return;
-  const original = ORIGINAIS.get(id);
   const r = REQS[i];
-  const pergunta = original
-    ? 'Desfazer as alterações da requisição '+(r.rotulo||'sem número')+' e voltar ao que veio da planilha?'
-    : 'Descartar a requisição '+(r.rotulo||'sem número')+'?\n\nEla só existe neste navegador.';
-  if(!confirm(pergunta)) return;
-  if(original) REQS[i] = prepararReq(Object.assign({}, original));
-  else REQS.splice(i, 1);
-  delete RASCUNHO[id];
-  try{ localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(RASCUNHO)); }catch(e){}
-  renderFaixaSecretarias(); popularDatalists(); avisoRascunho(); aplicarFiltros();
-  toast(original ? 'Alterações desfeitas.' : 'Linha descartada.');
+  if(r._gravada) return;   /* já está no banco: some o botão, some a opção */
+  if(!confirm('Descartar a requisição '+(r.rotulo||'sem número')+'?\n\nEla ainda não foi gravada.')) return;
+  REQS.splice(i, 1);
+  renderFaixaSecretarias(); popularDatalists(); aplicarFiltros();
+  toast('Linha descartada.');
 }
 
 /* rolar: só quando a célula pode estar fora da vista (Tab, linha nova).
@@ -1314,13 +1843,18 @@ function editarCelula(td){
   const id = Number(td.dataset.id), campo = td.dataset.campo;
   const r = REQS.find(x=>x.id===id);
   if(!r) return;
+  if(!podeMexer(campo)) return;
   /* O número da requisição são quatro coisas — secretaria, nº, ano e o
      complemento — e a coluna tem pouco mais de cem pixels: espremidos ali
      dentro viravam "34…" e "20…". Esse abre num painel ancorado na célula,
      com rótulo em cada campo. O resto edita no lugar mesmo. */
-  _editando = {td, id, campo, html: td.innerHTML, painel: campo==='num'};
+  /* "painel" é o id da caixa flutuante, quando o campo não cabe na célula. */
+  _editando = {td, id, campo, html: td.innerHTML,
+               painel: campo==='num' ? 'celPop' : campo==='despacho' ? 'despPop' : null};
   td.classList.add('editando');
-  const alvo = campo==='num' ? abrirPainelNumero(td, r) : abrirEditorNaCelula(td, r, campo);
+  const alvo = campo==='num' ? abrirPainelNumero(td, r)
+             : campo==='despacho' ? abrirPainelDespacho(td, r)
+             : abrirEditorNaCelula(td, r, campo);
   if(!alvo){ _editando = null; td.classList.remove('editando'); return; }
   ligarTeclas(alvo, td, id, campo);
   alvo.focus();
@@ -1340,14 +1874,36 @@ function abrirPainelNumero(td, r){
   pop.querySelector('[data-parte="ano"]').value = r.ano || new Date().getFullYear();
   pop.querySelector('[data-parte="sufixo"]').value = r.sufixo || '';
   pop.classList.add('open');
+  ancorarPainel(pop, td);
+  return pop.querySelector(r.sec ? '[data-parte="num"]' : '[data-parte="sec"]');
+}
+function abrirPainelDespacho(td, r){
+  const pop = document.getElementById('despPop');
+  pop.querySelector('[data-parte="despacho"]').value = r.despacho || '';
+  const op = (v, rotulo, classe) =>
+    '<button type="button" class="desp-op'+(classe||'')+(v===(r.despacho||'')?' on':'')
+    + '" data-v="'+esc(v)+'" onclick="escolherDespacho(this.dataset.v)">'+esc(rotulo)+'</button>';
+  document.getElementById('despOps').innerHTML =
+    MODALIDADES_DESPACHO.map(m=>op(m, m)).join('')
+    + (r.despacho ? op('', 'tirar o despacho', ' limpar') : '');
+  pop.classList.add('open');
+  ancorarPainel(pop, td);
+  return pop.querySelector('.desp-op.on') || pop.querySelector('.desp-op');
+}
+/* Um clique escolhe E grava: despacho é uma decisão, não um formulário. */
+function escolherDespacho(v){
+  const pop = document.getElementById('despPop');
+  pop.querySelector('[data-parte="despacho"]').value = v;
+  fecharEdicao(true);
+}
+function ancorarPainel(pop, td){
   const cx = td.getBoundingClientRect();
   pop.style.left = Math.max(8, Math.min(cx.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
   pop.style.top  = (cx.bottom + window.scrollY + 6) + 'px';
-  return pop.querySelector(r.sec ? '[data-parte="num"]' : '[data-parte="sec"]');
 }
 function ligarTeclas(alvo, td, id, campo){
-  const caixa = _editando.painel ? document.getElementById('celPop') : td;
-  caixa.querySelectorAll('input,select,textarea').forEach(el=>{
+  const caixa = _editando.painel ? document.getElementById(_editando.painel) : td;
+  caixa.querySelectorAll('input,select,textarea,button.desp-op').forEach(el=>{
     el.onkeydown = e=>{
       if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); fecharEdicao(false); return; }
       if(e.key==='Enter' && !(e.shiftKey && el.tagName==='TEXTAREA')){
@@ -1368,7 +1924,7 @@ function ligarTeclas(alvo, td, id, campo){
    um campo do painel para outro, já fechava no meio do preenchimento. */
 document.addEventListener('mousedown', e=>{
   if(!_editando) return;
-  if(e.target.closest('#celPop')) return;
+  if(e.target.closest('.cel-pop')) return;
   if(e.target.closest('td.editando')) return;
   /* Clicou direto noutra célula: salva esta e abre aquela na mesma ação. A
      linha é redesenhada ao salvar, então o elemento clicado deixa de
@@ -1397,14 +1953,13 @@ function editorHTML(r, campo){
 function fecharEdicao(salvando){
   if(!_editando) return;
   const {td, id, campo, html, painel} = _editando;
-  const pop = document.getElementById('celPop');
-  const caixa = painel ? pop : td;
+  const caixa = painel ? document.getElementById(painel) : td;
   _editando = null;                 /* antes de mexer no DOM, para não reentrar */
   td.classList.remove('editando');
-  if(painel) pop.classList.remove('open');
+  if(painel) caixa.classList.remove('open');
   const r = REQS.find(x=>x.id===id);
-  const devolver = () => { td.innerHTML = html; };
-  if(!salvando || !r){ devolver(); return; }
+  const devolver = () => { td.innerHTML = html; despacharRedesenhoPendente(); };
+  if(!salvando || !r || !podeMexer(campo)){ devolver(); return; }
   const pega = parte => { const e = caixa.querySelector('[data-parte="'+parte+'"]'); return e ? e.value.trim() : ''; };
   const unico = caixa.querySelector('input,select,textarea');
   const antes = JSON.stringify(paraGuardar(r));
@@ -1422,6 +1977,13 @@ function fecharEdicao(salvando){
     r.valor = n;
   } else if(campo==='recebido' || campo==='contabilidade'){
     r[campo] = unico.value || null;
+  } else if(campo==='despacho'){
+    r.despacho = unico.value || '';
+    /* Quem assinou e quando ficam junto com o despacho, e são gravados na
+       mesma operação: as regras só aceitam esses três campos mexendo
+       juntos, e um despacho sem assinatura não diria nada a ninguém. */
+    r.despachoPor = r.despacho ? (authCurrentUser && (authCurrentUser.nome || authCurrentUser.email) || '') : '';
+    r.despachoEm  = r.despacho ? new Date().toISOString() : '';
   } else if(campo==='credor' || campo==='modalidade'){
     r[campo] = unico.value.trim().toUpperCase();
   } else {
@@ -1429,11 +1991,11 @@ function fecharEdicao(salvando){
   }
   prepararReq(r);
   if(JSON.stringify(paraGuardar(r)) === antes){ devolver(); return; }
-  if(!salvarRequisicao(r)){ devolver(); return; }
   redesenharLinha(r);
-  renderFaixaSecretarias(); popularDatalists(); avisoRascunho();
+  renderFaixaSecretarias(); popularDatalists();
   if(document.getElementById('ovDet').classList.contains('open') && detAtual && detAtual.id===r.id) abrirDet(r.id);
-  toast(ROTULO_CAMPO[campo] + ' salvo.');
+  salvarRequisicao(r, campo, JSON.parse(antes));
+  setTimeout(despacharRedesenhoPendente, 0);
 }
 /* Redesenha SÓ a linha mexida: refazer a tabela inteira a cada campo
    perderia a rolagem e o lugar de quem está preenchendo em sequência. */
@@ -1459,65 +2021,58 @@ function paraGuardar(r){
   return o;
 }
 
-/* ══════════════ RASCUNHO DO NAVEGADOR (protótipo) ══════════════
-   Ainda não há banco: o que se altera fica guardado NESTE navegador e é
-   aplicado por cima da lista ao abrir — sempre com aviso na tela, porque
-   rascunho de navegador não é cadastro. Vira arquivo pelo "Exportar JSON". */
-const CHAVE_RASCUNHO = 'requisicoes_ijui_rascunho';
-let RASCUNHO = {};
-function lerRascunho(){
-  try{ const j = JSON.parse(localStorage.getItem(CHAVE_RASCUNHO) || '{}');
-       return (j && typeof j==='object') ? j : {}; }catch(e){ return {}; }
+/* ══════════════ GRAVAR NO BANCO ══════════════
+   A tela grava CAMPO a campo, não a linha inteira. Não é economia de rede:
+   é o que faz a trava do despacho funcionar de verdade. As regras do
+   Firestore olham quais chaves mudaram — quem preenche não pode tocar em
+   'despacho', e o Diretor não pode tocar em mais nada. Regravar o
+   documento inteiro a cada tecla faria uma gravação legítima esbarrar num
+   campo que a pessoa nem viu.
+
+   A alteração aparece na tela na hora e vai ao banco em seguida; se o
+   banco recusar, a linha volta ao que era e a pessoa fica sabendo — nunca
+   fica um dado na tela que não existe no cadastro. */
+const CAMPOS_DO_NUMERO = ['sec','num','ano','sufixo'];
+const CAMPOS_DO_DESPACHO = ['despacho','despachoPor','despachoEm'];
+function camposGravados(campo){
+  if(campo==='num') return CAMPOS_DO_NUMERO;
+  if(campo==='despacho') return CAMPOS_DO_DESPACHO;
+  return [campo];
 }
-function salvarRequisicao(r){
-  /* Só os campos de verdade: "_nova" e o índice da busca são estado de
-     tela. Guardar "_nova" faria a linha nascer fixada no topo e furando
-     todo filtro para sempre, a cada visita. */
-  RASCUNHO[r.id] = paraGuardar(r);
-  try{ localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(RASCUNHO)); return true; }
-  catch(e){ alert('O navegador não deixou guardar (espaço cheio ou aba anônima).'); return false; }
+function salvarRequisicao(r, campo, antes){
+  const promessa = r._gravada
+    ? docReq(r.id).update(soCampos(r, camposGravados(campo)))
+    : docReq(r.id).set(paraGuardar(r)).then(()=>{ r._gravada = true; });
+  return promessa.then(()=>{
+    toast(ROTULO_CAMPO[campo] + ' salvo.');
+    conferirImportacao();
+    despacharRedesenhoPendente();
+  }).catch(e=>{
+    console.error('gravação:', e);
+    if(antes){
+      Object.keys(antes).forEach(k=>{ r[k] = antes[k]; });
+      prepararReq(r);
+      redesenharLinha(r);
+      renderFaixaSecretarias(); popularDatalists();
+    }
+    alert(mensagemDeRecusa(e, campo));
+  });
 }
-function contarRascunho(){ return Object.keys(RASCUNHO).length; }
-function aplicarRascunho(lista){
-  RASCUNHO = lerRascunho();
-  if(!contarRascunho()) return lista;
-  const porId = new Map(lista.map(r=>[r.id, r]));
-  Object.keys(RASCUNHO).forEach(k=>{ const r=RASCUNHO[k]; porId.set(r.id, r); });
-  return [...porId.values()];
+function soCampos(r, campos){
+  const o = {};
+  campos.forEach(k=>{ o[k] = (r[k]===undefined ? null : r[k]); });
+  return o;
 }
-function avisoRascunho(){
-  const box = document.getElementById('avisoRascunho');
-  const n = contarRascunho();
-  if(!n){ box.innerHTML=''; return; }
-  box.innerHTML = '<div class="aviso aviso-amarelo"><b>'+n
-    + (n>1?' requisições alteradas':' requisição alterada')+' só neste navegador.</b> '
-    + 'Enquanto o banco de dados não estiver ligado, a alteração não chega a mais ninguém: '
-    + 'exporte e substitua <b>dados/requisicoes.json</b>.'
-    + '<button class="acao" onclick="exportarJSON()">Exportar JSON</button>'
-    + '<button class="acao" onclick="descartarRascunho()">Descartar</button></div>';
-}
-function descartarRascunho(){
-  if(!confirm('Descartar as alterações guardadas neste navegador?')) return;
-  localStorage.removeItem(CHAVE_RASCUNHO); RASCUNHO={};
-  carregarTudo().then(()=>toast('Rascunho descartado.'));
-}
-function exportarJSON(){
-  const saida = {
-    secretarias: SECRETARIAS,
-    requisicoes: REQS.map(r=>{
-      const o={}; Object.keys(r).sort().forEach(k=>{ if(k[0]!=='_') o[k]=r[k]; }); return o;
-    })
-  };
-  const txt = '{\n  "secretarias": [\n'
-    + SECRETARIAS.map(s=>'    '+JSON.stringify(s)).join(',\n')
-    + '\n  ],\n  "requisicoes": [\n'
-    + saida.requisicoes.map(r=>'    '+JSON.stringify(r)).join(',\n')
-    + '\n  ]\n}\n';
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([txt], {type:'application/json'}));
-  a.download = 'requisicoes.json'; a.click();
-  URL.revokeObjectURL(a.href);
-  toast('Arquivo gerado. Substitua dados/requisicoes.json no repositório.');
+/* "Missing or insufficient permissions" não diz nada a quem está
+   preenchendo uma requisição. Aqui o recado é o motivo. */
+function mensagemDeRecusa(e, campo){
+  if(e && e.code === 'permission-denied'){
+    if(campo==='despacho')
+      return 'O banco não aceitou o despacho.\n\nSó quem tem o acesso de Diretor pode despachar.';
+    return 'O banco não aceitou a alteração.\n\nVocê não tem permissão para editar as requisições — '
+         + 'ou tentou mexer no despacho, que é só do Diretor.';
+  }
+  return 'Não consegui gravar: ' + (e && e.message ? e.message : e);
 }
 
 /* ══════════════ PDF ══════════════
@@ -1552,16 +2107,23 @@ function pdfTexto(v){
 }
 const PW=297, PH=210, ML=12, MR=12, MT=39, MB=16, CW=PW-ML-MR;
 const PDF_FS=8.4, PDF_LH=3.55;
+/* Somam exatamente CW (273 mm), e cada largura foi medida, não chutada: uma
+   data quebrada em "04/09/202 / 6" e um "Inexigibilidad / e" são o que
+   acontece quando se aperta uma coluna de olho. As datas (14,7 mm) e a
+   maior modalidade que não tem onde quebrar ("Inexigibilidade", 18,6 mm)
+   mandam nas suas colunas; o objeto fica com o que sobra, que é bastante,
+   porque é a coluna que se lê. */
 const COLS = [
-  {t:'Requisição', w:22, f:r=>r.rotulo},
-  {t:'Secretaria', w:20, f:r=>r.sec},
-  {t:'Recebida',   w:19, f:r=>fmtD(r.recebido)},
-  {t:'Credor',     w:44, f:r=>r.credor||'—'},
-  {t:'Objeto',     w:75, f:r=>r.objeto||'—'},
-  {t:'Modalidade', w:26, f:r=>r.modalidade||'—'},
-  {t:'Empenho',    w:24, f:r=>r.empenho||'—'},
-  {t:'P/ contab.', w:19, f:r=>fmtD(r.contabilidade)},
-  {t:'Valor (R$)', w:24, f:r=>r.valor==null?'—':fmtBRL.format(r.valor).replace('R$','').trim(), right:true}
+  {t:'Requisição', w:17, f:r=>r.rotulo},
+  {t:'Secretaria', w:19, f:r=>r.sec},
+  {t:'Recebida',   w:20, f:r=>fmtD(r.recebido)},
+  {t:'Diretor',    w:24, f:r=>r.despacho||'—'},
+  {t:'Credor',     w:36, f:r=>r.credor||'—'},
+  {t:'Objeto',     w:72, f:r=>r.objeto||'—'},
+  {t:'Modalidade', w:22, f:r=>r.modalidade||'—'},
+  {t:'Empenho',    w:23, f:r=>r.empenho||'—', vermelhoSeVazio:true},
+  {t:'P/ contab.', w:20, f:r=>fmtD(r.contabilidade)},
+  {t:'Valor (R$)', w:20, f:r=>r.valor==null?'—':fmtBRL.format(r.valor).replace('R$','').trim(), right:true}
 ];
 function pdfBase(){
   if(!window.jspdf||!window.jspdf.jsPDF){ alert('Biblioteca PDF ainda carregando. Aguarde e tente novamente.'); return null; }
@@ -1625,7 +2187,11 @@ function pdfDoFiltroAgora(){
     COLS.forEach((c,i)=>{
       /* Falta de empenho é o que se procura numa lista dessas: fica em
          vermelho, e é a única coisa colorida da página. */
-      doc.setTextColor(i===6 && !r.empenho ? 192 : 0, i===6 && !r.empenho ? 40 : 0, i===6 && !r.empenho ? 42 : 0);
+      /* A coluna se identifica por si (vermelhoSeVazio), não pela posição:
+         quando o Diretor entrou no meio da tabela, um índice fixo passou a
+         pintar de vermelho a coluna errada. */
+      const falta = c.vermelhoSeVazio && !r.empenho;
+      doc.setTextColor(falta?192:0, falta?40:0, falta?42:0);
       cel[i].forEach((ln,li)=> doc.text(ln, c.right? x+c.w-4 : x, y+3.7+li*PDF_LH, c.right?{align:'right'}:undefined));
       x+=c.w;
     });
@@ -1662,6 +2228,10 @@ function pdfRequisicaoAgora(){
     linhas.forEach(ln=>{ if(y>PE){ doc.addPage(); y=26; } doc.text(ln,L,y); y+=5.2; });
     y+=3.4;
   };
+  item('Despacho do Diretor', r.despacho
+    ? r.despacho + (r.despachoPor ? '  —  ' + r.despachoPor
+        + (r.despachoEm ? ', ' + fmtD(String(r.despachoEm).slice(0,10)) : '') : '')
+    : 'ainda sem despacho');
   item('Credor', r.credor);
   item('Objeto', r.objeto);
   item('Valor', money(r.valor));
@@ -1690,29 +2260,19 @@ document.addEventListener('keydown', e=>{
   fecharDet(); fecharFiltrosMobile();
 });
 function marcarTotal(){
-  const chip = document.querySelector('.proto-chip');
-  if(chip) chip.textContent = REQS.length + ' REQUISIÇÕES · PROTÓTIPO';
+  const chip = document.getElementById('chipTotal');
+  if(chip) chip.textContent = REQS.length.toLocaleString('pt-BR') + ' REQUISIÇÕES';
 }
-function carregarTudo(){
-  return carregarDoArquivo().then(d=>{
-    SECRETARIAS = d.secretarias || [];
-    ORIGINAIS.clear();
-    (d.requisicoes||[]).forEach(r=>ORIGINAIS.set(r.id, Object.assign({}, r)));
-    REQS = aplicarRascunho((d.requisicoes||[]).map(prepararReq));
-    REQS.forEach(prepararReq);
-    initFiltros();
-    marcarTotal();
-    renderFaixaSecretarias();
-    popularDatalists();
-    avisoRascunho();
-    aplicarFiltros();
-    carregarLogoPdf();
-  }).catch(e=>{
-    document.getElementById('vazio').innerHTML =
-      '<div class="empty"><span>⚠️</span>Não foi possível carregar as requisições.<br>'+esc(e.message)+'</div>';
-  });
-}
-carregarTudo();
+/* As requisições NÃO são pedidas na abertura da página: quem as pede é o
+   portão, depois de confirmar que a pessoa entrou e tem o painel liberado
+   (authShowApp → iniciarListenerRequisicoes). Ligar antes tomaria
+   "permissão negada" e o listener morreria sem tentar de novo. */
+initFiltros();
+/* A tela começa fechada: o portão em pé antes de qualquer coisa, e é ele
+   que pede as requisições depois de confirmar quem entrou. */
+document.getElementById('authGate').style.display = 'flex';
+firebase.initializeApp(FIREBASE_CONFIG);
+iniciarAutenticacaoRequisicoes();
 
 </script>
 </body>

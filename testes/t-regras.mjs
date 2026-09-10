@@ -29,6 +29,9 @@ const CONTAS = {
   pregoeiro:  { uid: "u-preg",    perfil: { email:"preg@x.com",  status:"aprovado", isAdmin:false, acessos:{agenda:"editar", pregoeiro:"editar", contratos:"nenhum"} } },
   soVer:      { uid: "u-ver",     perfil: { email:"ver@x.com",   status:"aprovado", isAdmin:false, acessos:{agenda:"ver",    pregoeiro:"ver",    contratos:"nenhum"} } },
   soContrato: { uid: "u-contr",   perfil: { email:"contr@x.com", status:"aprovado", isAdmin:false, acessos:{agenda:"nenhum", pregoeiro:"nenhum", contratos:"editar"} } },
+  reqEdita:   { uid: "u-req",     perfil: { email:"req@x.com",   status:"aprovado", isAdmin:false, acessos:{requisicao:"editar"} } },
+  reqVer:     { uid: "u-reqv",    perfil: { email:"reqv@x.com",  status:"aprovado", isAdmin:false, acessos:{requisicao:"ver"} } },
+  diretor:    { uid: "u-dir",     perfil: { email:"dir@x.com",   status:"aprovado", isAdmin:false, acessos:{requisicao:"diretor"} } },
   verContrato:{ uid: "u-vcontr",  perfil: { email:"vcontr@x.com",status:"aprovado", isAdmin:false, acessos:{agenda:"nenhum", pregoeiro:"nenhum", contratos:"ver"} } },
   pendente:   { uid: "u-pend",    perfil: { email:"pend@x.com",  status:"pendente", isAdmin:false, acessos:{agenda:"nenhum", pregoeiro:"nenhum", contratos:"nenhum"} } },
   bloqueado:  { uid: "u-bloq",    perfil: { email:"bloq@x.com",  status:"bloqueado",isAdmin:false, acessos:{agenda:"editar", pregoeiro:"editar", contratos:"editar"} } },
@@ -55,6 +58,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, "agentes", "ag1"),     { nomeAbrev: "PEDRO" });
   await setDoc(doc(db, "status", "st1"),      { nome: "Em andamento" });
   await setDoc(doc(db, "contratos", "1"),     { contr: 1, ano: 2026, empresa: "X" });
+  await setDoc(doc(db, "requisicoes", "1"),   { num: 1, ano: 2026, sec: "GP", credor: "X", despacho: "" });
   await setDoc(doc(db, "decisoes", "d1"),     { texto: "…", assinantes: [] });
   await setDoc(doc(db, "rankings", "p1"),     { itens: [] });
   await setDoc(doc(db, "usuarios", "velho1"), { usuario: "julio" });
@@ -112,7 +116,47 @@ await t("nem mexe em aniversário",
 await t("e continua sem enxergar os processos das licitações",
   nega(getDocs(collection(como(CONTAS.soContrato), "processos"))));
 
-console.log("\n3) Histórico dos contratos: registra, não reescreve, não some antes da hora");
+console.log("\n3) Requisições: quem preenche não despacha, e quem despacha não preenche");
+// O Diretor decide a modalidade; quem preenche a requisição registra o
+// resto. São dois poderes que não se encontram — e a trava é aqui, porque
+// tela se contorna.
+await t("visitante sem conta não lê requisições",
+  nega(getDocs(collection(anonimo(), "requisicoes"))));
+await t("quem não tem o painel não lê",
+  nega(getDocs(collection(como(CONTAS.soContrato), "requisicoes"))));
+await t("quem tem Requisições: Visualizar lê",
+  pode(getDocs(collection(como(CONTAS.reqVer), "requisicoes"))));
+await t("o Diretor também lê — precisa ver para despachar",
+  pode(getDocs(collection(como(CONTAS.diretor), "requisicoes"))));
+await t('"Visualizar" não grava nada',
+  nega(updateDoc(doc(como(CONTAS.reqVer), "requisicoes", "1"), { credor: "Y" })));
+await t('"Editar" preenche a requisição',
+  pode(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "1"), { credor: "Y", objeto: "Z" })));
+await t("mas NÃO despacha, nem que tente junto com o resto",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "1"), { credor: "W", despacho: "Pregão" })));
+await t("nem sozinho",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "1"), { despacho: "Pregão" })));
+await t("o Diretor despacha",
+  pode(updateDoc(doc(como(CONTAS.diretor), "requisicoes", "1"),
+    { despacho: "Pregão", despachoPor: "dir@x.com", despachoEm: "2026-09-10" })));
+await t("mas não mexe em mais nada da requisição",
+  nega(updateDoc(doc(como(CONTAS.diretor), "requisicoes", "1"), { credor: "MUDEI" })));
+await t("nem escondendo a mudança atrás do despacho",
+  nega(updateDoc(doc(como(CONTAS.diretor), "requisicoes", "1"), { despacho: "Dispensa por limite", credor: "MUDEI" })));
+await t("o Diretor não cadastra requisição",
+  nega(setDoc(doc(como(CONTAS.diretor), "requisicoes", "50"), { num: 50, ano: 2026, sec: "GP" })));
+await t("quem edita cadastra, desde que sem despacho pronto",
+  pode(setDoc(doc(como(CONTAS.reqEdita), "requisicoes", "51"), { num: 51, ano: 2026, sec: "GP", despacho: "" })));
+await t("ninguém cadastra requisição já despachada",
+  nega(setDoc(doc(como(CONTAS.reqEdita), "requisicoes", "52"), { num: 52, ano: 2026, sec: "GP", despacho: "Pregão" })));
+await t("ninguém exclui requisição",
+  nega(deleteDoc(doc(como(CONTAS.reqEdita), "requisicoes", "1"))));
+await t("o administrador alcança os dois lados",
+  pode(updateDoc(doc(como(CONTAS.admin), "requisicoes", "1"), { despacho: "Concorrência" })));
+await t("e quem só cuida de requisição não enxerga contrato",
+  nega(getDocs(collection(como(CONTAS.reqEdita), "contratos"))));
+
+console.log("\n4) Histórico dos contratos: registra, não reescreve, não some antes da hora");
 const agoraTs  = () => Timestamp.fromDate(new Date());
 const futuroTs = () => Timestamp.fromDate(new Date(Date.now() + 365 * 86400000));
 await t("quem não tem o painel não lê o histórico",
@@ -142,7 +186,7 @@ await t("nem o administrador",
 await t("o que passou dos 365 dias, sim: é a limpeza da tela",
   pode(deleteDoc(doc(como(CONTAS.soContrato), "contratos_historico", "h-vencido"))));
 
-console.log("\n4) Os links públicos que precisam continuar funcionando");
+console.log("\n5) Os links públicos que precisam continuar funcionando");
 await t("assinar decisão sem login: só os campos da assinatura",
   pode(updateDoc(doc(anonimo(), "decisoes", "d1"), { assinantes: [{ nome: "Fulano" }], updatedAt: "2026-01-01" })));
 await t("mas o texto da decisão, não",                    nega(updateDoc(doc(anonimo(), "decisoes", "d1"), { texto: "adulterado" })));
@@ -152,7 +196,7 @@ await t("mas o cadastro do agente, não",                  nega(updateDoc(doc(an
 await t("ranking pelo link continua aberto",              pode(updateDoc(doc(anonimo(), "rankings", "p1"), { itens: [1] })));
 await t("listar rankings, não",                           nega(getDocs(collection(anonimo(), "rankings"))));
 
-console.log("\n5) As contas: cada um só cria a própria, e sempre sem poder");
+console.log("\n6) As contas: cada um só cria a própria, e sempre sem poder");
 const novo = (uid, email) => env.authenticatedContext(uid, { email }).firestore();
 await t("cadastro novo nasce pendente e sem acesso",
   pode(setDoc(doc(novo("u-novo", "novo@x.com"), "usuarios_v2", "u-novo"),
@@ -173,7 +217,7 @@ await t("o e-mail de resgate nasce administrador",
   pode(setDoc(doc(novo("u-resgate", "pedrohhpacifico@gmail.com"), "usuarios_v2", "u-resgate"),
     { email: "pedrohhpacifico@gmail.com", status: "aprovado", isAdmin: true, acessos: { agenda: "editar", pregoeiro: "editar", contratos: "editar" } })));
 
-console.log("\n6) Quem mexe no acesso dos outros é só o administrador");
+console.log("\n7) Quem mexe no acesso dos outros é só o administrador");
 await t("cada um lê o próprio perfil",                    pode(getDoc(doc(como(CONTAS.soVer), "usuarios_v2", CONTAS.soVer.uid))));
 await t("mas não o dos outros",                           nega(getDoc(doc(como(CONTAS.soVer), "usuarios_v2", CONTAS.pregoeiro.uid))));
 await t("nem lista o cadastro inteiro",                   nega(getDocs(collection(como(CONTAS.pregoeiro), "usuarios_v2"))));

@@ -2,10 +2,16 @@
    só: uma aba por secretaria virou a faixa do alto, que filtra a lista E diz
    em nome de quem a próxima requisição nasce.
 
-   Protótipo: sem banco e sem contas, o que se salva fica no navegador. Este
-   teste confere o que a tela promete — a faixa, o próximo número de cada
-   secretaria, os filtros, o total em reais, os PDFs — e que a conversão da
-   planilha não inventou nem perdeu nada. */
+   As requisições ficam no Firestore, atrás do mesmo portão de acesso dos
+   Contratos. Este teste confere o que a tela promete — a faixa, o próximo
+   número de cada secretaria, os filtros, os PDFs —, que a conversão da
+   planilha não inventou nem perdeu nada, e a coluna DIRETOR: quem preenche
+   não despacha, quem despacha não preenche, e quem só olha não faz nem uma
+   coisa nem outra.
+
+   A trava de verdade são as regras do Firestore (testes/t-regras.mjs, com o
+   emulador). Aqui é a tela: o que ela deixa clicar, o que ela tranca e o
+   que ela grava. */
 const {chromium, executablePath} = require('./navegador');
 const fs=require('fs');
 let ok=0,mau=0;
@@ -39,16 +45,54 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a página não carrega as requisições embutidas no HTML',
     html.indexOf('"credor":')<0 && html.length<130*1024, {kb:Math.round(html.length/1024)});
 
+  t('a página não carrega as requisições sem passar pelo portão',
+    /iniciarListenerRequisicoes/.test(html) && !/^carregarTudo\(\);/m.test(html));
+  t('e aponta para o mesmo projeto do resto do sistema',
+    /projectId: "processos-ijui"/.test(html) && /usuarios_v2/.test(html));
+
+  /* Daqui pra frente a tela roda como em produção: Firestore e Firebase Auth
+     falsos (fbstub3.js), a coleção "requisicoes" semeada com o mesmo arquivo
+     versionado, e uma conta já logada no nível que o teste quiser. */
   const jspdf=fs.readFileSync('node_modules/jspdf/dist/jspdf.umd.min.js','utf8');
+  const stub=fs.readFileSync('fbstub3.js','utf8');
+  const seedReqs={}; REQS.forEach(r => { seedReqs[String(r.id)]=r; });
+  function seedCom(nivel){
+    return {
+      requisicoes: seedReqs,
+      usuarios_v2: {'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro Pacífico', status:'aprovado',
+                               isAdmin:false, provedor:'google.com',
+                               acessos:{agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum', requisicao:nivel}}}
+    };
+  }
   const b=await chromium.launch(executablePath?{executablePath}:{});
-  const ctx=await b.newContext({viewport:{width:1440,height:950}, acceptDownloads:true});
-  const pg=await ctx.newPage();
-  const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
-  await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:jspdf}));
-  await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
-  await pg.goto('http://127.0.0.1:8099/requisicao/index.html',{waitUntil:'networkidle'});
-  await pg.waitForFunction(()=>typeof REQS!=='undefined'&&REQS.length>1000,null,{timeout:30000});
-  await pg.evaluate(()=>{ window.confirm=()=>true; window.alert=m=>{(window.__A=window.__A||[]).push(m);}; });
+  async function abrir(nivel, corpoJspdf, esperarLista){
+    const ctx=await b.newContext({viewport:{width:1440,height:950}, acceptDownloads:true});
+    const pg=await ctx.newPage();
+    const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
+    await pg.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+    await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:corpoJspdf||'window.jspdf={jsPDF:function(){}};'}));
+    await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+    await pg.addInitScript(sd=>{ window.__SEED=sd; }, seedCom(nivel));
+    await pg.addInitScript(u=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro Pacífico', photoURL:''});
+    /* vigia o piscar do formulário de login, como nos Contratos */
+    await pg.addInitScript(()=>{
+      window.__LOGIN_APARECEU=false;
+      setInterval(()=>{ const e=document.getElementById('authEntradaBox');
+        if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
+    });
+    await pg.goto('http://127.0.0.1:8099/requisicao/index.html',{waitUntil:'networkidle'});
+    if(esperarLista!==false)
+      await pg.waitForFunction(()=>typeof REQS!=='undefined'&&REQS.length>1000,null,{timeout:30000});
+    else await pg.waitForTimeout(900);
+    await pg.evaluate(()=>{ window.confirm=()=>true; window.alert=m=>{(window.__A=window.__A||[]).push(m);}; });
+    return {pg, ctx, errs};
+  }
+  const {pg, errs} = await abrir('editar', jspdf);
+  t('quem já entrou não vê o formulário de login piscar',
+    !(await pg.evaluate(()=>window.__LOGIN_APARECEU)));
+  t('e a tela mostra o NOME de quem entrou, não o e-mail',
+    /Pedro Pacífico/.test(await pg.textContent('#authUserChip')),
+    await pg.textContent('#authUserChip'));
 
   console.log('\n2) A faixa das secretarias, que é a aba da planilha');
   const faixa=await pg.evaluate(()=>({
@@ -137,7 +181,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      o cursor de texto já não diga. */
   t('não há moldura de hover em toda célula', !/td\[data-campo\]:hover/.test(html));
   t('e a célula abre com um clique, não com dois',
-    /data-campo="'\+campo\+'" onclick="editarCelula/.test(html), html.indexOf('editarCelula'));
+    /livre \? ' onclick="editarCelula\(this\)"'/.test(html), html.indexOf('editarCelula'));
 
   /* Antes bastava o foco deixar o campo: clicar na borda da própria célula
      fechava a edição no meio do preenchimento. */
@@ -193,30 +237,49 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e o "Pronto" grava o número novo', salvouNum.num===777 && /777\/20/.test(salvouNum.rotulo), salvouNum);
   t('fechando o painel junto', salvouNum.fechou, salvouNum);
 
-  const guardado=await pg.evaluate(()=>{
-    const rasc=JSON.parse(localStorage.getItem('requisicoes_ijui_rascunho')||'{}');
-    const um=Object.values(rasc)[0];
-    return {quantos:Object.keys(rasc).length, temNova:'_nova' in (um||{}), temTxt:'_txt' in (um||{}),
-            aviso:document.getElementById('avisoRascunho').textContent};
-  });
-  t('fica guardada neste navegador, com aviso na tela',
-    guardado.quantos===1 && /só neste navegador/.test(guardado.aviso), guardado);
-  /* "_nova" é estado de tela: guardado, a linha nasceria fixada no topo e
-     furando todo filtro para sempre, a cada visita. */
-  t('e o rascunho guarda só os campos de verdade',
-    !guardado.temNova && !guardado.temTxt, guardado);
+  console.log('\n3d) O que se digita vai para o banco, não para o navegador');
+  const gravado=await pg.evaluate(id=>
+    firebase.firestore().collection('requisicoes').doc(String(id)).get()
+      .then(d=>({existe:d.exists, dado:d.exists?d.data():null})), idNova);
+  t('a requisição nova está no Firestore, não num rascunho local',
+    gravado.existe && gravado.dado.credor==='CREDOR TROCADO' && gravado.dado.num===777, gravado);
+  /* "_nova" e o índice da busca são estado de tela: gravados, a linha
+     nasceria fixada no topo e furando todo filtro, a cada visita. */
+  t('e o documento guarda só os campos de verdade',
+    !('_nova' in gravado.dado) && !('_txt' in gravado.dado) && !('_gravada' in gravado.dado),
+    Object.keys(gravado.dado));
+  t('nada de rascunho de navegador sobrou',
+    !/requisicoes_ijui_rascunho/.test(html) && !/localStorage/.test(html));
 
-  const desfez=await pg.evaluate(()=>{
-    /* uma linha que veio da planilha, alterada, volta ao que era */
-    const r=REQS.find(x=>!x._nova && x.sec==='SMS' && x.empenho);
-    const antes=r.empenho;
-    r.empenho='MEXIDO'; prepararReq(r); salvarRequisicao(r); aplicarFiltros();
-    descartarLinha(r.id);
-    const depois=REQS.find(x=>x.id===r.id);
-    return {antes, agora:depois && depois.empenho, aindaExiste:!!depois};
+  /* Gravar campo a campo é o que faz a trava do despacho funcionar: as
+     regras olham QUAIS chaves mudaram. Regravar o documento inteiro faria
+     uma gravação legítima esbarrar num campo que a pessoa nem viu. */
+  t('a tela grava por campo, não o documento inteiro',
+    /docReq\(r\.id\)\.update\(soCampos\(r, camposGravados\(campo\)\)\)/.test(html));
+  t('e o despacho leva junto quem assinou e quando',
+    /CAMPOS_DO_DESPACHO = \['despacho','despachoPor','despachoEm'\]/.test(html));
+
+  console.log('\n3e) A coluna DIRETOR: o despacho é de quem despacha');
+  /* Quem preenche a requisição não escolhe a modalidade da contratação —
+     isso é decisão do Diretor, e a coluna é só dele. */
+  const trancada=await pg.evaluate(()=>{
+    const td=document.querySelector('td.c-desp');
+    return {trancada:td.classList.contains('travada'), temClique:!!td.getAttribute('onclick'),
+            dica:td.getAttribute('title')||'', texto:td.textContent.trim()};
   });
-  t('desfazer numa linha da planilha devolve o valor original, sem apagar a linha',
-    desfez.aindaExiste && desfez.agora===desfez.antes, desfez);
+  t('para quem preenche, a célula do despacho é de leitura',
+    trancada.trancada && !trancada.temClique, trancada);
+  t('e diz por quê, em vez de só não responder', /Diretor/.test(trancada.dica), trancada.dica);
+  await pg.click('td[data-id="'+idNova+'"][data-campo="despacho"]').catch(()=>{});
+  await pg.waitForTimeout(200);
+  t('clicar nela não abre editor nenhum',
+    await pg.evaluate(()=>!document.querySelector('td.editando')));
+  const semDespacho=await pg.evaluate(id=>{
+    const td=document.querySelector('td[data-id="'+id+'"][data-campo="despacho"]');
+    editarCelula(td);   /* na marra, pelo console */
+    return {abriu:!!document.querySelector('td.editando'), podeMexer:podeMexer('despacho')};
+  }, idNova);
+  t('nem chamando editarCelula por fora', !semDespacho.abriu && !semDespacho.podeMexer, semDespacho);
 
   console.log('\n4) A busca de cada coluna procura no que a coluna mostra');
   /* A coluna Empenho é agrupada em "Empenhada / Falta empenhar". Quem
@@ -300,6 +363,147 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
   console.log('\nerros JS:', errs.length?errs:'nenhum');
   t('nenhum erro de JavaScript', errs.length===0, errs);
+
+  console.log('\n8) O Diretor: despacha a modalidade, e só');
+  /* "somente quem eu poder marcar como o diretor vai poder alterar, e o
+     diretor nao vai poder mexer em nenhum campo da planilha, somente
+     naquele." É literalmente isto que esta seção confere. */
+  const dir=await abrir('diretor', jspdf);
+  await dir.pg.evaluate(()=>{ escolherSecretaria('SMS'); });
+  await dir.pg.waitForTimeout(200);
+  const papel=await dir.pg.evaluate(()=>({
+    chip:document.getElementById('authUserChip').textContent,
+    dica:document.getElementById('dicaEdicao').textContent,
+    botaoNova:getComputedStyle(document.querySelector('.header-actions .so-editor')).display,
+    despacha:reqPodeDespachar(), preenche:reqPodeEditar()
+  }));
+  t('a tela diz, ao lado do nome, que ele é o Diretor', / · diretor/.test(papel.chip), papel.chip);
+  t('e o convite é para despachar, não para lançar', /DIRETOR/.test(papel.dica), papel.dica);
+  t('o botão de nova requisição não aparece para ele', papel.botaoNova==='none', papel);
+  t('ele despacha e não preenche', papel.despacha && !papel.preenche, papel);
+
+  const celulas=await dir.pg.evaluate(()=>{
+    const tr=document.querySelector('.tab tbody tr');
+    const r={};
+    tr.querySelectorAll('td[data-campo]').forEach(td=>{
+      r[td.dataset.campo]={travada:td.classList.contains('travada'), clique:!!td.getAttribute('onclick')};
+    });
+    return r;
+  });
+  t('a coluna do despacho é a única aberta para ele',
+    celulas.despacho.clique && !celulas.despacho.travada
+    && Object.keys(celulas).filter(k=>k!=='despacho').every(k=>celulas[k].travada && !celulas[k].clique),
+    celulas);
+
+  const alvo=await dir.pg.evaluate(()=>filtrados[0].id);
+  await dir.pg.click('td[data-id="'+alvo+'"][data-campo="despacho"]');
+  await dir.pg.waitForTimeout(250);
+  /* Seis opções não cabem espremidas numa coluna de 130px: "Dispensa por
+     justificativa" virava "— sem despach". Abre num painel ancorado. */
+  const pop=await dir.pg.evaluate(()=>{
+    const p=document.getElementById('despPop'), r=p.getBoundingClientRect();
+    const c=document.querySelector('td.editando').getBoundingClientRect();
+    return {aberto:p.classList.contains('open'),
+      opcoes:[...p.querySelectorAll('.desp-op')].map(b=>b.dataset.v),
+      maisLargo:r.width>c.width, dentroDaTela:r.left>=0 && r.right<=window.innerWidth};
+  });
+  t('e abre exatamente as seis modalidades que o Diretor pode assinar',
+    pop.aberto && pop.opcoes.join('|')==='Pregão|Concorrência|Dispensa por limite|Dispensa por justificativa|Inexigibilidade|Ata de Registro de Preços',
+    pop);
+  t('num painel mais largo que a coluna, e dentro da tela',
+    pop.maisLargo && pop.dentroDaTela, pop);
+  t('sem despacho ainda, não há o que tirar', pop.opcoes.indexOf('')<0, pop.opcoes);
+
+  await dir.pg.click('.desp-op[data-v="Dispensa por limite"]');
+  await dir.pg.waitForTimeout(400);
+  const despachou=await dir.pg.evaluate(id=>
+    firebase.firestore().collection('requisicoes').doc(String(id)).get().then(d=>({
+      doc:d.data(),
+      naTela:document.querySelector('td[data-id="'+id+'"][data-campo="despacho"]').textContent.trim()
+    })), alvo);
+  t('o despacho grava a modalidade escolhida',
+    despachou.doc.despacho==='Dispensa por limite', despachou.doc);
+  t('assinado por quem despachou', despachou.doc.despachoPor==='Pedro Pacífico', despachou.doc);
+  t('com a data do despacho', /^\d{4}-\d{2}-\d{2}/.test(despachou.doc.despachoEm||''), despachou.doc);
+  t('e aparece na linha na hora', /Dispensa por limite/.test(despachou.naTela), despachou.naTela);
+  t('num clique só — despacho é decisão, não formulário',
+    await dir.pg.evaluate(()=>!document.getElementById('despPop').classList.contains('open')));
+
+  /* Despachou errado: dá para tirar, e só aí a opção aparece. */
+  await dir.pg.click('td[data-id="'+alvo+'"][data-campo="despacho"]');
+  await dir.pg.waitForTimeout(250);
+  const comLimpar=await dir.pg.evaluate(()=>({
+    tem:!!document.querySelector('.desp-op.limpar'),
+    marcada:(document.querySelector('.desp-op.on')||{dataset:{}}).dataset.v
+  }));
+  t('reabrindo, a modalidade escolhida vem marcada', comLimpar.marcada==='Dispensa por limite', comLimpar);
+  t('e agora dá para tirar o despacho, se foi errado', comLimpar.tem, comLimpar);
+  await dir.pg.keyboard.press('Escape');
+  await dir.pg.waitForTimeout(200);
+  t('Esc desiste sem mexer no que já estava despachado',
+    (await dir.pg.evaluate(id=>REQS.find(r=>r.id===id).despacho, alvo))==='Dispensa por limite');
+
+  const naMarra=await dir.pg.evaluate(id=>{
+    const td=document.querySelector('td[data-id="'+id+'"][data-campo="credor"]');
+    editarCelula(td);
+    return {abriu:!!document.querySelector('td.editando'), podeCredor:podeMexer('credor')};
+  }, alvo);
+  t('mas ele não abre o credor nem chamando editarCelula por fora',
+    !naMarra.abriu && !naMarra.podeCredor, naMarra);
+  t('e a coluna DIRETOR também filtra e sai no relatório',
+    /{k:'desp', t:'Despacho do Diretor'/.test(html) && /{t:'Diretor',    w:\d+/.test(html));
+  /* Larguras medidas, não chutadas: apertar a coluna de olho produz
+     "04/09/202 / 6" e "Inexigibilidad / e", que foi o que aconteceu quando
+     o Diretor entrou no meio da tabela. */
+  const larguras=await dir.pg.evaluate(()=>{
+    const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
+    const w=n=>COLS.find(c=>c.t===n).w;
+    return {soma:COLS.reduce((t,c)=>t+c.w,0), cw:CW,
+      data:doc.getTextWidth('04/09/2026'), receb:w('Recebida'), contab:w('P/ contab.'),
+      inex:doc.getTextWidth('Inexigibilidade'), desp:w('Diretor'),
+      vermelha:COLS.findIndex(c=>c.vermelhoSeVazio), empenho:COLS.findIndex(c=>c.t==='Empenho')};
+  });
+  t('as colunas do relatório somam a largura da página, sem sobra nem falta',
+    larguras.soma===larguras.cw, larguras);
+  t('a data cabe inteira nas duas colunas de data',
+    larguras.data+4.5<=larguras.receb && larguras.data+4.5<=larguras.contab, larguras);
+  t('e "Inexigibilidade", que não tem onde quebrar, cabe na do Diretor',
+    larguras.inex+4.5<=larguras.desp, larguras);
+  /* O vermelho de "falta empenhar" era pintado por índice fixo: com o
+     Diretor no meio da tabela, passou a colorir a Modalidade. */
+  t('o vermelho de "falta empenhar" segue a coluna Empenho, não uma posição',
+    larguras.vermelha===larguras.empenho && larguras.vermelha>=0, larguras);
+  t('sem erro de JavaScript na tela do Diretor', dir.errs.length===0, dir.errs);
+
+  console.log('\n9) Quem só visualiza não mexe em nada');
+  const ver=await abrir('ver');
+  const soOlha=await ver.pg.evaluate(()=>({
+    chip:document.getElementById('authUserChip').textContent,
+    travadas:[...document.querySelector('.tab tbody tr').querySelectorAll('td[data-campo]')]
+      .every(td=>td.classList.contains('travada') && !td.getAttribute('onclick')),
+    botao:getComputedStyle(document.querySelector('.header-actions .so-editor')).display,
+    linhas:filtrados.length
+  }));
+  t('ele enxerga o cadastro inteiro', soOlha.linhas>1000, soOlha.linhas);
+  t('a tela avisa que o acesso é de leitura', /só visualização/.test(soOlha.chip), soOlha.chip);
+  t('nenhuma célula abre para ele — nem a do despacho', soOlha.travadas, soOlha);
+  t('e não há botão de lançar requisição', soOlha.botao==='none', soOlha);
+  t('sem erro de JavaScript na tela de leitura', ver.errs.length===0, ver.errs);
+
+  console.log('\n10) Sem o painel liberado, a lista não chega ao navegador');
+  const fora=await abrir('nenhum', null, false);
+  const barrado=await fora.pg.evaluate(()=>({
+    portao:getComputedStyle(document.getElementById('authGate')).display,
+    pendente:getComputedStyle(document.getElementById('authPendenteCard')).display,
+    recado:document.getElementById('authPendMsg').textContent,
+    lista:REQS.length
+  })).catch(()=>({erro:true}));
+  t('o portão fica fechado', barrado.portao!=='none' && barrado.pendente!=='none', barrado);
+  t('com o recado de pedir liberação a um administrador',
+    /administrador/.test(barrado.recado||''), barrado.recado);
+  t('e nenhuma requisição foi carregada', barrado.lista===0, barrado.lista);
+
   console.log(`\n${ok} passaram, ${mau} falharam.`);
   await b.close();
 })();
