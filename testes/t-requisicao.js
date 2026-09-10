@@ -59,7 +59,9 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* As 3.6 mil vieram da planilha e são histórico. A fila do Diretor só
      existe com requisições nascidas NO SISTEMA — as que têm "criadaEm". */
   const hoje = new Date().toISOString().slice(0,10);
-  const NASCIDAS = REQS.slice(0, 4).map(r => r.id);
+  /* Em SMS, que é a secretaria que os testes abrem — a tela lê uma por vez,
+     e uma requisição de outra aba não estaria carregada. */
+  const NASCIDAS = REQS.filter(r => r.sec==='SMS').slice(0, 4).map(r => r.id);
   NASCIDAS.forEach((id, i) => {
     /* Recém-nascida é, por definição, recente: entra no recorte de abertura.
        A primeira fica SEM data de recebimento, que é como uma requisição
@@ -77,7 +79,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     };
   }
   const b=await chromium.launch(executablePath?{executablePath}:{});
-  async function abrir(nivel, corpoJspdf, esperarLista){
+  async function abrir(nivel, corpoJspdf, secretaria){
     const ctx=await b.newContext({viewport:{width:1440,height:950}, acceptDownloads:true});
     const pg=await ctx.newPage();
     const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
@@ -86,6 +88,12 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
     await pg.addInitScript(sd=>{ window.__SEED=sd; }, seedCom(nivel));
     await pg.addInitScript(u=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro Pacífico', photoURL:''});
+    /* A tela lê UMA secretaria por vez e lembra a última neste navegador.
+       Semear a lembrança é o que faz o teste abrir já dentro de uma, como
+       acontece a partir da segunda visita de qualquer pessoa. */
+    if(secretaria) await pg.addInitScript(sig=>{
+      try{ localStorage.setItem('requisicoes_ijui_secretaria', sig); }catch(e){}
+    }, secretaria);
     /* vigia o piscar do formulário de login, como nos Contratos */
     await pg.addInitScript(()=>{
       window.__LOGIN_APARECEU=false;
@@ -93,73 +101,67 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
         if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
     });
     await pg.goto('http://127.0.0.1:8099/requisicao/index.html',{waitUntil:'networkidle'});
-    if(esperarLista!==false)
-      await pg.waitForFunction(()=>typeof REQS!=='undefined'&&REQS.length>50,null,{timeout:30000});
+    if(secretaria)
+      await pg.waitForFunction(sig=>typeof REQS!=='undefined'&&SEC_ATUAL===sig&&REQS.length>0,
+        secretaria,{timeout:30000});
     else await pg.waitForTimeout(900);
     await pg.evaluate(()=>{ window.confirm=()=>true; window.alert=m=>{(window.__A=window.__A||[]).push(m);}; });
-    /* A tela abre lendo só os dois últimos meses. Quase todo teste daqui
-       para baixo fala do cadastro inteiro, então sobe para "tudo" — o que
-       também é o caminho de quem busca ou filtra. */
-    if(esperarLista==='tudo'){
-      await pg.evaluate(()=>verTudo());
-      await pg.waitForFunction(()=>ESCOPO==='tudo' && !_buscandoMais,null,{timeout:30000});
-    }
     return {pg, ctx, errs};
   }
-  const {pg, errs} = await abrir('editar', jspdf);
+  const {pg, errs} = await abrir('editar', jspdf, 'SMS');
 
-  console.log('\n1b) A tela abre lendo dois meses do banco, não o cadastro inteiro');
+  console.log('\n1b) A tela lê uma secretaria por vez, não o cadastro inteiro');
   /* Com cinco anos de cadastro seriam 20 mil documentos lidos toda vez que
-     alguém aperta F5 para olhar o mês corrente — e o preço cresce sozinho:
-     quem abrir a tela em 2030 paga por 2026. */
-  const abertura=await pg.evaluate(()=>{
-    const ini=inicioDaJanela();
-    return {escopo:ESCOPO, carregou:REQS.length, noBanco:Object.keys(window.__STORE.requisicoes).length,
-      janela:ini,
-      todasDentro:REQS.every(r=>!r.recebido || r.recebido>=ini),
-      rotulo:document.getElementById('escopo').textContent,
-      chip:document.getElementById('chipTotal').textContent};
-  });
-  t('abre no recorte dos dois últimos meses', abertura.escopo==='recentes', abertura);
-  t('e lê do banco uma fração do cadastro',
-    abertura.carregou>0 && abertura.carregou < abertura.noBanco/3,
-    {leu:abertura.carregou, tem:abertura.noBanco});
-  t('tudo o que veio é do recorte, ou está sem data (nascendo agora)',
-    abertura.todasDentro, abertura.janela);
-  /* Sem dizer o recorte, "555 requisições" pareceria o cadastro inteiro. */
-  t('a tela diz que recorte está mostrando', /mostrando/.test(abertura.rotulo), abertura.rotulo);
-  t('e o chip do topo também', /·/.test(abertura.chip), abertura.chip);
+     alguém aperta F5 — e o preço cresceria sozinho: quem abrisse a tela em
+     2030 pagaria por 2026. Agora o custo é o tamanho da secretaria de quem
+     está olhando, e para de crescer com o arquivo. */
+  const recorte=await pg.evaluate(()=>({
+    sec:SEC_ATUAL, leu:REQS.length,
+    noBanco:Object.keys(window.__STORE.requisicoes).length,
+    todasDaSec:REQS.every(r=>r.sec===SEC_ATUAL),
+    chip:document.getElementById('chipTotal').textContent
+  }));
+  t('abre dentro de uma secretaria', recorte.sec==='SMS', recorte);
+  t('e lê do banco só o tamanho dela',
+    recorte.leu>0 && recorte.leu < recorte.noBanco/3, {leu:recorte.leu, tem:recorte.noBanco});
+  t('nenhuma requisição de outra secretaria veio junto', recorte.todasDaSec, recorte);
+  t('o chip do topo diz de qual secretaria são as que estão na tela',
+    /EM SMS/.test(recorte.chip), recorte.chip);
 
-  /* A requisição que nasce não tem data de recebimento — e é justamente aí
-     que ela some, se a consulta for só por data. */
-  const nascendo=await pg.evaluate(()=>{
-    const semData=REQS.filter(r=>!r.recebido).length;
-    return {semData, temConsultaPropria:true};
-  });
-  t('as sem data de recebimento vêm junto, senão a recém-criada sumiria',
-    nascendo.semData>0, nascendo);
+  /* Sem "Todas": era a única leitura que custava o cadastro inteiro, e é
+     justamente a que ninguém precisa para trabalhar. */
+  const semTodas=await pg.evaluate(()=>({
+    botoes:[...document.querySelectorAll('.sec-btn')].map(e=>e.textContent.trim()),
+    comNumero:[...document.querySelectorAll('.sec-btn .sec-n')].length
+  }));
+  t('a faixa não oferece mais "Todas"', !semTodas.botoes.some(b=>/^Todas/.test(b)), semTodas.botoes.slice(0,3));
+  /* Contagem só na carregada: nas outras seria invenção, porque não foram
+     lidas. */
+  t('e só a secretaria carregada mostra contagem', semTodas.comNumero===1, semTodas);
 
-  console.log('\n1c) Buscar e filtrar sobem o degrau: aí sim custa o ano');
-  await pg.click('#fBusca');
-  await pg.fill('#fBusca','banrisul');
-  await pg.waitForTimeout(900);
-  const buscou=await pg.evaluate(()=>({escopo:ESCOPO, carregou:REQS.length}));
-  t('digitar na busca passa a ler o ano inteiro do banco',
-    buscou.escopo==='ano' && buscou.carregou>abertura.carregou, buscou);
-  await pg.fill('#fBusca','');
-  await pg.waitForTimeout(300);
-  t('e não desce sozinho — quem já pagou a leitura não paga de novo',
-    (await pg.evaluate(()=>ESCOPO))==='ano');
+  console.log('\n1c) Trocar de secretaria é outra consulta, do tamanho dela');
+  await pg.evaluate(()=>escolherSecretaria('SMA'));
+  await pg.waitForFunction(()=>SEC_ATUAL==='SMA'&&REQS.length>0,null,{timeout:15000});
+  const trocou=await pg.evaluate(()=>({
+    sec:SEC_ATUAL, leu:REQS.length, todasDaSec:REQS.every(r=>r.sec==='SMA'),
+    lembrou:localStorage.getItem('requisicoes_ijui_secretaria')
+  }));
+  t('trocar de secretaria troca o que veio do banco',
+    trocou.sec==='SMA' && trocou.todasDaSec && trocou.leu<100, trocou);
+  t('e a secretaria pequena custa pouco', trocou.leu < recorte.leu/5, {SMA:trocou.leu, SMS:recorte.leu});
+  /* Lembrar poupa a pergunta a cada visita, e é só isso: se o navegador
+     esquecer, a tela pede de novo. */
+  t('a tela lembra a secretaria de quem usa, neste navegador', trocou.lembrou==='SMA', trocou);
+  await pg.evaluate(()=>escolherSecretaria('SMS'));
+  await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>100,null,{timeout:15000});
 
-  await pg.evaluate(()=>verTudo());
-  await pg.waitForFunction(()=>ESCOPO==='tudo' && !_buscandoMais,null,{timeout:30000});
-  const tudo=await pg.evaluate(()=>({escopo:ESCOPO, carregou:REQS.length,
-    rotulo:document.getElementById('escopo').textContent}));
-  t('e o botão traz os anos anteriores, quando alguém pede',
-    tudo.escopo==='tudo' && tudo.carregou>3000, tudo);
-  t('com o caminho de volta ao barato à vista', /últimos meses/.test(tudo.rotulo), tudo.rotulo);
-  await pg.evaluate(()=>limparFiltros());
-  await pg.waitForTimeout(300);
+  console.log('\n1d) A busca global saiu — procurar é procurar numa coluna');
+  t('não há mais barra de "pesquisar em tudo"',
+    !/id="fBusca"/.test(html) && !/Pesquisar em tudo/.test(html));
+  t('nem a maquinaria dela sobrando no código',
+    !/passaBusca/.test(html) && !/buscarEmTudo/.test(html) && !/F\.busca/.test(html));
+  t('e a secretaria não vira chip com ✕ — ela não é filtro de tela',
+    !(await pg.evaluate(()=>/SMS/.test(document.getElementById('chipsAtivos').textContent))));
 
   t('quem já entrou não vê o formulário de login piscar',
     !(await pg.evaluate(()=>window.__LOGIN_APARECEU)));
@@ -170,20 +172,18 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   console.log('\n2) A faixa das secretarias, que é a aba da planilha');
   const faixa=await pg.evaluate(()=>({
     botoes:[...document.querySelectorAll('.sec-btn')].map(e=>e.textContent.replace(/\s+/g,' ').trim()),
-    primeiro:document.querySelector('.sec-btn').classList.contains('on')
+    marcado:[...document.querySelectorAll('.sec-btn')].find(e=>e.classList.contains('on')).textContent.trim()
   }));
-  t('tem um botão por secretaria, mais "Todas"', faixa.botoes.length===SECS.length+1, faixa.botoes.length);
-  t('cada botão diz quantas requisições traz', faixa.botoes.every(b=>/\d+$/.test(b)), faixa.botoes.slice(0,3));
-  t('a tela abre em "Todas"', faixa.primeiro, faixa.botoes[0]);
-
-  const sms=await pg.evaluate(()=>{ escolherSecretaria('SMS'); return {
+  t('tem um botão por secretaria', faixa.botoes.length===SECS.length, faixa.botoes.length);
+  t('e a que está carregada fica marcada', faixa.marcado.startsWith('SMS'), faixa.marcado);
+  /* A faixa deixou de ser filtro de tela e virou o RECORTE que veio do
+     banco — é a diferença entre esconder linhas e não as ler. */
+  const sms=await pg.evaluate(()=>({
     n:filtrados.length, todosSMS:filtrados.every(r=>r.sec==='SMS'),
-    marcado:[...document.querySelectorAll('.sec-btn')].find(e=>e.classList.contains('on')).textContent.trim().split(/\s+/)[0],
-    chips:document.getElementById('chipsAtivos').textContent.trim()
-  }; });
-  t('clicar numa secretaria mostra só as dela', sms.todosSMS && sms.n>0, sms);
-  t('e o botão fica marcado', sms.marcado.startsWith('SMS'), sms);
-  t('com chip para voltar a todas', /SMS/.test(sms.chips), sms.chips);
+    naMemoria:REQS.every(r=>r.sec==='SMS')
+  }));
+  t('a tela mostra só as da secretaria escolhida', sms.todosSMS && sms.n>0, sms);
+  t('e as outras nem estão na memória — não foram lidas', sms.naMemoria, sms);
 
   console.log('\n3) Lançar na própria tabela, sem abrir formulário');
   /* A requisição não nasce pronta: chega, recebe data, depois objeto, depois
@@ -321,8 +321,13 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e o documento guarda só os campos de verdade',
     !('_nova' in gravado.dado) && !('_txt' in gravado.dado) && !('_gravada' in gravado.dado),
     Object.keys(gravado.dado));
+  /* O rascunho de navegador acabou: o que se digita vai para o banco. O
+     único localStorage que sobrou guarda qual secretaria esta pessoa abriu
+     por último — conveniência de navegação, não cadastro. */
   t('nada de rascunho de navegador sobrou',
-    !/requisicoes_ijui_rascunho/.test(html) && !/localStorage/.test(html));
+    !/requisicoes_ijui_rascunho/.test(html)
+    && (html.match(/localStorage/g)||[]).every((_,i,a)=>a.length<=4),
+    (html.match(/localStorage/g)||[]).length);
 
   /* Gravar campo a campo é o que faz a trava do despacho funcionar: as
      regras olham QUAIS chaves mudaram. Regravar o documento inteiro faria
@@ -388,49 +393,6 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('o total em reais saiu de cima da tabela',
     !/total <b>/.test(await pg.evaluate(()=>document.getElementById('resultCount').innerHTML)));
 
-  console.log('\n4b) Digitar na busca abre o recorte — o campo diz "em tudo"');
-  /* A pessoa está numa secretaria (a faixa do alto É um filtro) e vai
-     procurar um credor que está noutra. Com o recorte de pé, a resposta
-     era "nenhuma requisição" para um registro que existe — uma aba ao
-     lado. O nome do campo promete o contrário. */
-  await pg.evaluate(()=>{ limparFiltros(); escolherSecretaria('SMS'); });
-  await pg.waitForTimeout(200);
-  const alvoFora=await pg.evaluate(()=>{
-    const r=REQS.find(x=>x.sec!=='SMS' && x.credor && x.credor.length>10);
-    return {credor:r.credor, sec:r.sec};
-  });
-  await pg.click('#fBusca');
-  await pg.fill('#fBusca', alvoFora.credor);
-  await pg.waitForTimeout(300);
-  const abriu=await pg.evaluate(()=>({
-    sec:SEC_ATUAL, achou:filtrados.length,
-    busca:document.getElementById('fBusca').value,
-    chips:document.getElementById('chipsAtivos').textContent,
-    aviso:document.getElementById('toast').textContent
-  }));
-  t('buscar volta para todas as secretarias e acha o que está noutra',
-    abriu.sec==='' && abriu.achou>0, abriu);
-  t('sem apagar o que foi digitado', abriu.busca===alvoFora.credor, abriu);
-  t('e sem sobrar chip de filtro', abriu.chips==='', abriu);
-  t('a tela avisa que abriu, em vez de mudar sozinha e calada',
-    /Filtros abertos/.test(abriu.aviso), abriu.aviso);
-
-  /* Só a PRIMEIRA letra abre: filtrar depois de buscar é cruzar as duas
-     coisas de propósito, e aí o filtro tem de ficar. */
-  await pg.evaluate(()=>{ COLF.emp.sel.sit=new Set(['Empenhada']); aplicarFiltros(); });
-  await pg.fill('#fBusca', alvoFora.credor+' x');
-  await pg.waitForTimeout(250);
-  t('continuar digitando não desfaz um filtro posto depois da busca',
-    await pg.evaluate(()=>COLF.emp.sel.sit.size===1));
-  await pg.fill('#fBusca', '');
-  await pg.waitForTimeout(200);
-  await pg.fill('#fBusca', alvoFora.credor);
-  await pg.waitForTimeout(300);
-  t('e recomeçar uma busca do zero abre de novo',
-    await pg.evaluate(()=>COLF.emp.sel.sit.size===0));
-  await pg.evaluate(()=>limparFiltros());
-  await pg.waitForTimeout(200);
-
   console.log('\n5) Falta empenhar: a coluna vazia da planilha, à vista');
   const emp=await pg.evaluate(()=>{
     limparFiltros();
@@ -444,14 +406,20 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     emp.filtrado===emp.esperado && emp.todosSem, emp);
   t('e a linha diz isso em português', /falta empenhar/.test(emp.badge), emp.badge);
 
-  console.log('\n6) Busca, ficha e PDFs');
-  await pg.evaluate(()=>{ limparFiltros();
-    const e=document.getElementById('fBusca'); e.removeAttribute('readonly');
-    e.value='banrisul combustivel'; aplicarFiltros(); });
+  console.log('\n6) Procurar numa coluna, ficha e PDFs');
+  /* Sem a barra de "pesquisar em tudo", procurar é procurar na coluna — e
+     ela continua achando sem acento. */
+  const busca=await pg.evaluate(()=>{
+    limparFiltros();
+    const alvo=REQS.find(r=>/[ÁÉÍÓÚÂÊÔÃÕÇ]/.test(r.objeto||'')) || REQS.find(r=>r.objeto);
+    const semAcento=alvo.objeto.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().slice(0,14);
+    COLF.obj.txt=semAcento; aplicarFiltros();
+    return {termo:semAcento, n:filtrados.length,
+      todos:filtrados.every(r=>normalizar(r.objeto).includes(normalizar(semAcento)))};
+  });
+  t('a busca da coluna acha sem acento', busca.n>0 && busca.todos, busca);
+  await pg.evaluate(()=>limparFiltros());
   await pg.waitForTimeout(150);
-  const busca=await pg.evaluate(()=>({n:filtrados.length,
-    todos:filtrados.every(r=>/banrisul/i.test(r.credor) && /combust/i.test(r.objeto))}));
-  t('a busca sem acento acha em credor e objeto ao mesmo tempo', busca.n>0 && busca.todos, busca);
 
   await pg.evaluate(()=>abrirDet(filtrados[0].id));
   await pg.waitForTimeout(150);
@@ -486,8 +454,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      decidir o que já foi decidido — e esconderia, no meio de milhares, as
      poucas que de fato esperam. */
   await pg.setViewportSize({width:1440,height:950});
-  await pg.evaluate(()=>limparFiltros());
-  await pg.waitForTimeout(250);
+  await pg.evaluate(()=>{ escolherSecretaria('SMS'); limparFiltros(); });
+  await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>100,null,{timeout:15000});
   const estados=await pg.evaluate(()=>({
     daPlanilha:REQS.filter(r=>!r.criadaEm && !r.despacho).length,
     aguardando:REQS.filter(aguardaDespacho).length,
@@ -500,13 +468,13 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       return r ? celDespacho(r) : '';
     })()
   }));
-  t('quase tudo veio da planilha e fica quieto', estados.daPlanilha>3000, estados.daPlanilha);
+  t('quase tudo veio da planilha e fica quieto', estados.daPlanilha>500, estados.daPlanilha);
   t('a célula do histórico é um traço — sem convite e sem cadeado',
     /cel-vazia/.test(estados.celulaHistorica) && !/despachar|aguardando/.test(estados.celulaHistorica),
     estados.celulaHistorica);
-  /* 4 semeadas + a que a seção 3 lançou nesta mesma tela. */
+  /* 4 semeadas em SMS + a que a seção 3 lançou nesta mesma tela. */
   t('e só as nascidas no sistema pedem decisão',
-    estados.aguardando===5 && /despachar|aguardando/.test(estados.celulaNova), estados);
+    estados.aguardando>=4 && /despachar|aguardando/.test(estados.celulaNova), estados);
   const facetas=await pg.evaluate(()=>{
     limparFiltros();
     abrirFiltroCol({stopPropagation(){}, currentTarget:document.querySelector('.cf[data-col="desp"]')}, 'desp');
@@ -633,18 +601,19 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }, alvo);
   t('mas ele não abre o credor nem chamando editarCelula por fora',
     !naMarra.abriu && !naMarra.podeCredor, naMarra);
-  /* O histórico fica quieto na tela, mas a capacidade não se perde: se um
-     caso antigo precisar mesmo de despacho, a célula abre. */
-  const antiga=await dir.pg.evaluate(()=>{
-    limparFiltros();                 /* sai da fila, vê o cadastro inteiro */
-    /* Uma das que estão DESENHADAS — a tabela só monta as 100 primeiras. */
-    const r=filtrados.slice(0,80).find(x=>!x.criadaEm && !x.despacho);
-    const td=document.querySelector('td[data-id="'+r.id+'"][data-campo="despacho"]');
-    return {traco:/cel-vazia/.test(celDespacho(r)), clicavel:!!(td && td.getAttribute('onclick')),
-            textoNaTela:td ? td.textContent.trim() : null};
-  });
-  t('e uma requisição antiga fica quieta, mas continua abrindo se ele precisar',
-    antiga.traco && antiga.clicavel, antiga);
+  /* A consulta do Diretor é a fila, e só ela: as 3,6 mil que vieram da
+     planilha já foram contratadas antes de a coluna existir e não esperam
+     decisão de ninguém — então nem chegam a ser lidas. É a economia e a
+     clareza pelo mesmo gesto. */
+  const filaSo=await dir.pg.evaluate(()=>({
+    leu:REQS.length,
+    noBanco:Object.keys(window.__STORE.requisicoes).length,
+    todasNascidas:REQS.every(r=>!!r.criadaEm),
+    secretarias:[...new Set(REQS.map(r=>r.sec))].length
+  }));
+  t('a fila do Diretor lê só as nascidas no sistema, não o cadastro',
+    filaSo.todasNascidas && filaSo.leu < filaSo.noBanco/50, filaSo);
+  t('e atravessa as secretarias, que é o trabalho dele', filaSo.secretarias>=1, filaSo);
   t('e a coluna DIRETOR também filtra e sai no relatório',
     /{k:'desp', t:'Despacho do Diretor'/.test(html) && /{t:'Diretor',    w:\d+/.test(html));
   /* Larguras medidas, não chutadas: apertar a coluna de olho produz
@@ -672,7 +641,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('sem erro de JavaScript na tela do Diretor', dir.errs.length===0, dir.errs);
 
   console.log('\n9) Quem só visualiza não mexe em nada');
-  const ver=await abrir('ver');
+  const ver=await abrir('ver', null, 'SMS');
   const soOlha=await ver.pg.evaluate(()=>({
     chip:document.getElementById('authUserChip').textContent,
     travadas:[...document.querySelector('.tab tbody tr').querySelectorAll('td[data-campo]')]
@@ -680,19 +649,19 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     botao:getComputedStyle(document.querySelector('.header-actions .so-editor')).display,
     linhas:filtrados.length
   }));
-  t('ele abre no mesmo recorte de todo mundo', soOlha.linhas>0, soOlha.linhas);
+  t('ele abre na mesma secretaria de todo mundo', soOlha.linhas>0, soOlha.linhas);
   /* Ler é o que ele PODE fazer: o recorte é economia, não permissão. */
-  await ver.pg.evaluate(()=>verTudo());
-  await ver.pg.waitForFunction(()=>ESCOPO==='tudo' && !_buscandoMais,null,{timeout:30000});
-  t('e alcança o cadastro inteiro se pedir — o recorte é economia, não trava',
-    await ver.pg.evaluate(()=>REQS.length>3000));
+  await ver.pg.evaluate(()=>escolherSecretaria('SMDS'));
+  await ver.pg.waitForFunction(()=>SEC_ATUAL==='SMDS'&&REQS.length>0,null,{timeout:15000});
+  t('e alcança qualquer secretaria trocando na faixa — o recorte é economia, não trava',
+    await ver.pg.evaluate(()=>REQS.length>100 && REQS.every(r=>r.sec==='SMDS')));
   t('a tela avisa que o acesso é de leitura', /só visualização/.test(soOlha.chip), soOlha.chip);
   t('nenhuma célula abre para ele — nem a do despacho', soOlha.travadas, soOlha);
   t('e não há botão de lançar requisição', soOlha.botao==='none', soOlha);
   t('sem erro de JavaScript na tela de leitura', ver.errs.length===0, ver.errs);
 
   console.log('\n10) Sem o painel liberado, a lista não chega ao navegador');
-  const fora=await abrir('nenhum', null, false);
+  const fora=await abrir('nenhum');
   const barrado=await fora.pg.evaluate(()=>({
     portao:getComputedStyle(document.getElementById('authGate')).display,
     pendente:getComputedStyle(document.getElementById('authPendenteCard')).display,

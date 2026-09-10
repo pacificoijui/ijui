@@ -107,20 +107,6 @@
 
   /* Barra de busca única, no estilo do Google: procura em tudo de uma vez.
      Os filtros por campo moraram aqui até virarem menu de coluna na tabela. */
-  .busca-wrap { display: flex; justify-content: center; margin: 2px 0 16px; }
-  .busca-box { display: flex; align-items: center; width: 100%; max-width: 780px; background: var(--card);
-    border: 1.5px solid var(--border); border-radius: 28px; padding: 0 6px 0 18px;
-    box-shadow: var(--shadow); transition: box-shadow .18s, border-color .18s; }
-  .busca-box:hover { box-shadow: var(--shadow-md); }
-  .busca-box:focus-within { border-color: var(--navy-light); box-shadow: var(--ring), var(--shadow-md); }
-  .busca-ico { font-size: 15px; opacity: .5; flex-shrink: 0; }
-  .busca-box input { flex: 1; min-width: 0; border: none; outline: none; background: none; font-family: inherit;
-    font-size: 15px; color: var(--text); padding: 14px 12px; }
-  .busca-box input::placeholder { color: #a3aec4; }
-  .busca-x { border: none; background: none; color: var(--muted); font-size: 14px; cursor: pointer;
-    padding: 8px 12px; border-radius: 50%; visibility: hidden; }
-  .busca-x:hover { background: var(--blue-bg); color: var(--navy); }
-  .busca-box.tem-texto .busca-x { visibility: visible; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { background: var(--blue-bg); color: var(--blue-text); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
   .chip b { cursor: pointer; opacity: .6; }
@@ -416,10 +402,7 @@
     main { padding: 14px 12px 96px; }
 
     /* 16px evita o zoom automático do navegador ao focar o campo */
-    .busca-wrap { margin: 0 0 12px; }
-    .busca-box { padding: 0 4px 0 14px; }
-    .busca-box input, .sel-busca { font-size: 16px; }
-    .busca-box input { padding: 12px 10px; }
+    .sel-busca { font-size: 16px; }
     .chips { width: 100%; }
 
     /* Sem cabeçalho de tabela para clicar, os filtros de coluna viram uma
@@ -584,14 +567,6 @@
     padding: 7px 15px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
   .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
     padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
-  /* O recorte que está carregado, e o convite para pedir mais. Fica ao lado
-     da contagem porque é o que dá sentido a ela. */
-  .escopo { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
-  .escopo-txt b { color: var(--navy); font-weight: 700; }
-  .escopo-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px;
-    padding: 3px 11px; font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
-    transition: border-color .15s, background .15s; white-space: nowrap; }
-  .escopo-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
   .dica-edicao { font-size: 11.5px; color: var(--muted); font-style: italic; }
   @media (max-width: 900px) { .dica-edicao { display: none; } }
 
@@ -698,26 +673,10 @@
 </header>
 
 <main>
-  <div class="busca-wrap">
-    <div class="busca-box" id="buscaBox">
-      <span class="busca-ico">🔎</span>
-      <input type="text" id="fBusca" name="busca-requisicoes" readonly
-             autocomplete="off" spellcheck="false"
-             data-lpignore="true" data-1p-ignore data-form-type="other"
-             onfocus="this.removeAttribute('readonly')"
-             placeholder="Pesquisar em tudo — credor, objeto, nº, modalidade, empenho, valor…"
-             oninput="buscarEmTudo()">
-      <button class="busca-x" onclick="limparBusca()" title="Limpar a busca">✕</button>
-    </div>
-  </div>
-
   <div id="avisoImportacao"></div>
 
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
-    <!-- Diz que pedaço do banco está na mão, e como pedir mais. Sem isto,
-         "312 requisições" pareceria o cadastro inteiro. -->
-    <div class="escopo" id="escopo"></div>
     <span class="dica-edicao" id="dicaEdicao">clique numa célula para preencher</span>
     <div class="chips" id="chipsAtivos"></div>
     <div class="toolbar-right">
@@ -1104,47 +1063,39 @@ let SECRETARIAS = [];
 let FONTE_DADOS = 'nenhuma';
 
 /* ══════════════ QUANTO DO BANCO A TELA PUXA ══════════════
-   A tela carregava a coleção inteira a cada visita. Com 3,6 mil requisições
-   já custa; com cinco anos de cadastro seriam 20 mil documentos lidos toda
-   vez que alguém aperta F5 para olhar o mês corrente. E o preço cresce
-   sozinho: quem abrir a tela em 2030 paga por 2026.
+   A tela lia a coleção inteira a cada visita. Com 3,6 mil requisições já
+   custa; com cinco anos de cadastro seriam 20 mil documentos lidos toda vez
+   que alguém aperta F5 — e o preço cresceria sozinho: quem abrisse a tela em
+   2030 pagaria por 2026.
 
-   Então a tela pede ao banco em três degraus, e sobe um degrau só quando
-   quem está usando faz algo que precisa de mais. O que não é pedido não é
-   lido nem cobrado — são consultas ao Firestore (where), não filtro de tela.
+   Agora ela lê UMA SECRETARIA POR VEZ, que é como o setor trabalha: a
+   planilha tinha uma aba por secretaria e cada pessoa vive dentro da dela.
+   Não existe mais "Todas" — não por falta de vontade, mas porque "todas" é
+   justamente a leitura que ninguém precisa fazer para trabalhar, e era ela
+   que pagava por 3,6 mil documentos a cada visita.
 
-     recentes  abrir o sistema      este mês e o anterior
-     ano       buscar ou filtrar    o ano corrente inteiro
-     tudo      o botão              o cadastro, todos os anos
+     abrir o sistema        a secretaria da pessoa   ~20 a 1.000 documentos
+     trocar de secretaria   a outra                  o tamanho dela
 
-   Sobe sozinho e não desce: quem já pagou pela leitura não paga de novo
-   dentro da mesma visita.
+   É consulta ao Firestore (where), não filtro de tela: o que não é pedido
+   não é lido nem cobrado. E a conta para de crescer com o arquivo — cresce
+   só com o tamanho da secretaria de quem está olhando.
 
-   Cada degrau tem uma consulta a mais para o que ficaria de fora por ser
-   nulo — where('recebido','>=',...) não casa com data em branco, e é
-   justamente em branco que nasce uma requisição enquanto está sendo
-   lançada. Sumir com ela no instante em que é criada seria o pior defeito
-   possível numa tela de lançamento. */
-const MESES_NOME = ['janeiro','fevereiro','março','abril','maio','junho','julho',
-                    'agosto','setembro','outubro','novembro','dezembro'];
+   O Diretor é a exceção, e tem de ser: ele não trabalha dentro de uma
+   secretaria, trabalha ENTRE elas. Para ele a consulta é a fila —
+   as requisições nascidas no sistema, de todas as secretarias, que é um
+   punhado. Ver "fila do Diretor", mais abaixo. */
 const ANO_ATUAL = new Date().getFullYear();
-const ESCOPOS = ['recentes', 'ano', 'tudo'];
-let ESCOPO = 'recentes';
-let _buscandoMais = false;
+const LEMBRAR_SEC = 'requisicoes_ijui_secretaria';
 
-/* Primeiro dia do mês anterior, em ISO — a fronteira do degrau de baixo. */
-function inicioDaJanela(){
-  const d = new Date();
-  d.setDate(1);
-  d.setMonth(d.getMonth() - 1);
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+/* Qual secretaria esta pessoa abriu por último. É conveniência de navegador
+   e nada mais: some se limpar o cache, e o pior que acontece é a tela pedir
+   para escolher de novo. */
+function secretariaLembrada(){
+  try{ return localStorage.getItem(LEMBRAR_SEC) || ''; }catch(e){ return ''; }
 }
-function nomeDoEscopo(){
-  if(ESCOPO === 'tudo') return 'todos os anos';
-  if(ESCOPO === 'ano')  return String(ANO_ATUAL);
-  const d = new Date(), m = d.getMonth();
-  const nome = i => MESES_NOME[(i+12)%12];
-  return nome(m) + ' e ' + nome(m-1);
+function lembrarSecretaria(sigla){
+  try{ localStorage.setItem(LEMBRAR_SEC, sigla); }catch(e){}
 }
 
 function carregarDoArquivo(){
@@ -1176,75 +1127,75 @@ function iniciarListenerRequisicoes(){
   arquivoDoRepositorio()
     .then(d => { SECRETARIAS = d.secretarias || []; })
     .catch(e => console.warn('lista de secretarias:', e.message))
-    .then(ligarConsultas);
+    .then(() => {
+      /* A secretaria de quem abriu, se este navegador já sabe. Sem ela a
+         tela não lê NADA e pede para escolher — zero leitura é o começo
+         mais barato possível. */
+      const lembrada = secretariaLembrada();
+      if(lembrada && SECRETARIAS.some(x => x.sigla === lembrada)) SEC_ATUAL = lembrada;
+      renderFaixaSecretarias();
+      ligarConsultas();
+    });
 }
 
 let _desligar = [];
 let _primeiraCarga = true;
+let _carregandoSec = false;
+
+/* Uma consulta por secretaria; a fila, para o Diretor. Nenhuma delas lê o
+   cadastro inteiro — não existe caminho na tela que leia. */
 function ligarConsultas(){
   _desligar.forEach(f => f());
   _desligar = [];
   const col = firebase.firestore().collection('requisicoes');
-  /* Duas consultas no modo econômico, uma só quando se pede tudo. As levas
-     chegam separadas e a tela só se monta com todas na mão — senão a
-     primeira apareceria sozinha e a segunda piscaria por cima. */
-  const consultas = ESCOPO === 'tudo' ? [col]
-    : ESCOPO === 'ano'
-      ? [col.where('ano', '==', ANO_ATUAL), col.where('ano', '==', null)]
-      : [col.where('recebido', '>=', inicioDaJanela()), col.where('recebido', '==', null)];
-  const levas = consultas.map(() => null);
-  consultas.forEach((q, i) => {
-    _desligar.push(q.onSnapshot(snap => {
-      levas[i] = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-      if(levas.some(l => l === null)) return;
-      const lista = [].concat.apply([], levas);
-      /* Vazio no recorte dos dois meses NÃO é banco vazio: é um começo de
-         mês calmo. Confundir os dois faria a tela oferecer a primeira
-         importação por cima de um cadastro de 3,6 mil. */
-      if(!lista.length && _primeiraCarga && ESCOPO === 'tudo'){
-        telaBancoVazio(); conferirImportacao(); return;
-      }
-      FONTE_DADOS = 'firestore';
-      if(_primeiraCarga){ _primeiraCarga = false; montarPrimeiraCarga(lista); }
-      else reaplicarAoVivo(lista);
-      _buscandoMais = false;
-      conferirImportacao();
-      marcarEscopo();
-    }, e => mostrarErroCarregar(e)));
-  });
+  if(!soDespacha() && !SEC_ATUAL){ REQS = []; renderFaixaSecretarias(); aplicarFiltros(); return; }
+  /* A fila do Diretor são as requisições NASCIDAS no sistema — as que têm
+     "criadaEm". O que veio da planilha já foi contratado antes de a coluna
+     existir e não espera decisão de ninguém, então nem é lido. */
+  const q = soDespacha()
+    ? col.where('criadaEm', '>', '')
+    : col.where('sec', '==', SEC_ATUAL);
+  _carregandoSec = true;
+  marcarCarregando();
+  _desligar.push(q.onSnapshot(snap => {
+    const lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+    FONTE_DADOS = 'firestore';
+    _carregandoSec = false;
+    if(_primeiraCarga){ _primeiraCarga = false; montarPrimeiraCarga(lista); }
+    else reaplicarAoVivo(lista);
+    conferirImportacao();
+  }, e => mostrarErroCarregar(e)));
 }
-/* Sobe de degrau: refaz a consulta pedindo mais ao banco. Não passa por
-   montarPrimeiraCarga — a tela já está montada, e refazê-la apagaria a
-   busca que a pessoa acabou de digitar, que foi justamente o que pediu
-   mais dados. Devolve true se realmente subiu, para quem chamou saber se
-   vale avisar que está esperando. */
-function subirEscopo(nivel){
-  if(ESCOPOS.indexOf(nivel) <= ESCOPOS.indexOf(ESCOPO)) return false;
-  ESCOPO = nivel;
-  _buscandoMais = true;
-  marcarEscopo();
-  ligarConsultas();
-  return true;
-}
-function verTudo(){ if(!subirEscopo('tudo')) return; }
-/* Voltar ao barato: quem fechou a busca não precisa continuar pagando por
-   cinco anos de cadastro no resto da visita. */
-function voltarAoRecente(){
-  ESCOPO = 'recentes';
-  marcarEscopo();
+
+/* Trocar de secretaria é refazer a consulta, não filtrar o que já veio: é o
+   que faz cada secretaria custar só o tamanho dela. */
+function carregarSecretaria(sigla){
+  if(sigla === SEC_ATUAL) return;
+  SEC_ATUAL = sigla;
+  lembrarSecretaria(sigla);
+  soltarNova();
+  REQS = [];
+  _primeiraCarga = true;
+  renderFaixaSecretarias();
   ligarConsultas();
 }
-function marcarEscopo(){
-  const box = document.getElementById('escopo');
-  if(!box) return;
-  if(_buscandoMais){
-    box.innerHTML = '<span class="escopo-txt">buscando no banco…</span>';
-    return;
-  }
-  const rotulo = '<span class="escopo-txt">mostrando <b>' + esc(nomeDoEscopo()) + '</b></span>';
-  box.innerHTML = rotulo + (ESCOPO === 'tudo'
-    ? '<button class="escopo-btn" onclick="voltarAoRecente()" title="Volta a ler do banco só os dois últimos meses">↩ só os últimos meses</button>'
-    : '<button class="escopo-btn" onclick="verTudo()" title="Busca no banco os anos anteriores — só quando você pede">＋ anos anteriores</button>');
+function marcarCarregando(){
+  const alvo = document.getElementById('vazio');
+  if(alvo && _carregandoSec) alvo.innerHTML =
+    '<div class="empty"><span>⏳</span>Carregando ' + esc(nomeSecretaria(SEC_ATUAL)) + '…</div>';
+}
+/* Primeira visita deste navegador: ninguém escolheu ainda, e a tela não
+   adivinha. Não lê NADA do banco enquanto não souber de quem é a vez —
+   zero leitura é o começo mais barato possível. */
+/* Só desenha o recado. NÃO chama aplicarFiltros: quem chama é renderMais,
+   e chamar de volta daqui fecharia o laço em cima de si mesmo. */
+function telaEscolhaSecretaria(){
+  const alvo = document.getElementById('vazio');
+  if(alvo) alvo.innerHTML = '<div class="empty"><span>👆</span>'
+    + 'Escolha a sua secretaria na faixa acima.<br>'
+    + '<span style="font-size:13px">A tela carrega uma secretaria por vez — '
+    + 'é o que mantém o sistema rápido e barato conforme o cadastro cresce.</span></div>';
+  document.getElementById('loadWrap').style.display = 'none';
 }
 function montarPrimeiraCarga(lista){
   REQS = lista.map(prepararReq);
@@ -1326,10 +1277,11 @@ function avisoImportacao(andamento){
 }
 function conferirImportacao(){
   if(_importando || !podeImportar()) return Promise.resolve();
-  /* Só faz sentido comparar o arquivo com o banco INTEIRO. Com dois meses
-     na mão, a conta daria "faltam 3.500" e ofereceria subir de novo o
-     cadastro todo — um botão perigoso nascido de uma conta errada. */
-  if(ESCOPO !== 'tudo'){ _faltamImportar = null; avisoImportacao(); return Promise.resolve(); }
+  /* A tela nunca tem o banco inteiro na mão — lê uma secretaria por vez.
+     Comparar com o arquivo daria sempre "faltam alguns milhares" e
+     ofereceria subir tudo de novo: um botão perigoso nascido de uma conta
+     errada. A migração acabou; o arquivo é peça de museu. */
+  return Promise.resolve();
   const noBanco = new Set(REQS.filter(r=>r._gravada).map(r => String(r.id)));
   return arquivoDoRepositorio().then(d => {
     _faltamImportar = (d.requisicoes||[]).filter(r => !noBanco.has(String(r.id)));
@@ -1407,15 +1359,7 @@ function rotuloReq(r){
 }
 function prepararReq(r){
   r.rotulo = rotuloReq(r);
-  delete r._txt;
   return r;
-}
-function textoTudo(r){
-  if(r._txt===undefined){
-    r._txt = normalizar([r.rotulo, r.sec, r.credor, r.objeto, r.modalidade, r.empenho, r.despacho,
-      fmtD(r.recebido), fmtD(r.contabilidade), money(r.valor)].join(' '));
-  }
-  return r._txt;
 }
 function normalizar(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
 
@@ -1423,9 +1367,14 @@ function normalizar(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g
 let filtrados = [];
 let mostrando = 0;
 const LOTE = 100;
-const F = { busca:'', sort:'num-desc' };
+const F = { sort:'num-desc' };
 const ORDEM_PADRAO = 'num-desc';
-let SEC_ATUAL = '';          /* '' = todas; é também a secretaria de quem lança */
+/* A secretaria carregada. Não é filtro de tela: é o RECORTE que veio do
+   banco, e também a secretaria em nome de quem a próxima requisição nasce.
+   Vazia só na primeira visita deste navegador, antes de alguém escolher —
+   e nesse estado a tela não lê nada. Para o Diretor fica vazia sempre: a
+   consulta dele é a fila, que atravessa todas. */
+let SEC_ATUAL = '';
 let formId = null;
 let detAtual = null;
 
@@ -1510,14 +1459,9 @@ function initFiltros(comPadrao){
     (FACETAS[col]||[]).forEach(g=>{ COLF[col].sel[g.k] = new Set(); });
   });
   /* O Diretor abre na fila dele. Para quem preenche, a tela é o cadastro da
-     sua secretaria; para quem despacha, é uma lista de pendências de TODAS
-     elas — ele não trabalha dentro de uma secretaria, trabalha entre elas.
-     Abrir em "todas as 3.617" seria pedir que ele procurasse o trabalho.
-     O filtro aparece nos chips, com o ✕: é sugestão de abertura, não cela. */
-  if(comPadrao && soDespacha()){
-    COLF.desp.sel.desp = new Set([AGUARDANDO]);
-    SEC_ATUAL = '';
-  }
+     sua secretaria; para quem despacha, é a fila de todas elas. O filtro
+     aparece nos chips, com o ✕: é sugestão de abertura, não cela. */
+  if(comPadrao && soDespacha()) COLF.desp.sel.desp = new Set([AGUARDANDO]);
 }
 /* Quem só despacha — o Diretor de verdade, não o administrador, que também
    preenche e para quem a fila não é a tela inteira. */
@@ -1532,10 +1476,13 @@ function renderFaixaSecretarias(){
   REQS.forEach(r=>{ conta[r.sec] = (conta[r.sec]||0)+1; });
   const botao = (sigla, rotulo, n) =>
     '<button class="sec-btn'+(SEC_ATUAL===sigla?' on':'')+'" onclick="escolherSecretaria('+JSON.stringify(sigla).replace(/"/g,'&quot;')+')" title="'+esc(nomeSecretaria(sigla))+'">'
-    + esc(rotulo) + '<span class="sec-n">'+n+'</span></button>';
+    + esc(rotulo) + (n===null ? '' : '<span class="sec-n">'+n+'</span>') + '</button>';
+  /* Sem "Todas", de propósito: era a única leitura que custava o cadastro
+     inteiro, e é justamente a que ninguém precisa para trabalhar. O número
+     ao lado da sigla só aparece na que está carregada — nas outras seria
+     invenção, porque a tela não as leu. */
   box.innerHTML = '<div class="sec-faixa-inner">'
-    + botao('', 'Todas', REQS.length)
-    + SECRETARIAS.map(s=>botao(s.sigla, s.sigla, conta[s.sigla]||0)).join('')
+    + SECRETARIAS.map(s=>botao(s.sigla, s.sigla, s.sigla===SEC_ATUAL ? conta[s.sigla]||0 : null)).join('')
     + '</div>';
 }
 function nomeSecretaria(sigla){
@@ -1555,28 +1502,14 @@ function soltarNova(){
   REQS.forEach(r=>{ delete r._nova; });
 }
 function escolherSecretaria(sigla){
-  /* A faixa é um filtro, e os números dentro dos botões são contagens: com
-     dois meses carregados eles diriam "SMS 47" onde há mil. Entrar numa
-     secretaria é pedir para ver a secretaria, não os dois últimos meses
-     dela. */
-  if(sigla) subirEscopo('ano');
-  soltarNova();
-  SEC_ATUAL = sigla;
-  renderFaixaSecretarias();
-  aplicarFiltros();
+  if(sigla) carregarSecretaria(sigla);
 }
 
 /* ══════════════ FILTRAGEM ══════════════ */
-function passaBusca(r){
-  const q = normalizar(F.busca).split(/\s+/).filter(Boolean);
-  if(!q.length) return true;
-  const t = textoTudo(r);
-  return q.every(p=>t.includes(p));
-}
 /* O que cada coluna MOSTRA, que é onde a busca daquela coluna procura. Não
    dá para procurar nos rótulos das opções: a coluna Empenho é agrupada em
    "Empenhada / Falta empenhar", e quem digita "4695" ali está procurando o
-   número do empenho — e recebia "nada para filtrar aqui". */
+   número do empenho. */
 const TEXTO_COL = {
   num:   r => r.rotulo + ' ' + r.sec,
   receb: r => fmtD(r.recebido),
@@ -1588,6 +1521,9 @@ const TEXTO_COL = {
   cont:  r => fmtD(r.contabilidade),
   valor: r => (r.valor==null ? '' : fmtBRL.format(r.valor))
 };
+/* O que cada coluna deixa passar: o texto procurado nela, e as opções
+   marcadas no menu dela. A busca global saiu da tela — com uma secretaria
+   por vez, procurar é procurar numa coluna. */
 function passaColuna(r, col){
   const f = COLF[col];
   if(f.txt){
@@ -1601,13 +1537,14 @@ function passaColuna(r, col){
   });
 }
 function aplicarFiltros(){
-  F.busca = document.getElementById('fBusca').value.trim();
   F.sort = document.getElementById('fSort').value || F.sort;
   /* A linha recém-criada entra na lista mesmo vazia: se ela tivesse de
      passar pelos filtros, sumiria da tela no instante em que nasce — que é
      justamente quando ainda não tem nada preenchido. */
-  filtrados = REQS.filter(r => r._nova ||
-    ((!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r) && COLUNAS.every(c=>passaColuna(r,c))));
+  /* A secretaria já veio recortada do banco; aqui sobram só os filtros de
+     coluna. A linha recém-criada entra mesmo vazia: se tivesse de passar
+     pelos filtros, sumiria no instante em que nasce. */
+  filtrados = REQS.filter(r => r._nova || COLUNAS.every(c=>passaColuna(r,c)));
   ordenar();
   filtrados.sort((a,b)=>(b._nova?1:0)-(a._nova?1:0));   /* as novas, no topo */
   mostrando = 0;
@@ -1617,7 +1554,6 @@ function aplicarFiltros(){
   renderChips();
   marcarBotoesColuna();
   marcarSetas();
-  document.getElementById('buscaBox').classList.toggle('tem-texto', !!document.getElementById('fBusca').value);
 }
 function ordenar(){
   const [campo, dir] = String(F.sort).split('-');
@@ -1649,51 +1585,12 @@ function marcarSetas(){
   const th = document.querySelector('.tab thead th.c-'+({num:'req',receb:'receb',cred:'cred',valor:'val'}[campo]||''));
   if(th && th.querySelector('.seta')) th.querySelector('.seta').textContent = dir==='desc' ? '▼' : '▲';
 }
-/* ── "Pesquisar em tudo" tem de procurar em tudo mesmo ──
-   A tela quase nunca está inteira à vista: abre numa secretaria escolhida
-   na faixa, com um filtro de coluna de ontem ainda de pé. Digitar aqui com
-   esse recorte valendo respondia "nenhuma requisição" para um registro que
-   existe — só que na aba do lado. O nome do campo promete o contrário.
-
-   Então a busca abre o recorte no instante em que COMEÇA, e avisa. Quem
-   quiser cruzar busca com filtro põe o filtro depois, e aí ele fica: só a
-   primeira letra limpa, as seguintes não mexem em mais nada. */
-let _buscaAnterior = '';
-function temRecorte(){
-  return !!SEC_ATUAL || COLUNAS.some(col=>{
-    const f = COLF[col];
-    return !!f.txt || (FACETAS[col]||[]).some(g=>f.sel[g.k] && f.sel[g.k].size);
-  });
-}
-function buscarEmTudo(){
-  const agora = document.getElementById('fBusca').value.trim();
-  const comecou = !!agora && !_buscaAnterior;
-  _buscaAnterior = agora;
-  /* "Pesquisar em tudo" com dois meses na mão não é pesquisar em tudo.
-     Procurar é o momento em que vale pagar pelo ano inteiro — e é uma vez
-     por visita, porque o degrau não desce sozinho. */
-  if(agora) subirEscopo('ano');
-  if(comecou && temRecorte()){
-    soltarNova();
-    limparBuscaDoMenu();
-    initFiltros();
-    SEC_ATUAL = '';
-    renderFaixaSecretarias();
-    aplicarFiltros();
-    if(popCol) renderPop();
-    if(sheetAberta()) renderFiltrosMobile();
-    toast('Filtros abertos — a busca procura em todas as secretarias.');
-    return;
-  }
-  aplicarFiltros();
-}
-function limparBusca(){ document.getElementById('fBusca').value=''; buscarEmTudo(); }
 function limparFiltros(){
   soltarNova();
   limparBuscaDoMenu();
-  document.getElementById('fBusca').value=''; _buscaAnterior='';
   initFiltros();
-  SEC_ATUAL = '';
+  /* SEC_ATUAL NÃO se limpa: ela não é filtro de tela, é o recorte que veio
+     do banco. Zerá-la deixaria a tela sem dados e sem pedir outros. */
   F.sort = ORDEM_PADRAO;
   document.getElementById('fSort').value = ORDEM_PADRAO;
   renderFaixaSecretarias();
@@ -1701,18 +1598,13 @@ function limparFiltros(){
   if(popCol) renderPop();
   if(sheetAberta()) renderFiltrosMobile();
 }
-function limparSoFiltros(){
-  soltarNova();
-  limparBuscaDoMenu();
-  initFiltros(); SEC_ATUAL='';
-  renderFaixaSecretarias(); aplicarFiltros();
-  if(popCol) renderPop();
-}
 
 /* ══════════════ CHIPS DO QUE ESTÁ FILTRADO ══════════════ */
 function renderChips(){
   const p = [];
-  if(SEC_ATUAL) p.push(['<b>'+esc(SEC_ATUAL)+'</b>', "escolherSecretaria('')"]);
+  /* A secretaria NÃO entra aqui: chip com ✕ promete que dá para tirar, e
+     tirar não existe mais — ela é o recorte que veio do banco, não um
+     filtro de tela. Quem troca de secretaria troca na faixa. */
   COLUNAS.forEach(col=>{
     const f = COLF[col];
     if(f.txt) p.push([esc(NOME_COL[col])+' com “'+esc(f.txt)+'”', "limparColuna('"+col+"')"]);
@@ -1745,12 +1637,7 @@ function limparColunaAtual(){ if(popCol) limparColuna(popCol); }
 
 /* ══════════════ MENU DE FILTRO DA COLUNA ══════════════ */
 let popCol = null;
-/* O menu de coluna conta as linhas de cada opção. Com dois meses na mão,
-   "setembro de 2026 — 115" seria só o que está carregado, e a pessoa
-   escolheria um recorte achando que viu o ano. Abrir o menu é pedir para
-   ver o ano. */
 function abrirFiltroCol(ev, col){
-  subirEscopo('ano');
   ev.stopPropagation();
   if(popCol===col){ fecharPop(); return; }
   popCol = col;
@@ -1773,8 +1660,7 @@ document.addEventListener('click', e=>{
 /* As contagens contam com os filtros das OUTRAS colunas já aplicados: é o
    que faz o menu dizer a verdade sobre o que cada opção vai trazer. */
 function baseParaColuna(col){
-  return REQS.filter(r => (!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r)
-    && COLUNAS.every(c => c===col || passaColuna(r,c)));
+  return REQS.filter(r => COLUNAS.every(c => c===col || passaColuna(r,c)));
 }
 function renderPop(){
   if(!popCol) return;
@@ -1808,8 +1694,8 @@ function renderPop(){
      estava funcionando, e parecia defeito. */
   const termo = document.getElementById('popBusca').value.trim();
   if(termo){
-    const n = REQS.filter(r => (!SEC_ATUAL || r.sec===SEC_ATUAL) && passaBusca(r)
-      && COLUNAS.every(c => c===col ? passaColuna(r,col) : passaColuna(r,c))).length;
+    const n = REQS.filter(r =>
+      COLUNAS.every(c => c===col ? passaColuna(r,col) : passaColuna(r,c))).length;
     html = '<div class="pop-achou">' + (n
         ? '<b>'+n+'</b> '+(n>1?'requisições':'requisição')+' com “'+esc(termo)+'” nesta coluna'
         : 'Nenhuma requisição com “'+esc(termo)+'” nesta coluna')
@@ -1844,7 +1730,6 @@ function marcarBotoesColuna(){
 /* ══════════════ FILTROS NO CELULAR ══════════════ */
 function sheetAberta(){ return document.getElementById('ovFiltros').classList.contains('open'); }
 function abrirFiltrosMobile(){
-  subirEscopo('ano');
   document.getElementById('ovFiltros').classList.add('open');
   const alvo = document.getElementById('fSortMobile');
   alvo.innerHTML = document.getElementById('fSort').innerHTML;
@@ -1923,23 +1808,19 @@ function linhaHTML(r){
 }
 function renderMais(){
   const corpo = document.getElementById('corpo');
-  if(!filtrados.length && _buscandoMais){
-    /* Subir de degrau é uma ida ao banco. Dizer "nenhuma requisição" no meio
-       dela seria mentir por meio segundo — e é justo o meio segundo em que
-       a pessoa está olhando. */
-    document.getElementById('vazio').innerHTML =
-      '<div class="empty"><span>⏳</span>Buscando no banco…</div>';
+  if(!filtrados.length && _carregandoSec){
+    marcarCarregando();
     document.getElementById('loadWrap').style.display='none';
     document.getElementById('resultCount').innerHTML='';
     return;
   }
-  /* Nada nos dois últimos meses, e nenhum filtro: não é "não encontrei",
-     é um recorte pequeno num cadastro grande. */
-  if(!filtrados.length && !REQS.length && ESCOPO !== 'tudo' && !F.busca){
+  if(!filtrados.length && !SEC_ATUAL && !soDespacha()){ telaEscolhaSecretaria(); return; }
+  /* Secretaria carregada e sem nenhuma requisição: não é "não encontrei". */
+  if(!filtrados.length && !REQS.length && SEC_ATUAL){
     document.getElementById('vazio').innerHTML =
-      '<div class="empty"><span>📭</span>Nenhuma requisição recebida em <b>'+esc(nomeDoEscopo())+'</b>.<br>'
-      + '<span style="font-size:13px">O cadastro inteiro continua no banco — '
-      + '<u style="cursor:pointer" onclick="verTudo()">ver todos os anos</u>.</span></div>';
+      '<div class="empty"><span>📭</span>Nenhuma requisição em <b>'+esc(nomeSecretaria(SEC_ATUAL))+'</b> ainda.'
+      + (reqPodeEditar() ? '<br><span style="font-size:13px">Use “＋ Nova requisição” para lançar a primeira.</span>' : '')
+      + '</div>';
     document.getElementById('loadWrap').style.display='none';
     document.getElementById('resultCount').innerHTML='';
     return;
@@ -1948,7 +1829,7 @@ function renderMais(){
     /* "Não encontrei" é resposta ruim quando o registro existe e só está
        fora do recorte da tela. */
     /* Fila vazia não é busca sem resultado: é trabalho em dia. */
-    if(soDespacha() && COLF.desp.sel.desp.has(AGUARDANDO) && !F.busca){
+    if(soDespacha() && COLF.desp.sel.desp.has(AGUARDANDO)){
       document.getElementById('vazio').innerHTML =
         '<div class="empty"><span>✅</span>Nenhuma requisição aguardando despacho.<br>'
         + '<span style="font-size:13px">Assim que uma secretaria lançar, ela aparece aqui sozinha — '
@@ -1957,17 +1838,11 @@ function renderMais(){
       document.getElementById('resultCount').innerHTML='';
       return;
     }
-    const soBusca = REQS.filter(passaBusca).length;
     document.getElementById('vazio').innerHTML =
-      '<div class="empty"><span>🔍</span>Nenhuma requisição com esses filtros.<br>'
-      + (soBusca
-          ? soBusca + (soBusca>1?' requisições combinam':' requisição combina') + ' com a busca fora dos filtros atuais — '
-            + '<u style="cursor:pointer" onclick="limparSoFiltros()">ver assim mesmo</u>.'
-          : (ESCOPO !== 'tudo'
-              ? 'A tela está mostrando <b>'+esc(nomeDoEscopo())+'</b> — '
-                + '<u style="cursor:pointer" onclick="verTudo()">procurar em todos os anos</u>.'
-              : 'Ajuste a busca ou <u style="cursor:pointer" onclick="limparFiltros()">limpe os filtros</u>.'))
-      + '</div>';
+      '<div class="empty"><span>🔍</span>Nenhuma requisição com esses filtros em <b>'
+      + esc(SEC_ATUAL || 'nesta lista') + '</b>.<br>'
+      + '<span style="font-size:13px"><u style="cursor:pointer" onclick="limparFiltros()">Limpe os filtros</u>'
+      + ' ou escolha outra secretaria na faixa acima.</span></div>';
     document.getElementById('loadWrap').style.display='none';
     document.getElementById('resultCount').innerHTML='';
     return;
@@ -2417,7 +2292,7 @@ function pdfDoFiltroAgora(){
   const titulo = SEC_ATUAL ? ('Requisições — '+nomeSecretaria(SEC_ATUAL)) : 'Requisições — todas as secretarias';
   const soma = filtrados.reduce((t,r)=>t+(r.valor||0),0);
   const sub = filtrados.length + ' requisição(ões) · total ' + money(soma)
-            + (F.busca ? ' · busca “'+F.busca+'”' : '');
+;
   pdfHeader(doc, titulo, sub);
   let y = pdfTableHeader(doc, MT-4);
   doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
@@ -2518,8 +2393,9 @@ function marcarTotal(){
       : n.toLocaleString('pt-BR') + ' AGUARDANDO DESPACHO';
     return;
   }
-  chip.textContent = REQS.length.toLocaleString('pt-BR') + ' REQUISIÇÕES'
-    + (ESCOPO === 'tudo' ? '' : ' · ' + nomeDoEscopo().toUpperCase());
+  chip.textContent = SEC_ATUAL
+    ? REQS.length.toLocaleString('pt-BR') + ' EM ' + SEC_ATUAL
+    : 'ESCOLHA UMA SECRETARIA';
 }
 /* As requisições NÃO são pedidas na abertura da página: quem as pede é o
    portão, depois de confirmar que a pessoa entrou e tem o painel liberado

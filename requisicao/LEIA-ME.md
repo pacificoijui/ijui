@@ -121,41 +121,50 @@ tela grava **campo a campo**, e não o documento inteiro.
 
 ## Quanto do banco a tela puxa
 
-A tela carregava a coleção inteira a cada visita. Com 3,6 mil requisições já
-custa; com cinco anos de cadastro seriam 20 mil documentos lidos toda vez que
-alguém aperta F5 para olhar o mês corrente — e o preço cresce sozinho: quem
-abrir a tela em 2030 paga por 2026.
+A tela lia a coleção inteira a cada visita. Com 3,6 mil requisições já custa;
+com cinco anos de cadastro seriam 20 mil documentos lidos toda vez que alguém
+aperta F5 — e o preço cresceria sozinho: quem abrisse a tela em 2030 pagaria
+por 2026.
 
-Então ela pede ao banco em **três degraus**, e sobe um degrau só quando quem
-está usando faz algo que precisa de mais:
+Agora ela lê **uma secretaria por vez**, que é como o setor trabalha — a
+planilha tinha uma aba por secretaria e cada pessoa vive dentro da dela.
 
-| Degrau | Quando | O que lê |
-|---|---|---|
-| `recentes` | abrir o sistema | este mês e o anterior |
-| `ano` | buscar, filtrar, entrar numa secretaria | o ano corrente inteiro |
-| `tudo` | o botão **＋ anos anteriores** | o cadastro, todos os anos |
+| Secretaria | Leituras ao abrir |
+|---|---|
+| SMS (a maior) | 1.007 |
+| SMDS | 339 |
+| SMDR | 168 (a mediana) |
+| SMA (a menor) | 22 |
 
-Na abertura isso é **555 documentos em vez de 3.617 — 85% a menos**. São
-consultas ao Firestore (`where`), não filtro de tela: o que não é pedido não
-é lido nem cobrado.
+Contra **3.617 sempre**, antes. Para metade das secretarias é **95% a
+menos**; para a maior, 72%. E a conta para de crescer com o arquivo: cresce
+só com o tamanho da secretaria de quem está olhando.
 
-Sobe sozinho e **não desce**: quem já pagou pela leitura não paga de novo
-dentro da mesma visita. O botão `↩ só os últimos meses` volta ao barato.
+**Não existe mais "Todas"** — não por falta de vontade, e sim porque "todas"
+era justamente a leitura que ninguém precisa fazer para trabalhar, e era ela
+que pagava por 3,6 mil documentos a cada visita.
 
-A tela **diz** que recorte está mostrando, ao lado da contagem e no chip do
-topo — senão "555 requisições" pareceria o cadastro inteiro.
+**A primeira visita não lê nada.** Sem uma secretaria escolhida a tela pede
+para escolher, e só então consulta. A escolha fica guardada neste navegador,
+então isso acontece uma vez por pessoa.
 
-Cada degrau tem uma consulta a mais para o que ficaria de fora por ser nulo:
-`where('recebido','>=',…)` não casa com data em branco, e **é justamente em
-branco que uma requisição nasce** enquanto está sendo lançada. Sumir com ela
-no instante em que é criada seria o pior defeito possível numa tela de
-lançamento.
+Trocar de secretaria é **outra consulta**, do tamanho dela — não é filtro de
+tela. É a diferença entre esconder linhas e não as ler.
 
-Duas armadilhas que isso abriu, e que estão fechadas: nenhuma requisição nos
-dois últimos meses **não** é banco vazio (a tela dizia "importe o cadastro"
-por cima de 3,6 mil registros), e a conferência com o arquivo do repositório
-só roda no degrau `tudo` — no recorte ela concluiria que faltam 3.500 e
-ofereceria subir tudo de novo.
+### O Diretor é a exceção, e tem de ser
+
+Ele não trabalha dentro de uma secretaria, trabalha **entre** elas. A
+consulta dele é a fila: as requisições **nascidas no sistema**, de todas as
+secretarias. As 3,6 mil que vieram da planilha já foram contratadas antes de
+a coluna existir e não esperam decisão de ninguém — então nem chegam a ser
+lidas. A economia e a clareza pelo mesmo gesto.
+
+### A busca global saiu
+
+Com uma secretaria por vez, "pesquisar em tudo" prometia o que não podia
+cumprir. Procurar passou a ser **procurar numa coluna** — e o menu de cada
+coluna continua com a busca dela, que acha sem acento e diz quantas linhas
+está segurando.
 
 ## Onde ficam os dados
 
