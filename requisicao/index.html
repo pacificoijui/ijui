@@ -673,8 +673,6 @@
 </header>
 
 <main>
-  <div id="avisoImportacao"></div>
-
   <div class="list-toolbar">
     <div class="result-count" id="resultCount"></div>
     <span class="dica-edicao" id="dicaEdicao">clique numa célula para preencher</span>
@@ -1138,44 +1136,71 @@ function iniciarListenerRequisicoes(){
     });
 }
 
-let _desligar = [];
-let _primeiraCarga = true;
-let _carregandoSec = false;
+/* Cada secretaria visitada fica com a consulta ABERTA, e a lista dela na
+   mão. Voltar para uma já aberta é instantâneo e não custa leitura nenhuma
+   — e, melhor, ela chegou atualizada enquanto você estava noutra, porque a
+   consulta continuou ouvindo. Fechar e reabrir seria pagar de novo pelos
+   mesmos documentos.
 
-/* Uma consulta por secretaria; a fila, para o Diretor. Nenhuma delas lê o
-   cadastro inteiro — não existe caminho na tela que leia. */
-function ligarConsultas(){
-  _desligar.forEach(f => f());
-  _desligar = [];
+   O que uma consulta aberta custa depois da primeira leva é só o que MUDA:
+   se alguém lançar em SMS enquanto você está em SMEd, é uma leitura, não
+   mil. Por isso vale deixar aberto em vez de desligar. */
+const ABERTAS = new Map();   /* sigla -> {unsub, lista} */
+let _secMontada = '';        /* o que está desenhado agora: sigla, ou '§fila' */
+let _carregandoSec = false;
+const FILA_DIRETOR = '§fila';
+
+function ouvirSecretaria(sigla){
+  if(ABERTAS.has(sigla)) return;
   const col = firebase.firestore().collection('requisicoes');
-  if(!soDespacha() && !SEC_ATUAL){ REQS = []; renderFaixaSecretarias(); aplicarFiltros(); return; }
-  /* A fila do Diretor são as requisições NASCIDAS no sistema — as que têm
-     "criadaEm". O que veio da planilha já foi contratado antes de a coluna
-     existir e não espera decisão de ninguém, então nem é lido. */
-  const q = soDespacha()
-    ? col.where('criadaEm', '>', '')
-    : col.where('sec', '==', SEC_ATUAL);
-  _carregandoSec = true;
-  marcarCarregando();
-  _desligar.push(q.onSnapshot(snap => {
-    const lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-    FONTE_DADOS = 'firestore';
-    _carregandoSec = false;
-    if(_primeiraCarga){ _primeiraCarga = false; montarPrimeiraCarga(lista); }
-    else reaplicarAoVivo(lista);
-    conferirImportacao();
-  }, e => mostrarErroCarregar(e)));
+  const entrada = {unsub:null, lista:null};
+  ABERTAS.set(sigla, entrada);
+  entrada.unsub = col.where('sec', '==', sigla).onSnapshot(snap => {
+    entrada.lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+    if(SEC_ATUAL === sigla) mostrar(sigla, entrada.lista);
+  }, e => mostrarErroCarregar(e));
+}
+/* A fila do Diretor são as requisições NASCIDAS no sistema — as que têm
+   "criadaEm". O que veio da planilha já foi contratado antes de a coluna
+   existir e não espera decisão de ninguém, então nem é lido. */
+function ouvirFilaDoDiretor(){
+  if(ABERTAS.has(FILA_DIRETOR)) return;
+  const entrada = {unsub:null, lista:null};
+  ABERTAS.set(FILA_DIRETOR, entrada);
+  entrada.unsub = firebase.firestore().collection('requisicoes')
+    .where('criadaEm', '>', '').onSnapshot(snap => {
+      entrada.lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+      mostrar(FILA_DIRETOR, entrada.lista);
+    }, e => mostrarErroCarregar(e));
+}
+/* Desenha a lista. Trocar de recorte é montagem nova (filtros voltam ao
+   padrão); leva do mesmo recorte é atualização ao vivo, que não pode
+   atropelar quem está filtrando. */
+function mostrar(qual, lista){
+  _carregandoSec = false;
+  FONTE_DADOS = 'firestore';
+  if(_secMontada === qual) reaplicarAoVivo(lista);
+  else { _secMontada = qual; montarPrimeiraCarga(lista); }
 }
 
-/* Trocar de secretaria é refazer a consulta, não filtrar o que já veio: é o
-   que faz cada secretaria custar só o tamanho dela. */
+function ligarConsultas(){
+  if(soDespacha()){ SEC_ATUAL = ''; ouvirFilaDoDiretor(); return; }
+  if(!SEC_ATUAL){ REQS = []; renderFaixaSecretarias(); aplicarFiltros(); return; }
+  const ja = ABERTAS.get(SEC_ATUAL);
+  if(ja && ja.lista){ mostrar(SEC_ATUAL, ja.lista); return; }
+  REQS = [];
+  _carregandoSec = true;
+  marcarCarregando();
+  ouvirSecretaria(SEC_ATUAL);
+}
+
+/* Trocar de secretaria: se ela já foi aberta nesta visita, aparece na hora
+   e de graça. Se não, é uma consulta nova, do tamanho dela. */
 function carregarSecretaria(sigla){
   if(sigla === SEC_ATUAL) return;
   SEC_ATUAL = sigla;
   lembrarSecretaria(sigla);
   soltarNova();
-  REQS = [];
-  _primeiraCarga = true;
   renderFaixaSecretarias();
   ligarConsultas();
 }
@@ -1186,9 +1211,9 @@ function marcarCarregando(){
 }
 /* Primeira visita deste navegador: ninguém escolheu ainda, e a tela não
    adivinha. Não lê NADA do banco enquanto não souber de quem é a vez —
-   zero leitura é o começo mais barato possível. */
-/* Só desenha o recado. NÃO chama aplicarFiltros: quem chama é renderMais,
-   e chamar de volta daqui fecharia o laço em cima de si mesmo. */
+   zero leitura é o começo mais barato possível.
+   Só desenha o recado: quem chama aplicarFiltros é renderMais, e chamar de
+   volta daqui fecharia o laço em cima de si mesmo. */
 function telaEscolhaSecretaria(){
   const alvo = document.getElementById('vazio');
   if(alvo) alvo.innerHTML = '<div class="empty"><span>👆</span>'
@@ -1239,104 +1264,6 @@ function mostrarErroCarregar(e){
     '<div class="empty"><span>⚠️</span>Não foi possível carregar as requisições.<br>'+esc(e.message)+'</div>';
 }
 
-/* ══════════════ PRIMEIRA CARGA ══════════════
-   A coleção nasce vazia. Em vez de exigir terminal e credencial de
-   administrador (as regras negam gravação sem login, e é assim que tem de
-   ser), a própria tela sobe o dados/requisicoes.json — logada, com a conta
-   de quem está olhando.
-
-   Sobe em lotes, e com a armadilha que já mordeu na importação dos
-   contratos em mente: assim que o primeiro lote entra, o banco deixa de
-   estar vazio e o listener monta a lista por cima da tela de importação.
-   Por isso o andamento fica num aviso próprio, que o redesenho não apaga,
-   e a conferência com o arquivo é permanente. Reenviar requisição que já
-   está lá não duplica nada: o id do documento é o id da requisição. */
-function podeImportar(){ return !!(reqPodeEditar() && ehAdmin()); }
-let _importando = false;
-let _faltamImportar = null;
-let _recadoImportacao = '';
-
-function avisoImportacao(andamento){
-  const box = document.getElementById('avisoImportacao');
-  if(!box) return;
-  if(andamento !== undefined){
-    _recadoImportacao = andamento;
-    box.innerHTML = '<div class="aviso aviso-azul">'+esc(andamento)+'</div>';
-    return;
-  }
-  if(_importando) return;
-  if(!podeImportar() || !_faltamImportar || !_faltamImportar.length){
-    box.innerHTML = _recadoImportacao ? '<div class="aviso aviso-azul">'+esc(_recadoImportacao)+'</div>' : '';
-    return;
-  }
-  const n = _faltamImportar.length;
-  box.innerHTML = '<div class="aviso aviso-amarelo"><b>'+n
-    + (n>1 ? ' requisições do arquivo ainda não estão no banco.' : ' requisição do arquivo ainda não está no banco.')
-    + '</b> Ou a importação parou no meio, ou o arquivo foi atualizado pela planilha do setor.'
-    + '<button class="acao" onclick="importarDoArquivo()">Subir as que faltam</button></div>';
-}
-function conferirImportacao(){
-  if(_importando || !podeImportar()) return Promise.resolve();
-  /* A tela nunca tem o banco inteiro na mão — lê uma secretaria por vez.
-     Comparar com o arquivo daria sempre "faltam alguns milhares" e
-     ofereceria subir tudo de novo: um botão perigoso nascido de uma conta
-     errada. A migração acabou; o arquivo é peça de museu. */
-  return Promise.resolve();
-  const noBanco = new Set(REQS.filter(r=>r._gravada).map(r => String(r.id)));
-  return arquivoDoRepositorio().then(d => {
-    _faltamImportar = (d.requisicoes||[]).filter(r => !noBanco.has(String(r.id)));
-    avisoImportacao();
-  }).catch(e => { console.error('conferência com o arquivo:', e); });
-}
-function telaBancoVazio(){
-  const alvo = document.getElementById('vazio');
-  if(!alvo) return;
-  alvo.innerHTML = '<div class="empty"><span>📥</span>O banco de requisições ainda está vazio.'
-    + (podeImportar()
-        ? '<br><span style="font-size:13px" id="impQuantos">Conferindo o arquivo do repositório…</span>'
-          + '<div style="margin-top:14px"><button class="btn-gold" onclick="importarDoArquivo()">Importar as requisições agora</button></div>'
-        : '<br><span style="font-size:13px">Peça a um administrador para fazer a primeira importação.</span>')
-    + '</div>';
-  document.getElementById('loadWrap').style.display = 'none';
-  if(podeImportar()) arquivoDoRepositorio().then(d => {
-    const q = document.getElementById('impQuantos');
-    if(q) q.textContent = 'São ' + (d.requisicoes||[]).length.toLocaleString('pt-BR')
-      + ' requisições no arquivo do repositório, prontas para subir.';
-  }).catch(()=>{});
-}
-function importarDoArquivo(){
-  if(_importando) return;
-  if(!podeImportar()){ alert('Só um administrador com permissão de edição pode importar.'); return; }
-  _importando = true;
-  avisoImportacao('Lendo o arquivo…');
-  arquivoDoRepositorio().then(d => {
-    const noBanco = new Set(REQS.filter(r=>r._gravada).map(r => String(r.id)));
-    const faltam = (d.requisicoes||[]).filter(r => !noBanco.has(String(r.id)));
-    if(!faltam.length){ avisoImportacao('O banco já tem as requisições do arquivo.'); return; }
-    if(!confirm('Subir '+faltam.length+' requisição(ões) do arquivo para o banco?\n\nNão feche a página até terminar.')){
-      _faltamImportar = faltam; _importando = false; avisoImportacao(); return;
-    }
-    const db = firebase.firestore();
-    const lotes = [];
-    for(let i=0;i<faltam.length;i+=200) lotes.push(faltam.slice(i,i+200));
-    let feitos = 0;
-    return lotes.reduce((p,lote)=>p.then(()=>{
-      const batch = db.batch();
-      lote.forEach(r => batch.set(db.collection('requisicoes').doc(String(r.id)), paraGuardar(r)));
-      return batch.commit().then(()=>{
-        feitos += lote.length;
-        avisoImportacao('Enviando… '+feitos+' de '+faltam.length+' — não feche a página.');
-      });
-    }), Promise.resolve()).then(()=>{
-      avisoImportacao('Pronto: '+feitos+' requisição(ões) subiram para o banco.');
-    });
-  }).catch(e=>{
-    console.error('importação:', e);
-    avisoImportacao('A importação parou: '+e.message);
-    alert('Não consegui terminar a importação: '+e.message
-      + '\n\nO que já subiu continua no banco. Clique em "Subir as que faltam" para continuar de onde parou.');
-  }).then(()=>{ _importando = false; conferirImportacao(); });
-}
 
 /* ══════════════ UTILIDADES ══════════════ */
 const HOJE = new Date(); HOJE.setHours(0,0,0,0);
@@ -2168,7 +2095,6 @@ function salvarRequisicao(r, campo, antes){
     : docReq(r.id).set(paraGuardar(r)).then(()=>{ r._gravada = true; });
   return promessa.then(()=>{
     toast(ROTULO_CAMPO[campo] + ' salvo.');
-    conferirImportacao();
     despacharRedesenhoPendente();
   }).catch(e=>{
     console.error('gravação:', e);

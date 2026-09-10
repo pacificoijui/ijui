@@ -152,7 +152,20 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* Lembrar poupa a pergunta a cada visita, e é só isso: se o navegador
      esquecer, a tela pede de novo. */
   t('a tela lembra a secretaria de quem usa, neste navegador', trocou.lembrou==='SMA', trocou);
-  await pg.evaluate(()=>escolherSecretaria('SMS'));
+
+  /* Voltar para uma secretaria já aberta é de graça: a consulta continuou
+     ouvindo, então a lista está na mão E chegou atualizada. Fechar e
+     reabrir seria pagar de novo pelos mesmos documentos. */
+  const volta=await pg.evaluate(()=>{
+    const antes=[...ABERTAS.keys()].length;
+    escolherSecretaria('SMS');                 /* sem await: tem de ser síncrono */
+    return {consultasAntes:antes, consultasDepois:[...ABERTAS.keys()].length,
+            sec:SEC_ATUAL, n:REQS.length, abertas:[...ABERTAS.keys()]};
+  });
+  t('voltar a uma secretaria já aberta é instantâneo — sem esperar o banco',
+    volta.sec==='SMS' && volta.n>100, volta);
+  t('e sem consulta nova: não se paga duas vezes pelos mesmos documentos',
+    volta.consultasDepois===volta.consultasAntes && volta.abertas.length===2, volta);
   await pg.waitForFunction(()=>SEC_ATUAL==='SMS'&&REQS.length>100,null,{timeout:15000});
 
   console.log('\n1d) A busca global saiu — procurar é procurar numa coluna');

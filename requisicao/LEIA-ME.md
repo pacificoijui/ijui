@@ -151,6 +151,22 @@ então isso acontece uma vez por pessoa.
 Trocar de secretaria é **outra consulta**, do tamanho dela — não é filtro de
 tela. É a diferença entre esconder linhas e não as ler.
 
+**Cada secretaria visitada fica aberta.** Voltar para uma que você já abriu é
+instantâneo e não custa leitura nenhuma — e ela chegou atualizada enquanto
+você estava noutra, porque a consulta continuou ouvindo. Fechar e reabrir
+seria pagar de novo pelos mesmos documentos. O que uma consulta aberta custa
+depois da primeira leva é só **o que muda**: se alguém lançar em SMS enquanto
+você está em SMEd, é uma leitura, não mil.
+
+### A importação saiu da tela
+
+A migração da planilha acabou. O botão que subia o `requisicoes.json` para o
+banco não tinha mais como funcionar direito — a tela nunca tem o cadastro
+inteiro na mão, então a conferência daria sempre "faltam alguns milhares" — e
+o que sobrava era um botão capaz de reescrever 3.617 documentos por cima do
+banco vivo. Saiu inteiro. Se um dia precisar de carga em massa de novo, é
+trabalho de ferramenta, não de botão numa tela de uso diário.
+
 ### O Diretor é a exceção, e tem de ser
 
 Ele não trabalha dentro de uma secretaria, trabalha **entre** elas. A
