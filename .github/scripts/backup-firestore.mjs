@@ -46,6 +46,7 @@ const LICITACOES = [
   "contratos",
   "contratos_historico",  // quem editou o que, e o desfazer: some sozinho em 365 dias
   "requisicoes",          // as requisicoes das secretarias, com o despacho do Diretor
+  "requisicoes_historico",// quem mexeu no que, e o desfazer: some sozinho em 30 dias
   "status",
   "agentes",
   "observacoes",

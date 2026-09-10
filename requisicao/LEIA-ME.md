@@ -108,17 +108,48 @@ sai é o barulho, não a possibilidade.
 
 ### A fila do Diretor
 
-Quem só despacha **abre na fila**, não no cadastro: as requisições
-aguardando despacho, de **todas as secretarias**. Ele não trabalha dentro de
-uma secretaria — trabalha entre elas —, e abrir em "todas as 3.617" seria
-pedir que procurasse o próprio trabalho.
+Quem despacha ganha um botão — **"⚖️ 6 requisições aguardam despacho"** — que
+abre a **fila**: o que aguarda decisão, de todas as secretarias. Ele não
+trabalha dentro de uma secretaria, trabalha entre elas.
 
-O número no alto da tela conta a fila, não o cadastro: **"5 aguardando
-despacho"**. Despachou, a linha sai da fila. Quando não sobra nada, a tela
-diz que está em dia em vez de dizer que não encontrou nada.
+A fila é um **modo**, não uma cela. Quem só despacha abre nela, porque é o
+trabalho dele; mas clicar numa secretaria sai da fila e mostra a secretaria
+inteira, como para qualquer pessoa — o Diretor também precisa olhar o
+conjunto para decidir. O botão devolve a fila quando quiser.
 
-É sugestão de abertura, não cela: o filtro aparece nos chips com o ✕, e um
-clique em "Limpar filtros" mostra o cadastro inteiro.
+A consulta da fila fica **sempre ouvindo**, mesmo enquanto ele navega por uma
+secretaria: é o que faz o contador do botão estar sempre certo sem custar uma
+leitura a cada clique. Ela é pequena — só o que nasceu no sistema.
+
+Despachou, a linha sai da fila. Quando não sobra nada, o botão fica verde
+(**"✅ nada aguardando despacho"**) e a tela diz que está em dia, em vez de
+dizer que não encontrou nada.
+
+## Registro de atividades
+
+O botão **🕘 Atividades** abre quem mexeu no quê, e quando. Toda gravação
+deixa registro em `requisicoes_historico`, com a requisição inteira antes e
+depois — é o "antes" que torna o **desfazer** possível. Desfazer aqui é
+regravar o valor anterior, não apagar nada, e o próprio desfazer entra no
+registro: dá para desfazer o desfazer.
+
+**Uma linha por requisição, não uma por coluna.** Preencher uma requisição
+são sete ou oito gravações seguidas; uma linha para cada transformaria "a
+Serli lançou a 023/2026" em oito entradas quase idênticas. As alterações da
+mesma pessoa na mesma requisição se juntam numa linha só, gravada quando o
+trabalho ali termina — ao mexer noutra, ao fechar a aba, ao abrir o painel,
+ou depois de 25 segundos parado.
+
+**O despacho não se junta a nada.** É ato de outra pessoa, com outro sentido
+e outra permissão: *"o Rodrigo despachou a 023/2026"* é uma linha por si.
+
+E o desfazer respeita a mesma divisão de poderes: quem preenche desfaz o que
+preencheu, e **só o Diretor desfaz um despacho**. Se fosse a linha inteira, o
+desfazer viraria o buraco por onde a trava vaza.
+
+O registro guarda **30 dias**. O que passa disso é apagado quando alguém abre
+o painel, e as regras do Firestore só deixam apagar o que **já venceu**:
+ninguém consegue sumir com o rastro do que fez ontem — nem um administrador.
 
 A trava não é da tela — a tela só avisa antes. Quem barra de verdade são as
 regras do Firestore, que olham **quais campos mudaram** em cada gravação:

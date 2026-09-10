@@ -556,6 +556,76 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     facetas.slice(0,9));
   await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
 
+  console.log('\n7c) O registro de atividades');
+  /* Toda gravação deixa rastro: quem foi, que campo, quando, e o valor
+     antes e depois. Sem "antes" não há desfazer possível. */
+  /* Uma alteração noutra requisição, para haver mais de um bloco — e um
+     bloco de "editou", com versão anterior, que é o que o desfazer usa. */
+  const outra=await pg.evaluate(()=>filtrados.find(r=>!r._nova && r.empenho).id);
+  await pg.click('td[data-id="'+outra+'"][data-campo="empenho"]');
+  await pg.waitForTimeout(250);
+  await pg.evaluate(()=>{ document.querySelector('td.editando .cel-inp').value=''; });
+  await pg.keyboard.type('7777 (TESTE)');
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
+
+  const reg=await pg.evaluate(()=>histFechar().then(()=>
+    firebase.firestore().collection('requisicoes_historico').get()
+      .then(s=>s.docs.map(d=>Object.assign({_id:d.id}, d.data())))));
+  t('as gravações deixaram registro', reg.length>=2, reg.length);
+  t('com quem, o quê e quando', reg.every(h=>h.uid&&h.acao&&h.quando&&h.campos),
+    reg[0] && Object.keys(reg[0]));
+  /* Preencher uma requisição são sete ou oito gravações. Uma linha para
+     cada viraria ruído no painel e oito documentos no banco onde bastava
+     um — então as da mesma pessoa na mesma requisição se juntam. */
+  const porReq={}; reg.forEach(h=>{ porReq[h.reqId+'|'+h.acao]=(porReq[h.reqId+'|'+h.acao]||0)+1; });
+  t('e uma linha por requisição, não uma por coluna',
+    Object.values(porReq).every(n=>n===1), porReq);
+  t('a linha do lançamento junta os campos preenchidos no bloco',
+    reg.some(h=>h.acao==='criou' && h.campos.length>1), reg.map(h=>h.acao+':'+h.campos.length));
+  t('e com data de validade, senão nunca seria limpo',
+    reg.every(h=>!!h.expiraEm), reg.filter(h=>!h.expiraEm).length);
+  /* 30 dias: o suficiente para achar o que se mexeu esta semana, sem virar
+     um segundo cadastro dentro do banco. */
+  t('a validade é de 30 dias',
+    await pg.evaluate(()=>HIST_DIAS===30));
+  t('a requisição lançada aparece como "lançou", sem versão anterior',
+    reg.some(h=>h.acao==='criou' && h.antes===null), reg.map(h=>h.acao));
+
+  await pg.evaluate(()=>abrirHistorico());
+  await pg.waitForTimeout(700);
+  const oHist=await pg.evaluate(()=>({
+    aberto:document.getElementById('ovHist').classList.contains('open'),
+    linhas:document.querySelectorAll('.hist-linha').length,
+    temDesfazer:!!document.querySelector('.hist-linha .usr-btn'),
+    aviso:document.getElementById('histAviso').textContent,
+    texto:document.getElementById('histLista').textContent.slice(0,120)
+  }));
+  t('o painel abre com as alterações', oHist.aberto && oHist.linhas>=2, oHist);
+  t('e diz por quanto tempo o registro guarda', /30 dias/.test(oHist.aviso), oHist.aviso);
+  t('com botão de desfazer em quem tem versão anterior', oHist.temDesfazer, oHist);
+
+  /* Desfazer devolve SÓ o campo daquele registro — não a linha inteira. É o
+     que impede o desfazer de virar o buraco por onde a trava do despacho
+     vaza. */
+  const antesDesfazer=await pg.evaluate(()=>{
+    const h=_histCache.find(x=>x.acao==='editou' && x.antes && x.campos.indexOf('empenho')>=0);
+    if(!h) return null;
+    return {id:h.antes.id, era:h.antes.empenho, campos:h.campos, registro:h._id};
+  });
+  if(antesDesfazer){
+    await pg.evaluate(id=>histDesfazer(id), antesDesfazer.registro);
+    await pg.waitForTimeout(900);
+    t('desfazer devolve os campos daquele bloco ao valor anterior',
+      (await pg.evaluate(i=>REQS.find(r=>r.id===i).empenho, antesDesfazer.id))===antesDesfazer.era,
+      antesDesfazer);
+    t('e o próprio desfazer entra no registro',
+      await pg.evaluate(()=>histFechar().then(()=>
+        firebase.firestore().collection('requisicoes_historico').get()
+          .then(s=>s.docs.some(d=>d.data().acao==='desfez')))));
+  } else t('desfazer devolve os campos daquele bloco (sem caso na amostra)', true);
+  await pg.evaluate(()=>fecharHist());
+  await pg.waitForTimeout(200);
+
   console.log('\n8) O Diretor: despacha a modalidade, e só');
   /* "somente quem eu poder marcar como o diretor vai poder alterar, e o
      diretor nao vai poder mexer em nenhum campo da planilha, somente
@@ -588,9 +658,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     despacha:reqPodeDespachar(), preenche:reqPodeEditar()
   }));
   t('a tela diz, ao lado do nome, que ele é o Diretor', / · diretor/.test(papel.chip), papel.chip);
-  t('e o convite é para despachar, não para lançar', /DIRETOR/.test(papel.dica), papel.dica);
-  t('o botão de nova requisição não aparece para ele', papel.botaoNova==='none', papel);
-  t('ele despacha e não preenche', papel.despacha && !papel.preenche, papel);
+  t('e a dica vira o atalho do trabalho dele: quantas aguardam despacho',
+    /aguard/.test(papel.dica), papel.dica);
 
   const celulas=await dir.pg.evaluate(()=>{
     const tr=document.querySelector('.tab tbody tr');
@@ -632,6 +701,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       aindaNaFila:filtrados.some(r=>r.id===id),
       fila:filtrados.length
     })), alvo);
+  const naFilaAntes = fila.mostrando;
   t('o despacho grava a modalidade escolhida',
     despachou.doc.despacho==='Dispensa por limite', despachou.doc);
   t('assinado por quem despachou', despachou.doc.despachoPor==='Pedro Pacífico', despachou.doc);
@@ -639,7 +709,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* Fila é fila: despachou, saiu. É o que faz o Diretor sempre olhar para
      o que falta, sem ter de lembrar onde parou. */
   t('e a requisição sai da fila assim que é despachada',
-    !despachou.aindaNaFila && despachou.fila===fila.mostrando-1, despachou);
+    !despachou.aindaNaFila && despachou.fila===naFilaAntes-1, {despachou, naFilaAntes});
   t('num clique só — despacho é decisão, não formulário',
     await dir.pg.evaluate(()=>!document.getElementById('despPop').classList.contains('open')));
 
@@ -685,6 +755,38 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a fila do Diretor lê só as nascidas no sistema, não o cadastro',
     filaSo.todasNascidas && filaSo.leu < filaSo.noBanco/50, filaSo);
   t('e atravessa as secretarias, que é o trabalho dele', filaSo.secretarias>=1, filaSo);
+
+  /* O Diretor NÃO fica preso na fila: ele despacha, mas também precisa
+     olhar uma secretaria inteira para decidir. Antes, clicar numa
+     secretaria não trazia nada — a consulta dele ignorava a escolha. */
+  await dir.pg.evaluate(()=>escolherSecretaria('SMDS'));
+  await dir.pg.waitForFunction(()=>!MODO_FILA && SEC_ATUAL==='SMDS' && REQS.length>100,null,{timeout:15000});
+  const navegou=await dir.pg.evaluate(()=>({
+    fila:MODO_FILA, sec:SEC_ATUAL, n:REQS.length,
+    todasDaSec:REQS.every(r=>r.sec==='SMDS'),
+    chip:document.getElementById('chipTotal').textContent,
+    dica:document.getElementById('dicaEdicao').textContent
+  }));
+  t('o Diretor também navega pelas secretarias', navegou.n>100 && navegou.todasDaSec, navegou);
+  t('e o chip acompanha o recorte em que ele está', /EM SMDS/.test(navegou.chip), navegou.chip);
+  /* O contador continua vivo fora da fila: a consulta dela fica ouvindo. */
+  t('mas o contador da fila continua certo, mesmo fora dela',
+    /aguard/.test(navegou.dica), navegou.dica);
+
+  await dir.pg.evaluate(()=>verFila());
+  await dir.pg.waitForFunction(()=>MODO_FILA && REQS.every(r=>!!r.criadaEm),null,{timeout:15000});
+  const voltouFila=await dir.pg.evaluate(()=>({
+    fila:MODO_FILA, n:REQS.length, chip:document.getElementById('chipTotal').textContent,
+    todasNascidas:REQS.every(r=>!!r.criadaEm)
+  }));
+  t('e o botão devolve a fila — as nascidas no sistema, de onde vierem',
+    voltouFila.fila && voltouFila.todasNascidas, voltouFila);
+  t('com o chip contando a fila outra vez',
+    /AGUARDANDO DESPACHO/.test(voltouFila.chip), voltouFila.chip);
+  t('o botão de nova requisição não aparece para ele', papel.botaoNova==='none', papel);
+  t('ele despacha e não preenche', papel.despacha && !papel.preenche, papel);
+
+
   t('e a coluna DIRETOR também filtra e sai no relatório',
     /{k:'desp', t:'Despacho do Diretor'/.test(html) && /{t:'Diretor',    w:\d+/.test(html));
   /* Larguras medidas, não chutadas: apertar a coluna de olho produz

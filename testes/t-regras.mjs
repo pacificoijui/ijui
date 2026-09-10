@@ -70,6 +70,10 @@ await env.withSecurityRulesDisabled(async (ctx) => {
     { uid: CONTAS.soContrato.uid, acao: "editou", quando: ontem, expiraEm: ontem });
   await setDoc(doc(db, "contratos_historico", "h-recente"),
     { uid: CONTAS.soContrato.uid, acao: "editou", quando: futuro, expiraEm: futuro });
+  await setDoc(doc(db, "requisicoes_historico", "r-vencido"),
+    { uid: CONTAS.reqEdita.uid, acao: "editou", quando: ontem, expiraEm: ontem });
+  await setDoc(doc(db, "requisicoes_historico", "r-recente"),
+    { uid: CONTAS.reqEdita.uid, acao: "editou", quando: futuro, expiraEm: futuro });
 });
 
 const como = (c) => env.authenticatedContext(c.uid, { email: c.perfil.email }).firestore();
@@ -185,6 +189,37 @@ await t("nem o administrador",
   nega(deleteDoc(doc(como(CONTAS.admin), "contratos_historico", "h-recente"))));
 await t("o que passou dos 365 dias, sim: é a limpeza da tela",
   pode(deleteDoc(doc(como(CONTAS.soContrato), "contratos_historico", "h-vencido"))));
+
+console.log("\n4b) Registro das requisições: o Diretor também deixa rastro");
+await t("quem não tem o painel não lê o registro",
+  nega(getDocs(collection(como(CONTAS.soContrato), "requisicoes_historico"))));
+await t("quem tem Requisições: Visualizar lê",
+  pode(getDocs(collection(como(CONTAS.reqVer), "requisicoes_historico"))));
+await t("mas não registra nada",
+  nega(addDoc(collection(como(CONTAS.reqVer), "requisicoes_historico"),
+    { uid: CONTAS.reqVer.uid, acao: "editou", quando: agoraTs(), expiraEm: futuroTs() })));
+await t("quem preenche registra o que preencheu",
+  pode(addDoc(collection(como(CONTAS.reqEdita), "requisicoes_historico"),
+    { uid: CONTAS.reqEdita.uid, acao: "editou", quando: agoraTs(), expiraEm: futuroTs() })));
+/* O despacho é o ato que MAIS precisa de rastro. Se só "editar" pudesse
+   registrar, o Diretor decidiria a modalidade sem deixar registro nenhum. */
+await t("e o Diretor registra o despacho dele",
+  pode(addDoc(collection(como(CONTAS.diretor), "requisicoes_historico"),
+    { uid: CONTAS.diretor.uid, acao: "despachou", quando: agoraTs(), expiraEm: futuroTs() })));
+await t("ninguém registra em nome de outra pessoa",
+  nega(addDoc(collection(como(CONTAS.reqEdita), "requisicoes_historico"),
+    { uid: CONTAS.diretor.uid, acao: "editou", quando: agoraTs(), expiraEm: futuroTs() })));
+await t("registro sem data de validade não entra (nunca seria limpo)",
+  nega(addDoc(collection(como(CONTAS.reqEdita), "requisicoes_historico"),
+    { uid: CONTAS.reqEdita.uid, acao: "editou", quando: agoraTs() })));
+await t("registro gravado não se reescreve",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes_historico", "r-recente"), { acao: "criou" })));
+await t("ninguém apaga registro dentro do prazo — nem quem o escreveu",
+  nega(deleteDoc(doc(como(CONTAS.reqEdita), "requisicoes_historico", "r-recente"))));
+await t("nem o administrador",
+  nega(deleteDoc(doc(como(CONTAS.admin), "requisicoes_historico", "r-recente"))));
+await t("mas o que já venceu sai, que é a limpeza dos 30 dias",
+  pode(deleteDoc(doc(como(CONTAS.reqEdita), "requisicoes_historico", "r-vencido"))));
 
 console.log("\n5) Os links públicos que precisam continuar funcionando");
 await t("assinar decisão sem login: só os campos da assinatura",

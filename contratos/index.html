@@ -2365,13 +2365,13 @@ function excluirAditivo(){
    não apagar nada; o próprio desfazer entra no histórico como mais uma
    edição, então dá para desfazer o desfazer.
 
-   Cada registro nasce com data de validade (365 dias). Quem abre o painel
+   Cada registro nasce com data de validade (30 dias). Quem abre o painel
    varre o que já venceu e apaga, para o histórico não crescer para sempre.
    As regras do Firestore só deixam apagar registro VENCIDO: ninguém
    consegue sumir com o rastro do que fez ontem. Se você ligar uma política
    de TTL no console do Firebase apontando para o campo "expiraEm", o
    próprio Firestore faz essa limpeza sozinho — ver contratos/LEIA-ME.md. */
-const HIST_DIAS = 365;
+const HIST_DIAS = 30;
 const HIST_MAX_LINHAS = 300;     /* o painel mostra as mais recentes */
 let _histCache = [];
 
@@ -2456,7 +2456,9 @@ let _histTemMais = false;
 function abrirHistorico(){
   document.getElementById('ovHist').classList.add('open');
   document.getElementById('histLista').innerHTML = '<div class="empty"><span>🕘</span>Carregando…</div>';
-  document.getElementById('histAviso').innerHTML = '';
+  document.getElementById('histAviso').innerHTML =
+    '<div class="aviso aviso-azul">O histórico guarda <b>' + HIST_DIAS
+    + ' dias</b> de edições. O que passa disso é apagado sozinho.</div>';
   _histCache = []; _histUltimo = null; _histTemMais = false;
   histCarregar(false);
 }
@@ -2477,7 +2479,7 @@ function histCarregar(mais){
 }
 function fecharHist(){ document.getElementById('ovHist').classList.remove('open'); }
 
-/* O que já passou dos 365 dias sai do banco. É uma varredura oportunista:
+/* O que já passou dos 30 dias sai do banco. É uma varredura oportunista:
    roda quando alguém abre o painel, em silêncio, e não atrapalha nada se
    falhar (quem só visualiza não tem permissão de apagar — e não precisa). */
 function histLimparVencidos(){

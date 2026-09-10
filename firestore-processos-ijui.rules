@@ -256,7 +256,7 @@ service cloud.firestore {
     //    para registrar uma edição em nome de outra pessoa;
     //  · nenhum update: registro de histórico não se reescreve. Corrigir o
     //    contrato gera um registro NOVO (é o que o "desfazer" da tela faz);
-    //  · apagar, só o que já passou da validade. Assim a limpeza dos 365
+    //  · apagar, só o que já passou da validade. Assim a limpeza dos 30
     //    dias funciona e, ao mesmo tempo, ninguém consegue sumir com o
     //    rastro do que fez ontem — nem um admin, nem quem fez a edição.
     //
@@ -270,6 +270,25 @@ service cloud.firestore {
         request.resource.data.expiraEm is timestamp;
       allow update: if false;
       allow delete: if contratosEdit() && resource.data.expiraEm < request.time;
+    }
+
+    // Registro de atividades das requisições: um documento por gravação, com
+    // a requisição inteira antes e depois. Mesmas três travas do histórico
+    // dos contratos — o uid é de quem grava, nada se reescreve, e só se
+    // apaga o que já venceu.
+    //
+    // A diferença é quem pode criar: a requisição é gravada campo a campo, e
+    // o despacho é do Diretor. Se só "editar" pudesse registrar, o despacho
+    // do Diretor gravaria sem deixar rastro — que é justamente o ato que
+    // mais precisa de um.
+    match /requisicoes_historico/{id} {
+      allow get, list: if requisicao();
+      allow create: if (requisicaoEdit() || requisicaoDiretor()) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.expiraEm is timestamp;
+      allow update: if false;
+      allow delete: if (requisicaoEdit() || requisicaoDiretor()) &&
+        resource.data.expiraEm < request.time;
     }
   }
 }

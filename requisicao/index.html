@@ -291,6 +291,22 @@
     .hist-quando { width: 100%; }
     .hist-nota { max-width: none; text-align: left; }
   }
+  /* Registro de atividades */
+  .hist-linha { display: flex; gap: 12px; align-items: flex-start; padding: 11px 2px; border-bottom: 1px solid var(--border); }
+  .hist-linha:last-child { border-bottom: none; }
+  .hist-quando { flex-shrink: 0; width: 118px; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; line-height: 1.5; }
+  .hist-corpo { flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; }
+  .hist-quem { font-weight: 800; }
+  .hist-alvo { color: var(--blue-text); font-weight: 700; cursor: pointer; text-decoration: underline; background: none; border: none; padding: 0; font: inherit; }
+  .hist-mud { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hist-mud b { color: #000; font-weight: 700; }
+  .hist-acts { flex-shrink: 0; }
+  .hist-nota { font-size: 11.5px; color: var(--muted); max-width: 150px; text-align: right; line-height: 1.45; }
+  @media (max-width: 700px) {
+    .hist-linha { flex-wrap: wrap; }
+    .hist-quando { width: 100%; }
+    .hist-nota { max-width: none; text-align: left; }
+  }
   .aviso { border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 15px; }
   .aviso-amarelo { background: var(--amber-bg); color: #7a5b00; border: 1.5px solid #f0dca3; }
   .aviso-azul { background: var(--blue-bg); color: var(--blue-text); border: 1.5px solid #c9d9f5; }
@@ -568,6 +584,13 @@
   .pop-achou { font-size: 12px; color: var(--navy); background: var(--blue-bg); border-radius: 8px;
     padding: 7px 10px; margin: 2px 4px 8px; line-height: 1.45; }
   .dica-edicao { font-size: 11.5px; color: var(--muted); font-style: italic; }
+  .dica-btn { background: var(--amber-bg); border: 1.5px solid #f0dca3; color: #7a5b00; border-radius: 20px;
+    padding: 4px 13px; font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+    transition: filter .15s; white-space: nowrap; }
+  .dica-btn:hover { filter: brightness(.96); }
+  .dica-btn.calmo { background: var(--green-bg); border-color: #a8d9b4; color: var(--green); font-weight: 700; }
+  .sec-btn.sec-fila { background: var(--amber-bg); border-color: #f0dca3; color: #7a5b00; }
+  .sec-btn.sec-fila.on { background: var(--navy); border-color: var(--navy); color: #fff; }
   @media (max-width: 900px) { .dica-edicao { display: none; } }
 
   /* colunas desta tela */
@@ -659,6 +682,7 @@
       <span class="proto-chip" id="chipTotal">CARREGANDO</span>
       <span id="authUserChip" class="chip-auth" style="display:none"></span>
       <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+      <button class="btn-ghost" id="btnHist" onclick="abrirHistorico()" style="display:none">🕘 Atividades</button>
       <button class="btn-ghost so-editor" onclick="novaRequisicao()">＋ Nova requisição</button>
       <button class="btn-gold" onclick="pdfDoFiltro()">🖨️ PDF do filtro</button>
     </div>
@@ -737,6 +761,7 @@
 </main>
 
 <div class="mobile-bar">
+  <button class="mb-btn" id="mbHist" onclick="abrirHistorico()" style="display:none">🕘 Atividades</button>
   <button class="mb-btn mb-primary so-editor" onclick="novaRequisicao()">＋ Requisição</button>
   <button class="mb-btn mb-primary" onclick="abrirFiltrosMobile()">Filtros</button>
   <button class="mb-btn mb-gold" onclick="pdfDoFiltro()">🖨️ PDF</button>
@@ -799,6 +824,20 @@
   <div class="cel-pop-pe">
     <span class="cel-pop-dica">Esc desiste</span>
     <button class="cel-pop-ok" onclick="fecharEdicao(true)">Pronto</button>
+  </div>
+</div>
+
+<!-- REGISTRO DE ATIVIDADES -->
+<div class="overlay" id="ovHist" onclick="if(event.target===this)fecharHist()">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-header"><h2>Registro de atividades</h2><button class="modal-close" onclick="fecharHist()">✕</button></div>
+    <div class="modal-body">
+      <div id="histAviso"></div>
+      <div id="histLista"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="fecharHist()">Fechar</button>
+    </div>
   </div>
 </div>
 
@@ -987,10 +1026,9 @@ function authShowApp(){
   /* Quem não preenche não vê o botão de lançar. A trava de verdade são as
      regras do Firestore; esconder botão é cortesia. */
   document.querySelectorAll('.so-editor').forEach(el => { el.style.display = reqPodeEditar() ? '' : 'none'; });
-  const dica = authEl('dicaEdicao');
-  if(dica) dica.textContent = reqPodeEditar() ? 'clique numa célula para preencher'
-                            : reqPodeDespachar() ? 'clique na coluna DIRETOR para despachar'
-                            : 'seu acesso é de leitura';
+  histMostrarBotoes();
+  MODO_FILA = soDespacha();     /* quem só despacha abre na fila */
+  marcarDica();
   /* Só agora — com o acesso confirmado — as requisições são pedidas ao
      Firestore. Ligar antes tomaria "permissão negada" e o listener morreria
      sem tentar de novo. */
@@ -1146,9 +1184,15 @@ function iniciarListenerRequisicoes(){
    se alguém lançar em SMS enquanto você está em SMEd, é uma leitura, não
    mil. Por isso vale deixar aberto em vez de desligar. */
 const ABERTAS = new Map();   /* sigla -> {unsub, lista} */
-let _secMontada = '';        /* o que está desenhado agora: sigla, ou '§fila' */
+let _secMontada = '';        /* o que está desenhado agora: sigla, ou a fila */
 let _carregandoSec = false;
 const FILA_DIRETOR = '§fila';
+/* O Diretor NÃO fica preso na fila. Ele despacha, mas também precisa olhar
+   uma secretaria inteira para decidir — e antes ele não conseguia: clicar
+   numa secretaria não trazia nada, porque a consulta dele ignorava a
+   escolha. Agora a fila é um MODO, ligado pelo botão, e sair dela é clicar
+   numa secretaria como qualquer pessoa. */
+let MODO_FILA = false;
 
 function ouvirSecretaria(sigla){
   if(ABERTAS.has(sigla)) return;
@@ -1170,7 +1214,8 @@ function ouvirFilaDoDiretor(){
   entrada.unsub = firebase.firestore().collection('requisicoes')
     .where('criadaEm', '>', '').onSnapshot(snap => {
       entrada.lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-      mostrar(FILA_DIRETOR, entrada.lista);
+      if(MODO_FILA) mostrar(FILA_DIRETOR, entrada.lista);
+      else marcarDica();          /* o contador do botão continua vivo */
     }, e => mostrarErroCarregar(e));
 }
 /* Desenha a lista. Trocar de recorte é montagem nova (filtros voltam ao
@@ -1184,7 +1229,15 @@ function mostrar(qual, lista){
 }
 
 function ligarConsultas(){
-  if(soDespacha()){ SEC_ATUAL = ''; ouvirFilaDoDiretor(); return; }
+  /* Quem despacha mantém a fila SEMPRE ouvindo, mesmo navegando por
+     secretaria: é o que faz o botão saber quantas aguardam sem custar uma
+     consulta a cada clique. Ela é pequena — só o que nasceu no sistema. */
+  if(reqPodeDespachar()) ouvirFilaDoDiretor();
+  if(MODO_FILA){
+    const fila = ABERTAS.get(FILA_DIRETOR);
+    if(fila && fila.lista) mostrar(FILA_DIRETOR, fila.lista);
+    return;
+  }
   if(!SEC_ATUAL){ REQS = []; renderFaixaSecretarias(); aplicarFiltros(); return; }
   const ja = ABERTAS.get(SEC_ATUAL);
   if(ja && ja.lista){ mostrar(SEC_ATUAL, ja.lista); return; }
@@ -1197,12 +1250,28 @@ function ligarConsultas(){
 /* Trocar de secretaria: se ela já foi aberta nesta visita, aparece na hora
    e de graça. Se não, é uma consulta nova, do tamanho dela. */
 function carregarSecretaria(sigla){
-  if(sigla === SEC_ATUAL) return;
+  if(sigla === SEC_ATUAL && !MODO_FILA) return;
+  MODO_FILA = false;
   SEC_ATUAL = sigla;
   lembrarSecretaria(sigla);
   soltarNova();
   renderFaixaSecretarias();
   ligarConsultas();
+}
+/* Para quem despacha, a dica vira o atalho do trabalho dele: quantas
+   aguardam, e um clique para ver só elas. O número é da FILA inteira, não
+   da secretaria aberta — a consulta da fila fica ouvindo o tempo todo. */
+function marcarDica(){
+  const dica = document.getElementById('dicaEdicao');
+  if(!dica) return;
+  if(reqPodeDespachar()){
+    const n = filaAguardando().length;
+    dica.innerHTML = '<button class="dica-btn'+(n?'':' calmo')+'" onclick="verFila()">'
+      + (n ? '⚖️ ' + n + (n>1 ? ' requisições aguardam despacho' : ' requisição aguarda despacho')
+           : '✅ nada aguardando despacho') + '</button>';
+    return;
+  }
+  dica.textContent = reqPodeEditar() ? 'clique numa célula para preencher' : 'seu acesso é de leitura';
 }
 function marcarCarregando(){
   const alvo = document.getElementById('vazio');
@@ -1227,6 +1296,7 @@ function montarPrimeiraCarga(lista){
   initFiltros(true);
   marcarTotal();
   renderFaixaSecretarias();
+  marcarDica();
   popularDatalists();
   aplicarFiltros();
 }
@@ -1247,6 +1317,7 @@ function reaplicarAoVivo(lista){
               .concat(naoGravadas.filter(r => !lista.some(x => x.id === r.id)));
   marcarTotal();
   renderFaixaSecretarias();
+  marcarDica();
   popularDatalists();
   aplicarFiltros();
   if(detAtual && document.getElementById('ovDet').classList.contains('open')){
@@ -1388,10 +1459,13 @@ function initFiltros(comPadrao){
   /* O Diretor abre na fila dele. Para quem preenche, a tela é o cadastro da
      sua secretaria; para quem despacha, é a fila de todas elas. O filtro
      aparece nos chips, com o ✕: é sugestão de abertura, não cela. */
-  if(comPadrao && soDespacha()) COLF.desp.sel.desp = new Set([AGUARDANDO]);
+  if(comPadrao && MODO_FILA) COLF.desp.sel.desp = new Set([AGUARDANDO]);
 }
 /* Quem só despacha — o Diretor de verdade, não o administrador, que também
    preenche e para quem a fila não é a tela inteira. */
+/* Quem SÓ despacha: para ele a fila é a tela de abertura, porque é o
+   trabalho dele. Quem também preenche abre na secretaria e chega à fila
+   pelo botão. */
 function soDespacha(){ return reqPodeDespachar() && !reqPodeEditar(); }
 
 /* ══════════════ A FAIXA DAS SECRETARIAS ══════════════
@@ -1402,14 +1476,18 @@ function renderFaixaSecretarias(){
   const conta = {};
   REQS.forEach(r=>{ conta[r.sec] = (conta[r.sec]||0)+1; });
   const botao = (sigla, rotulo, n) =>
-    '<button class="sec-btn'+(SEC_ATUAL===sigla?' on':'')+'" onclick="escolherSecretaria('+JSON.stringify(sigla).replace(/"/g,'&quot;')+')" title="'+esc(nomeSecretaria(sigla))+'">'
+    '<button class="sec-btn'+(!MODO_FILA && SEC_ATUAL===sigla?' on':'')+'" onclick="escolherSecretaria('+JSON.stringify(sigla).replace(/"/g,'&quot;')+')" title="'+esc(nomeSecretaria(sigla))+'">'
     + esc(rotulo) + (n===null ? '' : '<span class="sec-n">'+n+'</span>') + '</button>';
   /* Sem "Todas", de propósito: era a única leitura que custava o cadastro
      inteiro, e é justamente a que ninguém precisa para trabalhar. O número
      ao lado da sigla só aparece na que está carregada — nas outras seria
      invenção, porque a tela não as leu. */
   box.innerHTML = '<div class="sec-faixa-inner">'
-    + SECRETARIAS.map(s=>botao(s.sigla, s.sigla, s.sigla===SEC_ATUAL ? conta[s.sigla]||0 : null)).join('')
+    + (reqPodeDespachar() ? '<button class="sec-btn sec-fila'+(MODO_FILA?' on':'')
+        + '" onclick="verFila()" title="O que aguarda despacho, de todas as secretarias">⚖️ Fila'
+        + (filaAguardando().length ? '<span class="sec-n">'+filaAguardando().length+'</span>' : '')
+        + '</button>' : '')
+    + SECRETARIAS.map(s=>botao(s.sigla, s.sigla, !MODO_FILA && s.sigla===SEC_ATUAL ? conta[s.sigla]||0 : null)).join('')
     + '</div>';
 }
 function nomeSecretaria(sigla){
@@ -1430,6 +1508,21 @@ function soltarNova(){
 }
 function escolherSecretaria(sigla){
   if(sigla) carregarSecretaria(sigla);
+}
+/* A fila: o que aguarda despacho, de todas as secretarias. É um recorte do
+   banco como qualquer outro — sair dela é clicar numa secretaria. */
+function verFila(){
+  if(!reqPodeDespachar()) return;
+  MODO_FILA = true;
+  soltarNova();
+  renderFaixaSecretarias();
+  const fila = ABERTAS.get(FILA_DIRETOR);
+  if(fila && fila.lista) mostrar(FILA_DIRETOR, fila.lista);
+  else { REQS = []; _carregandoSec = true; ligarConsultas(); }
+}
+function filaAguardando(){
+  const fila = ABERTAS.get(FILA_DIRETOR);
+  return fila && fila.lista ? fila.lista.filter(aguardaDespacho) : [];
 }
 
 /* ══════════════ FILTRAGEM ══════════════ */
@@ -1747,7 +1840,7 @@ function renderMais(){
     document.getElementById('resultCount').innerHTML='';
     return;
   }
-  if(!filtrados.length && !SEC_ATUAL && !soDespacha()){ telaEscolhaSecretaria(); return; }
+  if(!filtrados.length && !SEC_ATUAL && !MODO_FILA){ telaEscolhaSecretaria(); return; }
   /* Secretaria carregada e sem nenhuma requisição: não é "não encontrei". */
   if(!filtrados.length && !REQS.length && SEC_ATUAL){
     document.getElementById('vazio').innerHTML =
@@ -1762,7 +1855,7 @@ function renderMais(){
     /* "Não encontrei" é resposta ruim quando o registro existe e só está
        fora do recorte da tela. */
     /* Fila vazia não é busca sem resultado: é trabalho em dia. */
-    if(soDespacha() && COLF.desp.sel.desp.has(AGUARDANDO)){
+    if(MODO_FILA && COLF.desp.sel.desp.has(AGUARDANDO)){
       document.getElementById('vazio').innerHTML =
         '<div class="empty"><span>✅</span>Nenhuma requisição aguardando despacho.<br>'
         + '<span style="font-size:13px">Assim que uma secretaria lançar, ela aparece aqui sozinha — '
@@ -2106,12 +2199,18 @@ function camposGravados(campo){
   if(campo==='despacho') return CAMPOS_DO_DESPACHO;
   return [campo];
 }
+/* Os campos que um registro do histórico devolve ao desfazer. */
 function salvarRequisicao(r, campo, antes){
-  const promessa = r._gravada
-    ? docReq(r.id).update(soCampos(r, camposGravados(campo)))
-    : docReq(r.id).set(paraGuardar(r)).then(()=>{ r._gravada = true; });
+  const nascendo = !r._gravada;
+  const promessa = nascendo
+    ? docReq(r.id).set(paraGuardar(r)).then(()=>{ r._gravada = true; })
+    : docReq(r.id).update(soCampos(r, camposGravados(campo)));
   return promessa.then(()=>{
     toast(ROTULO_CAMPO[campo] + ' salvo.');
+    /* O registro vem DEPOIS da gravação e nunca a derruba: se ele falhar, a
+       requisição já está salva, que é o que importa. */
+    histAcumular(nascendo ? 'criou' : (campo === 'despacho' ? 'despachou' : 'editou'),
+                 campo, nascendo ? null : antes, r);
     despacharRedesenhoPendente();
   }).catch(e=>{
     console.error('gravação:', e);
@@ -2139,6 +2238,283 @@ function mensagemDeRecusa(e, campo){
          + 'ou tentou mexer no despacho, que é só do Diretor.';
   }
   return 'Não consegui gravar: ' + (e && e.message ? e.message : e);
+}
+
+/* ══════════════ REGISTRO DE ATIVIDADES ══════════════
+   Toda gravação deixa um registro em "requisicoes_historico": quem foi, que
+   campo mexeu, quando, e a requisição inteira ANTES e DEPOIS. O "antes" é o
+   que torna o desfazer possível — desfazer aqui é regravar o valor
+   anterior, não apagar nada; o próprio desfazer entra no registro como mais
+   uma alteração, então dá para desfazer o desfazer.
+
+   Duas coisas são diferentes do histórico dos contratos, e por bom motivo:
+
+   · a requisição é gravada CAMPO A CAMPO (é o que faz a trava do despacho
+     funcionar), então cada registro é sobre um campo, e desfazer devolve só
+     aquele campo — não a linha inteira;
+   · por isso o desfazer respeita a mesma divisão de poderes: quem preenche
+     desfaz o que preencheu, e só o Diretor desfaz um despacho. Se fosse a
+     linha inteira, desfazer viraria o buraco por onde a trava vaza.
+
+   Cada registro nasce com data de validade (30 dias). Quem abre o painel
+   varre o que venceu e apaga, para o registro não crescer para sempre — e
+   as regras do Firestore só deixam apagar o que JÁ venceu: ninguém consegue
+   sumir com o rastro do que fez ontem. */
+const HIST_DIAS = 30;
+const HIST_MAX_LINHAS = 200;
+let _histCache = [];
+let _histUltimo = null;
+let _histTemMais = false;
+
+function histCol(){ return firebase.firestore().collection('requisicoes_historico'); }
+
+/* O rótulo de cada campo, na ordem em que a requisição é preenchida. */
+const HIST_CAMPOS = [
+  ['sec','secretaria'], ['num','número'], ['ano','ano'], ['sufixo','complemento'],
+  ['recebido','recebida em'], ['despacho','despacho do Diretor'],
+  ['credor','credor'], ['objeto','objeto', true], ['modalidade','modalidade'],
+  ['empenho','empenho'], ['contabilidade','p/ contabilidade'], ['valor','valor']
+];
+function histTexto(campo, v){
+  if(v == null || v === '') return '(vazio)';
+  if(campo === 'valor') return money(v);
+  if(campo === 'recebido' || campo === 'contabilidade') return fmtD(v);
+  return String(v);
+}
+function histDiferencas(antes, depois){
+  if(!antes) return [];
+  const mud = [];
+  HIST_CAMPOS.forEach(([campo, rotulo, longo]) => {
+    const a = histTexto(campo, antes[campo]), d = histTexto(campo, depois[campo]);
+    if(a !== d) mud.push(longo ? {rotulo:rotulo, longo:true} : {rotulo:rotulo, de:a, para:d});
+  });
+  return mud;
+}
+
+/* ── Uma linha por requisição, não por coluna ──
+   Preencher uma requisição são sete ou oito gravações seguidas: data,
+   credor, objeto, modalidade, empenho... Uma linha de registro para cada
+   uma transformaria "a Serli lançou a 023/2026" em oito entradas quase
+   idênticas, e o painel viraria ruído — além de oito documentos no banco
+   onde bastava um.
+
+   Então as alterações da MESMA pessoa na MESMA requisição se juntam numa
+   linha só. Ela fica pendente enquanto o trabalho continua ali e é gravada
+   quando termina: ao mexer noutra requisição, ao fechar a aba, ao abrir o
+   painel, ou depois de um tempo parado. O "antes" guardado é o da PRIMEIRA
+   alteração do bloco, que é o que o desfazer precisa devolver.
+
+   O despacho não se junta a nada: é ato de outra pessoa, com outro sentido
+   e outra permissão — "o Rodrigo despachou a 023/2026" é uma linha por si. */
+const HIST_ESPERA = 25000;   /* parado tanto tempo, o bloco fecha sozinho */
+let _histPend = null;
+
+function histFechar(){
+  const p = _histPend;
+  if(!p) return Promise.resolve();
+  _histPend = null;
+  clearTimeout(p.timer);
+  return histGravar(p.acao, p.campos, p.antes, p.depois);
+}
+function histAcumular(acao, campo, antes, depois){
+  /* Despacho e desfazer são atos fechados: gravam sozinhos, na hora. */
+  if(acao === 'despachou' || acao === 'desfez'){
+    return histFechar().then(() => histGravar(acao, camposGravados(campo), antes, depois));
+  }
+  const p = _histPend;
+  const mesmo = p && p.reqId === depois.id;
+  if(!mesmo) histFechar();
+  const bloco = mesmo ? p : {acao:acao, reqId:depois.id, campos:[], antes:antes, timer:null};
+  /* "criou" ganha do "editou": se a requisição nasceu neste bloco, a linha
+     toda é o lançamento dela. */
+  if(acao === 'criou') bloco.acao = 'criou';
+  camposGravados(campo).forEach(c => { if(bloco.campos.indexOf(c) < 0) bloco.campos.push(c); });
+  bloco.depois = depois;
+  clearTimeout(bloco.timer);
+  bloco.timer = setTimeout(histFechar, HIST_ESPERA);
+  _histPend = bloco;
+  return Promise.resolve();
+}
+/* Fechar o bloco antes de a aba sumir: senão a última requisição preenchida
+   ficaria sem registro nenhum — justamente a mais recente. */
+window.addEventListener('beforeunload', () => { histFechar(); });
+
+/* Registrar NUNCA pode derrubar a gravação da requisição: se o registro
+   falhar (regra ainda não publicada, rede caindo), a requisição já está
+   salva e é isso que importa — o erro vai para o console. */
+function histGravar(acao, campos, antes, depois){
+  if(!authCurrentUser) return Promise.resolve();
+  const agora = new Date();
+  const expira = new Date(agora.getTime() + HIST_DIAS * 86400000);
+  return histCol().add({
+    quando:   firebase.firestore.Timestamp.fromDate(agora),
+    expiraEm: firebase.firestore.Timestamp.fromDate(expira),
+    uid:      authCurrentUser.uid,
+    nome:     authCurrentUser.nome || authCurrentUser.email || '',
+    email:    authCurrentUser.email || '',
+    acao:     acao,
+    campos:   campos || [],
+    reqId:    depois.id,
+    sec:      depois.sec || '',
+    rotulo:   depois.rotulo || '',
+    credor:   depois.credor || '',
+    antes:    antes ? paraGuardar(antes) : null,
+    depois:   paraGuardar(depois)
+  }).catch(e => { console.error('registro de atividades:', e); });
+}
+
+function histMostrarBotoes(){
+  const mostra = reqPodeVer() ? '' : 'none';
+  ['btnHist','mbHist'].forEach(id => { const b = document.getElementById(id); if(b) b.style.display = mostra; });
+}
+function abrirHistorico(){
+  /* Fecha o bloco em aberto antes de ler: senão o painel abriria sem a
+     requisição que a pessoa acabou de preencher. */
+  histFechar();
+  document.getElementById('ovHist').classList.add('open');
+  document.getElementById('histLista').innerHTML = '<div class="empty"><span>🕘</span>Carregando…</div>';
+  document.getElementById('histAviso').innerHTML =
+    '<div class="aviso aviso-azul">O registro guarda <b>' + HIST_DIAS
+    + ' dias</b> de alterações. O que passa disso é apagado sozinho.</div>';
+  _histCache = []; _histUltimo = null; _histTemMais = false;
+  histCarregar(false);
+}
+function fecharHist(){ document.getElementById('ovHist').classList.remove('open'); }
+function histCarregar(mais){
+  let q = histCol().orderBy('quando','desc');
+  if(mais && _histUltimo) q = q.startAfter(_histUltimo);
+  q.limit(HIST_MAX_LINHAS).get().then(snap => {
+    const novos = snap.docs.map(d => Object.assign({_id: d.id}, d.data()));
+    _histCache = mais ? _histCache.concat(novos) : novos;
+    _histTemMais = novos.length === HIST_MAX_LINHAS;
+    if(novos.length) _histUltimo = novos[novos.length-1].quando;
+    histRender();
+    if(!mais) histLimparVencidos();
+  }).catch(e => {
+    document.getElementById('histLista').innerHTML =
+      '<div class="empty"><span>⚠️</span>Não consegui ler o registro.<br>' + esc(e.message) + '</div>';
+  });
+}
+/* O que já passou dos 30 dias sai do banco. Varredura oportunista: roda
+   quando alguém abre o painel, em silêncio, e não atrapalha se falhar
+   (quem só visualiza não tem permissão de apagar — e não precisa). */
+function histLimparVencidos(){
+  if(!reqPodeEditar() && !reqPodeDespachar()) return;
+  const limite = firebase.firestore.Timestamp.fromDate(new Date());
+  histCol().where('expiraEm','<', limite).limit(400).get().then(snap => {
+    if(snap.empty) return;
+    const lote = firebase.firestore().batch();
+    snap.docs.forEach(d => lote.delete(d.ref));
+    return lote.commit();
+  }).catch(e => console.warn('limpeza do registro:', e.message));
+}
+
+const HIST_ACOES = {
+  criou:     'lançou a requisição',
+  editou:    'alterou',
+  despachou: 'despachou',
+  desfez:    'desfez uma alteração em'
+};
+function histQuando(ts){
+  if(!ts || !ts.toDate) return '—';
+  const d = ts.toDate();
+  return d.toLocaleDateString('pt-BR') + '<br>' + d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+}
+/* Quem pode desfazer ESTE registro. A divisão de poderes do despacho vale
+   aqui igual: senão o desfazer seria o buraco por onde ela vaza. */
+function histCampos(h){ return (h.campos && h.campos.length) ? h.campos : (h.campo ? camposGravados(h.campo) : []); }
+function ehDespacho(h){ return histCampos(h).indexOf('despacho') >= 0; }
+/* A divisão de poderes do despacho vale aqui igual: senão o desfazer seria
+   o buraco por onde ela vaza. */
+function histPodeDesfazer(h){
+  if(!h.antes || !histCampos(h).length) return false;
+  return ehDespacho(h) ? reqPodeDespachar() : reqPodeEditar();
+}
+
+function histRender(){
+  const box = document.getElementById('histLista');
+  if(!_histCache.length){
+    box.innerHTML = '<div class="empty"><span>🕘</span>Nenhuma alteração registrada ainda.</div>';
+    return;
+  }
+  box.innerHTML = _histCache.map(h => {
+    const mud = histDiferencas(h.antes, h.depois);
+    const detalhe = mud.length
+      ? '<div class="hist-mud">' + mud.slice(0,6).map(m => m.longo
+            ? '<b>' + esc(m.rotulo) + '</b> alterado'
+            : esc(m.rotulo) + ': <b>' + esc(m.de) + '</b> → <b>' + esc(m.para) + '</b>').join(' · ')
+        + (mud.length > 6 ? ' <i>(e mais ' + (mud.length - 6) + ')</i>' : '') + '</div>'
+      : '';
+    /* Sem "antes" não há o que restaurar: era uma requisição nova. E o
+       sistema não apaga requisição, nem pelas regras — então aqui o
+       desfazer não se aplica, e a linha diz por quê. */
+    const acao = h.antes
+      ? (histPodeDesfazer(h)
+          ? '<button class="usr-btn" onclick="histDesfazer(\'' + h._id + '\')">↶ Desfazer</button>'
+          : (ehDespacho(h)
+              ? '<div class="hist-nota">só o Diretor desfaz um despacho</div>' : ''))
+      : '<div class="hist-nota">requisição nova — não há versão anterior para voltar</div>';
+    return '<div class="hist-linha">'
+      + '<div class="hist-quando">' + histQuando(h.quando) + '</div>'
+      + '<div class="hist-corpo"><span class="hist-quem">' + esc(h.nome || h.email) + '</span> '
+      + (HIST_ACOES[h.acao] || h.acao) + ' '
+      + '<button class="hist-alvo" onclick="histAbrirRequisicao(' + Number(h.reqId) + ','
+      + JSON.stringify(h.sec || '').replace(/"/g,'&quot;') + ')">nº '
+      + esc(h.rotulo || 'sem número') + '</button>'
+      + (h.sec ? ' <span style="color:var(--muted)">· ' + esc(h.sec) + '</span>' : '')
+      + (h.credor ? ' <span style="color:var(--muted)">· ' + esc(h.credor) + '</span>' : '')
+      + detalhe + '</div>'
+      + '<div class="hist-acts">' + acao + '</div>'
+      + '</div>';
+  }).join('')
+  + (_histTemMais
+      ? '<div style="text-align:center;padding:14px 0">'
+        + '<button class="btn-ghost" onclick="histCarregar(true)">Carregar alterações mais antigas</button></div>'
+      : '');
+}
+/* A tela lê uma secretaria por vez: abrir a requisição de outra é trocar de
+   secretaria antes, senão o clique não acharia nada e pareceria quebrado. */
+function histAbrirRequisicao(id, sec){
+  fecharHist();
+  if(sec && (MODO_FILA || sec !== SEC_ATUAL)){
+    carregarSecretaria(sec);
+    setTimeout(() => abrirDet(id), 600);
+    return;
+  }
+  if(!REQS.some(x => x.id === id)){ toast('Essa requisição não está na lista carregada.'); return; }
+  abrirDet(id);
+}
+
+function histDesfazer(idRegistro){
+  const h = _histCache.find(x => x._id === idRegistro);
+  if(!h || !h.antes) return;
+  if(!histPodeDesfazer(h)){
+    alert(ehDespacho(h)
+      ? 'Só quem tem o acesso de Diretor desfaz um despacho.'
+      : 'Você está em modo somente visualização.');
+    return;
+  }
+  const campos = histCampos(h);
+  const atual = REQS.find(x => x.id === h.antes.id);
+  /* Desfazer por cima de uma alteração mais nova jogaria fora o trabalho de
+     quem veio depois, sem avisar. */
+  const houveDepois = atual && campos.some(c => JSON.stringify(atual[c]) !== JSON.stringify(h.depois[c]));
+  const rotulo = HIST_CAMPOS.filter(([c]) => campos.indexOf(c) >= 0).map(([,r]) => r).join(', ') || 'a alteração';
+  if(!confirm('Voltar ' + rotulo + ' da requisição nº ' + (h.rotulo || 'sem número') + ' para como estava?'
+      + (houveDepois ? '\n\nATENÇÃO: esse campo foi alterado de novo depois desta edição. '
+                     + 'Desfazer agora descarta também a alteração mais recente.' : ''))) return;
+  const volta = {};
+  campos.forEach(c => { volta[c] = h.antes[c] === undefined ? null : h.antes[c]; });
+  docReq(h.antes.id).update(volta).then(() => {
+    toast('Alteração desfeita.');
+    const r = REQS.find(x => x.id === h.antes.id);
+    if(r){
+      campos.forEach(c => { r[c] = volta[c]; });
+      prepararReq(r); redesenharLinha(r); renderFaixaSecretarias(); popularDatalists();
+      return histAcumular('desfez', campos[0], atual ? Object.assign({}, h.depois) : null, r);
+    }
+  }).then(() => abrirHistorico())
+    .catch(e => alert(mensagemDeRecusa(e, campos[0])));
 }
 
 /* ══════════════ PDF ══════════════
@@ -2328,12 +2704,13 @@ document.addEventListener('keydown', e=>{
 function marcarTotal(){
   const chip = document.getElementById('chipTotal');
   if(!chip) return;
-  /* Para o Diretor, o número que importa não é o tamanho do cadastro: é o
-     tamanho da fila dele. */
-  if(soDespacha()){
+  /* Na fila, o número que importa não é o tamanho do cadastro: é o tamanho
+     da fila. Fora dela — inclusive para o Diretor, que também navega pelas
+     secretarias — vale o tamanho da secretaria aberta. */
+  if(MODO_FILA){
     const n = REQS.filter(aguardaDespacho).length;
-    chip.textContent = n === 0 ? 'NADA AGUARDANDO DESPACHO'
-      : n.toLocaleString('pt-BR') + ' AGUARDANDO DESPACHO';
+    chip.textContent = n ? n.toLocaleString('pt-BR') + ' AGUARDANDO DESPACHO'
+                         : 'NADA AGUARDANDO DESPACHO';
     return;
   }
   chip.textContent = SEC_ATUAL
