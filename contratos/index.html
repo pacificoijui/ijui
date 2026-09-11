@@ -296,6 +296,10 @@
   .fcampo input:focus, .fcampo select:focus, .fcampo textarea:focus { border-color: var(--navy-light); box-shadow: var(--ring); background: #fff; }
   .fcampo textarea { resize: vertical; line-height: 1.5; }
 
+  .anos-box { display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap;
+    padding:16px 12px 4px; text-align:center; }
+  .anos-txt { font-size:12.5px; color:var(--muted); }
+  .anos-txt b { color:var(--navy); font-weight:700; }
   /* Histórico de edições */
   .hist-linha { display: flex; gap: 12px; align-items: flex-start; padding: 11px 2px; border-bottom: 1px solid var(--border); }
   .hist-linha:last-child { border-bottom: none; }
@@ -605,6 +609,8 @@
     </table>
     <div id="vazio"></div>
   </div>
+  <!-- O recorte do ano corrente, e como pedir o resto. -->
+  <div id="anosCt"></div>
   <div class="load-wrap" id="loadWrap" style="display:none">
     <button class="btn-ghost" onclick="renderMais()" id="btnMais">Carregar mais contratos ↓</button>
   </div>
@@ -929,8 +935,11 @@ function carregarDoArquivo(){
     return r.json();
   });
 }
-function normalizarLista(d){
-  if(!Array.isArray(d) || !d.length) throw new Error('lista de contratos vazia');
+/* podeVazio: a tela lê um recorte (o ano corrente), e um ano sem contrato é
+   resposta legítima. Sem esse aviso, o vazio só pode vir de arquivo quebrado
+   — e aí é erro mesmo. */
+function normalizarLista(d, podeVazio){
+  if(!Array.isArray(d) || (!d.length && !podeVazio)) throw new Error('lista de contratos vazia');
   /* os campos de lista precisam existir: fiscais() e os filtros contam com isso */
   return d.map(c => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
 }
@@ -939,30 +948,116 @@ function normalizarLista(d){
    permite duas pessoas mexerem nos contratos ao mesmo tempo: quem salva um
    contrato ou aditivo aparece na tela da outra na hora, sem F5. A primeira
    leva monta a tela; as seguintes só atualizam o que mudou. */
-let _listenerContratosLigado = false;
+/* ── Quanto do cadastro a tela lê ──
+   A tela já ABRIA nos contratos do ano — mas lia os 1.294 para depois
+   esconder 1.153 deles. Ler e esconder é o pior dos dois mundos: paga-se
+   pelo arquivo inteiro a cada F5 e não se vê nada a mais por isso. E piora
+   sozinho: cada ano novo encarece todas as aberturas de todo mundo.
+
+   Agora a consulta pede só o ano corrente, que é o mesmo recorte que já
+   estava na tela. O resto vem quando alguém procura — buscar, abrir o menu
+   de uma coluna ou limpar os filtros traz o cadastro inteiro, uma vez por
+   visita, e daí em diante ele fica.
+
+   Contrato de 2022 ainda vigente continua existindo e aparecendo: ele só
+   não vem na abertura, exatamente como já não aparecia. */
+const ANO_CORRENTE = new Date().getFullYear();
+let CT_TUDO = false;
+let _desligarCt = [];
+let _ctPrimeira = true;
+let _conferindoVazio = false, _vazioConferido = false;
+
 function iniciarListenerContratos(){
   if(_listenerContratosLigado) return;
   _listenerContratosLigado = true;
-  let primeira = true;
-  firebase.firestore().collection('contratos').onSnapshot(snap => {
-    const lista = snap.docs.map(d => d.data());
-    if(!lista.length && primeira){ telaBancoVazio(); return; }
+  ligarConsultaContratos();
+}
+let _listenerContratosLigado = false;
+
+function ligarConsultaContratos(){
+  _desligarCt.forEach(f => f());
+  _desligarCt = [];
+  const col = firebase.firestore().collection('contratos');
+  const chegou = lista => {
+    if(!lista.length && _ctPrimeira){
+      /* Recorte vazio não é banco vazio: pode ser só um ano sem contrato. Uma
+         leitura de um documento só resolve a dúvida antes de dizer à pessoa
+         que precisa importar o cadastro. */
+      if(CT_TUDO){ telaBancoVazio(); return; }
+      if(!_vazioConferido){
+        if(_conferindoVazio) return;
+        _conferindoVazio = true;
+        const seguir = vazio => {
+          _conferindoVazio = false; _vazioConferido = true;
+          if(vazio && _ctPrimeira) telaBancoVazio();
+          else if(_ctPrimeira) chegou([]);
+        };
+        col.limit(1).get().then(snap => seguir(snap.empty), () => seguir(false));
+        return;
+      }
+    }
     FONTE_DADOS = 'firestore';
-    if(primeira){ primeira = false; CONTRATOS = normalizarLista(lista); iniciar(); abrirContratoDaURL(); }
+    if(_ctPrimeira){ _ctPrimeira = false; CONTRATOS = normalizarLista(lista, true); iniciar(); abrirContratoDaURL(); }
     else reaplicarContratosAoVivo(lista);
     conferirImportacao();
-  }, e => mostrarErroCarregar(e));
+    marcarBotaoAnos();
+  };
+  if(CT_TUDO){
+    _desligarCt.push(col.onSnapshot(snap => chegou(snap.docs.map(d => d.data())),
+                                    e => mostrarErroCarregar(e)));
+    return;
+  }
+  /* Uma consulta a mais para contrato sem ano: where('ano','==',2026) não
+     casa com vazio, e some-lo da abertura seria esconder cadastro. */
+  const levas = [null, null];
+  const juntar = () => { if(!levas.some(l => l === null)) chegou([].concat(levas[0], levas[1])); };
+  _desligarCt.push(col.where('ano','==',ANO_CORRENTE)
+    .onSnapshot(snap => { levas[0] = snap.docs.map(d => d.data()); juntar(); }, e => mostrarErroCarregar(e)));
+  _desligarCt.push(col.where('ano','==',null)
+    .onSnapshot(snap => { levas[1] = snap.docs.map(d => d.data()); juntar(); }, e => mostrarErroCarregar(e)));
+}
+
+/* Traz o cadastro inteiro. Uma vez por visita: depois disso fica. */
+function verTudoContratos(){
+  if(CT_TUDO) return false;
+  CT_TUDO = true;
+  marcarBotaoAnos();
+  ligarConsultaContratos();
+  return true;
+}
+/* O botão do aviso: trazer o cadastro não basta, porque o filtro de coluna
+   ainda está no ano corrente — sem soltá-lo o botão pareceria não fazer
+   nada. Os outros filtros continuam onde estavam: só o recorte do ano sai. */
+function verTodosOsAnos(){
+  verTudoContratos();
+  if(COLF.num && COLF.num.sel.ano) COLF.num.sel.ano = new Set();
+  aplicarFiltros();
+  if(popCol) renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
+}
+function marcarBotaoAnos(){
+  const box = document.getElementById('anosCt');
+  if(!box) return;
+  box.innerHTML = CT_TUDO ? '' : '<div class="anos-box">'
+    + '<span class="anos-txt">Mostrando os contratos de <b>' + ANO_CORRENTE + '</b>. '
+    + 'Os anos anteriores continuam no banco.</span>'
+    + '<button class="btn-ghost" onclick="verTodosOsAnos()">Ver todos os anos</button></div>';
 }
 /* Reaplica a lista vinda do Firestore SEM reiniciar os filtros da tela (ao
    contrário de iniciar(), que zera tudo para o padrão de quando a página
    abre) — é o que faz a atualização ao vivo não atrapalhar quem já estava
    filtrando ou com uma ficha aberta. */
 function reaplicarContratosAoVivo(lista){
-  CONTRATOS = normalizarLista(lista);
+  CONTRATOS = normalizarLista(lista, true);
   CONTRATOS.forEach(prepararContrato);
   popularDatalists();
   aplicarFiltros();
   marcarFonte();
+  /* O menu de coluna conta as linhas de cada opção: se ele estiver aberto
+     quando o resto do cadastro chega (é ele mesmo que pede), as contagens
+     precisam acompanhar. */
+  if(popCol) renderPop();
+  if(sheetAberta()) renderFiltrosMobile();
   if(detAtual && document.getElementById('ovDet').classList.contains('open')){
     const atualizado = CONTRATOS.find(x => x.id === detAtual.id);
     if(atualizado) abrirDet(atualizado.id);
@@ -1058,11 +1153,19 @@ function avisoImportacao(andamento){
     + '</div>';
 }
 
+/* Com só um ano na mão a conta tem de ser feita contra o MESMO recorte:
+   comparar o arquivo inteiro com os 141 do ano diria "faltam mil" e
+   ofereceria subir o cadastro de novo — um botão perigoso nascido de conta
+   errada. Conferir dentro do recorte não custa leitura nenhuma e ainda pega
+   o caso que importa (a planilha nova traz contratos deste ano). */
+function noRecorteDaTela(c){
+  return CT_TUDO || c.ano === ANO_CORRENTE || c.ano == null;
+}
 function conferirImportacao(){
   if(_importando || FONTE_DADOS !== 'firestore' || !podeImportarContratos()) return Promise.resolve();
   const noBanco = new Set(CONTRATOS.map(c => String(c.id)));
   return listaDoArquivo().then(lista => {
-    _faltamImportar = lista.filter(c => !noBanco.has(String(c.id)));
+    _faltamImportar = lista.filter(c => noRecorteDaTela(c) && !noBanco.has(String(c.id)));
     avisoImportacao();
   }).catch(e => { console.error('conferência com o arquivo:', e); });
 }
@@ -1073,6 +1176,10 @@ function importarDoArquivo(){
     alert('Só um administrador com permissão de edição pode importar.');
     return;
   }
+  /* Subir contrato exige saber o que já está lá — com um ano na mão, tudo o
+     que é de 2023 pareceria faltando. Traz o cadastro antes (uma vez) e só
+     então compara. */
+  if(!CT_TUDO){ garantirTudoParaImportar().then(importarDoArquivo); return; }
   _importando = true;
   avisoImportacao('Lendo o arquivo...');
   listaDoArquivo().then(lista => {
@@ -1199,7 +1306,22 @@ function descartarRascunho(){
 function textoJSON(){
   return '[\n' + CONTRATOS.map(c => '  '+JSON.stringify(paraGravar(c))).join(',\n') + '\n]\n';
 }
+function garantirTudoParaImportar(){
+  if(CT_TUDO) return Promise.resolve();
+  verTudoContratos();
+  avisoImportacao('Conferindo o cadastro inteiro antes de subir...');
+  return new Promise(ok => setTimeout(ok, 1500));
+}
+/* Exportar com um ano na mão geraria um arquivo que parece o cadastro e não
+   é. Traz tudo antes, e avisa. */
+function garantirTudoParaExportar(){
+  if(CT_TUDO) return Promise.resolve();
+  verTudoContratos();
+  toast('Trazendo o cadastro inteiro antes de exportar…');
+  return new Promise(ok => setTimeout(ok, 1500));
+}
 function exportarJSON(){
+  if(!CT_TUDO){ garantirTudoParaExportar().then(exportarJSON); return; }
   const txt = textoJSON();
   const a = document.createElement('a');
   const url = URL.createObjectURL(new Blob([txt], {type:'application/json'}));
@@ -1757,6 +1879,8 @@ function buscarEmTudo(){
   const agora = document.getElementById('fBusca').value.trim();
   const comecou = !!agora && !_buscaAnterior;
   _buscaAnterior = agora;
+  /* Pesquisar com um ano só na mão não é pesquisar em tudo. */
+  if(agora) verTudoContratos();
   if(comecou && temRecorte()){
     if(popCol) document.getElementById('popBusca').value = '';
     initFiltros(false);
@@ -1774,6 +1898,9 @@ function limparBusca(){
   document.getElementById('fBusca').focus();
 }
 function limparFiltros(){
+  /* "Limpar filtros" promete o cadastro inteiro — então traz o cadastro
+     inteiro, senão limparia para mostrar o mesmo recorte. */
+  verTudoContratos();
   document.getElementById('fBusca').value = ''; _buscaAnterior = '';
   /* A caixa do menu de coluna também: deixá-la escrita depois de limpar
      mostra um filtro que não está mais valendo. */
@@ -1855,7 +1982,11 @@ function renderChips(){
 let popCol = null;
 function isMobile(){ return window.matchMedia ? window.matchMedia('(max-width: 860px)').matches : (window.innerWidth||999) <= 860; }
 
+/* O menu de coluna conta as linhas de cada opção: com um ano na mão elas
+   diriam menos do que existe, e quem procura um contrato antigo não o
+   acharia. Abrir o menu é pedir para ver o cadastro. */
 function abrirFiltroCol(ev, col, alvo){
+  verTudoContratos();
   if(ev) ev.stopPropagation();
   if(popCol === col){ fecharPop(); return; }
   popCol = col;
@@ -1980,6 +2111,7 @@ function popOrdenar(dir){ if(popCol){ ordenarPor(popCol, dir); renderPop(); } }
    colunas viram uma lista que abre o mesmo menu. */
 function sheetAberta(){ return document.getElementById('ovFiltros').classList.contains('open'); }
 function abrirFiltrosMobile(){
+  verTudoContratos();
   document.getElementById('ovFiltros').classList.add('open');
   renderFiltrosMobile();
 }
@@ -2077,6 +2209,7 @@ function renderMais(){
       + '</div>';
     document.getElementById('loadWrap').style.display = 'none';
     document.getElementById('resultCount').innerHTML = '';
+    marcarBotaoAnos();
     return;
   }
   const fatia = filtrados.slice(mostrando, mostrando+LOTE);
@@ -2087,6 +2220,7 @@ function renderMais(){
   document.getElementById('btnMais').textContent = `Carregar mais (${faltam} restantes) ↓`;
   document.getElementById('resultCount').innerHTML =
     `Exibindo <b>${mostrando}</b> de <b>${filtrados.length}</b> contrato${filtrados.length>1?'s':''}`;
+  marcarBotaoAnos();
 }
 
 /* ══════════════ MODAL DETALHE ══════════════ */
@@ -2547,7 +2681,16 @@ function histRender(){
 }
 function histAbrirContrato(id){
   const c = CONTRATOS.find(x => x.id === id);
-  if(!c){ toast('Esse contrato não está mais no cadastro.'); return; }
+  if(!c){
+    /* Pode ser de outro ano — o recorte da abertura é só o corrente. */
+    if(verTudoContratos()){
+      toast('Buscando o contrato no cadastro…');
+      setTimeout(() => histAbrirContrato(id), 1200);
+      return;
+    }
+    toast('Esse contrato não está mais no cadastro.');
+    return;
+  }
   fecharHist();
   abrirDet(id);
 }

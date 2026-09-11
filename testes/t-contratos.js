@@ -69,11 +69,93 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await pg.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
     await pg.waitForTimeout(900);
   }
+  /* A tela lê só o ano corrente. Quase todo teste daqui para baixo fala do
+     cadastro inteiro — que é o que qualquer pessoa vê ao procurar algo. */
+  async function comTudo(pg){
+    await pg.evaluate(()=>verTudoContratos());
+    await pg.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000,null,{timeout:20000});
+    await pg.waitForTimeout(150);
+  }
 
   const b=await chromium.launch(executablePath?{executablePath}:{});
   const pg=await b.newPage({viewport:{width:1280,height:900}});
   const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
   await abrirContratos(pg, 'editar');
+
+  console.log('\n1b) A tela lê o ano corrente, não o cadastro inteiro');
+  /* A tela já ABRIA nos contratos do ano — mas lia os 1.294 para depois
+     esconder 1.153 deles. Ler e esconder é o pior dos dois mundos: paga-se
+     pelo arquivo inteiro a cada F5 e não se vê nada a mais por isso. */
+  const recorte=await pg.evaluate(()=>({
+    tudo:CT_TUDO, leu:CONTRATOS.length,
+    noBanco:Object.keys(window.__STORE.contratos).length,
+    soDoAno:CONTRATOS.every(c=>c.ano===new Date().getFullYear() || c.ano==null),
+    aviso:(document.getElementById('anosCt')||{}).textContent||''
+  }));
+  t('abre lendo só o ano corrente', !recorte.tudo && recorte.soDoAno, recorte);
+  t('e isso é uma fração do cadastro',
+    recorte.leu>0 && recorte.leu < recorte.noBanco/3, {leu:recorte.leu, tem:recorte.noBanco});
+  t('a tela diz o que está mostrando, e como ver o resto',
+    /todos os anos/.test(recorte.aviso), recorte.aviso.slice(0,90));
+
+  /* O botão do aviso: trazer o cadastro não basta se o filtro de coluna
+     continuar no ano corrente — o botão pareceria não fazer nada. */
+  await pg.click('#anosCt button');
+  await pg.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000, null, {timeout:20000});
+  await pg.waitForTimeout(250);
+  const soltou=await pg.evaluate(()=>({
+    naTela: filtrados.length, lidos: CONTRATOS.length,
+    anosMarcados: COLF.num.sel.ano.size,
+    aviso: (document.getElementById('anosCt')||{}).textContent||''
+  }));
+  t('"Ver todos os anos" solta o recorte e mostra os anos anteriores',
+    soltou.naTela>1000 && soltou.anosMarcados===0, soltou);
+  t('e o aviso do recorte some junto', soltou.aviso==='', soltou.aviso.slice(0,60));
+
+  /* Volta ao estado de abertura para o resto da seção. */
+  await pg.evaluate(()=>{ CT_TUDO=false; _ctPrimeira=true; _vazioConferido=false;
+                          ligarConsultaContratos(); });
+  await pg.waitForFunction(()=>!CT_TUDO && CONTRATOS.length<1000, null, {timeout:20000});
+  await pg.evaluate(()=>{ initFiltros(true); aplicarFiltros(); });
+  await pg.waitForTimeout(200);
+
+  /* Abrir o menu de uma coluna também traz: as opções contam linhas, e com
+     um ano na mão elas diriam menos do que existe. */
+  await pg.click('.cf[data-col="sec"]');
+  await pg.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000, null, {timeout:20000});
+  await pg.waitForTimeout(250);
+  t('abrir o menu de uma coluna traz o cadastro, para as opções não mentirem',
+    await pg.evaluate(()=>CT_TUDO && CONTRATOS.length>1000));
+  await pg.evaluate(()=>fecharPop());
+  await pg.evaluate(()=>{ CT_TUDO=false; _ctPrimeira=true; _vazioConferido=false;
+                          ligarConsultaContratos(); });
+  await pg.waitForFunction(()=>!CT_TUDO && CONTRATOS.length<1000, null, {timeout:20000});
+  await pg.evaluate(()=>{ initFiltros(true); aplicarFiltros(); });
+  await pg.waitForTimeout(200);
+
+  /* Guardado antes do primeiro clique: a seção 19 fala do estado de
+     abertura da busca, e clicar nela é justamente o que tira o readonly. */
+  const buscaNasceReadonly=await pg.evaluate(()=>document.getElementById('fBusca').hasAttribute('readonly'));
+
+  /* Procurar traz o cadastro: "pesquisar em tudo" com um ano na mão não é
+     pesquisar em tudo. */
+  await pg.click('#fBusca');
+  await pg.waitForTimeout(150);
+  await pg.type('#fBusca','a');
+  await pg.waitForTimeout(1500);
+  const trouxe=await pg.evaluate(()=>({tudo:CT_TUDO, leu:CONTRATOS.length}));
+  t('procurar traz o cadastro inteiro', trouxe.tudo && trouxe.leu>1000, trouxe);
+  await pg.fill('#fBusca','');
+  await pg.waitForTimeout(300);
+  t('e não volta a encolher — quem já pagou a leitura não paga de novo',
+    await pg.evaluate(()=>CT_TUDO));
+  t('o aviso do recorte some depois disso',
+    (await pg.evaluate(()=>(document.getElementById('anosCt')||{}).textContent||''))==='');
+  /* Devolve a tela ao estado de abertura (com o recorte do ano no filtro),
+     que é o que as seções seguintes descrevem. */
+  await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; _buscaAnterior='';
+                          initFiltros(true); aplicarFiltros(); });
+  await pg.waitForTimeout(300);
 
   console.log('\n2) A tela carrega a lista de fora e monta tudo');
   const est=await pg.evaluate(()=>({
@@ -425,6 +507,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const pgp=await b.newPage({viewport:{width:1280,height:900}});
   const errsPdf=[]; pgp.on('pageerror',e=>errsPdf.push(e.message));
   await abrirContratos(pgp, 'editar', jspdf);
+  await comTudo(pgp);
   /* Geração ficou assíncrona: a logo do município vem de um arquivo, e o
      PDF espera ela chegar antes de desenhar o cabeçalho. */
   const pdfs=await pgp.evaluate(async ()=>{
@@ -656,6 +739,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   console.log('\n9) O portão: sem acesso não entra, e "Visualizar" não grava');
   const pgVer=await b.newPage({viewport:{width:1280,height:900}});
   await abrirContratos(pgVer, 'ver');
+  await comTudo(pgVer);
   const soVer=await pgVer.evaluate(()=>({
     entrou: document.getElementById('authGate').style.display==='none',
     total: CONTRATOS.length,
@@ -716,7 +800,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     andamento: (document.getElementById('avisoImportacao')||{}).textContent||''
   }));
   t('todos os contratos do arquivo entram no banco', importou.noBanco===N, {esperado:N, veio:importou.noBanco});
-  t('e a tela se monta sozinha com eles', importou.naTela===N && importou.linhas>0, importou);
+  /* Importar precisa do cadastro inteiro na mão para saber o que já está lá,
+     então a estreia termina com tudo à vista — e num banco vazio expandir
+     não custa leitura nenhuma. */
+  t('e a tela se monta sozinha com eles', importou.naTela===N && importou.linhas>0,
+    {esperado:N, veio:importou.naTela, linhas:importou.linhas});
   t('o andamento sobrevive ao redesenho da lista (não vive dentro de #vazio)',
     /Pronto: \d+ contrato/.test(importou.andamento), importou.andamento.slice(0,90));
   t('terminado, não sobra aviso de contrato faltando',
@@ -746,12 +834,20 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     temBotao: !!document.querySelector('#avisoImportacao button')
   }));
   t('o banco pela metade não passa despercebido', /ainda não est/.test(pelaMetade.aviso), pelaMetade.aviso.slice(0,90));
-  t('o aviso diz quantos faltam', pelaMetade.faltam===N-400 && pelaMetade.aviso.includes(String(N-400)),
-    {esperado:N-400, veio:pelaMetade.faltam});
+  /* A conta é feita contra o recorte que a tela tem na mão: comparar o
+     arquivo inteiro com os contratos do ano diria "faltam mil" e ofereceria
+     subir o cadastro de novo — um botão perigoso nascido de conta errada. */
+  const FALTAM_NO_ANO=dados.filter(c=>(c.ano===new Date().getFullYear()||c.ano==null)
+                                   && !dados.slice(0,400).some(x=>x.id===c.id)).length;
+  t('o aviso diz quantos faltam, medindo pelo mesmo recorte que está na tela',
+    pelaMetade.faltam===FALTAM_NO_ANO && pelaMetade.aviso.includes(String(FALTAM_NO_ANO)),
+    {esperado:FALTAM_NO_ANO, veio:pelaMetade.faltam});
   t('e traz o botão para completar', pelaMetade.temBotao, pelaMetade.temBotao);
 
+  /* Subir traz o cadastro inteiro antes de comparar — sem isso, contrato de
+     2019 que já está no banco pareceria faltando e subiria de novo. */
   await pgMeio.evaluate(()=>{ window.confirm=()=>true; importarDoArquivo(); });
-  await pgMeio.waitForFunction(()=>_importando===false && CONTRATOS.length>400, null, {timeout:60000});
+  await pgMeio.waitForFunction(()=>CT_TUDO && _importando===false && CONTRATOS.length>400, null, {timeout:60000});
   const completou=await pgMeio.evaluate(()=>({
     noBanco: Object.keys(window.__STORE.contratos).length,
     naTela: CONTRATOS.length,
@@ -765,6 +861,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const pgHist=await b.newPage({viewport:{width:1280,height:900}});
   const errsHist=[]; pgHist.on('pageerror',e=>errsHist.push(e.message));
   await abrirContratos(pgHist, 'editar');
+  await comTudo(pgHist);
   const alvo=dados[0].id;
   const objetoAntigo=await pgHist.evaluate(a=>CONTRATOS.find(x=>x.id===a).objeto, alvo);
   await pgHist.evaluate(a=>{
@@ -863,6 +960,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   console.log('\n14) Só visualização: histórico é leitura, sem desfazer');
   const pgHistVer=await b.newPage({viewport:{width:1280,height:900}});
   await abrirContratos(pgHistVer, 'ver');
+  await comTudo(pgHistVer);
   await pgHistVer.evaluate(()=>abrirHistorico());
   await pgHistVer.waitForTimeout(600);
   const histSoVer=await pgHistVer.evaluate(()=>({
@@ -1005,6 +1103,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   /* a tela ABRE no recorte de sempre — limpar é outra coisa */
   const pgAbre=await b.newPage({viewport:{width:1280,height:900}});
   await abrirContratos(pgAbre, 'editar');
+  await comTudo(pgAbre);
   const abertura=await pgAbre.evaluate(()=>({
     chips: document.getElementById('chipsAtivos').textContent,
     ordem: document.getElementById('fSort').value,
@@ -1045,6 +1144,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      mas existe, está fora do recorte. */
   const pgB=await b.newPage({viewport:{width:1280,height:900}});
   await abrirContratos(pgB, 'editar');
+  await comTudo(pgB);
   const antesDeBuscar=await pgB.evaluate(()=>({
     chips:document.getElementById('chipsAtivos').textContent,
     linhas:filtrados.length, total:CONTRATOS.length
@@ -1093,7 +1193,6 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      busca com a senha salva, porque o formulário de login continuava no
      documento — escondido, mas de pé — depois de a pessoa entrar. */
   const senhas=await pg.evaluate(()=>({
-    buscaReadonly: document.getElementById('fBusca').hasAttribute('readonly'),
     loginDesabilitado: ['authEmail','authPass','authPassC','authPass2']
       .every(id=>{ const e=document.getElementById(id); return e && e.disabled; }),
     loginVazio: ['authEmail','authPass','authPassC','authPass2']
@@ -1101,7 +1200,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }));
   t('os campos de login ficam desabilitados depois de entrar', senhas.loginDesabilitado, senhas);
   t('e vazios', senhas.loginVazio, senhas);
-  t('a busca nasce readonly, que é o que o Chrome respeita', senhas.buscaReadonly, senhas);
+  t('a busca nasce readonly, que é o que o Chrome respeita', buscaNasceReadonly);
   /* readonly não pode virar um campo que não se digita */
   await pg.evaluate(()=>{ fecharDet(); fecharHist(); });   /* uma ficha ficou aberta acima */
   await pg.click('#fBusca');

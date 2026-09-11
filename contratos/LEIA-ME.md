@@ -46,12 +46,50 @@ negar a leitura, a tela mostra o erro em vez de cair no arquivo — o arquivo
 A tela abre nos contratos **do ano corrente**, do último cadastrado para
 trás: quem chega de manhã quer ver o que entrou desde ontem.
 
-Isso é bom para quem chega e ruim para quem vem procurar — e o campo do
-alto diz "pesquisar em tudo". Então ao **começar** uma busca ele limpa os
-filtros de coluna (o recorte do ano incluso) e avisa na tela. Antes,
-procurar uma empresa de 2019 respondia "nenhum contrato" para um contrato
-que existe. Só a primeira letra abre: se você filtrar depois de buscar, é
-porque quis cruzar as duas coisas, e o filtro fica.
+O recorte é de verdade: a consulta ao Firestore pede
+`where('ano','==',2026)` — hoje 141 documentos dos 1.294. Antes a tela lia
+os 1.294 e escondia 1.153 na hora de desenhar, que é o pior dos dois
+mundos: paga-se o cadastro inteiro a cada F5 e não se vê nada a mais por
+isso. Contrato de 2022 ainda vigente continua existindo e aparecendo — ele
+só não vem na abertura, exatamente como já não aparecia.
+
+Uma consulta a mais acompanha ela, para contrato **sem ano preenchido**:
+`where('ano','==',null)` não sai de graça no mesmo filtro, e somê-lo da
+abertura seria esconder cadastro.
+
+O resto vem quando alguém procura. **Uma vez por visita**, e daí em diante
+fica: quem já pagou a leitura não paga de novo ao trocar de filtro. Traz o
+cadastro inteiro quem:
+
+* digitar qualquer coisa na busca do alto (ela diz "pesquisar em tudo" —
+  com um ano na mão, não seria);
+* abrir o menu de filtro de uma coluna (as opções têm de ser as do
+  cadastro, não as do ano);
+* abrir a folha de filtros do celular;
+* clicar em **Limpar filtros**;
+* pedir o JSON ou a importação (os dois precisam do cadastro inteiro para
+  não gerar arquivo torto nem subir contrato que já está lá).
+
+Enquanto o recorte está de pé, um aviso embaixo da lista diz o que está na
+tela e traz o botão **Ver todos os anos**. Ele some sozinho depois que o
+cadastro inteiro chega.
+
+Ao **começar** uma busca a tela também limpa os filtros de coluna e avisa.
+Antes, procurar uma empresa de 2019 respondia "nenhum contrato" para um
+contrato que existe. Só a primeira letra abre: se você filtrar depois de
+buscar, é porque quis cruzar as duas coisas, e o filtro fica.
+
+### Banco vazio × ano vazio
+
+Recorte vazio não é banco vazio — pode ser só um ano sem contrato. Antes de
+dizer a um administrador "o banco está vazio, importe o cadastro", a tela
+faz **uma** leitura (`limit(1)`) para separar os dois casos.
+
+Pela mesma razão, a conferência com o `dados/contratos.json` é feita dentro
+do recorte: comparar o arquivo inteiro com os 141 do ano diria "faltam mil"
+e ofereceria subir o cadastro de novo — um botão perigoso nascido de conta
+errada. Já o botão **Subir os que faltam**, quando clicado, traz o cadastro
+inteiro antes de comparar.
 
 ## Cadastro, edição e aditivos
 
@@ -68,6 +106,12 @@ valor de origem + soma dos aditivos, e o prazo do aditivo assinado mais
 recentemente. Assim a lista, os filtros e os relatórios continuam lendo
 `valor` e `vencimento` sem saber que aditivo existe — e editar ou apagar um
 aditivo refaz a conta sem somar duas vezes.
+
+Os aditivos moram **dentro** do documento do contrato, numa lista. Isso tem
+efeito direto na conta do Firebase: um contrato com 20 aditivos continua
+sendo **um** documento — uma gravação ao salvar, uma leitura ao carregar,
+com os 20 aditivos juntos. Aditivo não vira documento, e por isso não vira
+leitura.
 
 ### Quem pode editar
 
