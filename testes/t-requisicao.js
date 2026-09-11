@@ -144,6 +144,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e a tela oferece as mais antigas, dizendo o que está mostrando',
     /mais antigas/.test(janela.botao), janela.botao.slice(0,90));
 
+  /* Daqui até o fim da expansão, o que importa é o PREÇO: trocar a consulta
+     dos dois meses pela secretaria inteira releria as linhas que já estão na
+     tela. Numa secretaria de 500, "ver as mais antigas" cobraria as 500 em
+     vez das que faltam. */
+  await pg.evaluate(()=>window.__zerarLidos());
   const expandiu=await pg.evaluate(()=>{ verTudoDaSecretaria(); return true; });
   /* Esperar o DADO chegar, não a marca de "completa" — ela é posta antes,
      no instante em que a consulta troca. */
@@ -151,10 +156,32 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     && REQS.some(r=>r.recebido && r.recebido < inicioDaJanela()),null,{timeout:20000});
   await pg.waitForTimeout(200);
   const completa=await pg.evaluate(()=>({leu:REQS.length, completa:secCompleta(),
+    lidos:(window.__LIDOS||{}).requisicoes||0,
     botao:(document.getElementById('antigas')||{}).textContent||''}));
   t('o botão traz o cadastro inteiro daquela secretaria',
     expandiu && completa.completa && completa.leu>janela.leu, completa);
   t('e some depois disso, porque não há mais o que trazer', completa.botao==='', completa.botao);
+  /* As consultas dos dois meses continuam de pé: entra só a das antigas.
+     A faixa aceita as sem data em cima: no Firestore de verdade o nulo é
+     menor que qualquer texto e cai também em "antigas" (o id desduplica),
+     e este stub não ordena tipos assim. O que o teste tem de garantir é o
+     que vale nos dois: as da janela não voltam. */
+  const conta=await pg.evaluate(()=>{
+    const ini=inicioDaJanela();
+    const daSec=Object.values(window.__STORE.requisicoes).filter(r=>r.sec==='SMS');
+    return {antigas:daSec.filter(r=>r.recebido && r.recebido < ini).length,
+            semData:daSec.filter(r=>!r.recebido).length};
+  });
+  t('expandir lê só as mais antigas — as dos dois meses não são relidas',
+    completa.lidos >= conta.antigas && completa.lidos <= conta.antigas + conta.semData,
+    {lidos:completa.lidos, antigas:conta.antigas, semData:conta.semData,
+     naSecretaria:janela.naSecretaria});
+  t('e é bem menos do que a secretaria inteira, que era o preço antigo',
+    completa.lidos < janela.naSecretaria, {lidos:completa.lidos, secretaria:janela.naSecretaria});
+  t('somando, abrir e expandir custa a secretaria UMA vez',
+    completa.lidos + janela.leu >= janela.naSecretaria
+      && completa.lidos + janela.leu <= janela.naSecretaria + conta.semData,
+    {abertura:janela.leu, expansao:completa.lidos, secretaria:janela.naSecretaria});
 
   /* Completa uma vez, fica completa: sair e voltar não relê nada. */
   await pg.evaluate(()=>escolherSecretaria('SMA'));
@@ -865,6 +892,63 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }, alvo);
   t('mas ele não abre o credor nem chamando editarCelula por fora',
     !naMarra.abriu && !naMarra.podeCredor, naMarra);
+  console.log('\n  A fila LÊ só o que aguarda — ela encolhe, não cresce');
+  /* Sem isso a consulta cresceria para sempre, uma linha por requisição já
+     criada no sistema, e o Diretor pagaria por todas a cada F5 para ver as
+     poucas que faltam. */
+  const consulta=await dir.pg.evaluate(()=>({
+    semIndice:_filaSemIndice,
+    /* o que a consulta pede, não o que a tela mostra depois de filtrar */
+    daConsulta:(ABERTAS.get('§fila').lista||[]).map(r=>({id:r.id, desp:r.despacho||''})),
+    recem:[...FILA_RECEM.keys()]
+  }));
+  t('a fila do Diretor não usa o caminho sem índice', consulta.semIndice===false, consulta.semIndice);
+  /* A consulta da fila cruza igualdade num campo com faixa noutro, e isso
+     exige índice composto. Enquanto ele não existir no console, o Firestore
+     responde "failed-precondition" — e ninguém pode ficar sem fila por
+     causa disso. */
+  const semIndice=await dir.pg.evaluate(()=>{
+    const fila=ABERTAS.get('§fila');
+    if(fila && fila.unsub) fila.unsub();
+    ABERTAS.delete('§fila');
+    _filaSemIndice=true;                       /* como se o índice não existisse */
+    ouvirFilaDoDiretor();
+    return new Promise(r=>setTimeout(()=>r({
+      leu:(ABERTAS.get('§fila').lista||[]).length,
+      aguardando:filaAguardando().length
+    }),400));
+  });
+  t('sem o índice a fila cai na consulta larga, em vez de ficar vazia',
+    semIndice.leu>0 && semIndice.aguardando>0, semIndice);
+  t('e o caminho de volta existe no código, não é só intenção',
+    /failed-precondition/.test(fs.readFileSync('../requisicao/index.html','utf8')));
+  /* O que veio da consulta tem de estar todo sem despacho. A única exceção
+     é o que ele despachou AGORA, que a tela segura de propósito. */
+  t('tudo o que a consulta traz está aguardando despacho',
+    consulta.daConsulta.every(r=>!r.desp || consulta.recem.includes(String(r.id))),
+    consulta.daConsulta.filter(r=>r.desp).slice(0,3));
+  t('e o que ele acabou de despachar continua ao alcance, para desfazer',
+    consulta.recem.length>0, consulta.recem);
+  /* Requisição nova tem de NASCER com despacho vazio escrito: campo ausente
+     não casa com consulta nenhuma no Firestore, e ela nasceria fora da fila
+     — o defeito mais caro que esta tela poderia ter. */
+  t('requisição nova nasce com o campo despacho escrito, vazio',
+    await dir.pg.evaluate(()=>{
+      const antes=REQS.length; novaRequisicao();
+      const nova=REQS.find(r=>r._nova);
+      const ok = nova && nova.despacho==='' && 'despacho' in nova;
+      descartarLinha(nova.id);
+      return ok && REQS.length<=antes+1;
+    }));
+  /* Sair da fila esquece as recém-despachadas: voltar mostra a fila de
+     verdade, só o que ainda aguarda. */
+  await dir.pg.evaluate(()=>carregarSecretaria('SMS'));
+  await dir.pg.waitForTimeout(400);
+  t('sair da fila esquece as recém-despachadas',
+    (await dir.pg.evaluate(()=>FILA_RECEM.size))===0);
+  await dir.pg.evaluate(()=>verFila());
+  await dir.pg.waitForTimeout(400);
+
   /* A consulta do Diretor é a fila, e só ela: as 3,6 mil que vieram da
      planilha já foram contratadas antes de a coluna existir e não esperam
      decisão de ninguém — então nem chegam a ser lidas. É a economia e a
@@ -937,6 +1021,50 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('sem erro de JavaScript na tela do Diretor', dir.errs.length===0, dir.errs);
 
   console.log('\n9) Quem só visualiza não mexe em nada');
+  console.log('\n Requisição antiga sem o campo despacho não some da fila');
+  /* Campo AUSENTE não casa com consulta nenhuma no Firestore: as criadas no
+     sistema antes de o campo passar a nascer escrito ficariam invisíveis
+     para o Diretor. Quem conserta é a tela de quem PREENCHE — o Diretor não
+     tem permissão de gravar nada além do despacho, e os documentos já estão
+     na mão de quem abre a secretaria, então não custa leitura. */
+  const conserto=await abrir('editar', null, 'SMA');
+  /* Plantada numa secretaria que a tela NÃO está mostrando: assim ela fica
+     como estava no banco, sem listener nenhum em cima, e dá para conferir
+     que nasceu mesmo sem o campo. */
+  const plantou=await conserto.pg.evaluate(()=>{
+    const base=Object.values(window.__STORE.requisicoes).find(r=>r.criadaEm) || {};
+    const velha=Object.assign({}, base, {id:99321, num:99321, sufixo:'', sec:'SMEd',
+                                         recebido:hojeISO(),
+                                         criadaEm:'2026-01-02T10:00:00.000Z'});
+    delete velha.despacho;                    /* como era antes da mudança */
+    return firebase.firestore().collection('requisicoes').doc('99321').set(velha)
+      .then(()=>({tem:'despacho' in window.__STORE.requisicoes['99321'], sec:SEC_ATUAL}));
+  });
+  t('o teste plantou mesmo uma requisição sem o campo',
+    plantou.tem===false && plantou.sec!=='SMEd', plantou);
+  /* Basta abrir a secretaria dela: os documentos já estão na mão. */
+  await conserto.pg.evaluate(()=>carregarSecretaria('SMEd'));
+  await conserto.pg.waitForFunction(()=>SEC_ATUAL==='SMEd'&&REQS.length>0,null,{timeout:15000});
+  await conserto.pg.waitForTimeout(500);
+  const curou=await conserto.pg.evaluate(()=>({
+    temCampo:'despacho' in window.__STORE.requisicoes['99321'],
+    valor:window.__STORE.requisicoes['99321'].despacho
+  }));
+  t('abrir a secretaria completa o campo que faltava, sem leitura a mais',
+    curou.temCampo && curou.valor==='', curou);
+  t('e aí ela entra na consulta da fila do Diretor',
+    await conserto.pg.evaluate(()=>firebase.firestore().collection('requisicoes')
+      .where('despacho','==','').where('criadaEm','>','').get()
+      .then(sn=>sn.docs.some(d=>String(d.data().id)==='99321'))));
+  /* As que vieram da planilha NÃO são tocadas: elas não nasceram no sistema
+     e não esperam decisão de ninguém. */
+  t('o conserto não escreve nas que vieram da planilha',
+    await conserto.pg.evaluate(()=>
+      REQS.filter(r=>r.criadaEm && r.despacho===undefined).length===0
+      && REQS.some(r=>!r.criadaEm)));
+  await conserto.pg.evaluate(()=>firebase.firestore().collection('requisicoes').doc('99321').delete());
+  await conserto.pg.close();
+
   const ver=await abrir('ver', null, 'SMS');
   const soOlha=await ver.pg.evaluate(()=>({
     chip:document.getElementById('authUserChip').textContent,

@@ -119,11 +119,25 @@ conjunto para decidir. O botão devolve a fila quando quiser.
 
 A consulta da fila fica **sempre ouvindo**, mesmo enquanto ele navega por uma
 secretaria: é o que faz o contador do botão estar sempre certo sem custar uma
-leitura a cada clique. Ela é pequena — só o que nasceu no sistema.
+leitura a cada clique.
 
-Despachou, a linha sai da fila. Quando não sobra nada, o botão fica verde
-(**"✅ nada aguardando despacho"**) e a tela diz que está em dia, em vez de
-dizer que não encontrou nada.
+E ela lê **só o que aguarda** — `despacho == ''` e `criadaEm > ''`, não tudo
+o que nasceu no sistema. Isso não é detalhe de tela: sem o primeiro filtro a
+consulta cresceria para sempre, uma linha por requisição já criada, e o
+Diretor pagaria por todas a cada F5 para ver as poucas que faltam. Com ele, a
+fila **encolhe conforme o trabalho é feito**, que é o que uma fila deve
+fazer. As que vieram da planilha nunca entram: foram contratadas antes de a
+coluna existir e não esperam decisão de ninguém.
+
+Por isso uma requisição nova **nasce com o campo `despacho` escrito, vazio**.
+Campo ausente não casa com consulta nenhuma no Firestore — sem essa linha ela
+nasceria fora da fila, que é o defeito mais caro que esta tela poderia ter.
+
+Despachou, a linha sai da fila. O que ele despachou **nesta visita** continua
+ao alcance enquanto estiver na fila (é assim que se desfaz um despacho errado
+sem sair dela); sair da fila esquece, e voltar mostra só o que ainda aguarda.
+Quando não sobra nada, o botão fica verde (**"✅ nada aguardando despacho"**)
+e a tela diz que está em dia, em vez de dizer que não encontrou nada.
 
 ## Procurar uma requisição pelo número
 
@@ -229,15 +243,27 @@ lista, ou abrir o menu de qualquer coluna (as contagens dele mentiriam com
 dois meses na mão). Depois disso aquela secretaria fica **completa para o
 resto da visita**: sair e voltar não relê nada.
 
+E completar lê **só o que falta**. A consulta dos dois meses continua de pé e
+entra uma terceira, `recebido < início`, em vez de trocar tudo pela
+secretaria inteira — que releria as linhas que já estão na tela. Em SMS:
+abrir custa 145, completar custa 862, e as duas somadas dão as 1.007 da
+secretaria. Uma vez, não uma vez e meia.
+
 As requisições **sem data de recebimento** vêm sempre, por consulta própria —
 é como uma requisição nasce enquanto está sendo lançada, e sumir com ela no
 instante em que é criada seria o pior defeito possível numa tela de
 lançamento.
 
-> **Índice necessário no Firestore.** O recorte por data usa `sec` + `recebido`
-> na mesma consulta, e isso exige um **índice composto**. Enquanto ele não
-> existir a tela não quebra: cai na secretaria inteira e avisa no console do
-> navegador, com o link que cria o índice em um clique. Custa mais leitura
+> **Índices necessários no Firestore.** Duas consultas cruzam igualdade num
+> campo com faixa noutro, e isso exige **índice composto**:
+>
+> * `sec` + `recebido` — o recorte de dois meses de cada secretaria (e o
+>   "ver as mais antigas", que usa o mesmo);
+> * `despacho` + `criadaEm` — a fila do Diretor.
+>
+> Enquanto um deles não existir a tela não quebra: cai na consulta larga
+> (a secretaria inteira, ou tudo o que nasceu no sistema) e avisa no console
+> do navegador, com o link que cria o índice em um clique. Custa mais leitura
 > até alguém clicar.
 
 **Cada secretaria visitada fica aberta.** Voltar para uma que você já abriu é

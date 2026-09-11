@@ -1022,7 +1022,16 @@ function ligarConsultaContratos(){
     LEVAS.set(nome, null);
     _desligarCt.set(nome, consulta.onSnapshot(
       snap => { LEVAS.set(nome, snap.docs.map(d => d.data())); juntar(); },
-      e => mostrarErroCarregar(e)));
+      e => {
+        /* Uma leva que falha não pode travar as outras: enquanto ela ficasse
+           null, nada entraria e a tela pararia de atualizar ao vivo, calada.
+           Na primeira carga o erro aparece; depois dela, o que já está na
+           tela continua valendo e as outras levas seguem chegando. */
+        if(_ctPrimeira) mostrarErroCarregar(e);
+        else console.error('contratos (' + nome + '):', e);
+        LEVAS.set(nome, []);
+        juntar();
+      }));
   };
 
   ouvir('ano', col.where('ano','==',ANO_CORRENTE));

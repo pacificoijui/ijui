@@ -44,7 +44,7 @@ const LICITACOES = [
   "usuarios_v2",       // as contas de verdade: quem entra e com qual acesso
   "usuarios_v2_convites",
   "contratos",
-  "contratos_historico",  // quem editou o que, e o desfazer: some sozinho em 365 dias
+  "contratos_historico",  // quem editou o que, e o desfazer: some sozinho em 30 dias
   "requisicoes",          // as requisicoes das secretarias, com o despacho do Diretor
   "requisicoes_historico",// quem mexeu no que, e o desfazer: some sozinho em 30 dias
   "status",
@@ -103,10 +103,16 @@ function campos(f) {
   return o;
 }
 
-// Token de acesso da conta de backup. Vale ~1h; um backup inteiro leva
-// segundos, entao pegar uma vez no comeco basta.
+// Token de acesso da conta de backup. Vale ~1h. Um backup normal leva
+// segundos, mas um dia ruim nao: a escada de espera do 429 chega a 346s por
+// colecao, e com 19 colecoes isso passa da hora. Por isso a chave fica
+// guardada e o 401 tenta renovar o token UMA vez antes de culpar a conta —
+// senao o log diria "a conta precisa ser ADMIN", que e mentira, e mandaria
+// quem le procurar no lugar errado.
 let TOKEN = "";
+let CHAVE_LOGIN = "";
 async function entrar(chave) {
+  CHAVE_LOGIN = chave;
   const email = process.env.BACKUP_EMAIL || "";
   const senha = process.env.BACKUP_SENHA || "";
   if (!email || !senha) {
@@ -197,6 +203,11 @@ async function buscarJson(url, tentativa = 1, esperaCota = 0) {
   if (res.status >= 500) {
     if (tentativa >= REDE_TENTATIVAS) throw new Error(`HTTP ${res.status} em ${url}`);
     await espera(2000 * tentativa);
+    return buscarJson(url, tentativa + 1, esperaCota);
+  }
+  if (res.status === 401 && CHAVE_LOGIN && tentativa < REDE_TENTATIVAS) {
+    console.log("  token expirado — entrando de novo");
+    await entrar(CHAVE_LOGIN);
     return buscarJson(url, tentativa + 1, esperaCota);
   }
   if (res.status === 403 || res.status === 401) {

@@ -1110,10 +1110,30 @@ var MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto
 
    Os listeners ficam de pé. Ir e voltar entre meses já visitados não custa
    leitura nenhuma — a segunda visita a setembro é de graça —, e um contrato
-   que alguém alterar continua chegando ao vivo em qualquer mês aberto. */
+   que alguém alterar continua chegando ao vivo em qualquer mês aberto.
+
+   Com um teto, porém: um listener por mês visitado cresce sem limite, e o
+   Firestore corta em 100 listeners simultâneos por cliente. Quem segurar a
+   seta ‹ por um minuto passa disso, e o que quebra não é o mês novo — é a
+   página. Dois anos de meses abertos cobrem qualquer navegação de verdade;
+   passando disso o mês mais antigo sai, e volta a custar leitura se alguém
+   voltar lá, que é o certo. */
 const MESES_CT = new Map();        /* 'AAAA-MM' -> contratos (null = a caminho) */
 const _desligarMes = new Map();    /* 'AAAA-MM' -> desligar o listener */
+const MESES_ABERTOS_MAX = 24;
 function chaveMes(d){ return d.getFullYear() + '-' + (d.getMonth()<9?'0':'') + (d.getMonth()+1); }
+
+/* Fecha os meses mais antigos até caber no teto, sem nunca fechar um que
+   está desenhado na tela: fechar o que se está olhando apagaria a grade. */
+function podarMeses(protegidos){
+  for(const chave of [..._desligarMes.keys()]){
+    if(_desligarMes.size <= MESES_ABERTOS_MAX) break;
+    if(protegidos.has(chave)) continue;
+    _desligarMes.get(chave)();
+    _desligarMes.delete(chave);
+    MESES_CT.delete(chave);
+  }
+}
 
 function juntarMeses(){
   const porId = new Map();
@@ -1251,6 +1271,7 @@ function renderCalendario(){
   const naGrade = new Set();
   semanas.forEach(sem => sem.forEach(dd => naGrade.add(chaveMes(dd))));
   naGrade.forEach(ouvirMes);
+  podarMeses(naGrade);
   const faltaChegar = [...naGrade].some(k => MESES_CT.get(k) === null);
 
   let html = '';

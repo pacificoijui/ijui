@@ -1553,7 +1553,10 @@ try { anivColRef = db.collection("aniversarios"); }       catch(e){ anivColRef =
                    economizar.
      · um mês    — cada mês JÁ PASSADO que aparece na grade do calendário ou
                    na lista. Entram conforme a pessoa navega para trás, e
-                   ficam: voltar a um mês já visto não custa leitura.
+                   ficam: voltar a um mês já visto não custa leitura. Com
+                   teto: um listener por mês cresce sem limite, e o Firestore
+                   corta em 100 listeners simultâneos por cliente — quem
+                   segurar a seta ‹ derrubaria a página, não só o mês.
      · "passado" — tudo de ontem para trás, uma vez por visita, quando
                    alguém abre a busca (que promete procurar em todo o
                    cadastro). Note que é o PASSADO, não a coleção: o futuro
@@ -1569,6 +1572,7 @@ var PROC_TUDO = false;
    esta trava o pedido sairia com o portão ainda fechado — leitura negada
    pelas regras, e dado na tela de quem ainda não foi aprovado. */
 var _procLigados = false;
+var MESES_PROC_MAX = 24;    /* dois anos de meses abertos; passando disso, o mais antigo sai */
 
 function _chaveMes(d){ return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2); }
 function _juntarProcessos(){
@@ -1591,8 +1595,30 @@ function _ouvirLeva(nome, consulta){
     _desligarProc[nome]=consulta.onSnapshot(function(snap){
       LEVAS_PROC[nome]=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
       _juntarProcessos();
-    }, function(err){ console.error("Processos ("+nome+"):", err); });
+    }, function(err){
+      /* Uma leva que falha NÃO pode congelar a tela: enquanto ela ficasse
+         null, nenhuma das outras entraria e a Agenda pararia de atualizar ao
+         vivo, calada. Vazia ela entra, e o que as outras trazem aparece. */
+      console.error("Processos ("+nome+"):", err);
+      LEVAS_PROC[nome]=[];
+      _juntarProcessos();
+    });
   }catch(e){ console.warn("processos onSnapshot:", e); delete LEVAS_PROC[nome]; }
+}
+/* Fecha os meses mais antigos até caber no teto, sem nunca fechar o que
+   está desenhado — fechar o mês que se está olhando esvaziaria a tela. As
+   levas fixas (futuro, semData, passado) nunca entram na poda. */
+function podarMesesProc(protegidos){
+  var chaves=Object.keys(_desligarProc).filter(function(k){ return k.indexOf("mes:")===0; });
+  var sobrando=chaves.length-MESES_PROC_MAX;
+  for(var i=0;i<chaves.length && sobrando>0;i++){
+    var k=chaves[i];
+    if(protegidos.indexOf(k.slice(4))>=0) continue;
+    _desligarProc[k]();
+    delete _desligarProc[k];
+    delete LEVAS_PROC[k];
+    sobrando--;
+  }
 }
 function ligarConsultaProcessos(){
   _procLigados=true;
@@ -1780,7 +1806,9 @@ function renderCalendario(){
      último dia: até três meses aparecem nela, e os três precisam ser
      pedidos — senão a primeira e a última semana desenhariam dias vazios
      que têm processo. Mês já pedido não repete a leitura. */
-  [-1,0,1].forEach(function(k){ garantirMesProc(_chaveMes(new Date(ano,mes+k,1))); });
+  var naGrade=[-1,0,1].map(function(k){ return _chaveMes(new Date(ano,mes+k,1)); });
+  naGrade.forEach(garantirMesProc);
+  podarMesesProc(naGrade);
 
   /* mapa data -> processos */
   var porData={};
@@ -2299,6 +2327,7 @@ function renderLista(){
   var ano=listRef.getFullYear(), mes=listRef.getMonth();
   document.getElementById("listTitulo").textContent=MESES[mes]+" de "+ano;
   garantirMesProc(_chaveMes(listRef));
+  podarMesesProc([_chaveMes(listRef)]);
   var hoje=hojeStr();
 
   /* processos do mês selecionado, com data, ordenados crescente */

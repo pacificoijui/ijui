@@ -1281,48 +1281,84 @@ function consultaDaSecretaria(sigla, completa){
   return completa ? col.where('sec','==',sigla)
                   : col.where('sec','==',sigla).where('recebido','>=',inicioDaJanela());
 }
+
+/* A carga de uma secretaria vem em LEVAS com nome, e completar ACRESCENTA
+   uma leva — nunca troca as que já estão de pé. Trocar a consulta dos dois
+   meses pela secretaria inteira releria as linhas que já estão na tela, e
+   leitura repetida é leitura paga duas vezes: numa secretaria de 500
+   requisições, "ver as mais antigas" cobrava as 500, e não as 460 que
+   faltavam.
+
+   As três levas, e por que cada uma existe:
+
+     janela  — sec + recebido >= início dos dois meses. É como a tela abre.
+     semData — sec + recebido == null. É como uma requisição nasce enquanto
+               está sendo lançada; sumir com ela no instante da criação
+               seria o pior defeito possível numa tela de lançamento.
+     antigas — sec + recebido < início. Só quando alguém pede o resto.
+
+   As três usam o MESMO índice composto (sec + recebido) que já existe: são
+   igualdade num campo e faixa no outro. */
 function ouvirSecretaria(sigla, completa){
   const ja = ABERTAS.get(sigla);
   if(ja && (ja.completa || !completa)) return;
-  if(ja && ja.unsub) ja.unsub();          /* trocando recorte: solta o antigo */
-  const entrada = ja || {unsub:null, lista:null, completa:false};
-  entrada.completa = !!completa;
+  const entrada = ja || {unsub:null, lista:null, completa:false, levas:{}, unsubs:{}};
+  entrada.levas = entrada.levas || {};
+  entrada.unsubs = entrada.unsubs || {};
+  if(completa) entrada.completa = true;
   ABERTAS.set(sigla, entrada);
-  const aplicar = lista => {
-    entrada.lista = lista;
-    if(SEC_ATUAL === sigla && !MODO_FILA) mostrar(sigla, lista);
+
+  const naLeva = snap => {
+    const lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
+    completarDespachoVazio(lista);
+    return lista;
   };
-  const naLeva = snap => snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-  if(completa){
-    entrada.unsub = consultaDaSecretaria(sigla, true)
-      .onSnapshot(snap => aplicar(naLeva(snap)), e => mostrarErroCarregar(e));
-    return;
-  }
-  /* Recorte de dois meses + as sem data de recebimento, que é como uma
-     requisição nasce enquanto está sendo lançada. Sumir com ela no instante
-     em que é criada seria o pior defeito possível numa tela de lançamento. */
-  const levas = [null, null];
-  const juntar = () => { if(!levas.some(l => l === null)) aplicar([].concat(levas[0], levas[1])); };
-  const unsubs = [];
+  const juntar = () => {
+    const partes = Object.values(entrada.levas);
+    if(!partes.length || partes.some(l => l === null)) return;
+    /* O mesmo documento pode vir em duas levas (recebido nulo é menor que
+       qualquer data, então entra também em "antigas"); o id resolve. */
+    const porId = new Map();
+    partes.forEach(l => l.forEach(r => porId.set(String(r.id), r)));
+    entrada.lista = [...porId.values()];
+    if(SEC_ATUAL === sigla && !MODO_FILA) mostrar(sigla, entrada.lista);
+  };
   const cair = e => {
     if(e && e.code === 'failed-precondition'){
-      /* Falta o índice composto. Não é hora de deixar a tela em branco. */
+      /* Falta o índice composto. Não é hora de deixar a tela em branco:
+         lê a secretaria inteira, que não precisa de índice nenhum. */
       console.warn('sem índice para o recorte de dois meses — lendo a secretaria inteira. '
                  + 'Crie o índice pelo link que o Firestore mostra abaixo:', e.message);
-      unsubs.forEach(f => f());
+      Object.values(entrada.unsubs).forEach(f => f());
       _semIndice = true;
       ABERTAS.delete(sigla);
       ouvirSecretaria(sigla, true);
       return;
     }
+    /* Uma leva que falha não pode travar as outras: enquanto ficasse null,
+       nada entraria e a secretaria pararia de atualizar ao vivo, calada. */
     mostrarErroCarregar(e);
   };
-  unsubs.push(consultaDaSecretaria(sigla, false)
-    .onSnapshot(snap => { levas[0] = naLeva(snap); juntar(); }, cair));
-  unsubs.push(firebase.firestore().collection('requisicoes')
-    .where('sec','==',sigla).where('recebido','==',null)
-    .onSnapshot(snap => { levas[1] = naLeva(snap); juntar(); }, cair));
-  entrada.unsub = () => unsubs.forEach(f => f());
+  const ouvir = (nome, consulta) => {
+    if(entrada.unsubs[nome]) return;
+    entrada.levas[nome] = null;
+    entrada.unsubs[nome] = consulta.onSnapshot(
+      snap => { entrada.levas[nome] = naLeva(snap); juntar(); }, cair);
+  };
+  const col = firebase.firestore().collection('requisicoes');
+
+  if(_semIndice || (completa && !ja)){
+    /* Sem índice, ou pedindo tudo antes de qualquer recorte existir: uma
+       consulta só, a secretaria inteira. */
+    ouvir('tudo', col.where('sec','==',sigla));
+  } else {
+    ouvir('janela',  consultaDaSecretaria(sigla, false));
+    ouvir('semData', col.where('sec','==',sigla).where('recebido','==',null));
+    /* Só o que falta: as levas de cima continuam de pé. */
+    if(completa) ouvir('antigas', col.where('sec','==',sigla)
+                                     .where('recebido','<',inicioDaJanela()));
+  }
+  entrada.unsub = () => Object.values(entrada.unsubs).forEach(f => f());
 }
 let _semIndice = false;
 
@@ -1342,19 +1378,102 @@ function secCompleta(sigla){
   const e = ABERTAS.get(sigla || SEC_ATUAL);
   return !!(e && e.completa);
 }
+/* Conserto de uma coisa só, e que se resolve sozinho: a fila do Diretor
+   pergunta "despacho == ''", e no Firestore campo AUSENTE não casa com
+   consulta nenhuma. As requisições criadas no sistema ANTES de o campo
+   passar a nascer escrito ficariam invisíveis para ele.
+
+   A correção anda junto com a leitura que já está sendo feita: quando uma
+   secretaria chega, as linhas que nasceram no sistema e não têm o campo
+   ganham o vazio. Não custa leitura nenhuma — os documentos já estão na
+   mão — e acontece uma vez por requisição, para sempre.
+
+   As regras aceitam ESTA gravação de quem preenche (soCriouDespachoVazio) e
+   só ela: criar o campo vazio onde ele não existia. Alterar ou apagar um
+   despacho de verdade continua sendo só do Diretor. */
+const _despachoCompletado = new Set();
+function completarDespachoVazio(lista){
+  if(!reqPodeEditar()) return;
+  /* O conjunto evita a gravação repetida: entre o write e o eco do snapshot
+     chega outra leva com o dado antigo, e sem isto ela mandaria de novo. */
+  const faltando = lista.filter(r => r.criadaEm && r.despacho === undefined
+                                  && !_despachoCompletado.has(String(r.id)));
+  if(!faltando.length) return;
+  const db = firebase.firestore();
+  /* Em lote: uma secretaria inteira sem o campo seriam centenas de idas ao
+     servidor de uma vez. O teto do Firestore é 500 por lote. */
+  for(let i = 0; i < faltando.length; i += 200){
+    const lote = db.batch();
+    const parte = faltando.slice(i, i + 200);
+    parte.forEach(r => {
+      r.despacho = '';
+      _despachoCompletado.add(String(r.id));
+      lote.update(docReq(r.id), {despacho: ''});
+    });
+    lote.commit().catch(e => {
+      parte.forEach(r => _despachoCompletado.delete(String(r.id)));
+      console.warn('não consegui completar o despacho vazio de ' + parte.length
+                 + ' requisição(ões):', e.message);
+    });
+  }
+}
+
 /* A fila do Diretor são as requisições NASCIDAS no sistema — as que têm
-   "criadaEm". O que veio da planilha já foi contratado antes de a coluna
-   existir e não espera decisão de ninguém, então nem é lido. */
+   "criadaEm" — e que AINDA AGUARDAM despacho. O que veio da planilha já foi
+   contratado antes de a coluna existir e não espera decisão de ninguém,
+   então nem é lido.
+
+   O "ainda aguardam" não é detalhe de tela: sem ele a consulta cresceria
+   para sempre, uma linha por requisição já criada no sistema, e o Diretor
+   pagaria por todas a cada F5 para ver as poucas que faltam. Com ele, a
+   fila ENCOLHE conforme o trabalho é feito, que é o que uma fila deve
+   fazer. É a mesma consulta que o botão conta.
+
+   Precisa de índice composto (despacho + criadaEm). Enquanto ele não
+   existir, a consulta falha com "failed-precondition" e a tela cai na fila
+   antiga — mais cara, mas ninguém fica sem fila enquanto o índice não é
+   criado no console. */
+let _filaSemIndice = false;
+/* O que o Diretor acabou de despachar sai da consulta na hora. Sumir da
+   tela no instante do clique, no meio de uma sequência de despachos, é
+   desnorteante — então a linha fica até ele sair da fila. */
+const FILA_RECEM = new Map();
+function marcarDespachadaAgora(r){
+  if(r && r.despacho && nasceuNoSistema(r)) FILA_RECEM.set(String(r.id), r);
+}
+function consultaDaFila(){
+  const col = firebase.firestore().collection('requisicoes');
+  return _filaSemIndice ? col.where('criadaEm','>','')
+                        : col.where('despacho','==','').where('criadaEm','>','');
+}
 function ouvirFilaDoDiretor(){
   if(ABERTAS.has(FILA_DIRETOR)) return;
   const entrada = {unsub:null, lista:null};
   ABERTAS.set(FILA_DIRETOR, entrada);
-  entrada.unsub = firebase.firestore().collection('requisicoes')
-    .where('criadaEm', '>', '').onSnapshot(snap => {
-      entrada.lista = snap.docs.map(d => Object.assign({_gravada:true}, d.data()));
-      if(MODO_FILA) mostrar(FILA_DIRETOR, entrada.lista);
-      else marcarDica();          /* o contador do botão continua vivo */
-    }, e => mostrarErroCarregar(e));
+  const aplicar = lista => {
+    /* As recém-despachadas voltam para a lista desenhada, na posição que
+       tinham; elas já não vêm na consulta. */
+    const vindas = new Set(lista.map(r => String(r.id)));
+    FILA_RECEM.forEach((r, id) => { if(!vindas.has(id)) lista = lista.concat([r]); });
+    entrada.lista = lista;
+    if(MODO_FILA) mostrar(FILA_DIRETOR, lista);
+    else marcarDica();          /* o contador do botão continua vivo */
+  };
+  entrada.unsub = consultaDaFila().onSnapshot(
+    snap => aplicar(snap.docs.map(d => Object.assign({_gravada:true}, d.data()))),
+    e => {
+      if(e && e.code === 'failed-precondition' && !_filaSemIndice){
+        console.warn('sem índice para a fila do Diretor (despacho + criadaEm) — lendo tudo o '
+                   + 'que nasceu no sistema. Crie o índice pelo link que o Firestore mostra '
+                   + 'abaixo:', e.message);
+        _filaSemIndice = true;
+        if(entrada.unsub) entrada.unsub();
+        ABERTAS.delete(FILA_DIRETOR);
+        ouvirFilaDoDiretor();
+        return;
+      }
+      mostrarErroCarregar(e);
+    });
 }
 /* Desenha a lista. Trocar de recorte é montagem nova (filtros voltam ao
    padrão); leva do mesmo recorte é atualização ao vivo, que não pode
@@ -1389,6 +1508,7 @@ function ligarConsultas(){
    e de graça. Se não, é uma consulta nova, do tamanho dela. */
 function carregarSecretaria(sigla){
   if(sigla === SEC_ATUAL && !MODO_FILA) return;
+  if(MODO_FILA) limparRecemDespachadas();
   MODO_FILA = false;
   SEC_ATUAL = sigla;
   lembrarSecretaria(sigla);
@@ -1667,6 +1787,9 @@ function escolherSecretaria(sigla){
 }
 /* A fila: o que aguarda despacho, de todas as secretarias. É um recorte do
    banco como qualquer outro — sair dela é clicar numa secretaria. */
+/* Sair da fila limpa as recém-despachadas: voltar nela mostra a fila de
+   verdade, só o que ainda aguarda. */
+function limparRecemDespachadas(){ FILA_RECEM.clear(); }
 function verFila(){
   if(!reqPodeDespachar()) return;
   MODO_FILA = true;
@@ -2031,7 +2154,11 @@ function renderMais(){
       document.getElementById('vazio').innerHTML =
         '<div class="empty"><span>✅</span>Nenhuma requisição aguardando despacho.<br>'
         + '<span style="font-size:13px">Assim que uma secretaria lançar, ela aparece aqui sozinha — '
-        + 'ou <u style="cursor:pointer" onclick="limparFiltros()">veja o cadastro inteiro</u>.</span></div>';
+        /* Aqui NÃO cabe "ver o cadastro inteiro": a fila só lê o que aguarda
+           despacho. O que a tela tem a mais para mostrar é o que ele mesmo
+           acabou de despachar, e é só isso que o link promete. */
+        + 'ou <u style="cursor:pointer" onclick="limparFiltros()">reveja o que você despachou agora</u>.'
+        + '</span></div>';
       document.getElementById('loadWrap').style.display='none';
       document.getElementById('resultCount').innerHTML='';
       return;
@@ -2124,6 +2251,12 @@ function novaRequisicao(){
     /* A data de nascimento é o que põe esta requisição no fluxo do
        despacho — e distingue as daqui das que vieram da planilha. */
     criadaEm: new Date().toISOString(),
+    /* Nasce com o despacho VAZIO, escrito: é esse campo que põe a
+       requisição na fila do Diretor (despacho == ''). Campo ausente não
+       casa com consulta nenhuma no Firestore — sem esta linha ela nasceria
+       fora da fila, que é o defeito mais caro que esta tela poderia ter.
+       As regras aceitam criar com despacho vazio, e só com vazio. */
+    despacho: '',
     _nova: true
   };
   prepararReq(r);
@@ -2356,6 +2489,7 @@ function fecharEdicao(salvando){
        juntos, e um despacho sem assinatura não diria nada a ninguém. */
     r.despachoPor = r.despacho ? (authCurrentUser && (authCurrentUser.nome || authCurrentUser.email) || '') : '';
     r.despachoEm  = r.despacho ? new Date().toISOString() : '';
+    marcarDespachadaAgora(r);
   } else if(campo==='credor' || campo==='modalidade'){
     r[campo] = unico.value.trim().toUpperCase();
   } else {

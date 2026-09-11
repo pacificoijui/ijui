@@ -174,6 +174,24 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const chAtras=atras.getFullYear()+'-'+String(atras.getMonth()+1).padStart(2,'0');
   t('ir para trás traz o mês anterior',
     await pgMes.evaluate(ch=>CONTRATOS.some(c=>(c.vencimento||'').slice(0,7)===ch), chAtras), chAtras);
+
+  /* Um listener por mês visitado cresce sem teto, e o Firestore corta em 100
+     por cliente: quem segura a seta ‹ derruba a página, não só o mês. */
+  await pgMes.evaluate(()=>{ for(let i=0;i<60;i++) mudarMes(-1); });
+  await pgMes.waitForTimeout(900);
+  const teto=await pgMes.evaluate(()=>({
+    abertos:_desligarMes.size, max:MESES_ABERTOS_MAX,
+    naTela:document.querySelectorAll('.cal-cell').length,
+    doMes:(document.getElementById('chipTotal')||{}).textContent||''
+  }));
+  t('navegar muitos meses não acumula listener sem fim',
+    teto.abertos<=teto.max, teto);
+  t('e o mês que está na tela continua desenhado',
+    teto.naTela>=28 && /VENCIMENTO/.test(teto.doMes), teto);
+  /* Podar não pode fechar o mês que se está olhando: o dado dele tem de
+     continuar lá. */
+  t('o mês aberto sobreviveu à poda',
+    await pgMes.evaluate(()=>_desligarMes.has(chaveMes(calRef))));
   await pgMes.close();
 
   const pg=await b.newPage({viewport:{width:1280,height:900}});

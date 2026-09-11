@@ -61,6 +61,12 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, "requisicoes", "1"),   { num: 1, ano: 2026, sec: "GP", credor: "X", despacho: "" });
   await setDoc(doc(db, "requisicoes", "r-livre"),      { num: 90, ano: 2026, sec: "GP", despacho: "" });
   await setDoc(doc(db, "requisicoes", "r-despachada"), { num: 91, ano: 2026, sec: "GP", despacho: "Pregão" });
+  /* Criada no sistema ANTES de o campo "despacho" passar a nascer escrito:
+     sem o campo, ela não casa com a consulta da fila do Diretor. */
+  await setDoc(doc(db, "requisicoes", "r-sem-campo"), { num: 92, ano: 2026, sec: "GP",
+                                                        criadaEm: "2026-01-02T10:00:00.000Z" });
+  await setDoc(doc(db, "requisicoes", "r-sem-campo2"), { num: 93, ano: 2026, sec: "GP",
+                                                         criadaEm: "2026-01-03T10:00:00.000Z" });
   await setDoc(doc(db, "decisoes", "d1"),     { texto: "…", assinantes: [] });
   await setDoc(doc(db, "rankings", "p1"),     { itens: [] });
   await setDoc(doc(db, "usuarios", "velho1"), { usuario: "julio" });
@@ -159,6 +165,28 @@ await t("ninguém exclui requisição",
   nega(deleteDoc(doc(como(CONTAS.reqEdita), "requisicoes", "1"))));
 await t("o administrador alcança os dois lados",
   pode(updateDoc(doc(como(CONTAS.admin), "requisicoes", "1"), { despacho: "Concorrência" })));
+
+/* A fila do Diretor pergunta "despacho == ''", e no Firestore campo AUSENTE
+   não casa com consulta nenhuma: as requisições criadas antes de o campo
+   nascer escrito ficariam invisíveis para ele. Quem preenche completa o
+   vazio — e SÓ o vazio, e só onde o campo não existia. */
+await t("quem preenche cria o campo despacho vazio onde ele faltava",
+  pode(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-sem-campo"), { despacho: "" })));
+/* A brecha tem de ser estreita. Se ela deixasse escrever um despacho de
+   verdade, ou apagar um que existe, a divisão de poderes vazaria por aqui. */
+await t("mas não usa essa brecha para despachar",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-sem-campo2"), { despacho: "Pregão" })));
+await t("nem para apagar um despacho que já existe",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-despachada"), { despacho: "" })));
+await t("nem para zerar o vazio de novo carregando outro campo junto",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-despachada"),
+                 { despacho: "", credor: "X" })));
+/* Depois de criado, o campo volta a ser só do Diretor: a brecha exige que
+   ele NÃO existisse antes, e agora existe. (Regravar o MESMO vazio por cima
+   continua passando, e deve: diff() não acusa mudança nenhuma — não é a
+   brecha, é uma gravação que não muda nada.) */
+await t("e uma vez criado o campo, despachar volta a ser só do Diretor",
+  nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-sem-campo"), { despacho: "Pregão" })));
 await t("e quem só cuida de requisição não enxerga contrato",
   nega(getDocs(collection(como(CONTAS.reqEdita), "contratos"))));
 

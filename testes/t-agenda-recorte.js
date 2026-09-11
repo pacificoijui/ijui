@@ -114,6 +114,27 @@ function chaveMes(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
     (await pg.evaluate(()=>(window.__LIDOS||{}).processos||0))===0,
     await pg.evaluate(()=>(window.__LIDOS||{}).processos||0));
 
+  console.log('\n3b) Navegar muito não acumula listener sem fim');
+  /* Um listener por mês visitado cresce sem teto, e o Firestore corta em 100
+     por cliente: quem segura a seta ‹ derruba a página, não só o mês. */
+  await pg.evaluate(()=>{ for(let i=0;i<60;i++) mudarMes(-1); });
+  await pg.waitForTimeout(900);
+  const teto=await pg.evaluate(()=>({
+    meses:Object.keys(window._desligarProc).filter(k=>k.startsWith('mes:')).length,
+    max:window.MESES_PROC_MAX,
+    fixas:Object.keys(window._desligarProc).filter(k=>!k.startsWith('mes:')).sort(),
+    celulas:document.querySelectorAll('.cal-cell').length
+  }));
+  t('o número de meses abertos para no teto', teto.meses<=teto.max, teto);
+  t('as levas fixas nunca entram na poda',
+    teto.fixas.includes('futuro') && teto.fixas.includes('semData'), teto.fixas);
+  t('e o mês que está na tela continua desenhado', teto.celulas>=28, teto);
+  t('o mês aberto sobreviveu à poda',
+    await pg.evaluate(()=>!!window._desligarProc['mes:'+_chaveMes(calRef)]));
+  /* Volta ao mês de hoje para o resto do teste. */
+  await pg.evaluate(()=>irHoje());
+  await pg.waitForTimeout(600);
+
   console.log('\n4) A busca promete o cadastro inteiro — então traz o cadastro');
   await pg.evaluate(()=>window.__zerarLidos());
   const tinhaAntes=await pg.evaluate(()=>(window.processos||[]).length);
@@ -139,6 +160,32 @@ function chaveMes(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart
     (await pg.evaluate(()=>[...document.getElementById('bfAno').options].map(o=>o.value)))
       .filter(v=>v!=='todos').length>=3);
   await pg.evaluate(()=>fecharBusca());
+
+  console.log('\n4b) Uma consulta que falha não congela a tela');
+  /* As levas só entram juntas — é o que evita a lista piscar pela metade.
+     Mas uma leva que ficasse eternamente "a caminho" travaria TODAS, e a
+     Agenda pararia de atualizar ao vivo sem dizer nada. */
+  const destravou=await pg.evaluate(()=>{
+    const antes=(window.processos||[]).length;
+    LEVAS_PROC['quebrada']=null;          /* como uma consulta que nunca responde */
+    const doc=Object.assign({}, window.__STORE.processos.p1, {objeto:'MUDOU AO VIVO'});
+    return firebase.firestore().collection('processos').doc('p1').set(doc)
+      .then(()=>new Promise(r=>setTimeout(r,400)))
+      .then(()=>{
+        const travado=!(window.processos||[]).some(p=>p.objeto==='MUDOU AO VIVO');
+        /* agora o que o tratamento de erro faz: entra vazia e solta as outras */
+        LEVAS_PROC['quebrada']=[];
+        _juntarProcessos();
+        return {antes, travado,
+                soltou:(window.processos||[]).some(p=>p.objeto==='MUDOU AO VIVO')};
+      });
+  });
+  t('uma leva pendente realmente segura as outras (é o que o erro causaria)',
+    destravou.travado, destravou);
+  t('e entrar vazia solta a tela de novo', destravou.soltou, destravou);
+  t('o tratamento de erro faz exatamente isso, em vez de deixar null',
+    /LEVAS_PROC\[nome\]=\[\];/.test(fs.readFileSync('../index.html','utf8')));
+  await pg.evaluate(()=>{ delete LEVAS_PROC['quebrada']; });
 
   console.log('\n5) Quem não tem acesso não dispara leitura nenhuma');
   /* As telas desenham antes de o portão abrir, e é delas que sai o pedido de

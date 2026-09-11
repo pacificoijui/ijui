@@ -86,6 +86,20 @@ service cloud.firestore {
     function soMexeuNoDespacho(){
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(camposDespacho());
     }
+    // A fila do Diretor pergunta "despacho == ''", e no Firestore campo
+    // AUSENTE não casa com consulta nenhuma. As requisições criadas antes de
+    // o campo passar a nascer escrito ficariam invisíveis para ele — então a
+    // tela de quem preenche completa o campo quando ele falta.
+    //
+    // Isto NÃO fura a trava do despacho, e a condição diz por quê: só vale
+    // quando o campo não existia antes (!('despacho' in resource.data)) e o
+    // valor novo é vazio. Nunca altera nem apaga um despacho de verdade —
+    // no máximo cria o vazio que já era o estado real.
+    function soCriouDespachoVazio(){
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['despacho'])
+          && request.resource.data.despacho == ''
+          && !('despacho' in resource.data);
+    }
     function algumEdit()     { return agendaEdit() || pregoeiroEdit(); }
 
     // ── Contas e permissões ──────────────────────────────────────────────
@@ -255,6 +269,7 @@ service cloud.firestore {
       allow create: if requisicaoEdit() &&
         !(request.resource.data.get('despacho', '') != '');
       allow update: if (requisicaoEdit() && !mexeuNoDespacho())
+                    || (requisicaoEdit() && soCriouDespachoVazio())
                     || (requisicaoDiretor() && soMexeuNoDespacho());
       allow delete: if requisicaoEdit() && !temDespacho();
     }

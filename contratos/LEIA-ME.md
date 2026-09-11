@@ -191,7 +191,7 @@ Quem tem **Contratos: Visualizar** lê o histórico mas não desfaz nada.
 O painel abre com as 300 edições mais recentes e busca as mais antigas no
 botão do fim da lista — um ano de trabalho de uma equipe passa fácil disso.
 
-Cada registro nasce com validade de **365 dias**. Quem abre o painel varre e
+Cada registro nasce com validade de **30 dias**. Quem abre o painel varre e
 apaga o que já venceu, então o histórico não cresce para sempre. As regras
 do Firestore só deixam apagar registro **vencido** — ninguém, nem o
 administrador, consegue sumir com o rastro do que fez ontem, e nenhum

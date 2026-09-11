@@ -227,8 +227,8 @@ sobrar contrato do arquivo fora do banco, a tela avisa e oferece completar.
 Ver `contratos/LEIA-ME.md`.
 
 Toda gravação de contrato fica registrada em `contratos_historico` (quem,
-quando, antes e depois), com botão de desfazer na tela e validade de 365
-dias. As regras não deixam reescrever um registro nem apagar o que ainda
+quando, antes e depois), com botão de desfazer na tela e validade de 30
+dias — o mesmo prazo do registro das requisições. As regras não deixam reescrever um registro nem apagar o que ainda
 está no prazo — nem para o administrador. Ver `contratos/LEIA-ME.md`.
 
 A Agenda de Contratos (`/contratos/agenda/`) usa o mesmo painel `contratos`
@@ -265,7 +265,7 @@ guarda quem era na hora da edição, que é o que um histórico deve fazer.
 
 **Sábado de manhã, uma vez por semana.** É a segunda rede de proteção, não a
 primeira: contra o que mais acontece de verdade — alguém editar um contrato
-errado — quem responde é o **histórico de edições**, que guarda 365 dias e
+errado — quem responde é o **histórico de edições**, que guarda 30 dias e
 tem botão de desfazer. O backup existe para o que o histórico não alcança:
 uma importação que sobrescreve em massa, uma conta comprometida, um bug numa
 gravação.
