@@ -23,9 +23,10 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      confere que TODOS chegam na tela, não um número decorado. */
   const N=dados.length, PROXIMO_ID=Math.max(...dados.map(c=>c.id))+1;
   /* O limite existe para o cadastro nunca mais voltar para dentro do HTML —
-     eram 724 KB numa linha só. O arquivo cresceu com o histórico, a agenda e
-     o PDF novo; 210 KB continua sendo um décimo do que era. */
-  t('o index.html continua pequeno (sem contrato embutido)', html.length<210*1024, {kb:Math.round(html.length/1024)});
+     eram 724 KB numa linha só. O arquivo cresceu com o histórico, a agenda,
+     o PDF, e agora o encerramento e o apostilamento (cada um com modal,
+     numeração e histórico próprios); 240 KB continua bem abaixo disso. */
+  t('o index.html continua pequeno (sem contrato embutido)', html.length<240*1024, {kb:Math.round(html.length/1024)});
   /* A única linha longa que sobra é o brasão em base64, que é imagem e não
      dado — o que não pode voltar é contrato dentro do HTML. */
   t('nenhum contrato ficou embutido no HTML', html.indexOf('"contr":')<0 && html.indexOf('MEDIANEIRA')<0);
@@ -701,8 +702,15 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
 
   console.log('\n7b) Cada tipo de aditivo pede o que precisa, e só isso');
   /* Um formulário único com seis campos obriga quem lança a adivinhar quais
-     preencher — e é assim que nasce um apostilamento com "novo vencimento"
-     em branco que ninguém sabe se foi esquecimento. */
+     preencher — e é assim que nasce um aditivo com "novo vencimento" em
+     branco que ninguém sabe se foi esquecimento. */
+  const tiposTela = await pg.evaluate(()=>{
+    novoAditivo();
+    return [...document.getElementById('faTipo').options].map(o=>o.value);
+  });
+  t('Distrato, Rescisão e Apostilamento não aparecem mais como tipo de aditivo — cada um tem botão próprio agora',
+    !tiposTela.includes('Distrato') && !tiposTela.includes('Rescisão') && !tiposTela.includes('Apostilamento'), tiposTela);
+
   const campos = async tipo => pg.evaluate(t=>{
     novoAditivo();
     document.getElementById('faTipo').value=t; aditTrocouTipo();
@@ -729,11 +737,6 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     razao.ids.includes('faRazao') && razao.ids.includes('faCnpj'), razao.ids);
   t('e não pede valor nem prazo',
     !razao.ids.includes('faValor') && !razao.ids.includes('faVenc'), razao.ids);
-  const resc = await campos('Rescisão');
-  t('rescisão pede a data do encerramento e o motivo',
-    resc.ids.includes('faVenc') && resc.ids.includes('faMotivo'), resc.ids);
-  t('e o rótulo da data diz "Encerra em", não "Novo vencimento"',
-    resc.rotulos.some(r=>/Encerra em/.test(r)), resc.rotulos);
   const reaj = await campos('Reajustamento de preço');
   t('reajuste pergunta qual índice foi aplicado', reaj.ids.includes('faIndice'), reaj.ids);
 
@@ -789,32 +792,64 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a ficha chama de redução, não de supressão de sinal trocado',
     /redução de R\$\s?30\.000,00/.test(depoisReducao.ficha), depoisReducao.ficha.slice(0,400));
 
-  console.log('\n7d) Encerrar o contrato: distrato e rescisão');
-  const encerrou = await pg.evaluate(()=>{
+  console.log('\n7d) Encerrar contrato: não é aditivo, tem botão e registro próprios');
+  const encerrarValidacao = await pg.evaluate(()=>{
     const c=CONTRATOS.find(x=>x.contr===901);
-    abrirDet(c.id); novoAditivo();
-    document.getElementById('faN').value='2';
-    document.getElementById('faTipo').value='Distrato'; aditTrocouTipo();
-    document.getElementById('faData').value='2026-12-01';
+    abrirDet(c.id); abrirEncerrar();
+    document.getElementById('encTipo').value='Rescisão'; encerrarNota();
     const semData=(()=>{ let avisou=false; const orig=window.alert;
-      window.alert=()=>{avisou=true;}; salvarAdit(); window.alert=orig; return avisou; })();
-    document.getElementById('faVenc').value='2026-12-15';
-    aditNota();
-    const nota=document.getElementById('faNota').textContent;
-    window.confirm=()=>true;            /* aceita marcar INATIVO */
-    salvarAdit();
-    return {semData, nota};
+      window.alert=()=>{avisou=true;}; salvarEncerrar(); window.alert=orig; return avisou; })();
+    document.getElementById('encData').value='2026-12-15';
+    const semMotivo=(()=>{ let avisou=false; const orig=window.alert;
+      window.alert=()=>{avisou=true;}; salvarEncerrar(); window.alert=orig; return avisou; })();
+    return {semData, semMotivo};
+  });
+  t('sem data de encerramento não passa', encerrarValidacao.semData, encerrarValidacao);
+  t('rescisão sem motivo não passa', encerrarValidacao.semMotivo, encerrarValidacao);
+
+  const encerrou = await pg.evaluate(()=>{
+    document.getElementById('encMotivo').value='Descumprimento contratual';
+    document.getElementById('encObs').value='Registrado conforme processo.';
+    encerrarNota();
+    const nota=document.getElementById('encerrarNota').textContent;
+    salvarEncerrar();
+    return nota;
   });
   await pg.waitForTimeout(400);
-  const depoisDistrato = await pg.evaluate(()=>{
+  const depoisEncerrar = await pg.evaluate(()=>{
     const c=CONTRATOS.find(x=>x.contr===901);
-    return {venc:c.vencimento, sit:c.situacao};
+    return {venc:c.vencimento, sit:c.situacao, nAditivos:(c.aditivos||[]).length,
+            enc:c.encerramento, ficha:document.getElementById('detBody').textContent.replace(/\s+/g,' ')};
   });
-  t('distrato sem data de encerramento não passa', encerrou.semData, encerrou);
-  t('a nota avisa que vai perguntar sobre o INATIVO',
-    /INATIVO/.test(encerrou.nota), encerrou.nota);
-  t('o contrato passa a valer até a data do distrato', depoisDistrato.venc==='2026-12-15', depoisDistrato);
-  t('e, com o sim, fica INATIVO', depoisDistrato.sit==='INATIVO', depoisDistrato);
+  t('a nota avisa o novo vencimento e o INATIVO',
+    /15\/12\/2026/.test(encerrou) && /INATIVO/.test(encerrou), encerrou);
+  t('o vencimento passa a ser a data do encerramento', depoisEncerrar.venc==='2026-12-15', depoisEncerrar);
+  t('a situação fica INATIVO', depoisEncerrar.sit==='INATIVO', depoisEncerrar);
+  t('o encerramento NÃO entra na lista de aditivos', depoisEncerrar.nAditivos===1, depoisEncerrar);
+  t('o encerramento fica registrado com tipo, data e motivo',
+    depoisEncerrar.enc && depoisEncerrar.enc.tipo==='Rescisão' && depoisEncerrar.enc.data==='2026-12-15'
+    && depoisEncerrar.enc.motivo==='Descumprimento contratual', depoisEncerrar.enc);
+  t('a ficha mostra o encerramento', /Encerramento/.test(depoisEncerrar.ficha) && /Rescisão/.test(depoisEncerrar.ficha),
+    depoisEncerrar.ficha.slice(0,700));
+
+  console.log('\n7d-bis) Reabrir um contrato encerrado');
+  const reaberto = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    abrirDet(c.id); abrirEncerrar();
+    const mostraReabrir = document.getElementById('encReabrir').style.display !== 'none';
+    window.confirm=()=>true;
+    reabrirContrato();
+    return {mostraReabrir};
+  });
+  await pg.waitForTimeout(400);
+  const depoisReabrir = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    return {sit:c.situacao, venc:c.vencimento, temEncerramento:!!c.encerramento};
+  });
+  t('o modal de encerrar oferece "reabrir" quando o contrato já está encerrado', reaberto.mostraReabrir, reaberto);
+  t('reabrir apaga o encerramento', !depoisReabrir.temEncerramento, depoisReabrir);
+  t('e devolve a situação de antes do encerramento', depoisReabrir.sit==='ATIVO', depoisReabrir);
+  t('e o vencimento volta ao que era antes do encerramento', depoisReabrir.venc==='2027-06-30', depoisReabrir);
 
   console.log('\n7e) As quatro situações, e o nome antigo traduzido');
   const sits=await pg.evaluate(()=>{
@@ -898,6 +933,48 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       return !document.querySelector('.tab tbody .badge-naoprorroga');
     }));
   await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; buscarEmTudo(); });
+
+  console.log('\n7g) Apostilamento: numeração própria, some do aditivo');
+  const apost = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    abrirDet(c.id); novoApostilamento();
+    const n1 = document.getElementById('apN').value;
+    document.getElementById('apData').value='2026-10-01';
+    document.getElementById('apVenc').value='2027-09-30';
+    document.getElementById('apValor').value='5000';
+    apostNota();
+    const nota = document.getElementById('apostNota').textContent;
+    salvarApost();
+    return {n1, nota};
+  });
+  await pg.waitForTimeout(400);
+  const depoisApost = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    return {valor:c.valor, venc:c.vencimento, nAditivos:(c.aditivos||[]).length,
+            nAposts:(c.apostilamentos||[]).length,
+            ficha:document.getElementById('detBody').textContent.replace(/\s+/g,' ')};
+  });
+  t('a numeração do apostilamento começa em 1, independente da contagem de aditivos', apost.n1==='1', apost.n1);
+  t('a nota avisa o novo valor e o novo vencimento', /75\.000/.test(apost.nota) && /30\/09\/2027/.test(apost.nota), apost.nota);
+  t('o apostilamento soma no valor do contrato, igual um aditivo', depoisApost.valor===75000, depoisApost.valor);
+  t('e muda o vencimento, igual um aditivo', depoisApost.venc==='2027-09-30', depoisApost.venc);
+  t('não entra na lista de aditivos', depoisApost.nAditivos===1, depoisApost);
+  t('entra na lista própria de apostilamentos', depoisApost.nAposts===1, depoisApost);
+  t('a ficha mostra a seção de apostilamentos', /Apostilamentos/.test(depoisApost.ficha), depoisApost.ficha.slice(0,700));
+
+  await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    abrirDet(c.id); abrirApost(0);
+    window.confirm=()=>true;
+    excluirApostilamento();
+  });
+  await pg.waitForTimeout(400);
+  const semApost = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    return {valor:c.valor, venc:c.vencimento, n:(c.apostilamentos||[]).length};
+  });
+  t('excluir o apostilamento devolve o valor e o prazo de antes dele',
+    semApost.valor===70000 && semApost.venc==='2027-06-30' && semApost.n===0, semApost);
 
   pg.on('dialog', d=>d.accept());
   /* Dizer de qual contrato é o aditivo: contar com o que ficou aberto de uma

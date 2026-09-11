@@ -106,6 +106,10 @@
   .btn-ghost { background: var(--bg); color: var(--navy); border: 1.5px solid var(--border); padding: 9px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.18s, border-color .15s; }
   .btn-ghost:hover { background: var(--blue-bg); border-color: var(--navy-light); }
   .btn-ghost.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+  /* Encerrar contrato (distrato/rescisão) é ação de fim de linha — vermelho
+     como o resto do sistema marca isso, não navy como as ações de rotina. */
+  .btn-danger { background: linear-gradient(135deg, var(--red), #e0393b); color: #fff; border: none; padding: 10px 22px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; box-shadow: 0 3px 12px rgba(192,40,42,0.28); transition: box-shadow 0.18s, transform 0.12s, filter .15s; }
+  .btn-danger:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(192,40,42,0.35); }
   .proto-chip { background: var(--amber-bg); color: var(--amber); font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; letter-spacing: .5px; }
 
   main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 80px; }
@@ -704,6 +708,8 @@
     <div class="modal-footer">
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
       <button class="btn-ghost so-editor" onclick="novoAditivo()">＋ Aditivo</button>
+      <button class="btn-ghost so-editor" onclick="novoApostilamento()">📌 Apostilamento</button>
+      <button class="btn-danger so-editor" onclick="abrirEncerrar()">⛔ Encerrar contrato</button>
       <button class="btn-primary so-editor" onclick="editarContrato()">✏️ Editar</button>
       <button class="btn-primary" onclick="pdfContratoAtual()">🖨️ Ficha em PDF</button>
     </div>
@@ -793,6 +799,69 @@
       <div style="display:flex;gap:10px;margin-left:auto">
         <button class="btn-ghost" onclick="fecharAdit()">Cancelar</button>
         <button class="btn-primary" onclick="salvarAdit()">Salvar aditivo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ENCERRAR CONTRATO (distrato / rescisão) — não é aditivo: é o fim
+     do contrato, tem botão e registro próprios (c.encerramento). -->
+<div class="overlay" id="ovEncerrar" onclick="if(event.target===this)fecharEncerrar()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2 id="encerrarTitulo">Encerrar contrato</h2><button class="modal-close" onclick="fecharEncerrar()">✕</button></div>
+    <div class="modal-body">
+      <div id="encerrarAviso"></div>
+      <div class="fgrid">
+        <div class="fcampo s6"><label>Como foi encerrado</label>
+          <select id="encTipo" onchange="encerrarNota()">
+            <option value="Distrato">Distrato (acordo entre as partes)</option>
+            <option value="Rescisão">Rescisão (por descumprimento)</option>
+          </select>
+        </div>
+        <div class="fcampo s6"><label>Encerra em</label><input type="date" id="encData" onchange="encerrarNota()"></div>
+        <!-- Só aparece para Rescisão: distrato é acordo, não precisa dizer
+             por quê; rescisão sim. -->
+        <div class="fcampo s12" id="encCampoMotivo">
+          <label>Motivo</label><input type="text" id="encMotivo" oninput="encerrarNota()">
+          <span class="dica">Por que o contrato está sendo rescindido.</span>
+        </div>
+        <div class="fcampo s12"><label>Observação</label><textarea id="encObs" rows="2"></textarea></div>
+      </div>
+      <div class="aviso aviso-azul" id="encerrarNota" style="margin:15px 0 0"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="link-clear" id="encReabrir" onclick="reabrirContrato()" style="display:none">↺ Reabrir este contrato</button>
+      <div style="display:flex;gap:10px;margin-left:auto">
+        <button class="btn-ghost" onclick="fecharEncerrar()">Cancelar</button>
+        <button class="btn-danger" onclick="salvarEncerrar()">Encerrar contrato</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL APOSTILAMENTO — registro unilateral da Administração: não é
+     termo aditivo, e por isso tem botão, numeração e lista próprios,
+     separados de c.aditivos. -->
+<div class="overlay" id="ovApost" onclick="if(event.target===this)fecharApost()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header"><h2 id="apostTitulo">Novo apostilamento</h2><button class="modal-close" onclick="fecharApost()">✕</button></div>
+    <div class="modal-body">
+      <div id="apostAviso"></div>
+      <div class="fgrid">
+        <div class="fcampo s4"><label>Nº do apostilamento</label><input type="text" id="apN" placeholder="Ex: 1"></div>
+        <div class="fcampo s8"><label>Data de registro</label><input type="date" id="apData" onchange="apostNota()"></div>
+        <div class="fcampo s6"><label>Novo vencimento</label><input type="date" id="apVenc" onchange="apostNota()"><span class="dica">Deixe vazio se não muda o prazo.</span></div>
+        <div class="fcampo s6"><label>Variação do valor (R$)</label><input type="text" id="apValor" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="apostNota()"><span class="dica">Use sinal de menos para uma redução.</span></div>
+        <div class="fcampo s12"><label>Observação</label><textarea id="apObs" rows="2"></textarea></div>
+      </div>
+      <div class="dica" style="margin-top:2px;line-height:1.5">Registro unilateral da Administração — não é termo aditivo, mas fica na ficha do contrato, com numeração própria.</div>
+      <div class="aviso aviso-azul" id="apostNota" style="margin:15px 0 0"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="link-clear" id="apExcluir" onclick="excluirApostilamento()" style="display:none">✕ Excluir este apostilamento</button>
+      <div style="display:flex;gap:10px;margin-left:auto">
+        <button class="btn-ghost" onclick="fecharApost()">Cancelar</button>
+        <button class="btn-primary" onclick="salvarApost()">Salvar apostilamento</button>
       </div>
     </div>
   </div>
@@ -1697,30 +1766,48 @@ function toast(msg){
 }
 
 /* O valor e o vencimento que valem hoje são os do contrato somados ao que os
-   aditivos mudaram. Guardar o de origem em valorBase/vencimentoBase é o que
-   permite editar ou apagar um aditivo depois sem perder de onde se partiu —
-   e mantém uma única verdade para a lista, os filtros e os relatórios, que
-   continuam lendo c.valor e c.vencimento sem saber de aditivo nenhum. */
+   aditivos e apostilamentos mudaram. Guardar o de origem em valorBase/
+   vencimentoBase é o que permite editar ou apagar um desses depois sem
+   perder de onde se partiu — e mantém uma única verdade para a lista, os
+   filtros e os relatórios, que continuam lendo c.valor e c.vencimento sem
+   saber de aditivo ou apostilamento nenhum. O encerramento é diferente: não
+   soma nada, só sobrepõe o vencimento, porque um contrato encerrado não tem
+   vigência além da data em que foi encerrado. */
 function recalcularContrato(c){
   const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
-  if(!adits.length){
+  const aposts = Array.isArray(c.apostilamentos) ? c.apostilamentos : [];
+  const mudancas = adits.concat(aposts);
+  /* o encerramento também precisa de um valorBase/vencimentoBase guardado —
+     sem isso, reabrir um contrato que nunca teve aditivo nem apostilamento
+     perderia o vencimento original, que só existia sobrescrito. */
+  if(!mudancas.length && !c.encerramento){
     if(c.valorBase !== undefined){ c.valor = c.valorBase; delete c.valorBase; }
     if(c.vencimentoBase !== undefined){ c.vencimento = c.vencimentoBase; delete c.vencimentoBase; }
-    return c;
+  } else {
+    if(c.valorBase === undefined) c.valorBase = c.valor;
+    if(c.vencimentoBase === undefined) c.vencimentoBase = c.vencimento;
+    const soma = mudancas.reduce((t,a) => t + (Number(a.valor) || 0), 0);
+    const base = Number(c.valorBase);
+    c.valor = (c.valorBase == null || isNaN(base)) ? (soma || null) : base + soma;
+    /* o prazo vigente é o do ajuste (aditivo ou apostilamento) assinado
+       mais recentemente que mexeu nele */
+    const comPrazo = mudancas.filter(a => a.vencNovo)
+      .sort((x,y) => String(x.data||'').localeCompare(String(y.data||'')));
+    c.vencimento = comPrazo.length ? comPrazo[comPrazo.length-1].vencNovo : c.vencimentoBase;
   }
-  if(c.valorBase === undefined) c.valorBase = c.valor;
-  if(c.vencimentoBase === undefined) c.vencimentoBase = c.vencimento;
-  const soma = adits.reduce((t,a) => t + (Number(a.valor) || 0), 0);
-  const base = Number(c.valorBase);
-  c.valor = (c.valorBase == null || isNaN(base)) ? (soma || null) : base + soma;
-  /* o prazo vigente é o do aditivo assinado mais recentemente que mexeu nele */
-  const comPrazo = adits.filter(a => a.vencNovo)
-    .sort((x,y) => String(x.data||'').localeCompare(String(y.data||'')));
-  c.vencimento = comPrazo.length ? comPrazo[comPrazo.length-1].vencNovo : c.vencimentoBase;
+  if(c.encerramento && c.encerramento.data) c.vencimento = c.encerramento.data;
   return c;
 }
 function somaAditivos(c){
   return (Array.isArray(c.aditivos) ? c.aditivos : []).reduce((t,a) => t + (Number(a.valor)||0), 0);
+}
+function somaApostilamentos(c){
+  return (Array.isArray(c.apostilamentos) ? c.apostilamentos : []).reduce((t,a) => t + (Number(a.valor)||0), 0);
+}
+function temAjustes(c){
+  return !!((Array.isArray(c.aditivos) && c.aditivos.length) ||
+            (Array.isArray(c.apostilamentos) && c.apostilamentos.length) ||
+            c.encerramento);
 }
 function prepararContrato(c){
   c.situacao = normalizarSituacao(c.situacao);
@@ -2317,10 +2404,22 @@ function abrirDet(id){
   document.getElementById('detTitle').textContent = `Contrato nº ${c.contr}/${c.ano}`;
   const row = (k,v)=> v ? `<div class="det-row"><div class="k">${k}</div><div class="v">${v}</div></div>` : '';
   const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
-  const detalheValor = adits.length
-    ? ` <span style="font-size:12.5px;color:var(--muted)">(contrato ${money(c.valorBase)} + aditivos ${money(somaAditivos(c))})</span>` : '';
-  const detalheVenc = adits.some(a=>a.vencNovo)
-    ? ` <span style="font-size:12.5px;color:var(--muted)">(original ${fmtD(c.vencimentoBase)}, alterado por aditivo)</span>` : '';
+  const aposts = Array.isArray(c.apostilamentos) ? c.apostilamentos : [];
+  const ajustes = adits.concat(aposts);
+  const partesValor = [];
+  if(adits.length) partesValor.push('aditivos '+money(somaAditivos(c)));
+  if(aposts.length) partesValor.push('apostilamentos '+money(somaApostilamentos(c)));
+  const detalheValor = partesValor.length
+    ? ` <span style="font-size:12.5px;color:var(--muted)">(contrato ${money(c.valorBase)} + ${partesValor.join(' + ')})</span>` : '';
+  const detalheVenc = ajustes.some(a=>a.vencNovo) && !c.encerramento
+    ? ` <span style="font-size:12.5px;color:var(--muted)">(original ${fmtD(c.vencimentoBase)}, alterado por aditivo/apostilamento)</span>` : '';
+  const encerramentoHTML = c.encerramento
+    ? '<hr class="det-hr"><div class="det-row"><div class="k">⛔ Encerramento</div><div class="v">'
+      + '<b style="color:var(--red)">'+esc(c.encerramento.tipo)+'</b> em <b>'+fmtD(c.encerramento.data)+'</b>'
+      + (c.encerramento.motivo ? '<div style="margin-top:5px">Motivo: '+esc(c.encerramento.motivo)+'</div>' : '')
+      + (c.encerramento.obs ? '<div style="margin-top:5px">'+esc(c.encerramento.obs)+'</div>' : '')
+      + '</div></div>'
+    : '';
   document.getElementById('detBody').innerHTML =
     `<div style="display:flex;gap:8px;flex-wrap:wrap">${badgeSit(c)} ${badgeVenc(c)} <span class="badge badge-tipo">${esc(c.tipo)}</span></div>` +
     row('Empresa', '<b>'+esc(c.empresa)+'</b>') +
@@ -2335,7 +2434,9 @@ function abrirDet(id){
     row('Fiscal técnico', esc(c.fiscalTec.join(', '))) +
     row('Palavra-chave', esc(c.palavra)) +
     (c.obs ? '<hr class="det-hr">'+row('⚠️ Observações', '<b style="color:var(--amber)">'+esc(c.obs)+'</b>') : '') +
-    aditivosHTML(c);
+    encerramentoHTML +
+    aditivosHTML(c) +
+    apostilamentosHTML(c);
   document.getElementById('ovDet').classList.add('open');
 }
 /* Os aditivos ficam na própria ficha: cada um abre para edição no clique. */
@@ -2349,7 +2450,7 @@ function aditivosHTML(c){
       const t = tipoAditivo(a.tipo);
       const info = [];
       if(a.data) info.push('assinado em '+fmtD(a.data));
-      if(a.vencNovo) info.push((t.encerra ? 'encerra em <b>' : 'novo vencimento <b>')+fmtD(a.vencNovo)+'</b>');
+      if(a.vencNovo) info.push('novo vencimento <b>'+fmtD(a.vencNovo)+'</b>');
       if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'redução')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
       if(a.indice) info.push('índice '+esc(a.indice));
       if(a.razaoNova) info.push('passa a ser <b>'+esc(a.razaoNova)+'</b>'+(a.cnpjNovo ? ' ('+esc(a.cnpjNovo)+')' : ''));
@@ -2363,6 +2464,24 @@ function aditivosHTML(c){
     }).join('') + '</div>';
   }
   return '<hr class="det-hr"><div class="det-row"><div class="k">Aditivos ('+adits.length+')</div><div class="v">'+miolo+'</div></div>';
+}
+/* Mesmo desenho dos aditivos, mas com numeração e lista próprias — um
+   apostilamento não é termo aditivo. */
+function apostilamentosHTML(c){
+  const aposts = Array.isArray(c.apostilamentos) ? c.apostilamentos : [];
+  if(!aposts.length) return '';
+  const miolo = '<div class="adit-lista">' + aposts.map((a,i) => {
+    const info = [];
+    if(a.data) info.push('registrado em '+fmtD(a.data));
+    if(a.vencNovo) info.push('novo vencimento <b>'+fmtD(a.vencNovo)+'</b>');
+    if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'redução')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
+    return '<button class="adit" onclick="abrirApost('+i+')">'
+      + '<div class="adit-topo"><span class="adit-n">Apostilamento '+(a.n ? 'nº '+esc(a.n) : (i+1))+'</span></div>'
+      + (info.length ? '<div class="adit-info">'+info.join(' · ')+'</div>' : '')
+      + (a.obs ? '<div class="adit-obs">'+esc(a.obs)+'</div>' : '')
+      + '</button>';
+  }).join('') + '</div>';
+  return '<hr class="det-hr"><div class="det-row"><div class="k">Apostilamentos ('+aposts.length+')</div><div class="v">'+miolo+'</div></div>';
 }
 function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
 
@@ -2405,7 +2524,7 @@ function porValor(id, v){
 function abrirForm(id){
   formId = id;
   const c = id != null ? CONTRATOS.find(x => x.id === id) : null;
-  const adits = (c && Array.isArray(c.aditivos)) ? c.aditivos : [];
+  const ajustado = c ? temAjustes(c) : false;
   document.getElementById('formTitulo').textContent = c ? `Editar contrato nº ${c.contr}/${c.ano}` : 'Novo contrato';
   const set = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
   set('fcContr', c && c.contr);
@@ -2425,16 +2544,24 @@ function abrirForm(id){
   set('fcSecretarias', c ? (c.secretarias||[]).join(', ') : '');
   set('fcFiscalAdm', c ? (c.fiscalAdm||[]).join(', ') : '');
   set('fcFiscalTec', c ? (c.fiscalTec||[]).join(', ') : '');
-  /* com aditivos, o que se edita aqui é o de ORIGEM: o vigente é conta */
-  set('fcVencimento', c ? (adits.length ? c.vencimentoBase : c.vencimento) : '');
-  porValor('fcValor', c ? (adits.length ? c.valorBase : c.valor) : null);
-  document.getElementById('fcLabelVenc').textContent  = adits.length ? 'Vencimento original' : 'Vencimento';
-  document.getElementById('fcLabelValor').textContent = adits.length ? 'Valor original (R$)' : 'Valor (R$)';
+  /* com aditivo, apostilamento ou encerramento, o que se edita aqui é o de
+     ORIGEM: o vigente é conta */
+  set('fcVencimento', c ? (ajustado ? c.vencimentoBase : c.vencimento) : '');
+  porValor('fcValor', c ? (ajustado ? c.valorBase : c.valor) : null);
+  document.getElementById('fcLabelVenc').textContent  = ajustado ? 'Vencimento original' : 'Vencimento';
+  document.getElementById('fcLabelValor').textContent = ajustado ? 'Valor original (R$)' : 'Valor (R$)';
   const nota = document.getElementById('fcNota');
-  nota.style.display = adits.length ? '' : 'none';
-  if(adits.length) nota.innerHTML = 'Este contrato tem <b>'+adits.length+' aditivo(s)</b>. Aqui se edita o valor e o '
-    + 'prazo de origem — o que a lista mostra é o resultado com os aditivos somados: hoje <b>'+fmtD(c.vencimento)
-    + '</b> e <b>'+money(c.valor)+'</b>.';
+  nota.style.display = ajustado ? '' : 'none';
+  if(ajustado){
+    const partes = [];
+    const na = (c.aditivos||[]).length, np = (c.apostilamentos||[]).length;
+    if(na) partes.push(na+' aditivo(s)');
+    if(np) partes.push(np+' apostilamento(s)');
+    if(c.encerramento) partes.push('encerramento registrado');
+    nota.innerHTML = 'Este contrato tem <b>'+partes.join(' e ')+'</b>. Aqui se edita o valor e o '
+      + 'prazo de origem — o que a lista mostra é o resultado já calculado: hoje <b>'+fmtD(c.vencimento)
+      + '</b> e <b>'+money(c.valor)+'</b>.';
+  }
   document.getElementById('formAviso').innerHTML = avisoGravacao();
   document.getElementById('ovForm').classList.add('open');
   setTimeout(() => document.getElementById(c ? 'fcEmpresa' : 'fcContr').focus(), 60);
@@ -2462,7 +2589,7 @@ function salvarForm(){
   });
   const valorDigitado = lerValor('fcValor');
   if(isNaN(valorDigitado)){ alert('Não entendi o valor "'+valCampo('fcValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
-  if(Array.isArray(c.aditivos) && c.aditivos.length){
+  if(temAjustes(c)){
     c.vencimentoBase = valCampo('fcVencimento') || null;
     c.valorBase = valorDigitado;
   } else {
@@ -2482,7 +2609,7 @@ function gravar(c, msg, acao){
   return salvarContrato(c, !antes).then(() => {
     const i = CONTRATOS.findIndex(x => x.id === c.id);
     if(i >= 0) CONTRATOS[i] = c; else CONTRATOS.push(c);
-    fecharForm(); fecharAdit();
+    fecharForm(); fecharAdit(); fecharApost(); fecharEncerrar();
     avisoRascunho(); marcarFonte(); popularDatalists(); aplicarFiltros();
     if(document.getElementById('ovDet').classList.contains('open')) abrirDet(c.id);
     toast(msg);
@@ -2512,8 +2639,8 @@ function popularDatalists(){
 /* ══════════════ ADITIVOS ══════════════
    Cada tipo de alteração contratual pede coisas diferentes, e é isso que a
    tabela abaixo descreve. Um formulário único com seis campos obriga quem
-   lança a adivinhar quais preencher — e é assim que nasce um apostilamento
-   com "novo vencimento" em branco que ninguém sabe se foi esquecimento.
+   lança a adivinhar quais preencher — e é assim que nasce um aditivo com
+   "novo vencimento" em branco que ninguém sabe se foi esquecimento.
 
    O que cada coluna quer dizer:
 
@@ -2521,18 +2648,24 @@ function popularDatalists(){
             'menos'   — só reduz (pede positivo, guarda negativo)
             'qualquer'— pode ir para os dois lados (aceita sinal)
      prazo            — mexe no vencimento do contrato
-     encerra          — ENCERRA o contrato numa data
      razao            — troca quem é a contratada
      indice           — qual índice foi aplicado (IPCA, IGP-M…)
-     motivo           — por quê (rescisão tem de dizer)
 
    O que vai gravado em "tipo" é o NOME por extenso, não um código: assim o
    PDF, o backup e o histórico continuam legíveis sem tabela de tradução.
 
-   Os nomes antigos (PRAZO, VALOR, SUPRESSÃO…) não estão aqui e não
-   precisam estar: tipoAditivo() devolve um tipo genérico para o que não
-   reconhece, com todos os campos à mostra, e o aditivo antigo continua
-   editável exatamente como era. */
+   Distrato, Rescisão e Apostilamento NÃO estão aqui, de propósito: não são
+   termo aditivo — o primeiro par encerra o contrato, o outro é ato
+   unilateral da Administração — e viver dentro de c.aditivos misturava três
+   coisas com natureza jurídica diferente numa lista só. Cada um agora tem
+   botão, formulário e registro próprios: "⛔ Encerrar contrato" (grava em
+   c.encerramento, ver salvarEncerrar) e "📌 Apostilamento" (grava em
+   c.apostilamentos, com numeração própria, ver salvarApost).
+
+   Os nomes antigos (PRAZO, VALOR, SUPRESSÃO… e também os três que saíram
+   daqui) não precisam de conversão: tipoAditivo() devolve um tipo genérico
+   para o que não reconhece, com todos os campos à mostra, e o aditivo
+   antigo continua abrindo e editando exatamente como era. */
 const TIPOS_ADITIVO = [
   {nome:'Prorrogação de prazo contratual', prazo:true,
    dica:'Estende o prazo. O vencimento do contrato passa a ser a data nova.'},
@@ -2552,15 +2685,8 @@ const TIPOS_ADITIVO = [
    dica:'Correção pelo índice previsto no contrato.'},
   {nome:'Repactuação', valor:'qualquer', indice:true,
    dica:'Revisão de preços por variação dos custos — típica de serviço contínuo.'},
-  {nome:'Apostilamento', valor:'qualquer', prazo:true,
-   dica:'Registro unilateral da Administração: não é termo aditivo, mas fica aqui '
-      + 'para o contrato ter a história inteira num lugar só.'},
   {nome:'Alteração da natureza ou razão social do contratado', razao:true,
    dica:'A empresa contratada muda de nome ou de natureza jurídica. O contrato é o mesmo.'},
-  {nome:'Distrato', encerra:true,
-   dica:'Encerramento por acordo entre as partes. O contrato passa a valer até a data informada.'},
-  {nome:'Rescisão', encerra:true, motivo:true,
-   dica:'Encerramento antes do prazo. O contrato passa a valer até a data informada.'},
   {nome:'Outros', valor:'qualquer', prazo:true,
    dica:'Para o que não se encaixa nos anteriores. Descreva na observação.'}
 ];
@@ -2618,10 +2744,6 @@ function aditMontarCampos(a){
     '<input type="date" id="faVenc" onchange="aditNota()" value="' + esc(jaTem.vencNovo || '') + '">',
     'Deixe vazio se este aditivo não mexe no prazo.');
 
-  if(t.encerra) html += campo('s6', 'Encerra em',
-    '<input type="date" id="faVenc" onchange="aditNota()" value="' + esc(jaTem.vencNovo || '') + '">',
-    'A partir daqui o contrato deixa de estar em vigor.');
-
   if(t.valor){
     /* Em "menos" o campo pede um número positivo e guarda negativo: pedir
        "-5.000" é pedir para alguém esquecer o sinal um dia. */
@@ -2647,10 +2769,6 @@ function aditMontarCampos(a){
 
   if(t.indice) html += campo('s6', 'Índice aplicado',
     '<input type="text" id="faIndice" value="' + esc(jaTem.indice || '') + '" placeholder="Ex: IPCA">');
-
-  if(t.motivo) html += campo('s12', 'Motivo',
-    '<input type="text" id="faMotivo" value="' + esc(jaTem.motivo || '') + '">',
-    'Por que o contrato está sendo rescindido.');
 
   html += '</div>';
   if(t.dica) html += '<div class="dica" style="margin-top:9px;line-height:1.5">' + esc(t.dica) + '</div>';
@@ -2683,8 +2801,6 @@ function lerAditivoDoForm(){
   if(aditCampo('faRazao'))  a.razaoNova = aditCampo('faRazao');
   if(aditCampo('faCnpj'))   a.cnpjNovo  = aditCampo('faCnpj');
   if(aditCampo('faIndice')) a.indice    = aditCampo('faIndice');
-  if(aditCampo('faMotivo')) a.motivo    = aditCampo('faMotivo');
-  if(t.encerra) a.encerra = true;
   return a;
 }
 /* Copia o contrato, aplica o aditivo que está no formulário e recalcula, sem
@@ -2699,17 +2815,13 @@ function simularAditivo(){
 function aditNota(){
   if(!detAtual) return;
   const s = simularAditivo(), partes = [];
-  const t = tipoAditivo(document.getElementById('faTipo').value);
   if(s.vencimento !== detAtual.vencimento)
-    partes.push((t.encerra ? 'o contrato passa a valer até <b>' : 'o vencimento passa de <b>'
-                  + fmtD(detAtual.vencimento) + '</b> para <b>') + fmtD(s.vencimento) + '</b>');
+    partes.push('o vencimento passa de <b>'+fmtD(detAtual.vencimento)+'</b> para <b>'+fmtD(s.vencimento)+'</b>');
   if(Number(s.valor||0) !== Number(detAtual.valor||0))
     partes.push('o valor passa de <b>'+money(detAtual.valor)+'</b> para <b>'+money(s.valor)+'</b>');
   const razao = aditCampo('faRazao');
   if(razao && razao.toUpperCase() !== String(detAtual.empresa||'').toUpperCase())
     partes.push('a tela vai perguntar se a empresa passa a ser <b>'+esc(razao)+'</b>');
-  if(t.encerra && normalizarSituacao(detAtual.situacao) !== 'INATIVO')
-    partes.push('a tela vai perguntar se o contrato fica <b>INATIVO</b>');
   document.getElementById('faNota').innerHTML = partes.length
     ? 'Ao salvar: '+partes.join('; e ')+'.'
     : 'Fica registrado no histórico do contrato, sem mexer no prazo nem no valor.';
@@ -2717,12 +2829,7 @@ function aditNota(){
 function salvarAdit(){
   if(!detAtual) return;
   const a = lerAditivoDoForm();
-  const t = tipoAditivo(a.tipo);
   if(isNaN(a.valor)){ alert('Não entendi o valor "'+aditCampo('faValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
-  if(t.encerra && !a.vencNovo){
-    alert('Informe a data em que o contrato passa a estar encerrado.');
-    return;
-  }
   if(!a.data && !a.vencNovo && a.valor == null && !a.obs && !a.razaoNova){
     alert('Preencha ao menos a data, o novo vencimento, o valor ou uma observação.');
     return;
@@ -2731,15 +2838,9 @@ function salvarAdit(){
   c.aditivos = (Array.isArray(detAtual.aditivos) ? detAtual.aditivos : []).slice();
   if(aditIdx != null) c.aditivos[aditIdx] = a; else c.aditivos.push(a);
 
-  /* Duas consequências que o aditivo TEM sobre o contrato, e que seriam
-     esquecidas se a tela não perguntasse. Perguntar em vez de fazer
-     sozinho: é o cadastro da pessoa, não do sistema. */
-  if(t.encerra && normalizarSituacao(c.situacao) !== 'INATIVO'
-     && confirm('Marcar o contrato como INATIVO?\n\n'
-              + 'Ele fica registrado como encerrado em ' + fmtD(a.vencNovo) + '. '
-              + 'O aditivo é gravado de qualquer forma.')){
-    c.situacao = 'INATIVO';
-  }
+  /* Consequência que o aditivo TEM sobre o contrato, e que seria esquecida
+     se a tela não perguntasse. Perguntar em vez de fazer sozinho: é o
+     cadastro da pessoa, não do sistema. */
   if(a.razaoNova && a.razaoNova.toUpperCase() !== String(c.empresa||'').toUpperCase()
      && confirm('Passar a empresa do contrato para "' + a.razaoNova + '"?\n\n'
               + 'Hoje está "' + (c.empresa||'—') + '". O nome antigo continua no aditivo.')){
@@ -2756,6 +2857,146 @@ function excluirAditivo(){
   c.aditivos = detAtual.aditivos.slice();
   c.aditivos.splice(aditIdx, 1);
   gravar(c, 'Aditivo excluído.', 'aditivo-excluiu');
+}
+
+/* ══════════════ ENCERRAR CONTRATO (distrato / rescisão) ══════════════
+   Não é aditivo: é o fim do contrato. Fica em c.encerramento, um objeto só
+   (o contrato encerra uma vez), guardando também a situação de antes, para
+   "reabrir" saber para onde voltar. */
+function fecharEncerrar(){ document.getElementById('ovEncerrar').classList.remove('open'); }
+function abrirEncerrar(){
+  if(!detAtual) return;
+  const enc = detAtual.encerramento || null;
+  document.getElementById('encerrarTitulo').textContent =
+    (enc ? 'Encerramento' : 'Encerrar contrato') + ' — contrato nº '+detAtual.contr+'/'+detAtual.ano;
+  document.getElementById('encTipo').value = enc ? enc.tipo : 'Distrato';
+  document.getElementById('encData').value = enc ? (enc.data || '') : '';
+  document.getElementById('encMotivo').value = enc ? (enc.motivo || '') : '';
+  document.getElementById('encObs').value = enc ? (enc.obs || '') : '';
+  document.getElementById('encReabrir').style.display = enc ? '' : 'none';
+  document.getElementById('encerrarAviso').innerHTML = avisoGravacao();
+  encerrarNota();
+  document.getElementById('ovEncerrar').classList.add('open');
+}
+/* Distrato é acordo, não precisa dizer por quê; rescisão sim. */
+function encerrarMostrarMotivo(){
+  const ehRescisao = document.getElementById('encTipo').value === 'Rescisão';
+  document.getElementById('encCampoMotivo').style.display = ehRescisao ? '' : 'none';
+}
+function encerrarNota(){
+  if(!detAtual) return;
+  encerrarMostrarMotivo();
+  const tipo = document.getElementById('encTipo').value;
+  const data = valCampo('encData');
+  const partes = ['a situação passa para <b>INATIVO</b>'];
+  if(data) partes.unshift('o vencimento passa a ser <b>'+fmtD(data)+'</b>');
+  document.getElementById('encerrarNota').innerHTML =
+    'Ao salvar ('+tipo.toLowerCase()+'): '+partes.join('; e ')+'.';
+}
+function salvarEncerrar(){
+  if(!detAtual) return;
+  const tipo = document.getElementById('encTipo').value;
+  const data = valCampo('encData');
+  const motivo = valCampo('encMotivo');
+  if(!data){ alert('Informe a data em que o contrato foi encerrado.'); return; }
+  if(tipo === 'Rescisão' && !motivo){ alert('Informe o motivo da rescisão.'); return; }
+  const c = Object.assign({}, detAtual);
+  c.encerramento = {
+    tipo: tipo, data: data, motivo: motivo || null, obs: valCampo('encObs') || null,
+    situacaoAnterior: (c.encerramento && c.encerramento.situacaoAnterior) || normalizarSituacao(c.situacao)
+  };
+  c.situacao = 'INATIVO';
+  gravar(c, 'Contrato encerrado.', 'encerrou');
+}
+function reabrirContrato(){
+  if(!detAtual || !detAtual.encerramento) return;
+  const voltaPara = detAtual.encerramento.situacaoAnterior || 'ATIVO';
+  if(!confirm('Reabrir este contrato?\nA situação volta a ser '+voltaPara+' e o vencimento volta ao original.')) return;
+  const c = Object.assign({}, detAtual);
+  c.situacao = voltaPara;
+  delete c.encerramento;
+  gravar(c, 'Contrato reaberto.', 'reabriu');
+}
+
+/* ══════════════ APOSTILAMENTO ══════════════
+   Registro unilateral da Administração: não é termo aditivo, por isso tem
+   numeração e lista próprias (c.apostilamentos), separadas de c.aditivos —
+   mas mexe no valor e no vencimento do mesmo jeito que um aditivo mexeria. */
+let apostIdx = null;
+function fecharApost(){ document.getElementById('ovApost').classList.remove('open'); }
+function novoApostilamento(){ if(detAtual) abrirApost(null); }
+function proximoNumeroApostilamento(c){
+  const ns = (c.apostilamentos||[]).map(a => parseInt(a.n, 10)).filter(n => !isNaN(n));
+  return String(ns.length ? Math.max.apply(null, ns) + 1 : 1);
+}
+function abrirApost(i){
+  if(!detAtual) return;
+  apostIdx = i;
+  const a = (i != null && Array.isArray(detAtual.apostilamentos)) ? detAtual.apostilamentos[i] : null;
+  document.getElementById('apostTitulo').textContent =
+    (a ? 'Apostilamento'+(a.n ? ' nº '+a.n : '') : 'Novo apostilamento') + ' — contrato nº '+detAtual.contr+'/'+detAtual.ano;
+  const set = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  set('apN', a ? a.n : proximoNumeroApostilamento(detAtual));
+  set('apData', a && a.data);
+  set('apVenc', a && a.vencNovo);
+  porValor('apValor', a ? a.valor : null);
+  set('apObs', a && a.obs);
+  document.getElementById('apExcluir').style.display = a ? '' : 'none';
+  document.getElementById('apostAviso').innerHTML = avisoGravacao();
+  apostNota();
+  document.getElementById('ovApost').classList.add('open');
+}
+function lerApostDoForm(){
+  return {
+    n: valCampo('apN'),
+    data: valCampo('apData') || null,
+    vencNovo: valCampo('apVenc') || null,
+    valor: lerValor('apValor'),
+    obs: valCampo('apObs')
+  };
+}
+/* Mesma ideia do simularAditivo: copia, aplica o que está no formulário,
+   recalcula, sem tocar no original. */
+function simularApost(){
+  const c = JSON.parse(JSON.stringify(paraGravar(detAtual)));
+  c.apostilamentos = Array.isArray(c.apostilamentos) ? c.apostilamentos : [];
+  if(apostIdx != null) c.apostilamentos[apostIdx] = lerApostDoForm();
+  else c.apostilamentos.push(lerApostDoForm());
+  return recalcularContrato(c);
+}
+function apostNota(){
+  if(!detAtual) return;
+  const s = simularApost(), partes = [];
+  if(s.vencimento !== detAtual.vencimento)
+    partes.push('o vencimento passa de <b>'+fmtD(detAtual.vencimento)+'</b> para <b>'+fmtD(s.vencimento)+'</b>');
+  if(Number(s.valor||0) !== Number(detAtual.valor||0))
+    partes.push('o valor passa de <b>'+money(detAtual.valor)+'</b> para <b>'+money(s.valor)+'</b>');
+  document.getElementById('apostNota').innerHTML = partes.length
+    ? 'Ao salvar: '+partes.join('; e ')+'.'
+    : 'Fica registrado no histórico do contrato, sem mexer no prazo nem no valor.';
+}
+function salvarApost(){
+  if(!detAtual) return;
+  const a = lerApostDoForm();
+  if(isNaN(a.valor)){ alert('Não entendi o valor "'+valCampo('apValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
+  if(!a.data && !a.vencNovo && a.valor == null && !a.obs){
+    alert('Preencha ao menos a data, o novo vencimento, o valor ou uma observação.');
+    return;
+  }
+  const c = Object.assign({}, detAtual);
+  c.apostilamentos = (Array.isArray(detAtual.apostilamentos) ? detAtual.apostilamentos : []).slice();
+  if(apostIdx != null) c.apostilamentos[apostIdx] = a; else c.apostilamentos.push(a);
+  gravar(c, apostIdx != null ? 'Apostilamento atualizado.' : 'Apostilamento cadastrado.',
+         apostIdx != null ? 'apostilamento-editou' : 'apostilamento-criou');
+}
+function excluirApostilamento(){
+  if(!detAtual || apostIdx == null) return;
+  const a = detAtual.apostilamentos[apostIdx];
+  if(!confirm('Excluir o apostilamento'+(a.n ? ' nº '+a.n : '')+'?\nO prazo e o valor do contrato voltam ao que eram sem ele.')) return;
+  const c = Object.assign({}, detAtual);
+  c.apostilamentos = detAtual.apostilamentos.slice();
+  c.apostilamentos.splice(apostIdx, 1);
+  gravar(c, 'Apostilamento excluído.', 'apostilamento-excluiu');
 }
 
 /* ══════════════ HISTÓRICO DE EDIÇÕES ══════════════
@@ -2807,6 +3048,10 @@ function histDiferencas(antes, depois){
   });
   const na = (antes.aditivos || []).length, nd = (depois.aditivos || []).length;
   if(na !== nd) mud.push({rotulo:'aditivos', de: String(na), para: String(nd)});
+  const paa = (antes.apostilamentos || []).length, pad = (depois.apostilamentos || []).length;
+  if(paa !== pad) mud.push({rotulo:'apostilamentos', de: String(paa), para: String(pad)});
+  if(!!antes.encerramento !== !!depois.encerramento)
+    mud.push({rotulo:'encerramento', de: antes.encerramento ? 'encerrado' : 'em aberto', para: depois.encerramento ? 'encerrado' : 'em aberto'});
   return mud;
 }
 
@@ -2899,6 +3144,11 @@ const HIST_ACOES = {
   'aditivo-criou':  'cadastrou um aditivo no contrato',
   'aditivo-editou': 'alterou um aditivo do contrato',
   'aditivo-excluiu':'excluiu um aditivo do contrato',
+  'apostilamento-criou':  'cadastrou um apostilamento no contrato',
+  'apostilamento-editou': 'alterou um apostilamento do contrato',
+  'apostilamento-excluiu':'excluiu um apostilamento do contrato',
+  encerrou:         'encerrou o contrato',
+  reabriu:          'reabriu o contrato',
   desfez:           'desfez uma alteração no contrato'
 };
 function histQuando(ts){
@@ -3327,8 +3577,13 @@ function pdfContratoAgora(){
   item('Tipo de contrato', c.tipo);
   item('Objeto', c.objeto);
   const aditsPdf = Array.isArray(c.aditivos) ? c.aditivos : [];
-  item('Valor total', money(c.valor) + (aditsPdf.length ? '  (contrato '+money(c.valorBase)+' + aditivos '+money(somaAditivos(c))+')' : ''));
-  item('Vencimento', fmtD(c.vencimento) + (aditsPdf.some(a=>a.vencNovo) ? '  (original '+fmtD(c.vencimentoBase)+', alterado por aditivo)' : ''));
+  const apostsPdf = Array.isArray(c.apostilamentos) ? c.apostilamentos : [];
+  const partesValorPdf = [];
+  if(aditsPdf.length) partesValorPdf.push('aditivos '+money(somaAditivos(c)));
+  if(apostsPdf.length) partesValorPdf.push('apostilamentos '+money(somaApostilamentos(c)));
+  item('Valor total', money(c.valor) + (partesValorPdf.length ? '  (contrato '+money(c.valorBase)+' + '+partesValorPdf.join(' + ')+')' : ''));
+  item('Vencimento', fmtD(c.vencimento) + (c.encerramento ? '  (contrato encerrado)'
+    : (aditsPdf.concat(apostsPdf).some(a=>a.vencNovo) ? '  (original '+fmtD(c.vencimentoBase)+', alterado por aditivo/apostilamento)' : '')));
   /* Em vermelho e logo depois do vencimento, como na tela. Numa ficha
      impressa e anexada em processo, isto é informação jurídica: quem lê
      precisa ver antes de pedir prorrogação. */
@@ -3343,17 +3598,30 @@ function pdfContratoAgora(){
   item('Fiscal técnico', (c.fiscalTec||[]).join(', '));
   item('Palavra-chave', c.palavra);
   item('Observações', c.obs);
+  if(c.encerramento){
+    const e = c.encerramento;
+    item('Encerramento', e.tipo + ' em ' + fmtD(e.data)
+      + (e.motivo ? ' — motivo: '+e.motivo : '') + (e.obs ? ' — '+e.obs : ''));
+  }
   if(aditsPdf.length){
     item('Aditivos', aditsPdf.map((a,i) => {
-      const t = tipoAditivo(a.tipo);
       const p = ['Aditivo '+(a.n ? 'nº '+a.n : (i+1))];
       if(a.tipo) p.push(a.tipo);
       if(a.data) p.push('assinado em '+fmtD(a.data));
-      if(a.vencNovo) p.push((t.encerra ? 'encerra em ' : 'novo vencimento ')+fmtD(a.vencNovo));
+      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
       if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
       if(a.indice) p.push('índice '+a.indice);
       if(a.razaoNova) p.push('passa a ser '+a.razaoNova+(a.cnpjNovo ? ' ('+a.cnpjNovo+')' : ''));
       if(a.motivo) p.push('motivo: '+a.motivo);
+      return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
+    }).join('\n'));
+  }
+  if(apostsPdf.length){
+    item('Apostilamentos', apostsPdf.map((a,i) => {
+      const p = ['Apostilamento '+(a.n ? 'nº '+a.n : (i+1))];
+      if(a.data) p.push('registrado em '+fmtD(a.data));
+      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
+      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
       return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
     }).join('\n'));
   }
@@ -3378,14 +3646,17 @@ function pdfContratoAgora(){
 document.addEventListener('keydown', e=>{
   if(e.key!=='Escape') return;
   if(popCol){ fecharPop(); return; }        /* Esc fecha primeiro o menu da coluna */
-  /* de dentro para fora: aditivo, formulário, e só então a ficha */
-  const ovAdit=document.getElementById('ovAdit'), ovForm=document.getElementById('ovForm');
+  /* de dentro para fora: aditivo/apostilamento/encerrar, formulário, e só então a ficha */
+  const ovAdit=document.getElementById('ovAdit'), ovForm=document.getElementById('ovForm'),
+        ovApost=document.getElementById('ovApost'), ovEncerrar=document.getElementById('ovEncerrar');
   if(ovAdit.classList.contains('open')){ fecharAdit(); return; }
+  if(ovApost.classList.contains('open')){ fecharApost(); return; }
+  if(ovEncerrar.classList.contains('open')){ fecharEncerrar(); return; }
   if(ovForm.classList.contains('open')){ fecharForm(); return; }
   fecharDet(); fecharRep(); fecharFiltrosMobile();
 });
 /* fecha os modais com o botão voltar do celular */
-window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharForm(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
+window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharApost(); fecharEncerrar(); fecharForm(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
 
 /* A tarja do cabeçalho diz de onde vieram os dados — sem ela não dá para
    saber, olhando a tela, se o Firestore respondeu ou se caiu no arquivo. */

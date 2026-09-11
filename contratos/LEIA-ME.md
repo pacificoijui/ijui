@@ -106,24 +106,27 @@ estiver com a tela aberta vê a alteração na hora**, sem recarregar: a lista
 nos contratos ao mesmo tempo.
 
 O valor e o vencimento que a lista mostra são sempre os **vigentes**. Quando um
-contrato ganha aditivo, o valor e o prazo de origem passam a morar em
-`valorBase`/`vencimentoBase` e os campos `valor`/`vencimento` viram conta:
-valor de origem + soma dos aditivos, e o prazo do aditivo assinado mais
-recentemente. Assim a lista, os filtros e os relatórios continuam lendo
-`valor` e `vencimento` sem saber que aditivo existe — e editar ou apagar um
-aditivo refaz a conta sem somar duas vezes.
+contrato ganha aditivo ou apostilamento, o valor e o prazo de origem passam a
+morar em `valorBase`/`vencimentoBase` e os campos `valor`/`vencimento` viram
+conta: valor de origem + soma dos aditivos e apostilamentos, e o prazo do
+ajuste assinado mais recentemente. Assim a lista, os filtros e os relatórios
+continuam lendo `valor` e `vencimento` sem saber que aditivo ou apostilamento
+existe — e editar ou apagar um deles refaz a conta sem somar duas vezes. O
+encerramento (ver abaixo) é diferente: não soma nada, só sobrepõe o
+vencimento, porque um contrato encerrado não tem vigência além da data em
+que foi encerrado.
 
-Os aditivos moram **dentro** do documento do contrato, numa lista. Isso tem
-efeito direto na conta do Firebase: um contrato com 20 aditivos continua
-sendo **um** documento — uma gravação ao salvar, uma leitura ao carregar,
-com os 20 aditivos juntos. Aditivo não vira documento, e por isso não vira
-leitura.
+Os aditivos e os apostilamentos moram **dentro** do documento do contrato,
+cada um na sua lista (`aditivos` e `apostilamentos`). Isso tem efeito direto
+na conta do Firebase: um contrato com 20 aditivos continua sendo **um**
+documento — uma gravação ao salvar, uma leitura ao carregar, com os 20
+aditivos juntos. Aditivo não vira documento, e por isso não vira leitura.
 
 ### Os tipos de aditivo, e o que cada um pergunta
 
-São catorze, e a diferença entre eles não é só o nome: cada um pede campos
+São onze, e a diferença entre eles não é só o nome: cada um pede campos
 diferentes. Um formulário único com seis campos obriga quem lança a
-adivinhar quais preencher — e é assim que nasce um apostilamento com "novo
+adivinhar quais preencher — e é assim que nasce um aditivo com "novo
 vencimento" em branco que ninguém sabe se foi esquecimento ou se era para
 ficar vazio.
 
@@ -138,25 +141,51 @@ ficar vazio.
 | Reequilíbrio econômico-financeiro | variação do valor (para os dois lados) |
 | Reajustamento de preço | variação do valor e o índice aplicado |
 | Repactuação | variação do valor e o índice aplicado |
-| Apostilamento | valor e/ou prazo |
 | Alteração da natureza ou razão social do contratado | nova razão social e CNPJ |
-| Distrato | data em que o contrato passa a estar encerrado |
-| Rescisão | data do encerramento e o motivo |
 | Outros | valor e/ou prazo, livre |
 
 **O sinal vem do tipo, não de quem digita.** Uma supressão pede o valor sem
 sinal e guarda negativo. Pedir "−5.000" é pedir para alguém esquecer o
 traço um dia, e aí a soma dos aditivos fecha errada sem ninguém perceber.
 
-**Dois tipos têm consequência sobre o contrato, e a tela pergunta antes de
-aplicar:** distrato e rescisão oferecem marcar o contrato como INATIVO;
-alteração de razão social oferece passar a empresa do contrato para o nome
-novo. Perguntar em vez de fazer sozinho — é o cadastro de quem lança, não
-do sistema.
+**Alteração de razão social tem consequência sobre o contrato, e a tela
+pergunta antes de aplicar:** oferece passar a empresa do contrato para o
+nome novo. Perguntar em vez de fazer sozinho — é o cadastro de quem lança,
+não do sistema.
 
 Aditivos gravados antes desta lista (com os nomes antigos: PRAZO, VALOR,
 SUPRESSÃO…) continuam abrindo e editando normalmente, com todos os campos à
 mostra. Nada precisou ser convertido.
+
+Distrato, Rescisão e Apostilamento **não são aditivo** — cada um tem botão,
+formulário e registro próprios, descritos a seguir.
+
+### Encerrar contrato (distrato ou rescisão)
+
+Distrato (acordo entre as partes) e rescisão (por descumprimento) encerram o
+contrato — não mudam uma cláusula, acabam com ele. Por isso não moram na
+lista de aditivos: moram em `encerramento`, um objeto só (o contrato encerra
+uma vez), com o tipo, a data, a observação e — só para rescisão, que precisa
+justificar — o motivo.
+
+Ao salvar, o contrato passa para **INATIVO** e o vencimento passa a ser a
+data do encerramento; o valor não muda. A situação de antes fica guardada
+junto (`situacaoAnterior`), para o botão **↺ Reabrir este contrato**, no
+mesmo modal, saber para onde voltar: reabrir apaga o encerramento, devolve a
+situação anterior e o vencimento volta ao que era antes (calculado a partir
+dos aditivos e apostilamentos que o contrato já tinha, se algum).
+
+### Apostilamento
+
+Registro unilateral da Administração — não depende de assinatura da
+contratada. Também não é aditivo: mora em `apostilamentos`, uma lista à
+parte de `aditivos`, com numeração própria (o primeiro apostilamento de um
+contrato é sempre o nº 1, mesmo que o contrato já tenha vários aditivos).
+
+Mexe no valor e no vencimento do contrato exatamente como um aditivo
+mexeria — entra na mesma soma e no mesmo cálculo de prazo vigente — só que
+fica separado na ficha, no PDF e no histórico, porque juridicamente é outra
+coisa.
 
 ### As quatro situações
 
