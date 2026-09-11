@@ -256,6 +256,16 @@
   .badge-ativo { background: var(--green-bg); color: var(--green); }
   .badge-inativo { background: #eef0f5; color: #7c869c; }
   .badge-par { background: var(--amber-bg); color: var(--amber); }
+  .badge-jud { background: #ece9fb; color: #4b3bb3; }
+  .fc-marca { display: flex; gap: 9px; align-items: flex-start; cursor: pointer;
+    background: var(--bg); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 11px 13px; font-size: 13.5px; line-height: 1.45; }
+  .fc-marca input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--red); flex-shrink: 0; }
+  /* "Não pode prorrogar": vermelho e ao lado do vencimento, porque é ali
+     que a pergunta nasce — quem olha um prazo acabando pergunta se dá para
+     esticar, e a resposta tem de estar no mesmo lugar do prazo. */
+  .badge-naoprorroga { background: var(--red); color: #fff; white-space: nowrap; letter-spacing: .2px; }
+  .c-venc .badge-naoprorroga { display: block; margin-top: 4px; font-size: 10px; padding: 2px 7px; }
   .bv-red { background: var(--red-bg); color: var(--red); }
   .bv-amber { background: var(--amber-bg); color: var(--amber); }
   .bv-green { background: var(--green-bg); color: var(--green); }
@@ -724,9 +734,7 @@
         <div class="fcampo s4"><label>Tipo</label><input type="text" id="fcTipo" list="listaTipos"></div>
         <div class="fcampo s4"><label>Situação</label>
           <select id="fcSituacao">
-            <option value="ATIVO">ATIVO</option>
-            <option value="ATIVO-PARALIZADO">ATIVO-PARALIZADO</option>
-            <option value="INATIVO">INATIVO</option>
+            <!-- montado de SITUACOES, para existir um lugar só -->
           </select>
         </div>
         <div class="fcampo s4"><label>Palavra-chave</label><input type="text" id="fcPalavra" list="listaPalavras"></div>
@@ -735,6 +743,13 @@
         <div class="fcampo s6"><label>Fiscal técnico</label><input type="text" id="fcFiscalTec" list="listaFiscais"><span class="dica">Mais de um, separe por vírgula.</span></div>
         <div class="fcampo s6"><label id="fcLabelVenc">Vencimento</label><input type="date" id="fcVencimento"></div>
         <div class="fcampo s6"><label id="fcLabelValor">Valor (R$)</label><input type="text" id="fcValor" inputmode="decimal" autocomplete="off" placeholder="0,00"></div>
+        <!-- Fica logo abaixo do vencimento porque é sobre o vencimento que
+             ele fala: quem vê um prazo acabando pergunta se dá para esticar. -->
+        <div class="fcampo s12"><label class="fc-marca" for="fcNaoProrroga">
+            <input type="checkbox" id="fcNaoProrroga">
+            <span><b>Não pode prorrogar</b> — este contrato não admite prorrogação de prazo
+            <span class="dica" style="display:block;margin:2px 0 0">Marcado, aparece um aviso vermelho ao lado do vencimento, na tela e no PDF.</span></span>
+          </label></div>
         <div class="fcampo s12"><label>Observações</label><textarea id="fcObs" rows="2"></textarea></div>
       </div>
       <div class="aviso aviso-azul" id="fcNota" style="display:none;margin:15px 0 0"></div>
@@ -754,19 +769,17 @@
       <div id="aditAviso"></div>
       <div class="fgrid">
         <div class="fcampo s4"><label>Nº do aditivo</label><input type="text" id="faN" placeholder="Ex: 1"></div>
-        <div class="fcampo s8"><label>O que o aditivo muda</label>
-          <select id="faTipo" onchange="aditNota()">
-            <option value="PRAZO">Prazo</option>
-            <option value="VALOR">Valor</option>
-            <option value="PRAZO E VALOR">Prazo e valor</option>
-            <option value="REEQUILÍBRIO">Reequilíbrio</option>
-            <option value="SUPRESSÃO">Supressão</option>
-            <option value="OUTRO">Outro</option>
-          </select>
+        <div class="fcampo s8"><label>Tipo de aditivo</label>
+          <!-- montado de TIPOS_ADITIVO: acrescentar um tipo é acrescentar
+               uma linha lá, com os campos que ele pede -->
+          <select id="faTipo" onchange="aditTrocouTipo()"></select>
         </div>
         <div class="fcampo s6"><label>Data de assinatura</label><input type="date" id="faData" onchange="aditNota()"></div>
-        <div class="fcampo s6"><label>Novo vencimento</label><input type="date" id="faVenc" onchange="aditNota()"><span class="dica">Deixe vazio se não muda o prazo.</span></div>
-        <div class="fcampo s6"><label>Valor acrescido (R$)</label><input type="text" id="faValor" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="aditNota()"><span class="dica">Negativo em caso de supressão.</span></div>
+        <!-- Os campos daqui para baixo mudam conforme o tipo: cada um pede o
+             que precisa e não pede o que não usa. Um formulário que mostra
+             seis campos para um apostilamento faz a pessoa adivinhar quais
+             preencher. -->
+        <div class="fcampo s12" id="faCamposTipo"></div>
         <div class="fcampo s12"><label>Observação</label><textarea id="faObs" rows="2"></textarea></div>
       </div>
       <div class="aviso aviso-azul" id="faNota" style="margin:15px 0 0"></div>
@@ -1642,7 +1655,33 @@ function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); 
 function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
 function dias(s){ const d=parseD(s); return d===null ? null : Math.round((d-HOJE)/864e5); }
 function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function isAtivo(c){ return c.situacao==='ATIVO' || c.situacao==='ATIVO-PARALIZADO'; }
+/* ══════════════ SITUAÇÃO DO CONTRATO ══════════════
+   Quatro estados, e a diferença que importa é uma só: o contrato ainda
+   existe ou não. ATIVO, PARALISADO e PROCESSO JUDICIAL são contratos DE PÉ
+   — o prazo deles continua correndo e continua sendo assunto de alguém. Só
+   INATIVO está fora.
+
+   "ATIVO-PARALIZADO" era o nome antigo de PARALISADO (e vinha com um "z"
+   que não existe na palavra). Os onze contratos que ainda o guardam são
+   traduzidos na leitura, e gravam o nome novo na próxima vez que alguém
+   salvar — ninguém precisa fazer mutirão de correção. */
+const SITUACOES = ['ATIVO', 'PARALISADO', 'PROCESSO JUDICIAL', 'INATIVO'];
+function normalizarSituacao(v){
+  const s = String(v == null ? '' : v).toUpperCase().trim();
+  if(s === 'ATIVO-PARALIZADO' || s === 'ATIVO-PARALISADO') return 'PARALISADO';
+  return s || 'ATIVO';
+}
+/* O alerta de vencimento é SÓ do que está em execução.
+   Contrato paralisado ou em processo judicial não está correndo prazo de
+   execução — cobrar a data dele seria alarme falso todo dia, e alarme falso
+   todo dia é o que faz alguém parar de olhar os alarmes de verdade. Inativo,
+   idem: já acabou.
+
+   Os três continuam existindo, aparecendo na lista e sendo pesquisáveis. O
+   que não têm é a cor de aviso no prazo. */
+function emVigor(c){ return normalizarSituacao(c.situacao) === 'ATIVO'; }
+function vigente(c){ return emVigor(c); }
+function isAtivo(c){ return emVigor(c); }   /* nome antigo, ainda usado */
 function fiscais(c){ return [...c.fiscalAdm, ...c.fiscalTec]; }
 let toastT = null;
 function toast(msg){
@@ -1680,6 +1719,7 @@ function somaAditivos(c){
   return (Array.isArray(c.aditivos) ? c.aditivos : []).reduce((t,a) => t + (Number(a.valor)||0), 0);
 }
 function prepararContrato(c){
+  c.situacao = normalizarSituacao(c.situacao);
   recalcularContrato(c);
   c._d = dias(c.vencimento);
   delete c._txt;                 /* a busca reindexa este contrato */
@@ -2175,9 +2215,22 @@ document.addEventListener('click', e => {
 });
 window.addEventListener('resize', () => { if(popCol) fecharPop(); });
 /* ══════════════ RENDER DA TABELA ══════════════ */
+/* O aviso anda GRUDADO no vencimento em toda parte — lista, ficha e PDF.
+   Solto num canto da ficha ele seria lido tarde demais: a pergunta "dá para
+   prorrogar?" nasce olhando o prazo. */
+/* Na coluna do vencimento, que é estreita, o texto curto cabe numa linha —
+   "NÃO PODE PRORROGAR" quebrava em três e virava um bloco vermelho que
+   escondia a data. Na ficha, onde há largura, vai a frase inteira. */
+function badgeNaoProrroga(c, curto){
+  if(!c.naoProrroga) return '';
+  return '<span class="badge badge-naoprorroga">⛔ '
+    + (curto ? 'NÃO PRORROGA' : 'NÃO PODE PRORROGAR') + '</span>';
+}
 function badgeSit(c){
-  if(c.situacao==='ATIVO') return '<span class="badge badge-ativo">✅ ATIVO</span>';
-  if(c.situacao==='ATIVO-PARALIZADO') return '<span class="badge badge-par">⏸️ PARALISADO</span>';
+  const sit = normalizarSituacao(c.situacao);
+  if(sit==='ATIVO') return '<span class="badge badge-ativo">✅ ATIVO</span>';
+  if(sit==='PARALISADO') return '<span class="badge badge-par">⏸️ PARALISADO</span>';
+  if(sit==='PROCESSO JUDICIAL') return '<span class="badge badge-jud">⚖️ PROCESSO JUDICIAL</span>';
   return '<span class="badge badge-inativo">INATIVO</span>';
 }
 function badgeVenc(c){
@@ -2218,7 +2271,7 @@ function linhaHTML(c){
     ${cel('c-tipo', esc(c.tipo), 'Tipo')}
     ${cel('c-fis', fiscaisCelulaHTML(c), 'Fiscais')}
     <td class="c-sit">${badgeSit(c)}</td>
-    <td class="c-venc">${badgeVenc(c)}</td>
+    <td class="c-venc">${badgeVenc(c)}${badgeNaoProrroga(c, true)}</td>
     <td class="c-valor">${money(c.valor)}</td>
   </tr>`;
 }
@@ -2272,7 +2325,8 @@ function abrirDet(id){
     row('Objeto', esc(c.objeto)) +
     '<hr class="det-hr">' +
     row('Valor total', '<b style="font-size:16px">'+money(c.valor)+'</b>'+detalheValor) +
-    row('Vencimento', fmtD(c.vencimento) + (isAtivo(c)&&c._d!==null ? (c._d<0?` — <b style="color:var(--red)">vencido há ${-c._d} dias</b>`:` — faltam <b>${c._d} dias</b>`):'') + detalheVenc) +
+    row('Vencimento', fmtD(c.vencimento) + (isAtivo(c)&&c._d!==null ? (c._d<0?` — <b style="color:var(--red)">vencido há ${-c._d} dias</b>`:` — faltam <b>${c._d} dias</b>`):'') + detalheVenc
+        + (c.naoProrroga ? '<div style="margin-top:7px">'+badgeNaoProrroga(c)+'</div>' : '')) +
     row('Fiscal administrativo', esc(c.fiscalAdm.join(', '))) +
     row('Fiscal técnico', esc(c.fiscalTec.join(', '))) +
     row('Palavra-chave', esc(c.palavra)) +
@@ -2288,10 +2342,14 @@ function aditivosHTML(c){
     miolo = '<div class="adit-vazio">Nenhum aditivo registrado. Use <b>＋ Aditivo</b> aqui embaixo.</div>';
   } else {
     miolo = '<div class="adit-lista">' + adits.map((a,i) => {
+      const t = tipoAditivo(a.tipo);
       const info = [];
       if(a.data) info.push('assinado em '+fmtD(a.data));
-      if(a.vencNovo) info.push('novo vencimento <b>'+fmtD(a.vencNovo)+'</b>');
-      if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'supressão')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
+      if(a.vencNovo) info.push((t.encerra ? 'encerra em <b>' : 'novo vencimento <b>')+fmtD(a.vencNovo)+'</b>');
+      if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'redução')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
+      if(a.indice) info.push('índice '+esc(a.indice));
+      if(a.razaoNova) info.push('passa a ser <b>'+esc(a.razaoNova)+'</b>'+(a.cnpjNovo ? ' ('+esc(a.cnpjNovo)+')' : ''));
+      if(a.motivo) info.push('motivo: '+esc(a.motivo));
       return '<button class="adit" onclick="abrirAdit('+i+')">'
         + '<div class="adit-topo"><span class="adit-n">Aditivo '+(a.n ? 'nº '+esc(a.n) : (i+1))+'</span>'
         + '<span class="badge badge-tipo">'+esc(a.tipo||'OUTRO')+'</span></div>'
@@ -2354,7 +2412,12 @@ function abrirForm(id){
   set('fcTipo', c && c.tipo);
   set('fcPalavra', c && c.palavra);
   set('fcObs', c && c.obs);
-  document.getElementById('fcSituacao').value = (c && c.situacao) || 'ATIVO';
+  /* As opções saem de SITUACOES: acrescentar uma é acrescentar uma linha
+     lá, e não caçar <option> escrito à mão em três lugares. */
+  const selSit = document.getElementById('fcSituacao');
+  selSit.innerHTML = SITUACOES.map(v => '<option value="'+v+'">'+v+'</option>').join('');
+  selSit.value = normalizarSituacao(c && c.situacao);
+  document.getElementById('fcNaoProrroga').checked = !!(c && c.naoProrroga);
   set('fcSecretarias', c ? (c.secretarias||[]).join(', ') : '');
   set('fcFiscalAdm', c ? (c.fiscalAdm||[]).join(', ') : '');
   set('fcFiscalTec', c ? (c.fiscalTec||[]).join(', ') : '');
@@ -2386,6 +2449,7 @@ function salvarForm(){
     objeto:     valCampo('fcObjeto'),
     tipo:       valCampo('fcTipo').toUpperCase(),
     situacao:   document.getElementById('fcSituacao').value,
+    naoProrroga: document.getElementById('fcNaoProrroga').checked,
     palavra:    valCampo('fcPalavra').toUpperCase(),
     obs:        valCampo('fcObs'),
     secretarias: lerLista(valCampo('fcSecretarias')).map(s => s.toUpperCase()),
@@ -2441,7 +2505,68 @@ function popularDatalists(){
   enche('listaFiscais', fis);  enche('listaPalavras', pal);
 }
 
-/* ══════════════ ADITIVOS ══════════════ */
+/* ══════════════ ADITIVOS ══════════════
+   Cada tipo de alteração contratual pede coisas diferentes, e é isso que a
+   tabela abaixo descreve. Um formulário único com seis campos obriga quem
+   lança a adivinhar quais preencher — e é assim que nasce um apostilamento
+   com "novo vencimento" em branco que ninguém sabe se foi esquecimento.
+
+   O que cada coluna quer dizer:
+
+     valor  'mais'    — só acrescenta (o campo pede número positivo)
+            'menos'   — só reduz (pede positivo, guarda negativo)
+            'qualquer'— pode ir para os dois lados (aceita sinal)
+     prazo            — mexe no vencimento do contrato
+     encerra          — ENCERRA o contrato numa data
+     razao            — troca quem é a contratada
+     indice           — qual índice foi aplicado (IPCA, IGP-M…)
+     motivo           — por quê (rescisão tem de dizer)
+
+   O que vai gravado em "tipo" é o NOME por extenso, não um código: assim o
+   PDF, o backup e o histórico continuam legíveis sem tabela de tradução.
+
+   Os nomes antigos (PRAZO, VALOR, SUPRESSÃO…) não estão aqui e não
+   precisam estar: tipoAditivo() devolve um tipo genérico para o que não
+   reconhece, com todos os campos à mostra, e o aditivo antigo continua
+   editável exatamente como era. */
+const TIPOS_ADITIVO = [
+  {nome:'Prorrogação de prazo contratual', prazo:true,
+   dica:'Estende o prazo. O vencimento do contrato passa a ser a data nova.'},
+  {nome:'Renovação contratual', prazo:true, valor:'qualquer',
+   dica:'Novo período contratual. Se vier com valor para o período, informe também.'},
+  {nome:'Acréscimo de valor por aumento de quantitativo', valor:'mais',
+   dica:'Mesma coisa contratada, em quantidade maior.'},
+  {nome:'Acréscimo do valor por inclusão de itens novos', valor:'mais',
+   dica:'Itens que não estavam no contrato original.'},
+  {nome:'Redução de valor por supressão de quantidade', valor:'menos',
+   dica:'Mesma coisa contratada, em quantidade menor.'},
+  {nome:'Redução de valor por supressão de item', valor:'menos',
+   dica:'Item que sai do contrato.'},
+  {nome:'Reequilíbrio econômico-financeiro', valor:'qualquer',
+   dica:'Restabelece a equação do contrato. Pode aumentar ou diminuir o valor.'},
+  {nome:'Reajustamento de preço', valor:'qualquer', indice:true,
+   dica:'Correção pelo índice previsto no contrato.'},
+  {nome:'Repactuação', valor:'qualquer', indice:true,
+   dica:'Revisão de preços por variação dos custos — típica de serviço contínuo.'},
+  {nome:'Apostilamento', valor:'qualquer', prazo:true,
+   dica:'Registro unilateral da Administração: não é termo aditivo, mas fica aqui '
+      + 'para o contrato ter a história inteira num lugar só.'},
+  {nome:'Alteração da natureza ou razão social do contratado', razao:true,
+   dica:'A empresa contratada muda de nome ou de natureza jurídica. O contrato é o mesmo.'},
+  {nome:'Distrato', encerra:true,
+   dica:'Encerramento por acordo entre as partes. O contrato passa a valer até a data informada.'},
+  {nome:'Rescisão', encerra:true, motivo:true,
+   dica:'Encerramento antes do prazo. O contrato passa a valer até a data informada.'},
+  {nome:'Outros', valor:'qualquer', prazo:true,
+   dica:'Para o que não se encaixa nos anteriores. Descreva na observação.'}
+];
+const TIPO_ADITIVO_GENERICO = {nome:'Outros', valor:'qualquer', prazo:true,
+  dica:'Tipo antigo, de antes desta lista: os campos ficam todos à mostra.'};
+function tipoAditivo(nome){
+  return TIPOS_ADITIVO.find(t => t.nome === nome)
+      || Object.assign({}, TIPO_ADITIVO_GENERICO, {nome: nome || 'Outros'});
+}
+
 let aditIdx = null;                      /* posição do aditivo em edição; null = novo */
 function fecharAdit(){ document.getElementById('ovAdit').classList.remove('open'); }
 function novoAditivo(){ if(detAtual) abrirAdit(null); }
@@ -2457,25 +2582,106 @@ function abrirAdit(i){
     (a ? 'Aditivo'+(a.n ? ' nº '+a.n : '') : 'Novo aditivo') + ' — contrato nº '+detAtual.contr+'/'+detAtual.ano;
   const set = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
   set('faN', a ? a.n : proximoNumeroAditivo(detAtual));
-  document.getElementById('faTipo').value = (a && a.tipo) || 'PRAZO';
+  const sel = document.getElementById('faTipo');
+  const nomeTipo = (a && a.tipo) || TIPOS_ADITIVO[0].nome;
+  /* Um tipo antigo, fora da lista, entra como opção só para esta abertura:
+     sem isso o <select> cairia no primeiro item e o aditivo mudaria de tipo
+     sozinho ao ser aberto para conferência. */
+  const nomes = TIPOS_ADITIVO.map(t => t.nome);
+  if(nomes.indexOf(nomeTipo) < 0) nomes.push(nomeTipo);
+  sel.innerHTML = nomes.map(n => '<option value="'+esc(n)+'">'+esc(n)+'</option>').join('');
+  sel.value = nomeTipo;
   set('faData', a && a.data);
-  set('faVenc', a && a.vencNovo);
-  porValor('faValor', a ? a.valor : null);
   set('faObs', a && a.obs);
+  aditMontarCampos(a);
   document.getElementById('faExcluir').style.display = a ? '' : 'none';
   document.getElementById('aditAviso').innerHTML = avisoGravacao();
   aditNota();
   document.getElementById('ovAdit').classList.add('open');
 }
+/* Desenha os campos do tipo escolhido, guardando o que já estava digitado
+   — trocar de tipo por engano não pode apagar o valor que a pessoa acabou
+   de escrever. */
+function aditMontarCampos(a){
+  const t = tipoAditivo(document.getElementById('faTipo').value);
+  const jaTem = a || _aditRascunho || {};
+  const campo = (classe, rotulo, html, dica) =>
+    '<div class="fcampo ' + classe + '"><label>' + rotulo + '</label>' + html
+    + (dica ? '<span class="dica">' + dica + '</span>' : '') + '</div>';
+  let html = '<div class="fgrid" style="margin:0">';
+
+  if(t.prazo) html += campo('s6', 'Novo vencimento',
+    '<input type="date" id="faVenc" onchange="aditNota()" value="' + esc(jaTem.vencNovo || '') + '">',
+    'Deixe vazio se este aditivo não mexe no prazo.');
+
+  if(t.encerra) html += campo('s6', 'Encerra em',
+    '<input type="date" id="faVenc" onchange="aditNota()" value="' + esc(jaTem.vencNovo || '') + '">',
+    'A partir daqui o contrato deixa de estar em vigor.');
+
+  if(t.valor){
+    /* Em "menos" o campo pede um número positivo e guarda negativo: pedir
+       "-5.000" é pedir para alguém esquecer o sinal um dia. */
+    const rotulo = t.valor === 'mais'  ? 'Valor acrescido (R$)'
+                 : t.valor === 'menos' ? 'Valor suprimido (R$)'
+                 : 'Variação do valor (R$)';
+    const dica = t.valor === 'qualquer'
+      ? 'Use sinal de menos para uma redução.' : 'Informe o valor sem sinal.';
+    const v = jaTem.valor == null ? null
+            : (t.valor === 'menos' ? Math.abs(Number(jaTem.valor)) : jaTem.valor);
+    html += campo('s6', rotulo,
+      '<input type="text" id="faValor" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="aditNota()">',
+      dica);
+    _aditValorInicial = v;
+  } else { _aditValorInicial = null; }
+
+  if(t.razao) html += campo('s8', 'Nova razão social',
+    '<input type="text" id="faRazao" value="' + esc(jaTem.razaoNova || '') + '" oninput="aditNota()">',
+    'O contrato continua o mesmo; muda quem assina por ele.')
+    + campo('s4', 'Novo CNPJ',
+    '<input type="text" id="faCnpj" value="' + esc(jaTem.cnpjNovo || '') + '" inputmode="numeric">',
+    'Se mudou.');
+
+  if(t.indice) html += campo('s6', 'Índice aplicado',
+    '<input type="text" id="faIndice" value="' + esc(jaTem.indice || '') + '" placeholder="Ex: IPCA">');
+
+  if(t.motivo) html += campo('s12', 'Motivo',
+    '<input type="text" id="faMotivo" value="' + esc(jaTem.motivo || '') + '">',
+    'Por que o contrato está sendo rescindido.');
+
+  html += '</div>';
+  if(t.dica) html += '<div class="dica" style="margin-top:9px;line-height:1.5">' + esc(t.dica) + '</div>';
+  document.getElementById('faCamposTipo').innerHTML = html;
+  if(document.getElementById('faValor')) porValor('faValor', _aditValorInicial);
+  aditNota();
+}
+let _aditRascunho = null, _aditValorInicial = null;
+function aditTrocouTipo(){
+  /* Guarda o que estava preenchido antes de trocar os campos de lugar. */
+  _aditRascunho = lerAditivoDoForm();
+  aditMontarCampos(null);
+}
+function aditCampo(id){ const e = document.getElementById(id); return e ? e.value.trim() : ''; }
 function lerAditivoDoForm(){
-  return {
+  const t = tipoAditivo(document.getElementById('faTipo').value);
+  let valor = document.getElementById('faValor') ? lerValor('faValor') : null;
+  /* O sinal vem do TIPO, não do que foi digitado: uma supressão reduz, e
+     ponto. Assim a soma dos aditivos fecha sem depender de quem digitou. */
+  if(valor != null && t.valor === 'menos') valor = -Math.abs(valor);
+  if(valor != null && t.valor === 'mais')  valor =  Math.abs(valor);
+  const a = {
     n: valCampo('faN'),
     tipo: document.getElementById('faTipo').value,
     data: valCampo('faData') || null,
-    vencNovo: valCampo('faVenc') || null,
-    valor: lerValor('faValor'),
+    vencNovo: aditCampo('faVenc') || null,
+    valor: valor,
     obs: valCampo('faObs')
   };
+  if(aditCampo('faRazao'))  a.razaoNova = aditCampo('faRazao');
+  if(aditCampo('faCnpj'))   a.cnpjNovo  = aditCampo('faCnpj');
+  if(aditCampo('faIndice')) a.indice    = aditCampo('faIndice');
+  if(aditCampo('faMotivo')) a.motivo    = aditCampo('faMotivo');
+  if(t.encerra) a.encerra = true;
+  return a;
 }
 /* Copia o contrato, aplica o aditivo que está no formulário e recalcula, sem
    tocar no original — é assim que a nota diz a verdade antes de salvar. */
@@ -2489,25 +2695,52 @@ function simularAditivo(){
 function aditNota(){
   if(!detAtual) return;
   const s = simularAditivo(), partes = [];
+  const t = tipoAditivo(document.getElementById('faTipo').value);
   if(s.vencimento !== detAtual.vencimento)
-    partes.push('o vencimento passa de <b>'+fmtD(detAtual.vencimento)+'</b> para <b>'+fmtD(s.vencimento)+'</b>');
+    partes.push((t.encerra ? 'o contrato passa a valer até <b>' : 'o vencimento passa de <b>'
+                  + fmtD(detAtual.vencimento) + '</b> para <b>') + fmtD(s.vencimento) + '</b>');
   if(Number(s.valor||0) !== Number(detAtual.valor||0))
     partes.push('o valor passa de <b>'+money(detAtual.valor)+'</b> para <b>'+money(s.valor)+'</b>');
+  const razao = aditCampo('faRazao');
+  if(razao && razao.toUpperCase() !== String(detAtual.empresa||'').toUpperCase())
+    partes.push('a tela vai perguntar se a empresa passa a ser <b>'+esc(razao)+'</b>');
+  if(t.encerra && normalizarSituacao(detAtual.situacao) !== 'INATIVO')
+    partes.push('a tela vai perguntar se o contrato fica <b>INATIVO</b>');
   document.getElementById('faNota').innerHTML = partes.length
-    ? 'Ao salvar: '+partes.join(' e ')+'.'
+    ? 'Ao salvar: '+partes.join('; e ')+'.'
     : 'Fica registrado no histórico do contrato, sem mexer no prazo nem no valor.';
 }
 function salvarAdit(){
   if(!detAtual) return;
   const a = lerAditivoDoForm();
-  if(isNaN(a.valor)){ alert('Não entendi o valor "'+valCampo('faValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
-  if(!a.data && !a.vencNovo && a.valor == null && !a.obs){
+  const t = tipoAditivo(a.tipo);
+  if(isNaN(a.valor)){ alert('Não entendi o valor "'+aditCampo('faValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
+  if(t.encerra && !a.vencNovo){
+    alert('Informe a data em que o contrato passa a estar encerrado.');
+    return;
+  }
+  if(!a.data && !a.vencNovo && a.valor == null && !a.obs && !a.razaoNova){
     alert('Preencha ao menos a data, o novo vencimento, o valor ou uma observação.');
     return;
   }
   const c = Object.assign({}, detAtual);
   c.aditivos = (Array.isArray(detAtual.aditivos) ? detAtual.aditivos : []).slice();
   if(aditIdx != null) c.aditivos[aditIdx] = a; else c.aditivos.push(a);
+
+  /* Duas consequências que o aditivo TEM sobre o contrato, e que seriam
+     esquecidas se a tela não perguntasse. Perguntar em vez de fazer
+     sozinho: é o cadastro da pessoa, não do sistema. */
+  if(t.encerra && normalizarSituacao(c.situacao) !== 'INATIVO'
+     && confirm('Marcar o contrato como INATIVO?\n\n'
+              + 'Ele fica registrado como encerrado em ' + fmtD(a.vencNovo) + '. '
+              + 'O aditivo é gravado de qualquer forma.')){
+    c.situacao = 'INATIVO';
+  }
+  if(a.razaoNova && a.razaoNova.toUpperCase() !== String(c.empresa||'').toUpperCase()
+     && confirm('Passar a empresa do contrato para "' + a.razaoNova + '"?\n\n'
+              + 'Hoje está "' + (c.empresa||'—') + '". O nome antigo continua no aditivo.')){
+    c.empresa = a.razaoNova.toUpperCase();
+  }
   gravar(c, aditIdx != null ? 'Aditivo atualizado.' : 'Aditivo cadastrado.',
          aditIdx != null ? 'aditivo-editou' : 'aditivo-criou');
 }
@@ -2860,12 +3093,16 @@ const COLS = [
   /* "39/2021" e "11/01/2022" não podem quebrar em duas linhas: a coluna
      tem de caber o dado inteiro, senão o que se economiza em largura se
      perde em altura de linha — e fica feio de ler. */
-  {t:'Nº/Ano', w:19, f:c=>`${c.contr}/${c.ano}`},
+  /* Número em cima e modalidade embaixo, como na tela: quem confere um
+     relatório impresso precisa saber de qual licitação o contrato veio, e
+     era o único dado da coluna que só existia no sistema. */
+  {t:'Nº/Ano', w:19, f:c=>`${c.contr}/${c.ano}` + (c.modalidade ? '\n'+c.modalidade : '')},
   {t:'Empresa', w:37, f:c=>c.empresa||'—'},
   {t:'Objeto', w:105, f:c=>c.objeto||'—'},
   {t:'Secretaria', w:19, f:c=>c.secretarias.join(', ')||'—'},
   {t:'Fiscais', w:28, f:c=>fiscais(c).join(', ')||'—'},
-  {t:'Venc.', w:20, f:c=>fmtD(c.vencimento)},
+  {t:'Venc.', w:20, corDoPrazo:true,
+   f:c=>fmtD(c.vencimento) + (c.naoProrroga ? '\nNAO PRORROGA' : '')},
   {t:'Situação', w:19, f:c=>c.situacao||'—'},
   {t:'Valor (R$)', w:26, f:c=>c.valor==null?'—':fmtBRL.format(c.valor).replace('R$','').trim(), right:true},
 ];
@@ -2896,9 +3133,13 @@ function pdfRows(doc, itens, yStart, tituloPag, sub){
     let x=ML+2;
     COLS.forEach((col,i)=>{
       /* O vencimento continua sendo a única coisa colorida: ali a cor não é
-         enfeite, é o aviso de que o prazo está em cima. O resto, preto. */
-      if(i===5 && isAtivo(c) && d!==null && d<=30) doc.setTextColor(192,40,42);
-      else if(i===5 && isAtivo(c) && d!==null && d<=90) doc.setTextColor(192,112,0);
+         enfeite, é o aviso de que o prazo está em cima. O resto, preto.
+         A coluna se declara (corDoPrazo) em vez de o código contar posições:
+         com o índice fixo, acrescentar uma coluna antes pintava a errada —
+         foi exatamente o que aconteceu no PDF das requisições. */
+      if(col.corDoPrazo && c.naoProrroga) doc.setTextColor(192,40,42);
+      else if(col.corDoPrazo && isAtivo(c) && d!==null && d<=30) doc.setTextColor(192,40,42);
+      else if(col.corDoPrazo && isAtivo(c) && d!==null && d<=90) doc.setTextColor(192,112,0);
       else doc.setTextColor(0,0,0);
       const lines = cells[i];
       lines.forEach((ln,li)=> doc.text(ln, col.right? x+col.w-4 : x, y+3.7+li*PDF_LH, col.right?{align:'right'}:undefined));
@@ -3084,17 +3325,31 @@ function pdfContratoAgora(){
   const aditsPdf = Array.isArray(c.aditivos) ? c.aditivos : [];
   item('Valor total', money(c.valor) + (aditsPdf.length ? '  (contrato '+money(c.valorBase)+' + aditivos '+money(somaAditivos(c))+')' : ''));
   item('Vencimento', fmtD(c.vencimento) + (aditsPdf.some(a=>a.vencNovo) ? '  (original '+fmtD(c.vencimentoBase)+', alterado por aditivo)' : ''));
+  /* Em vermelho e logo depois do vencimento, como na tela. Numa ficha
+     impressa e anexada em processo, isto é informação jurídica: quem lê
+     precisa ver antes de pedir prorrogação. */
+  if(c.naoProrroga){
+    if(y > PE - 12){ doc.addPage(); y = cabecalho(false); }
+    doc.setFillColor(192,40,42); doc.roundedRect(L, y-4.6, 62, 7.2, 1.6, 1.6, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(255,255,255);
+    doc.text('NAO PODE PRORROGAR', L+4, y+0.4);
+    doc.setTextColor(0,0,0); y += 9.5;
+  }
   item('Fiscal administrativo', (c.fiscalAdm||[]).join(', '));
   item('Fiscal técnico', (c.fiscalTec||[]).join(', '));
   item('Palavra-chave', c.palavra);
   item('Observações', c.obs);
   if(aditsPdf.length){
     item('Aditivos', aditsPdf.map((a,i) => {
+      const t = tipoAditivo(a.tipo);
       const p = ['Aditivo '+(a.n ? 'nº '+a.n : (i+1))];
-      if(a.tipo) p.push(a.tipo.toLowerCase());
+      if(a.tipo) p.push(a.tipo);
       if(a.data) p.push('assinado em '+fmtD(a.data));
-      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
-      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'supressão')+' de '+money(Math.abs(Number(a.valor))));
+      if(a.vencNovo) p.push((t.encerra ? 'encerra em ' : 'novo vencimento ')+fmtD(a.vencNovo));
+      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
+      if(a.indice) p.push('índice '+a.indice);
+      if(a.razaoNova) p.push('passa a ser '+a.razaoNova+(a.cnpjNovo ? ' ('+a.cnpjNovo+')' : ''));
+      if(a.motivo) p.push('motivo: '+a.motivo);
       return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
     }).join('\n'));
   }

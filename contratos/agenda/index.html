@@ -739,7 +739,18 @@ function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); 
 function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
 function dias(s){ const d=parseD(s); return d===null ? null : Math.round((d-HOJE)/864e5); }
 function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function isAtivo(c){ return c.situacao==='ATIVO' || c.situacao==='ATIVO-PARALIZADO'; }
+/* As mesmas quatro situações do sistema de contratos, e a mesma tradução do
+   nome antigo — ver contratos/index.html. Duas telas discordando sobre o que
+   é um contrato vigente seria pior do que repetir seis linhas. */
+function normalizarSituacao(v){
+  const s = String(v == null ? '' : v).toUpperCase().trim();
+  if(s === 'ATIVO-PARALIZADO' || s === 'ATIVO-PARALISADO') return 'PARALISADO';
+  return s || 'ATIVO';
+}
+/* Só o que está em execução dispara alerta de prazo — paralisado e em
+   processo judicial não estão correndo prazo, e cobrar a data deles seria
+   alarme falso todo dia. Ver contratos/index.html. */
+function isAtivo(c){ return normalizarSituacao(c.situacao) === 'ATIVO'; }
 function fiscais(c){ return [...c.fiscalAdm, ...c.fiscalTec]; }
 let toastT = null;
 function toast(msg){
@@ -785,7 +796,8 @@ function prepararContrato(c){
 
 function badgeSit(c){
   if(c.situacao==='ATIVO') return '<span class="badge badge-ativo">✅ ATIVO</span>';
-  if(c.situacao==='ATIVO-PARALIZADO') return '<span class="badge badge-par">⏸️ PARALISADO</span>';
+  if(normalizarSituacao(c.situacao)==='PARALISADO') return '<span class="badge badge-par">⏸️ PARALISADO</span>';
+  if(normalizarSituacao(c.situacao)==='PROCESSO JUDICIAL') return '<span class="badge badge-par">⚖️ PROCESSO JUDICIAL</span>';
   return '<span class="badge badge-inativo">INATIVO</span>';
 }
 function badgeVenc(c){

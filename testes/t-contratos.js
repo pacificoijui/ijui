@@ -630,7 +630,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     const c=CONTRATOS.find(x=>x.contr===900);
     abrirDet(c.id); editarContrato();
     document.getElementById('fcValor').value='300000';
-    document.getElementById('fcSituacao').value='ATIVO-PARALIZADO';
+    document.getElementById('fcSituacao').value='PARALISADO';
     salvarForm();
     return true;
   });
@@ -642,13 +642,15 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             fichaMostra:document.getElementById('detBody').textContent.includes('300.000')};
   });
   t('editar altera o contrato em vez de criar outro', depoisEdicao.valor===300000 && depoisEdicao.total===N+1, depoisEdicao);
-  t('a situação também muda', depoisEdicao.sit==='ATIVO-PARALIZADO', depoisEdicao);
+  t('a situação também muda', depoisEdicao.sit==='PARALISADO', depoisEdicao);
   t('a ficha aberta se atualiza sozinha', depoisEdicao.fichaAberta && depoisEdicao.fichaMostra, depoisEdicao);
 
   const aditivou=await pg.evaluate(()=>{
     novoAditivo();
     const nSugerido=document.getElementById('faN').value;
-    document.getElementById('faTipo').value='PRAZO E VALOR';
+    /* "Renovação contratual" é o tipo que mexe nos dois: prazo e valor. */
+    document.getElementById('faTipo').value='Renovação contratual';
+    aditTrocouTipo();
     document.getElementById('faData').value='2026-10-01';
     document.getElementById('faVenc').value='2028-03-31';
     document.getElementById('faValor').value='50000';
@@ -697,8 +699,214 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('editar o aditivo recalcula o contrato, sem somar duas vezes',
     depoisReedicao.valor===380000 && depoisReedicao.n===1, depoisReedicao);
 
+  console.log('\n7b) Cada tipo de aditivo pede o que precisa, e só isso');
+  /* Um formulário único com seis campos obriga quem lança a adivinhar quais
+     preencher — e é assim que nasce um apostilamento com "novo vencimento"
+     em branco que ninguém sabe se foi esquecimento. */
+  const campos = async tipo => pg.evaluate(t=>{
+    novoAditivo();
+    document.getElementById('faTipo').value=t; aditTrocouTipo();
+    return {
+      ids:[...document.querySelectorAll('#faCamposTipo input')].map(i=>i.id),
+      rotulos:[...document.querySelectorAll('#faCamposTipo label')].map(l=>l.textContent),
+      dica:document.getElementById('faCamposTipo').textContent
+    };
+  }, tipo);
+
+  const prorro = await campos('Prorrogação de prazo contratual');
+  t('prorrogação pede prazo e não pede valor',
+    prorro.ids.includes('faVenc') && !prorro.ids.includes('faValor'), prorro.ids);
+  const acresc = await campos('Acréscimo de valor por aumento de quantitativo');
+  t('acréscimo pede valor e não pede prazo',
+    acresc.ids.includes('faValor') && !acresc.ids.includes('faVenc'), acresc.ids);
+  t('e o rótulo diz que é acréscimo',
+    acresc.rotulos.some(r=>/Valor acrescido/.test(r)), acresc.rotulos);
+  const supr = await campos('Redução de valor por supressão de item');
+  t('supressão pede o valor SEM sinal — pedir "-5.000" é pedir para esquecer o sinal',
+    supr.rotulos.some(r=>/Valor suprimido/.test(r)) && /sem sinal/.test(supr.dica), supr.rotulos);
+  const razao = await campos('Alteração da natureza ou razão social do contratado');
+  t('alteração de razão social pede a razão nova e o CNPJ',
+    razao.ids.includes('faRazao') && razao.ids.includes('faCnpj'), razao.ids);
+  t('e não pede valor nem prazo',
+    !razao.ids.includes('faValor') && !razao.ids.includes('faVenc'), razao.ids);
+  const resc = await campos('Rescisão');
+  t('rescisão pede a data do encerramento e o motivo',
+    resc.ids.includes('faVenc') && resc.ids.includes('faMotivo'), resc.ids);
+  t('e o rótulo da data diz "Encerra em", não "Novo vencimento"',
+    resc.rotulos.some(r=>/Encerra em/.test(r)), resc.rotulos);
+  const reaj = await campos('Reajustamento de preço');
+  t('reajuste pergunta qual índice foi aplicado', reaj.ids.includes('faIndice'), reaj.ids);
+
+  /* Trocar de tipo por engano não pode apagar o que já foi digitado. */
+  const guardou = await pg.evaluate(()=>{
+    novoAditivo();
+    document.getElementById('faTipo').value='Acréscimo do valor por inclusão de itens novos';
+    aditTrocouTipo();
+    document.getElementById('faValor').value='12.500,00';
+    document.getElementById('faTipo').value='Reequilíbrio econômico-financeiro';
+    aditTrocouTipo();
+    return document.getElementById('faValor').value;
+  });
+  t('trocar de tipo não joga fora o valor já digitado', /12\.500/.test(guardou), guardou);
+
+  console.log('\n7c) O sinal vem do tipo, não de quem digita');
+  /* Num contrato PRÓPRIO: as seções seguintes contam com o 900 do jeito que
+     ele está, e um teste que mexe no cenário do outro vira um teste que
+     falha por motivo errado. */
+  await pg.evaluate(()=>{
+    novoContrato();
+    document.getElementById('fcContr').value='901';
+    document.getElementById('fcAno').value='2026';
+    document.getElementById('fcEmpresa').value='TESTE ADITIVOS LTDA';
+    document.getElementById('fcObjeto').value='Contrato para os testes de aditivo';
+    document.getElementById('fcVencimento').value='2027-06-30';
+    document.getElementById('fcValor').value='100000';
+    salvarForm();
+  });
+  await pg.waitForTimeout(400);
+  const reduziu = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    abrirDet(c.id); novoAditivo();
+    document.getElementById('faN').value='1';
+    document.getElementById('faTipo').value='Redução de valor por supressão de quantidade';
+    aditTrocouTipo();
+    document.getElementById('faData').value='2026-11-01';
+    document.getElementById('faValor').value='30000';   /* positivo, como se escreve */
+    aditNota();
+    const nota=document.getElementById('faNota').textContent;
+    salvarAdit();
+    return nota;
+  });
+  await pg.waitForTimeout(400);
+  const depoisReducao = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    return {valor:c.valor, guardado:c.aditivos[0].valor,
+            ficha:document.getElementById('detBody').textContent.replace(/\s+/g,' ')};
+  });
+  t('a nota já avisa que o valor CAI', /para R\$\s?70\.000,00/.test(reduziu), reduziu);
+  t('digitou positivo, guardou negativo', depoisReducao.guardado===-30000, depoisReducao.guardado);
+  t('e o contrato passa a valer menos', depoisReducao.valor===70000, depoisReducao.valor);
+  t('a ficha chama de redução, não de supressão de sinal trocado',
+    /redução de R\$\s?30\.000,00/.test(depoisReducao.ficha), depoisReducao.ficha.slice(0,400));
+
+  console.log('\n7d) Encerrar o contrato: distrato e rescisão');
+  const encerrou = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    abrirDet(c.id); novoAditivo();
+    document.getElementById('faN').value='2';
+    document.getElementById('faTipo').value='Distrato'; aditTrocouTipo();
+    document.getElementById('faData').value='2026-12-01';
+    const semData=(()=>{ let avisou=false; const orig=window.alert;
+      window.alert=()=>{avisou=true;}; salvarAdit(); window.alert=orig; return avisou; })();
+    document.getElementById('faVenc').value='2026-12-15';
+    aditNota();
+    const nota=document.getElementById('faNota').textContent;
+    window.confirm=()=>true;            /* aceita marcar INATIVO */
+    salvarAdit();
+    return {semData, nota};
+  });
+  await pg.waitForTimeout(400);
+  const depoisDistrato = await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    return {venc:c.vencimento, sit:c.situacao};
+  });
+  t('distrato sem data de encerramento não passa', encerrou.semData, encerrou);
+  t('a nota avisa que vai perguntar sobre o INATIVO',
+    /INATIVO/.test(encerrou.nota), encerrou.nota);
+  t('o contrato passa a valer até a data do distrato', depoisDistrato.venc==='2026-12-15', depoisDistrato);
+  t('e, com o sim, fica INATIVO', depoisDistrato.sit==='INATIVO', depoisDistrato);
+
+  console.log('\n7e) As quatro situações, e o nome antigo traduzido');
+  const sits=await pg.evaluate(()=>{
+    abrirDet(CONTRATOS.find(x=>x.contr===901).id); editarContrato();
+    const ops=[...document.getElementById('fcSituacao').options].map(o=>o.value);
+    fecharForm();
+    return ops;
+  });
+  t('são quatro, e "ATIVO-PARALIZADO" não é mais uma delas',
+    sits.join('|')==='ATIVO|PARALISADO|PROCESSO JUDICIAL|INATIVO', sits);
+  /* Os contratos que ainda guardam o nome antigo são traduzidos na leitura:
+     ninguém precisa fazer mutirão de correção no cadastro. */
+  const nomeAntigo=await pg.evaluate(()=>{
+    const c=CONTRATOS[0];
+    return {normal:normalizarSituacao('ATIVO-PARALIZADO'),
+            comZ:normalizarSituacao('ATIVO-PARALISADO'),
+            vazia:normalizarSituacao(''),
+            badge:badgeSit({situacao:'ATIVO-PARALIZADO'}),
+            vigenteJud:vigente({situacao:'PROCESSO JUDICIAL'}),
+            vigentePar:vigente({situacao:'PARALISADO'}),
+            vigenteIna:vigente({situacao:'INATIVO'}),
+            vigenteAtivo:vigente({situacao:'ATIVO'}), id:c.id};
+  });
+  t('o nome antigo vira PARALISADO', nomeAntigo.normal==='PARALISADO' && nomeAntigo.comZ==='PARALISADO', nomeAntigo);
+  t('e o selo mostra o nome novo', /PARALISADO/.test(nomeAntigo.badge) && !/ATIVO-/.test(nomeAntigo.badge), nomeAntigo.badge);
+  t('situação em branco não vira vazio na tela', nomeAntigo.vazia==='ATIVO', nomeAntigo.vazia);
+  /* Só o que está EM EXECUÇÃO dispara alerta de prazo. Paralisado e em
+     processo judicial não estão correndo prazo de execução — cobrar a data
+     deles seria alarme falso todo dia, e alarme falso todo dia é o que faz
+     alguém parar de olhar os alarmes de verdade. */
+  t('paralisado e em processo judicial NÃO disparam alerta de vencimento',
+    !nomeAntigo.vigenteJud && !nomeAntigo.vigentePar, nomeAntigo);
+  t('inativo também não', !nomeAntigo.vigenteIna, nomeAntigo);
+  t('só o ativo dispara', nomeAntigo.vigenteAtivo, nomeAntigo);
+  /* E o selo do prazo desses fica cinza, sem cor de aviso. */
+  t('e o selo do prazo deles fica sem cor de aviso',
+    await pg.evaluate(()=>{
+      const p = badgeSit; void p;
+      const venc = badgeVenc({situacao:'PARALISADO', vencimento:'2020-01-01', _d:-900});
+      const jud  = badgeVenc({situacao:'PROCESSO JUDICIAL', vencimento:'2020-01-01', _d:-900});
+      const ati  = badgeVenc({situacao:'ATIVO', vencimento:'2020-01-01', _d:-900});
+      return /bv-gray/.test(venc) && /bv-gray/.test(jud) && /bv-red/.test(ati);
+    }));
+
+  console.log('\n7f) "Não pode prorrogar": vermelho, e junto do vencimento');
+  const naoProrroga=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    abrirDet(c.id); editarContrato();
+    document.getElementById('fcNaoProrroga').checked=true;
+    salvarForm();
+    return true;
+  });
+  await pg.waitForTimeout(400);
+  const marcado=await pg.evaluate(()=>{
+    const c=CONTRATOS.find(x=>x.contr===901);
+    /* Procura pelo contrato para a linha existir seja qual for o filtro que
+       ficou de pé nas seções anteriores. */
+    document.getElementById('fBusca').value='TESTE ADITIVOS'; buscarEmTudo();
+    const tr=[...document.querySelectorAll('.tab tbody tr')].find(t=>t.textContent.includes('TESTE ADITIVOS'));
+    const selo=tr && tr.querySelector('.c-venc .badge-naoprorroga');
+    return {gravado:c.naoProrroga,
+            naLinha:!!selo, texto:selo?selo.textContent:'',
+            cor:selo?getComputedStyle(selo).backgroundColor:'',
+            naFicha:/NÃO PODE PRORROGAR/.test(document.getElementById('detBody').textContent),
+            /* o aviso tem de estar na célula do VENCIMENTO, não solta num canto */
+            naCelulaDoVenc:!!(tr && tr.querySelector('.c-venc .badge-naoprorroga'))};
+  });
+  t('a marca é gravada no contrato', naoProrroga && marcado.gravado===true, marcado);
+  t('aparece na lista, na coluna do vencimento', marcado.naLinha && marcado.naCelulaDoVenc, marcado);
+  t('em vermelho', /rgb\(19[0-9], 4[0-9], 4[0-9]\)|rgb\(192, 40, 42\)/.test(marcado.cor), marcado.cor);
+  t('e na ficha do contrato', marcado.naFicha, marcado);
+  /* E some quando desmarcado — um aviso que não sai é pior que não ter. */
+  await pg.evaluate(()=>{
+    abrirDet(CONTRATOS.find(x=>x.contr===901).id); editarContrato();
+    document.getElementById('fcNaoProrroga').checked=false; salvarForm();
+  });
+  await pg.waitForTimeout(400);
+  t('desmarcar tira o aviso',
+    await pg.evaluate(()=>{
+      document.getElementById('fBusca').value='TESTE ADITIVOS'; buscarEmTudo();
+      return !document.querySelector('.tab tbody .badge-naoprorroga');
+    }));
+  await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; buscarEmTudo(); });
+
   pg.on('dialog', d=>d.accept());
-  await pg.evaluate(()=>{ abrirAdit(0); excluirAditivo(); });
+  /* Dizer de qual contrato é o aditivo: contar com o que ficou aberto de uma
+     seção anterior é como este teste passou a falhar quando entrou outra
+     seção no meio. */
+  await pg.evaluate(()=>{
+    abrirDet(CONTRATOS.find(x=>x.contr===900).id);
+    abrirAdit(0); excluirAditivo();
+  });
   await pg.waitForTimeout(400);
   const semAditivo=await pg.evaluate(()=>{
     const c=CONTRATOS.find(x=>x.contr===900);
@@ -717,7 +925,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             campos:Object.keys(c).join(','), temInterno:/"_/.test(txt)};
   });
   t('o JSON exportado tem todos os contratos, um por linha',
-    exportado.itens===N+1 && exportado.linhas===N+1+3, exportado);
+    exportado.itens===N+2 && exportado.linhas===N+2+3, exportado);
   t('e não leva os campos internos da tela', !exportado.temInterno, exportado.campos);
 
   /* O que a tela salvou tem de estar no banco, não num rascunho de
@@ -746,7 +954,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     return {empresa:c&&c.empresa, total:CONTRATOS.length};
   });
   t('a alteração da outra pessoa entra na lista sozinha',
-    aoVivo.empresa==='OUTRA PESSOA SALVOU LTDA' && aoVivo.total===N+1, aoVivo);
+    aoVivo.empresa==='OUTRA PESSOA SALVOU LTDA' && aoVivo.total===N+2, aoVivo);
 
   console.log('\n9) O portão: sem acesso não entra, e "Visualizar" não grava');
   const pgVer=await b.newPage({viewport:{width:1280,height:900}});

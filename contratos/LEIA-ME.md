@@ -119,6 +119,75 @@ sendo **um** documento — uma gravação ao salvar, uma leitura ao carregar,
 com os 20 aditivos juntos. Aditivo não vira documento, e por isso não vira
 leitura.
 
+### Os tipos de aditivo, e o que cada um pergunta
+
+São catorze, e a diferença entre eles não é só o nome: cada um pede campos
+diferentes. Um formulário único com seis campos obriga quem lança a
+adivinhar quais preencher — e é assim que nasce um apostilamento com "novo
+vencimento" em branco que ninguém sabe se foi esquecimento ou se era para
+ficar vazio.
+
+| Tipo | O que pergunta |
+|---|---|
+| Prorrogação de prazo contratual | novo vencimento |
+| Renovação contratual | novo vencimento e valor |
+| Acréscimo de valor por aumento de quantitativo | valor acrescido |
+| Acréscimo do valor por inclusão de itens novos | valor acrescido |
+| Redução de valor por supressão de quantidade | valor suprimido |
+| Redução de valor por supressão de item | valor suprimido |
+| Reequilíbrio econômico-financeiro | variação do valor (para os dois lados) |
+| Reajustamento de preço | variação do valor e o índice aplicado |
+| Repactuação | variação do valor e o índice aplicado |
+| Apostilamento | valor e/ou prazo |
+| Alteração da natureza ou razão social do contratado | nova razão social e CNPJ |
+| Distrato | data em que o contrato passa a estar encerrado |
+| Rescisão | data do encerramento e o motivo |
+| Outros | valor e/ou prazo, livre |
+
+**O sinal vem do tipo, não de quem digita.** Uma supressão pede o valor sem
+sinal e guarda negativo. Pedir "−5.000" é pedir para alguém esquecer o
+traço um dia, e aí a soma dos aditivos fecha errada sem ninguém perceber.
+
+**Dois tipos têm consequência sobre o contrato, e a tela pergunta antes de
+aplicar:** distrato e rescisão oferecem marcar o contrato como INATIVO;
+alteração de razão social oferece passar a empresa do contrato para o nome
+novo. Perguntar em vez de fazer sozinho — é o cadastro de quem lança, não
+do sistema.
+
+Aditivos gravados antes desta lista (com os nomes antigos: PRAZO, VALOR,
+SUPRESSÃO…) continuam abrindo e editando normalmente, com todos os campos à
+mostra. Nada precisou ser convertido.
+
+### As quatro situações
+
+**ATIVO**, **PARALISADO**, **PROCESSO JUDICIAL** e **INATIVO**.
+
+**O alerta de vencimento é só do ATIVO.** Um contrato paralisado ou em
+processo judicial não está correndo prazo de execução — cobrar a data dele
+seria alarme falso todo dia, e alarme falso todo dia é o que faz alguém
+parar de olhar os alarmes de verdade. INATIVO, idem: já acabou.
+
+Os três continuam existindo, aparecendo na lista e sendo pesquisáveis. O
+que não têm é a cor de aviso no prazo: o selo do vencimento deles fica
+cinza, com a data e nada mais.
+
+`ATIVO-PARALIZADO` era o nome antigo de PARALISADO (e vinha com um "z" que
+a palavra não tem). Os contratos que ainda o guardam são traduzidos na
+leitura e gravam o nome novo na próxima vez que alguém salvar — não é
+preciso mutirão de correção.
+
+### "Não pode prorrogar"
+
+Uma marca no cadastro do contrato, logo abaixo do vencimento no formulário.
+Marcada, vira um selo **vermelho ao lado do vencimento** — na lista, na
+ficha e no PDF.
+
+Fica grudada no vencimento em toda parte de propósito: a pergunta "dá para
+prorrogar?" nasce olhando o prazo, e uma resposta guardada noutro canto da
+ficha seria lida tarde demais. No PDF isso vale ainda mais — a ficha é
+impressa e anexada em processo, e quem lê precisa ver antes de pedir a
+prorrogação.
+
 ### Quem pode editar
 
 Três níveis, os mesmos dos outros painéis (ver `CONTROLE-DE-ACESSO.md`):

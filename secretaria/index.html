@@ -634,11 +634,23 @@ function prepararContrato(c){
     const prazos = adits.map(a => a.vencimento).filter(Boolean).sort();
     c.vencimento = prazos.length ? prazos[prazos.length-1] : c.vencimentoBase;
   }
+  c.situacao = normalizarSituacao(c.situacao);
   c._d = dias(c.vencimento);
   c._adits = adits.length;
   return c;
 }
-function ativo(c){ return c.situacao === 'ATIVO' || c.situacao === 'ATIVO-PARALIZADO'; }
+/* As mesmas quatro situações do sistema de contratos, e a mesma tradução do
+   nome antigo. Vigente = o contrato ainda está de pé: paralisado e em
+   processo judicial contam, inativo não. */
+function normalizarSituacao(v){
+  const s = String(v == null ? '' : v).toUpperCase().trim();
+  if(s === 'ATIVO-PARALIZADO' || s === 'ATIVO-PARALISADO') return 'PARALISADO';
+  return s || 'ATIVO';
+}
+/* Só o que está em execução: paralisado e em processo judicial existem e
+   aparecem na lista, mas não entram na conta do que vence — não estão
+   correndo prazo, e alarme falso todo dia faz parar de olhar os alarmes. */
+function ativo(c){ return normalizarSituacao(c.situacao) === 'ATIVO'; }
 
 function badgeVenc(c){
   const d = c._d;
@@ -650,9 +662,11 @@ function badgeVenc(c){
   return '<span class="badge b-ok">' + fmtD(c.vencimento) + '</span>';
 }
 function badgeSit(c){
-  if(c.situacao === 'ATIVO') return '<span class="badge b-ok">ATIVO</span>';
-  if(c.situacao === 'ATIVO-PARALIZADO') return '<span class="badge b-falta">PARALISADO</span>';
-  return '<span class="badge b-gray">' + esc(c.situacao || '—') + '</span>';
+  const sit = normalizarSituacao(c.situacao);
+  if(sit === 'ATIVO') return '<span class="badge b-ok">ATIVO</span>';
+  if(sit === 'PARALISADO') return '<span class="badge b-falta">PARALISADO</span>';
+  if(sit === 'PROCESSO JUDICIAL') return '<span class="badge b-falta">PROCESSO JUDICIAL</span>';
+  return '<span class="badge b-gray">' + esc(sit) + '</span>';
 }
 function rotuloReq(r){
   if(r.num == null) return '—';
