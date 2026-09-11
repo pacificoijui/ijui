@@ -985,6 +985,10 @@ function authEsqueciSenha(){
    apagar o Firebase reautentica a conta: senha, para quem entrou com
    senha; a janela do Google, para quem entrou pelo Google.
 
+   A cada exclusão, sempre — nada fica guardado de uma para a outra. Estar
+   com o sistema aberto não é o mesmo que ser a pessoa, e é exatamente esse
+   o caso que isto existe para cobrir.
+
    Não é a tela conferindo a senha — é o Firebase. A tela nunca vê nem
    guarda nada; se a reautenticação falhar, a exclusão simplesmente não
    acontece. */
@@ -993,9 +997,22 @@ function confirmarIdentidade(){
   if(!u) return Promise.reject(new Error('Sessão encerrada. Entre de novo.'));
   const porGoogle = (u.providerData || []).some(p => p && p.providerId === 'google.com');
   if(porGoogle){
-    return u.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider())
+    /* Sem "prompt", o Google pode reautenticar em silêncio — a sessão já
+       está aberta, a janela abre e fecha sozinha, e a confirmação não
+       confirma nada. "select_account" força a escolha da conta toda vez,
+       que é o mais perto de uma pergunta que o Google oferece aqui.
+
+       Vale dizer o limite com todas as letras: para conta do Google não
+       existe senha a conferir do lado do navegador — a sessão É a
+       credencial. Quem precisar da senha de verdade a cada exclusão deve
+       usar conta de e-mail e senha. */
+    const prov = new firebase.auth.GoogleAuthProvider();
+    if(prov.setCustomParameters) prov.setCustomParameters({prompt: 'select_account'});
+    return u.reauthenticateWithPopup(prov)
       .catch(e => {
         if(e.code === 'auth/popup-closed-by-user') throw new Error('Confirmação cancelada.');
+        if(e.code === 'auth/user-mismatch')
+          throw new Error('Essa não é a conta que está usando o sistema. A requisição não foi excluída.');
         throw new Error('Não consegui confirmar sua conta: ' + e.message);
       });
   }
@@ -1571,12 +1588,11 @@ function situacaoEmpenho(r){ return r.empenho ? 'Empenhada' : 'Falta empenhar'; 
 
 const FACETAS = {
   /* Procurar um número é a busca mais comum desta coluna — "onde está a
-     248?". Uma lista de anos não responde isso; uma lista de NÚMEROS sim,
-     e a caixa de busca do menu a filtra enquanto se digita. O ano fica
-     depois, útil quando alguém traz as mais antigas. */
-  num:   [ {k:'nreq', t:'Número da requisição', v:r=>[r.rotulo || '(sem número)'],
-            ordem:a=>{ const m=/^(\d+)\/(\d{4})/.exec(a); return m ? Number(m[2])*10000+Number(m[1]) : -1; }},
-           {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'],
+     248?" — e a caixa do menu já filtra a tela enquanto se digita. Uma
+     lista de números para marcar embaixo seria um segundo clique para
+     fazer o que o primeiro já fez. Fica só o ano, útil para quem traz as
+     mais antigas. */
+  num:   [ {k:'ano', t:'Ano', v:r=>[r.ano ? String(r.ano) : '(sem ano)'],
             ordem:a=>Number(a)||-1} ],
   receb: [ {k:'mesR', t:'Mês do recebimento', v:r=>[mesDe(r.recebido)], ordem:ordemMes} ],
   desp:  [ {k:'desp', t:'Despacho do Diretor', v:r=>[estadoDespacho(r)],

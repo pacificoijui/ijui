@@ -127,18 +127,27 @@ dizer que não encontrou nada.
 
 ## Procurar uma requisição pelo número
 
-O menu da coluna **REQUISIÇÃO** é uma busca por número: digite `248` e a
-`248/2026` aparece na lista para marcar. Uma lista de anos não respondia
-"onde está a 248?"; uma lista de números sim.
+O menu da coluna **REQUISIÇÃO** é uma busca por número: digite `248` e a tela
+já filtra, sem precisar marcar nada. Uma lista de números para clicar embaixo
+seria um segundo clique fazendo o que o primeiro já fez.
 
 ## Excluir uma requisição
 
 Quem preenche pode excluir, pela ficha (🔍 → **🗑️ Excluir**). Duas travas:
 
-1. **A senha.** Antes de apagar, o Firebase reautentica a conta — senha para
-   quem entrou com senha, a janela do Google para quem entrou pelo Google. Um
-   computador deixado aberto no balcão não pode virar uma exclusão. A tela
-   nunca vê nem guarda a senha; quem confere é o Firebase.
+1. **A senha, a cada exclusão.** Antes de apagar, o Firebase reautentica a
+   conta — e nada fica guardado de uma exclusão para a outra. Estar com o
+   sistema aberto não é o mesmo que ser a pessoa, e é exatamente esse o caso
+   que isto cobre: um computador deixado no balcão não vira uma exclusão. A
+   tela nunca vê nem guarda a senha; quem confere é o Firebase.
+
+   > **O limite, com todas as letras.** Isso vale de verdade para contas de
+   > **e-mail e senha**. Para conta do **Google** não existe senha a conferir
+   > do lado do navegador — a sessão *é* a credencial. O melhor que dá para
+   > fazer é forçar a janela de escolha de conta a cada exclusão
+   > (`prompt: select_account`), o que exige uma ação deliberada e mostra em
+   > nome de quem se está apagando, mas não é uma senha. Quem precisar dessa
+   > garantia deve usar conta de e-mail e senha.
 2. **Requisição já despachada não sai.** O despacho é decisão do Diretor, e
    quem preenche não pode mexer nele — se pudesse apagar a requisição
    inteira, apagaria o despacho junto, e a trava vazaria pelo delete. Para

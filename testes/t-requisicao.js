@@ -656,6 +656,29 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       .then(d=>d.exists), despachada.id));
   await pg.evaluate(id=>{ const r=REQS.find(x=>x.id===id); r.despacho=''; prepararReq(r); redesenharLinha(r); }, despachada.id);
 
+  /* Digitar o número já filtra a tela — não precisa marcar nada embaixo. */
+  const soBusca=await pg.evaluate(()=>{
+    limparFiltros();
+    abrirFiltroCol({stopPropagation(){}, currentTarget:document.querySelector('.cf[data-col="num"]')}, 'num');
+    const alvo=REQS.find(r=>r.num!=null).rotulo.split('/')[0];
+    document.getElementById('popBusca').value=alvo;
+    renderPop(); aplicarFiltros();
+    return {termo:alvo, achou:filtrados.length,
+      titulo:document.getElementById('popTit').textContent,
+      dica:document.getElementById('popBusca').placeholder,
+      grupos:[...document.querySelectorAll('#popLista .pop-grupo')].map(e=>e.textContent)};
+  });
+  t('digitar o número já filtra, sem precisar marcar nada',
+    soBusca.achou>0 && soBusca.achou<50, soBusca);
+  t('o menu se apresenta como busca de requisição',
+    /Procurar requisição/.test(soBusca.titulo) && /Nº da requisição/.test(soBusca.dica), soBusca);
+  /* A lista de números para clicar seria um segundo clique fazendo o que o
+     primeiro já fez. */
+  t('e não repete a lista de números embaixo',
+    !soBusca.grupos.some(g=>/Número da requisição/.test(g)), soBusca.grupos);
+  await pg.evaluate(()=>{ fecharPop(); limparFiltros(); });
+  await pg.waitForTimeout(200);
+
   console.log('\n7c) O registro de atividades');
   /* Toda gravação deixa rastro: quem foi, que campo, quando, e o valor
      antes e depois. Sem "antes" não há desfazer possível. */
