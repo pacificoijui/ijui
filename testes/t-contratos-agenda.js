@@ -78,11 +78,111 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   }
 
   const b=await chromium.launch(executablePath?{executablePath}:{});
+
+  console.log('\n1b) O calendário lê por mês, não o cadastro inteiro');
+  /* O calendário mostra UM mês e lia os 1.294 contratos para desenhar os
+     doze que vencem nele. Um cadastro espalhado por dois anos põe isso à
+     prova: se a página ler tudo, o número aparece. */
+  const ESPALHADO={}; let idn=1000;
+  for(let m=0;m<24;m++){
+    const d=new Date(2025,m,1);
+    for(let k=0;k<5;k++){
+      const dia=String(3+k*5).padStart(2,'0');
+      const chave=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      ESPALHADO[String(idn)]={id:idn, contr:idn, ano:d.getFullYear(), empresa:'EMPRESA '+idn,
+        objeto:'x', situacao:'ATIVO', vencimento:chave+'-'+dia, valor:1, modalidade:'', tipo:'',
+        palavra:'', obs:'', secretarias:[], fiscalAdm:[], fiscalTec:[]};
+      idn++;
+    }
+  }
+  const N_ESPALHADO=Object.keys(ESPALHADO).length;
+  /* Os mesmos meses que a grade da página toca: ela recua até a segunda
+     antes do dia 1 e vai até o domingo depois do último dia. */
+  function mesesDaGrade(ano, mes){
+    const primeiro=new Date(ano,mes,1);
+    const recuo=(primeiro.getDay()===0)?6:(primeiro.getDay()-1);
+    const d=new Date(ano,mes,1-recuo);
+    const semanas=[];
+    for(let sm=0;sm<6;sm++){ const sem=[];
+      for(let i=0;i<7;i++){ sem.push(new Date(d)); d.setDate(d.getDate()+1); }
+      semanas.push(sem); }
+    while(semanas.length>1 && !semanas[semanas.length-1].some(x=>x.getMonth()===mes)) semanas.pop();
+    const ch=new Set();
+    semanas.forEach(sem=>sem.forEach(dd=>ch.add(dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0'))));
+    return [...ch];
+  }
+  function quantosNosMeses(chaves){
+    return Object.values(ESPALHADO).filter(c=>chaves.includes(c.vencimento.slice(0,7))).length;
+  }
+
+  const pgMes=await b.newPage({viewport:{width:1280,height:900}});
+  await pgMes.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+  await pgMes.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:jspdf}));
+  await pgMes.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await pgMes.addInitScript((sd)=>{ window.__SEED=sd; }, {
+    contratos: ESPALHADO,
+    usuarios_v2: {'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado',
+                             isAdmin:false, acessos:{agenda:'nenhum', pregoeiro:'nenhum', contratos:'ver'},
+                             provedor:'google.com'}}
+  });
+  await pgMes.addInitScript((u)=>{ window.__AUTH_SEED=u; },
+    {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+  await pgMes.goto('http://127.0.0.1:8099/contratos/agenda/index.html',{waitUntil:'networkidle'});
+  await pgMes.waitForTimeout(900);
+
+  const h=new Date();
+  const MESES_ABERTURA=mesesDaGrade(h.getFullYear(), h.getMonth());
+  const abertura=await pgMes.evaluate(()=>({
+    lidos:(window.__LIDOS||{}).contratos||0, naTela:CONTRATOS.length,
+    chip:(document.getElementById('chipTotal')||{}).textContent||''
+  }));
+  t('a abertura lê só os meses que aparecem na grade',
+    abertura.lidos===quantosNosMeses(MESES_ABERTURA),
+    {esperado:quantosNosMeses(MESES_ABERTURA), lidos:abertura.lidos, cadastro:N_ESPALHADO});
+  t('e isso é uma fração do cadastro', abertura.lidos < N_ESPALHADO/4,
+    {lidos:abertura.lidos, cadastro:N_ESPALHADO});
+  /* A tarja fala do mês na tela: anunciar o total do cadastro seria falar de
+     um cadastro que não está aqui. */
+  t('a tarja conta o mês, não o cadastro', /NO MÊS/.test(abertura.chip), abertura.chip);
+
+  /* Trocar de mês traz só o mês novo — o que já veio fica. */
+  await pgMes.evaluate(()=>window.__zerarLidos());
+  await pgMes.click('.cal-nav button:last-child');
+  await pgMes.waitForTimeout(500);
+  const adiante=new Date(h.getFullYear(), h.getMonth()+1, 1);
+  const NOVOS=mesesDaGrade(adiante.getFullYear(), adiante.getMonth())
+    .filter(k=>!MESES_ABERTURA.includes(k));
+  const foi=await pgMes.evaluate(()=>({lidos:(window.__LIDOS||{}).contratos||0,
+                                       titulo:document.getElementById('calTitulo').textContent}));
+  t('ir para o mês seguinte lê só o mês que faltava',
+    foi.lidos===quantosNosMeses(NOVOS), {esperado:quantosNosMeses(NOVOS), lidos:foi.lidos});
+
+  /* E voltar a um mês já visitado não custa leitura nenhuma. */
+  await pgMes.evaluate(()=>window.__zerarLidos());
+  await pgMes.click('.cal-nav button:first-child');
+  await pgMes.waitForTimeout(500);
+  t('voltar a um mês já visto não lê nada de novo',
+    (await pgMes.evaluate(()=>(window.__LIDOS||{}).contratos||0))===0,
+    await pgMes.evaluate(()=>(window.__LIDOS||{}).contratos||0));
+
+  /* Ir para trás também abre — o mês anterior ao primeiro visitado. */
+  await pgMes.evaluate(()=>window.__zerarLidos());
+  await pgMes.click('.cal-nav button:first-child');
+  await pgMes.waitForFunction(()=>!document.getElementById('calPanel').classList.contains('carregando'),
+                              null, {timeout:20000});
+  const atras=new Date(h.getFullYear(), h.getMonth()-1, 1);
+  const chAtras=atras.getFullYear()+'-'+String(atras.getMonth()+1).padStart(2,'0');
+  t('ir para trás traz o mês anterior',
+    await pgMes.evaluate(ch=>CONTRATOS.some(c=>(c.vencimento||'').slice(0,7)===ch), chAtras), chAtras);
+  await pgMes.close();
+
   const pg=await b.newPage({viewport:{width:1280,height:900}});
   const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
   await abrir(pg, 'ver');
   /* outubro de 2026: onde estão os vencimentos plantados acima */
   await pg.evaluate(()=>{ calRef=new Date(2026,9,1); renderCalendario(); });
+  await pg.waitForFunction(()=>!document.getElementById('calPanel').classList.contains('carregando'),
+                           null, {timeout:20000});
 
   console.log('\n2) O calendário mostra os vencimentos, e só isso');
   const cal=await pg.evaluate(()=>({

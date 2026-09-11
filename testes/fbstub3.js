@@ -22,6 +22,19 @@
        dele (a função não usa o argumento e refaz os filtros). */
     (LISTENERS[name]||[]).slice().forEach(function(cb){ cb(makeSnap(items, name)); });
   }
+  /* Contador de LEITURAS, que é o que o Firestore cobra e o que as telas
+     foram otimizadas para gastar menos. Conta a primeira entrega de cada
+     listener e cada get() — que é o que uma abertura de página custa. As
+     reentregas ao vivo não entram: lá o Firestore cobra só o documento que
+     mudou, e um teste que as contasse mediria outra coisa. */
+  var LIDOS={};
+  function contar(name, n){
+    LIDOS[name]=(LIDOS[name]||0)+n;
+    LIDOS.total=(LIDOS.total||0)+n;
+  }
+  window.__LIDOS=LIDOS;
+  window.__zerarLidos=function(){ Object.keys(LIDOS).forEach(function(k){ delete LIDOS[k]; }); };
+
   function collection(name){
     STORE[name]=STORE[name]||{};
     LISTENERS[name]=LISTENERS[name]||[];
@@ -34,12 +47,15 @@
     }
     var colApi={
       onSnapshot:function(cb){
-        LISTENERS[name].push(cb);
+        var primeira=true;
+        function cobrado(snap){ if(primeira){ primeira=false; contar(name, snap.size); } cb(snap); }
+        LISTENERS[name].push(cobrado);
         setTimeout(function(){ notifyCollection(name); },10);
-        return function(){ var i=LISTENERS[name].indexOf(cb); if(i>=0) LISTENERS[name].splice(i,1); };
+        return function(){ var i=LISTENERS[name].indexOf(cobrado); if(i>=0) LISTENERS[name].splice(i,1); };
       },
       get:function(){
         var items=Object.keys(STORE[name]).map(function(id){ return {id:id,data:STORE[name][id]}; });
+        contar(name, items.length);
         return Promise.resolve(makeSnap(items, name));
       },
       add:function(data){
@@ -210,12 +226,14 @@
          entregaria a coleção inteira e o teste do recorte passaria sem
          testar nada, que é o defeito que ele existe para pegar. */
       onSnapshot:function(cb, erro){
+        var primeira=true;
         function entregar(){
           STORE[name]=STORE[name]||{};
           var items=aplicar(Object.keys(STORE[name]).map(function(id){
             return {id:id, data:STORE[name][id]};
           }));
           if(lim) items=items.slice(0, lim);
+          if(primeira){ primeira=false; contar(name, items.length); }
           try{ cb(makeSnap(items, name)); }catch(e){ if(erro) erro(e); else throw e; }
         }
         LISTENERS[name]=LISTENERS[name]||[];
@@ -249,6 +267,7 @@
           });
         }
         if(lim) items=items.slice(0,lim);
+        contar(name, items.length);
         return Promise.resolve(makeSnap(items, name));
       }
     };

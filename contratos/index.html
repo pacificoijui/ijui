@@ -963,9 +963,16 @@ function normalizarLista(d, podeVazio){
    não vem na abertura, exatamente como já não aparecia. */
 const ANO_CORRENTE = new Date().getFullYear();
 let CT_TUDO = false;
-let _desligarCt = [];
 let _ctPrimeira = true;
 let _conferindoVazio = false, _vazioConferido = false;
+
+/* As consultas vivem em LEVAS, uma por nome, e nenhuma é derrubada para dar
+   lugar a outra: expandir ACRESCENTA leva. É o que faz "ver todos os anos"
+   custar só o que falta — trocar a consulta do ano pela coleção inteira
+   releria os 141 que já estão na tela, e leitura repetida é leitura paga
+   duas vezes. */
+const LEVAS = new Map();        /* nome -> contratos (null = ainda não chegou) */
+const _desligarCt = new Map();  /* nome -> função de desligar o listener */
 
 function iniciarListenerContratos(){
   if(_listenerContratosLigado) return;
@@ -975,8 +982,6 @@ function iniciarListenerContratos(){
 let _listenerContratosLigado = false;
 
 function ligarConsultaContratos(){
-  _desligarCt.forEach(f => f());
-  _desligarCt = [];
   const col = firebase.firestore().collection('contratos');
   const chegou = lista => {
     if(!lista.length && _ctPrimeira){
@@ -1002,19 +1007,34 @@ function ligarConsultaContratos(){
     conferirImportacao();
     marcarBotaoAnos();
   };
-  if(CT_TUDO){
-    _desligarCt.push(col.onSnapshot(snap => chegou(snap.docs.map(d => d.data())),
-                                    e => mostrarErroCarregar(e)));
-    return;
-  }
+  /* Uma leva só entrega quando TODAS chegaram: montar a tela com metade das
+     consultas respondidas piscaria a lista. O mesmo contrato pode vir em
+     duas levas (ano nulo entra também no "antes"), e o id resolve. */
+  const juntar = () => {
+    const partes = [...LEVAS.values()];
+    if(!partes.length || partes.some(l => l === null)) return;
+    const porId = new Map();
+    partes.forEach(l => l.forEach(c => porId.set(String(c.id), c)));
+    chegou([...porId.values()]);
+  };
+  const ouvir = (nome, consulta) => {
+    if(_desligarCt.has(nome)) return;
+    LEVAS.set(nome, null);
+    _desligarCt.set(nome, consulta.onSnapshot(
+      snap => { LEVAS.set(nome, snap.docs.map(d => d.data())); juntar(); },
+      e => mostrarErroCarregar(e)));
+  };
+
+  ouvir('ano', col.where('ano','==',ANO_CORRENTE));
   /* Uma consulta a mais para contrato sem ano: where('ano','==',2026) não
-     casa com vazio, e some-lo da abertura seria esconder cadastro. */
-  const levas = [null, null];
-  const juntar = () => { if(!levas.some(l => l === null)) chegou([].concat(levas[0], levas[1])); };
-  _desligarCt.push(col.where('ano','==',ANO_CORRENTE)
-    .onSnapshot(snap => { levas[0] = snap.docs.map(d => d.data()); juntar(); }, e => mostrarErroCarregar(e)));
-  _desligarCt.push(col.where('ano','==',null)
-    .onSnapshot(snap => { levas[1] = snap.docs.map(d => d.data()); juntar(); }, e => mostrarErroCarregar(e)));
+     casa com vazio, e somê-lo da abertura seria esconder cadastro. */
+  ouvir('semAno', col.where('ano','==',null));
+  if(CT_TUDO){
+    /* O que falta, e só o que falta: o listener do ano corrente continua de
+       pé, então estas duas consultas leem 1.153 dos 1.294 — não 1.294. */
+    ouvir('antes', col.where('ano','<',ANO_CORRENTE));
+    ouvir('depois', col.where('ano','>',ANO_CORRENTE));
+  }
 }
 
 /* Traz o cadastro inteiro. Uma vez por visita: depois disso fica. */

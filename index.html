@@ -1536,6 +1536,101 @@ var pfColRef, anivColRef;
 try { pfColRef   = db.collection("pontos_facultativos"); } catch(e){ pfColRef   = null; }
 try { anivColRef = db.collection("aniversarios"); }       catch(e){ anivColRef = null; }
 
+/* ── Quanto da coleção "processos" a Agenda lê ──────────────────────────────
+   A Agenda mostra UM mês de cada vez (no calendário e na lista) e lia a
+   coleção inteira para desenhá-lo. Cada ano novo encarecia todas as
+   aberturas de todo mundo, e sem nenhum ganho: os processos de 2021 não
+   aparecem em lugar nenhum da tela de abertura.
+
+   Agora lê em levas, e nenhuma derruba a outra — expandir ACRESCENTA, nunca
+   troca, para não pagar duas vezes pelo que já está na tela:
+
+     · "futuro"  — tudo de hoje para a frente. É o que a Agenda existe para
+                   mostrar: os próximos, o PDF da semana, o mês corrente
+                   daqui em diante. Pequena por natureza.
+     · "semData" — processo cadastrado sem data (o formulário grava "", não
+                   nulo). Sem esta leva ele sumiria da tela, e sumir não é
+                   economizar.
+     · um mês    — cada mês JÁ PASSADO que aparece na grade do calendário ou
+                   na lista. Entram conforme a pessoa navega para trás, e
+                   ficam: voltar a um mês já visto não custa leitura.
+     · "passado" — tudo de ontem para trás, uma vez por visita, quando
+                   alguém abre a busca (que promete procurar em todo o
+                   cadastro). Note que é o PASSADO, não a coleção: o futuro
+                   já está na mão, e relê-lo seria pagar duas vezes.
+
+   O recorte é só de LEITURA: nada some da tela que já não estivesse fora
+   dela. Um mês que não está à vista não é um mês escondido. */
+var LEVAS_PROC = {};        /* nome -> processos (null = ainda a caminho) */
+var _desligarProc = {};     /* nome -> função de desligar */
+var PROC_TUDO = false;
+/* As telas desenham antes de o acesso ser confirmado (a grade do mês existe
+   desde o primeiro instante), e é delas que sai o pedido de cada mês. Sem
+   esta trava o pedido sairia com o portão ainda fechado — leitura negada
+   pelas regras, e dado na tela de quem ainda não foi aprovado. */
+var _procLigados = false;
+
+function _chaveMes(d){ return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2); }
+function _juntarProcessos(){
+  var nomes=Object.keys(LEVAS_PROC);
+  if(!nomes.length) return;
+  for(var i=0;i<nomes.length;i++) if(LEVAS_PROC[nomes[i]]===null) return;
+  var porId={};
+  nomes.forEach(function(n){ LEVAS_PROC[n].forEach(function(p){ porId[p.id]=p; }); });
+  processos=Object.keys(porId).map(function(k){ return porId[k]; });
+  render();
+  /* mantém o detalhe aberto sincronizado (ex.: após troca rápida de status) */
+  if(detalheAtualId && document.getElementById("modalDetalhe").classList.contains("open")){
+    if(processos.find(function(x){return x.id===detalheAtualId;})) abrirDetalhe(detalheAtualId);
+  }
+}
+function _ouvirLeva(nome, consulta){
+  if(_desligarProc[nome]) return;
+  LEVAS_PROC[nome]=null;
+  try{
+    _desligarProc[nome]=consulta.onSnapshot(function(snap){
+      LEVAS_PROC[nome]=snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
+      _juntarProcessos();
+    }, function(err){ console.error("Processos ("+nome+"):", err); });
+  }catch(e){ console.warn("processos onSnapshot:", e); delete LEVAS_PROC[nome]; }
+}
+function ligarConsultaProcessos(){
+  _procLigados=true;
+  _ouvirLeva("futuro",  colRef.where("dataLicit",">=",hojeStr()));
+  _ouvirLeva("semData", colRef.where("dataLicit","==",""));
+  render();   /* pede os meses que a tela já está desenhando */
+}
+/* Um mês, pedido pela tela que o está desenhando. As faixas são cortadas
+   para não encostar no que a leva "futuro" já trouxe:
+
+     mês futuro   -> nada a pedir, "futuro" já tem
+     mês corrente -> do dia 1 até ONTEM, que é o pedaço que falta
+     mês passado  -> o mês inteiro
+
+   O dia 31 fecha qualquer mês: a comparação é de texto, e "2026-09-30" é
+   menor que "2026-09-31". */
+function garantirMesProc(chave){
+  if(!_procLigados || PROC_TUDO || !colRef) return;
+  var hoje=hojeStr(), mesDeHoje=hoje.slice(0,7);
+  if(chave > mesDeHoje) return;
+  var fim=chave+"-31";
+  if(chave === mesDeHoje){
+    var o=new Date(); o.setDate(o.getDate()-1);
+    if(ymd(o) < chave+"-01") return;   /* hoje é dia 1: não sobra passado */
+    fim = ymd(o);
+  }
+  _ouvirLeva("mes:"+chave, colRef.where("dataLicit",">=",chave+"-01")
+                                 .where("dataLicit","<=",fim));
+}
+/* A busca promete procurar em TODO o cadastro, e o filtro de ano promete
+   todos os anos. Uma vez por visita: depois disso fica. */
+function verTudoProcessos(){
+  if(!_procLigados || PROC_TUDO || !colRef) return false;
+  PROC_TUDO=true;
+  _ouvirLeva("passado", colRef.where("dataLicit","<",hojeStr()));
+  return true;
+}
+
 /* ── Firestore em tempo real ────────────────────────────────────────────── */
 /* Os listeners abaixo só são ligados de dentro de iniciarListenersProtegidos,
    chamada por authShowApp() (ver comentário completo lá em cima, perto de
@@ -1571,14 +1666,7 @@ try{ agColRef.onSnapshot(function(snap){
   render();
 }); }catch(e){ console.warn("agentes onSnapshot:", e); }
 
-try{ colRef.onSnapshot(function(snap){
-  processos = snap.docs.map(function(d){ return Object.assign({id:d.id},d.data()); });
-  render();
-  /* mantém o detalhe aberto sincronizado (ex.: após troca rápida de status) */
-  if(detalheAtualId && document.getElementById("modalDetalhe").classList.contains("open")){
-    if(processos.find(function(x){return x.id===detalheAtualId;})) abrirDetalhe(detalheAtualId);
-  }
-}, function(err){ console.error("Processos:", err); }); }catch(e){ console.warn("processos onSnapshot:", e); }
+ligarConsultaProcessos();
 
 try{ if(obsColRef) obsColRef.onSnapshot(function(snap){
   observacoes={};
@@ -1688,6 +1776,11 @@ function renderCalendario(){
   var grid=document.getElementById("calGrid");
   var ano=calRef.getFullYear(), mes=calRef.getMonth();
   document.getElementById("calTitulo").textContent=MESES[mes]+" de "+ano;
+  /* A grade começa na segunda antes do dia 1 e termina no domingo depois do
+     último dia: até três meses aparecem nela, e os três precisam ser
+     pedidos — senão a primeira e a última semana desenhariam dias vazios
+     que têm processo. Mês já pedido não repete a leitura. */
+  [-1,0,1].forEach(function(k){ garantirMesProc(_chaveMes(new Date(ano,mes+k,1))); });
 
   /* mapa data -> processos */
   var porData={};
@@ -1940,6 +2033,9 @@ function buscaCasa(consulta, texto){
    hora de montar um preço de referência.
    ══════════════════════════════════════════════════════════════════════════ */
 function abrirBusca(){
+  /* A busca promete procurar em TODO o cadastro, e o filtro de Ano promete
+     todos os anos — com um recorte na mão, os dois mentiriam. */
+  verTudoProcessos();
   document.getElementById("modalBusca").classList.add("open");
   var alvo=(_buscaAbaAtual==="itens")?"biTexto":"bfObjeto";
   setTimeout(function(){ var el=document.getElementById(alvo); if(el) el.focus(); },60);
@@ -2202,6 +2298,7 @@ function renderLista(){
   var box=document.getElementById("listBody");
   var ano=listRef.getFullYear(), mes=listRef.getMonth();
   document.getElementById("listTitulo").textContent=MESES[mes]+" de "+ano;
+  garantirMesProc(_chaveMes(listRef));
   var hoje=hojeStr();
 
   /* processos do mês selecionado, com data, ordenados crescente */

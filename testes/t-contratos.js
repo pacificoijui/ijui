@@ -87,7 +87,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      esconder 1.153 deles. Ler e esconder é o pior dos dois mundos: paga-se
      pelo arquivo inteiro a cada F5 e não se vê nada a mais por isso. */
   const recorte=await pg.evaluate(()=>({
-    tudo:CT_TUDO, leu:CONTRATOS.length,
+    tudo:CT_TUDO, leu:CONTRATOS.length, lidos:(window.__LIDOS||{}).contratos||0,
     noBanco:Object.keys(window.__STORE.contratos).length,
     soDoAno:CONTRATOS.every(c=>c.ano===new Date().getFullYear() || c.ano==null),
     aviso:(document.getElementById('anosCt')||{}).textContent||''
@@ -98,40 +98,48 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a tela diz o que está mostrando, e como ver o resto',
     /todos os anos/.test(recorte.aviso), recorte.aviso.slice(0,90));
 
-  /* O botão do aviso: trazer o cadastro não basta se o filtro de coluna
-     continuar no ano corrente — o botão pareceria não fazer nada. */
-  await pg.click('#anosCt button');
-  await pg.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000, null, {timeout:20000});
-  await pg.waitForTimeout(250);
-  const soltou=await pg.evaluate(()=>({
-    naTela: filtrados.length, lidos: CONTRATOS.length,
+  const DO_ANO=dados.filter(c=>c.ano===new Date().getFullYear()||c.ano==null).length;
+  t('a abertura custa só as leituras do recorte',
+    recorte.lidos===DO_ANO, {esperado:DO_ANO, lidos:recorte.lidos});
+
+  /* Expandir não pode reler o que já está na tela. A consulta do ano
+     corrente fica de pé e entram só as dos outros anos — senão trocar a
+     consulta pela coleção inteira cobraria os 141 de novo. */
+  const pgBotao=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgBotao, 'editar');
+  await pgBotao.evaluate(()=>window.__zerarLidos());
+  await pgBotao.click('#anosCt button');
+  await pgBotao.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000, null, {timeout:20000});
+  await pgBotao.waitForTimeout(300);
+  const soltou=await pgBotao.evaluate(()=>({
+    naTela: filtrados.length, tem: CONTRATOS.length,
     anosMarcados: COLF.num.sel.ano.size,
-    aviso: (document.getElementById('anosCt')||{}).textContent||''
+    aviso: (document.getElementById('anosCt')||{}).textContent||'',
+    lidosAoExpandir: window.__LIDOS.contratos||0
   }));
   t('"Ver todos os anos" solta o recorte e mostra os anos anteriores',
     soltou.naTela>1000 && soltou.anosMarcados===0, soltou);
   t('e o aviso do recorte some junto', soltou.aviso==='', soltou.aviso.slice(0,60));
-
-  /* Volta ao estado de abertura para o resto da seção. */
-  await pg.evaluate(()=>{ CT_TUDO=false; _ctPrimeira=true; _vazioConferido=false;
-                          ligarConsultaContratos(); });
-  await pg.waitForFunction(()=>!CT_TUDO && CONTRATOS.length<1000, null, {timeout:20000});
-  await pg.evaluate(()=>{ initFiltros(true); aplicarFiltros(); });
-  await pg.waitForTimeout(200);
+  t('expandir lê só o que falta — as do ano não são relidas',
+    soltou.lidosAoExpandir===N-DO_ANO, {esperado:N-DO_ANO, lidos:soltou.lidosAoExpandir, cadastro:N});
+  t('e mesmo assim o cadastro inteiro está na tela', soltou.tem===N, soltou);
+  /* Somando: a visita que abre E expande custa o cadastro uma vez, não uma
+     vez e meia. */
+  t('abrir mais expandir custa o cadastro UMA vez',
+    (await pgBotao.evaluate(()=>window.__LIDOS.contratos))+DO_ANO===N,
+    {total:await pgBotao.evaluate(()=>window.__LIDOS.contratos), maisAbertura:DO_ANO, cadastro:N});
+  await pgBotao.close();
 
   /* Abrir o menu de uma coluna também traz: as opções contam linhas, e com
      um ano na mão elas diriam menos do que existe. */
-  await pg.click('.cf[data-col="sec"]');
-  await pg.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000, null, {timeout:20000});
-  await pg.waitForTimeout(250);
+  const pgMenu=await b.newPage({viewport:{width:1280,height:900}});
+  await abrirContratos(pgMenu, 'editar');
+  await pgMenu.click('.cf[data-col="sec"]');
+  await pgMenu.waitForFunction(()=>CT_TUDO && CONTRATOS.length>1000, null, {timeout:20000});
+  await pgMenu.waitForTimeout(250);
   t('abrir o menu de uma coluna traz o cadastro, para as opções não mentirem',
-    await pg.evaluate(()=>CT_TUDO && CONTRATOS.length>1000));
-  await pg.evaluate(()=>fecharPop());
-  await pg.evaluate(()=>{ CT_TUDO=false; _ctPrimeira=true; _vazioConferido=false;
-                          ligarConsultaContratos(); });
-  await pg.waitForFunction(()=>!CT_TUDO && CONTRATOS.length<1000, null, {timeout:20000});
-  await pg.evaluate(()=>{ initFiltros(true); aplicarFiltros(); });
-  await pg.waitForTimeout(200);
+    await pgMenu.evaluate(()=>CT_TUDO && CONTRATOS.length>1000));
+  await pgMenu.close();
 
   /* Guardado antes do primeiro clique: a seção 19 fala do estado de
      abertura da busca, e clicar nela é justamente o que tira o readonly. */
@@ -415,7 +423,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     const alvo=CONTRATOS.find(c=>c.fiscalAdm.length && c.fiscalTec.length);
     document.getElementById('fBusca').value=alvo.empresa;
     aplicarFiltros();
-    const td=document.querySelector('.tab tbody tr .c-fis');
+    /* A linha DESSE contrato — a empresa pode ter mais de um contrato, e
+       pegar a primeira linha da tabela olharia outro. */
+    const tr=[...document.querySelectorAll('.tab tbody tr')]
+      .find(el=>(el.getAttribute('onclick')||'').includes('('+alvo.id+')'));
+    const td=tr.querySelector('.c-fis');
     const r={
       linhas: [...td.querySelectorAll('.fis-linha')].map(el=>el.textContent.trim()),
       admEsperado: alvo.fiscalAdm[0], tecEsperado: alvo.fiscalTec[0]

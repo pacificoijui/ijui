@@ -58,8 +58,14 @@ Uma consulta a mais acompanha ela, para contrato **sem ano preenchido**:
 abertura seria esconder cadastro.
 
 O resto vem quando alguém procura. **Uma vez por visita**, e daí em diante
-fica: quem já pagou a leitura não paga de novo ao trocar de filtro. Traz o
-cadastro inteiro quem:
+fica: quem já pagou a leitura não paga de novo ao trocar de filtro. E o
+resto é mesmo só o resto — as consultas do ano corrente **continuam de pé** e
+entram duas novas, `ano < 2026` e `ano > 2026`, que leem 1.153 dos 1.294.
+Trocar a consulta pela coleção inteira releria os 141 que já estão na tela,
+e leitura repetida é leitura paga duas vezes: abrir **e** expandir custa o
+cadastro uma vez, não uma vez e meia.
+
+Traz o cadastro inteiro quem:
 
 * digitar qualquer coisa na busca do alto (ela diz "pesquisar em tudo" —
   com um ano na mão, não seria);
@@ -222,6 +228,22 @@ sumir da tela um contrato que vence justamente ali.
 
 Quem tem **Contratos: Visualizar** entra normalmente; é uma tela que não
 grava nada.
+
+### Ela lê por mês
+
+O calendário mostra um mês e lia os 1.294 contratos para desenhar os doze
+que vencem nele. Agora pede por mês: uma consulta por
+`vencimento` entre `AAAA-MM-01` e `AAAA-MM-31`, para cada mês que aparece na
+grade — e são até três, porque a grade começa na segunda-feira antes do dia
+1 e termina no domingo depois do último dia.
+
+Os listeners ficam de pé. **Ir e voltar entre meses já visitados não custa
+leitura nenhuma**, e um contrato que alguém alterar continua chegando ao
+vivo em qualquer mês que esteja aberto. A tarja do cabeçalho conta o mês na
+tela, não o cadastro: anunciar "1.278 vencimentos" seria falar de um
+cadastro que não está aqui.
+
+Na prática são ~12 contratos por mês, ~30 por visita, contra 1.294.
 
 ## O que ainda depende de você, no console do Firebase
 

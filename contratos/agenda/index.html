@@ -503,6 +503,9 @@
      "position: sticky" do cabeçalho do mês pararia de funcionar. As pontas
      arredondadas passam a ser de quem está nas pontas. */
   .cal-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-md); }
+  /* Enquanto o mês novo não chega, a grade some de leve em vez de piscar
+     vazia: trocar de mês é rápido, mas não é instantâneo. */
+  .cal-panel.carregando .cal-grid { opacity: .45; transition: opacity .12s; }
   /* O mês e as setas ficam grudados logo abaixo do cabeçalho do site: com um
      dia de dez vencimentos a grade fica alta, e sem isso trocar de mês
      obrigaria a rolar tudo de volta até o topo. O "top" é medido em
@@ -629,7 +632,7 @@
 </header>
 
 <main>
-  <div class="cal-panel">
+  <div class="cal-panel" id="calPanel">
     <div class="cal-head">
       <div class="cal-title" id="calTitulo">—</div>
       <div class="cal-nav">
@@ -1099,24 +1102,53 @@ function ymd(d){ var z=function(n){return (n<10?"0":"")+n;}; return d.getFullYea
 function hojeStr(){ return ymd(new Date()); }
 var MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
+/* ══ Quanto do cadastro esta página lê ══
+   O calendário mostra UM mês de cada vez e lia os 1.294 contratos para
+   desenhar os doze que vencem nele. Agora lê por mês: uma consulta por mês
+   que aparece na grade (a grade começa na segunda-feira antes do dia 1, e
+   por isso toca até três meses), com o vencimento como recorte.
+
+   Os listeners ficam de pé. Ir e voltar entre meses já visitados não custa
+   leitura nenhuma — a segunda visita a setembro é de graça —, e um contrato
+   que alguém alterar continua chegando ao vivo em qualquer mês aberto. */
+const MESES_CT = new Map();        /* 'AAAA-MM' -> contratos (null = a caminho) */
+const _desligarMes = new Map();    /* 'AAAA-MM' -> desligar o listener */
+function chaveMes(d){ return d.getFullYear() + '-' + (d.getMonth()<9?'0':'') + (d.getMonth()+1); }
+
+function juntarMeses(){
+  const porId = new Map();
+  MESES_CT.forEach(lista => { if(lista) lista.forEach(c => porId.set(String(c.id), c)); });
+  CONTRATOS = [...porId.values()].map(c => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, c));
+  CONTRATOS.forEach(prepararContrato);
+  FONTE_DADOS = 'firestore';
+  marcarTotal();
+  renderCalendario();
+  /* ficha aberta continua batendo com o banco */
+  if(detAtual && document.getElementById('ovDet').classList.contains('open')){
+    const at = CONTRATOS.find(x => x.id === detAtual.id);
+    if(at) abrirDet(at.id);
+  }
+}
+
+/* O mês inteiro num intervalo só: '2026-09-01' a '2026-09-31' pega setembro
+   com 30 ou 31 dias, porque a comparação é de texto e '2026-09-30' < '2026-09-31'.
+   Um campo só, com <= e >=: o Firestore indexa isso sozinho. */
+function ouvirMes(chave){
+  if(_desligarMes.has(chave) || !_listenersLigados) return;
+  MESES_CT.set(chave, null);
+  _desligarMes.set(chave, firebase.firestore().collection('contratos')
+    .where('vencimento', '>=', chave + '-01')
+    .where('vencimento', '<=', chave + '-31')
+    .onSnapshot(snap => { MESES_CT.set(chave, snap.docs.map(d => d.data())); juntarMeses(); },
+                e => erroCarregar(e)));
+}
+
 let _listenersLigados = false;
 function iniciarListenersAgenda(){
   if(_listenersLigados) return;
   _listenersLigados = true;
   const db = firebase.firestore();
-
-  db.collection('contratos').onSnapshot(snap => {
-    CONTRATOS = snap.docs.map(d => Object.assign({fiscalAdm:[], fiscalTec:[], secretarias:[]}, d.data()));
-    CONTRATOS.forEach(prepararContrato);
-    FONTE_DADOS = 'firestore';
-    marcarTotal();
-    renderCalendario();
-    /* ficha aberta continua batendo com o banco */
-    if(detAtual && document.getElementById('ovDet').classList.contains('open')){
-      const at = CONTRATOS.find(x => x.id === detAtual.id);
-      if(at) abrirDet(at.id);
-    }
-  }, e => erroCarregar(e));
+  renderCalendario();   /* pede os meses da grade que já está à vista */
 
   /* As três camadas da Agenda. Se as regras negarem (conta que só tem
      Contratos, num dia em que as regras ainda não foram republicadas), o
@@ -1144,10 +1176,15 @@ function erroCarregar(e){
     '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted)">'
     + 'Não consegui carregar os contratos.<br>' + esc(e.message) + '</div>';
 }
+/* O número da tarja é o do MÊS na tela, não o do cadastro: a página lê por
+   mês, e anunciar "1.278 vencimentos" seria falar de um cadastro que não
+   está aqui. */
 function marcarTotal(){
   const chip = document.getElementById('chipTotal');
-  const comData = CONTRATOS.filter(c => c.vencimento).length;
-  if(chip) chip.textContent = comData + ' VENCIMENTOS · DADOS AO VIVO';
+  if(!chip) return;
+  const chave = chaveMes(calRef);
+  const n = CONTRATOS.filter(c => (c.vencimento||'').slice(0,7) === chave).length;
+  chip.textContent = n + (n === 1 ? ' VENCIMENTO' : ' VENCIMENTOS') + ' NO MÊS · DADOS AO VIVO';
 }
 
 /* ══════════════ CALENDÁRIO ══════════════ */
@@ -1207,6 +1244,15 @@ function renderCalendario(){
   }
   while(semanas.length > 1 && !semanas[semanas.length-1].some(x => x.getMonth() === mes)) semanas.pop();
 
+  /* A grade começa na segunda-feira antes do dia 1 e termina no domingo
+     depois do último dia: até três meses aparecem nela, e os três precisam
+     ser pedidos, senão a primeira e a última semana desenhariam dias vazios
+     que têm vencimento. Meses já pedidos não repetem a leitura. */
+  const naGrade = new Set();
+  semanas.forEach(sem => sem.forEach(dd => naGrade.add(chaveMes(dd))));
+  naGrade.forEach(ouvirMes);
+  const faltaChegar = [...naGrade].some(k => MESES_CT.get(k) === null);
+
   let html = '';
   semanas.forEach(semana => semana.forEach(dd => {
     const iso = ymd(dd);
@@ -1232,6 +1278,8 @@ function renderCalendario(){
     html += '</div>';
   }));
   grid.innerHTML = html;
+  document.getElementById('calPanel').classList.toggle('carregando', faltaChegar);
+  marcarTotal();
   ajustarTopoGrudado();
 }
 
