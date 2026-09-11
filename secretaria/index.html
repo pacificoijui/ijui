@@ -1,0 +1,1110 @@
+<!--
+  Painel da Secretaria — /secretaria/
+
+  Uma tela por secretaria. Quem entra aqui vê as requisições e os contratos
+  DA PRÓPRIA secretaria, e nada mais: não existe "ver todas", não existe
+  trocar de secretaria, não existe o cadastro inteiro. O escopo não é filtro
+  de tela — é o recorte que sai do perfil da conta e vai direto na consulta
+  ao Firestore, e as regras negam qualquer consulta que não o carregue.
+
+  Por que isso importa: esconder não é proteger. Se a tela lesse tudo e
+  mostrasse um pedaço, bastaria abrir o console do navegador para ler o
+  resto. Aqui o banco é que recusa. A prova está em testes/t-regras.mjs,
+  seção "Painel da Secretaria", rodando dentro do emulador oficial.
+
+  É tela de LEITURA. Quem lança requisição continua lançando em
+  /requisicao/, quem cuida de contrato continua em /contratos/. Este painel
+  responde a outra pergunta — "como está o que é meu?" — e por isso abre num
+  resumo, não numa planilha.
+
+  Conta e senha: são as MESMAS do resto do sistema (Firebase Auth +
+  usuarios_v2). Não existe senha própria daqui, e isso é de propósito — um
+  segundo cadastro de senhas seria um segundo lugar para vazar, sem
+  recuperação de senha, sem reautenticação, e sem as regras conseguirem
+  enxergar quem é quem. O que muda por secretaria é o ESCOPO gravado no
+  perfil (campo "secretarias"), não o mecanismo de entrada.
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a6b">
+<meta name="description" content="Painel da secretaria: requisições e contratos da própria pasta.">
+<link rel="icon" href="../logo-ijui.jpg">
+<link rel="apple-touch-icon" href="../logo-ijui.jpg">
+<title>Painel da Secretaria – Município de Ijuí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:      #1a3a6b;
+    --navy-mid:  #1e4a8a;
+    --navy-dark: #12294d;
+    --navy-light:#2e5da8;
+    --gold:      #e8a020;
+    --gold-light:#f6b93b;
+    --card:      #ffffff;
+    --bg:        #eaeef6;
+    --text:      #1c2433;
+    --muted:     #6b7793;
+    --border:    #dde4f0;
+    --shadow:    0 2px 10px rgba(20,40,80,0.07);
+    --shadow-md: 0 6px 22px rgba(20,40,80,0.10);
+    --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
+    --blue-bg:   #e7eefb;
+    --blue-text: #1e4a8a;
+    --green:     #2a8a3a;  --green-bg:  #e6f4ea;
+    --red:       #c0282a;  --red-bg:    #fbe7e7;
+    --amber:     #c07000;  --amber-bg:  #fef3dc;
+    --radius:    18px;
+    --ring:      0 0 0 3px rgba(46,93,168,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', Arial, sans-serif; font-size: 15px;
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(46,93,168,0.10), transparent 60%),
+      radial-gradient(900px 500px at -10% 0%, rgba(232,160,32,0.07), transparent 55%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(46,93,168,0.18); }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(46,93,168,0.28); border-radius: 20px; border: 2px solid var(--bg); }
+
+  header {
+    background: #ffffff; padding: 0 32px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 3px 16px rgba(15,32,80,0.15);
+    border-bottom: 4px solid; border-image: linear-gradient(90deg, var(--navy) 0%, var(--navy-light) 55%, var(--gold) 100%) 1;
+  }
+  .header-inner { max-width: 1440px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; min-height: 74px; gap: 20px; }
+  .logo-wrap { display: flex; align-items: center; gap: 18px; min-width: 0; }
+  .logo-mark { width: 46px; height: 46px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(26,58,107,0.18), inset 0 0 0 1.5px var(--border); flex-shrink: 0; padding: 6px; }
+  .logo-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .logo-divider { width: 2px; height: 44px; background: var(--border); border-radius: 2px; flex-shrink: 0; }
+  .logo-text { min-width: 0; }
+  .logo-text h1 { font-size: 18px; color: var(--navy); font-weight: 700; letter-spacing: 0.2px; line-height: 1.2;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .logo-text p { font-size: 11.5px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 2px;
+                 white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .btn-ghost { background: var(--bg); color: var(--navy); border: 1.5px solid var(--border); padding: 9px 18px; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .18s, border-color .15s; }
+  .btn-ghost:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .mini-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 9px; padding: 7px 13px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .mini-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 26px 32px 70px; }
+
+  /* ── Faixa de identidade: de quem é este painel ──
+     Fica no alto e não sai da tela em nenhum momento. Numa tela que mostra
+     só um recorte, dizer de quem é o recorte não é enfeite: é a diferença
+     entre "o sistema tem 8 requisições" e "a MINHA secretaria tem 8". */
+  .pasta {
+    background: linear-gradient(135deg, var(--navy-dark), var(--navy-mid) 62%, var(--navy-light));
+    color: #fff; border-radius: var(--radius); padding: 22px 26px;
+    box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .pasta-sigla { font-size: 26px; font-weight: 800; letter-spacing: .5px;
+                 background: rgba(255,255,255,.14); border-radius: 14px; padding: 10px 18px; }
+  .pasta-txt { min-width: 0; flex: 1; }
+  .pasta-txt h2 { font-size: 19px; font-weight: 700; line-height: 1.3; }
+  .pasta-txt p { font-size: 12.5px; opacity: .82; margin-top: 4px; }
+  .pasta-trocar { display: flex; gap: 7px; flex-wrap: wrap; }
+  .pasta-trocar button { background: rgba(255,255,255,.12); color: #fff; border: 1.5px solid rgba(255,255,255,.28);
+    border-radius: 20px; padding: 7px 15px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: background .15s; }
+  .pasta-trocar button:hover { background: rgba(255,255,255,.24); }
+  .pasta-trocar button.on { background: var(--gold); border-color: var(--gold); color: #3d2800; }
+
+  /* ── Os números do topo ──
+     Cada um é um BOTÃO que filtra a lista embaixo. Número que não leva a
+     lugar nenhum é enfeite; aqui ele é a porta de entrada da pergunta que a
+     pessoa veio fazer ("o que está por empenhar?"). */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-top: 20px; }
+  .card { background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; padding: 15px 17px;
+    box-shadow: var(--shadow); cursor: pointer; text-align: left; font-family: inherit;
+    transition: transform .12s, box-shadow .16s, border-color .16s; position: relative; overflow: hidden; }
+  .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--navy-light); }
+  .card.on { border-color: var(--navy); box-shadow: 0 0 0 3px rgba(46,93,168,.16), var(--shadow-md); }
+  .card::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--navy-light); opacity: .0; transition: opacity .16s; }
+  .card.on::after { opacity: 1; }
+  .card-n { font-size: 27px; font-weight: 800; color: var(--navy); line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .card-r { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin-top: 5px; }
+  .card-s { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .card.alerta .card-n { color: var(--red); }
+  .card.atencao .card-n { color: var(--amber); }
+  .card.bom     .card-n { color: var(--green); }
+
+  /* ── Seções ── */
+  .secao { margin-top: 28px; }
+  .secao-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .secao-top h3 { font-size: 17px; color: var(--navy); font-weight: 800; }
+  .secao-top .cont { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .secao-top .direita { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .busca { padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit;
+    font-size: 13.5px; background: #fff; outline: none; width: 260px; max-width: 100%; }
+  .busca:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+
+  .tab-box { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--navy); color: #fff; font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; padding: 11px 10px; text-align: left; white-space: nowrap; }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 13px; color: #000; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) td { background: #fafbfe; }
+  tbody tr:hover td { background: var(--blue-bg); }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 700; color: var(--navy); }
+  .dinheiro { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-weight: 700; }
+  .obj { color: #000; line-height: 1.45; }
+  .vazia { color: var(--muted); }
+
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+  .b-ok    { background: var(--green-bg); color: var(--green); }
+  .b-falta { background: var(--amber-bg); color: var(--amber); }
+  .b-red   { background: var(--red-bg);   color: var(--red); }
+  .b-gray  { background: #eef1f7;         color: var(--muted); }
+  .b-blue  { background: var(--blue-bg);  color: var(--blue-text); }
+
+  .empty { padding: 40px 22px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .empty span { display: block; font-size: 30px; margin-bottom: 8px; }
+  .mais { padding: 14px; text-align: center; border-top: 1px solid var(--border); }
+  .aviso-recorte { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+    padding: 13px 12px; text-align: center; font-size: 12.5px; color: var(--muted); }
+  .aviso-recorte b { color: var(--navy); }
+
+  .rodape { margin-top: 34px; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.7; }
+  .rodape b { color: var(--navy); }
+
+  #toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--navy-dark); color: #fff; padding: 12px 22px; border-radius: 11px; font-size: 13.5px;
+    font-weight: 600; box-shadow: var(--shadow-lg); opacity: 0; pointer-events: none; transition: all .22s; z-index: 9000; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ═══════════ CELULAR ═══════════
+     A tabela vira bloco. Numa tela de 380px, sete colunas viram sete
+     colunas ilegíveis — o que a pessoa precisa ler primeiro é o objeto e o
+     valor, e é isso que fica em cima. */
+  @media (max-width: 860px) {
+    header { padding: 0 14px; }
+    .header-inner { min-height: 62px; gap: 10px; }
+    .logo-mark { width: 38px; height: 38px; padding: 5px; }
+    .logo-divider { display: none; }
+    .logo-text h1 { font-size: 15.5px; }
+    .logo-text p { display: none; }
+    main { padding: 16px 12px 60px; }
+    .pasta { padding: 17px 18px; gap: 14px; }
+    .pasta-sigla { font-size: 20px; padding: 8px 14px; }
+    .pasta-txt h2 { font-size: 16px; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; }
+    .card { padding: 12px 13px; }
+    .card-n { font-size: 22px; }
+    .busca { width: 100%; }
+    .secao-top .direita { width: 100%; }
+
+    table, tbody, tr { display: block; width: 100%; }
+    thead { display: none; }
+    tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 9px;
+      padding: 13px 14px 14px; border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:nth-child(even) td, tbody tr:hover td { background: transparent; }
+    tbody td { display: inline; padding: 0; border: none; }
+    tbody td.vaziacel { display: none; }
+    td[data-r]::before { content: attr(data-r) " "; font-size: 10.5px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .cel-tit  { order: 1; flex: 0 0 100%; font-size: 14.5px; font-weight: 700; margin-bottom: 2px; }
+    .cel-obj  { order: 2; flex: 0 0 100%; font-size: 12.5px; color: var(--muted); line-height: 1.45; margin-bottom: 7px; }
+    .cel-meta { order: 3; margin-right: 9px; font-size: 12px; }
+    .cel-val  { order: 4; flex: 1 0 auto; text-align: right; font-size: 14px; }
+    .cel-tit::before, .cel-obj::before { content: "" !important; }
+  }
+  /* ── Portão de acesso ── */
+  .chip-auth { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--navy); background: var(--blue-bg); padding: 5px 11px; border-radius: 20px; }
+  #authGate { position: fixed; inset: 0; z-index: 12000; display: none; align-items: center; justify-content: center; padding: 18px;
+              background: radial-gradient(1000px 520px at 15% -10%, #1E52CC 0%, transparent 55%), linear-gradient(160deg, #0D2B7E 0%, #081C52 75%); }
+  .auth-card { background: #fff; border-radius: 18px; padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,.35); text-align: center; }
+  .auth-marca { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .auth-titulo { font-size: 21px; font-weight: 800; color: var(--navy); margin: 6px 0 4px; }
+  .auth-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+  .auth-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; background: #fff; border: 1.5px solid var(--border);
+                 border-radius: 10px; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; }
+  .auth-google:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .auth-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 11.5px; }
+  .auth-ou::before, .auth-ou::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 9px; outline: none; box-sizing: border-box; }
+  .auth-input:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .auth-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .auth-btn:hover { background: var(--navy-light); }
+  .auth-btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--border); margin-top: 14px; }
+  .auth-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 12.5px; }
+  .auth-links a { color: var(--navy-light); font-weight: 600; text-decoration: none; }
+  .auth-links a:hover { text-decoration: underline; }
+  .auth-err { color: var(--red); font-size: 12.5px; font-weight: 600; margin-top: 12px; min-height: 16px; }
+  .auth-foto { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: #dde4f0; margin-bottom: 10px; }
+  .auth-pend-nome { font-size: 15px; font-weight: 800; color: var(--navy); }
+  .auth-pend-email { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<div id="authGate">
+  <!-- Enquanto o Firebase confere se já existe sessão nesta máquina, quem já
+       está logado não pode ver o formulário de login piscando: o portão abre
+       neste aviso e, só se não houver ninguém logado, dá lugar ao formulário
+       (authStartGate). -->
+  <div class="auth-card" id="authCarregando">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Agenda de Contratos</h1>
+    <p class="auth-sub">Verificando seu acesso…</p>
+  </div>
+
+  <div class="auth-card" id="authEntradaBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Gestão de Contratos</h1>
+    <p class="auth-sub">Entre com a mesma conta do sistema de licitações.</p>
+    <button class="auth-google" id="authBtnGoogle" onclick="authGoogle()">
+      <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.1 5.5c4.2-3.9 6.9-9.7 6.9-16.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.4-4.6 2.3-8.8 2.3-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="auth-ou"><span>ou</span></div>
+    <input type="email" id="authEmail" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPass" class="auth-input" placeholder="Senha" autocomplete="current-password">
+    <button class="auth-btn" id="authBtnEntrar" onclick="authEntrarSenha()">Entrar</button>
+    <div class="auth-links">
+      <a href="#" onclick="authEsqueciSenha();return false;">Esqueci a senha</a>
+      <a href="#" onclick="authSetModo('criar');return false;">Criar uma conta</a>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <div class="auth-card" id="authCriarBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Criar conta</h1>
+    <p class="auth-sub">Depois de criada, um administrador libera o seu acesso.</p>
+    <input type="text" id="authNomeC" class="auth-input" placeholder="Nome completo" autocomplete="name">
+    <input type="email" id="authEmailC" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPassC" class="auth-input" placeholder="Senha (mínimo 6 caracteres)" autocomplete="new-password">
+    <input type="password" id="authPass2" class="auth-input" placeholder="Repita a senha" autocomplete="new-password">
+    <button class="auth-btn" id="authBtnCriar" onclick="authCriarConta()">Criar conta</button>
+    <div class="auth-links"><a href="#" onclick="authSetModo('entrar');return false;">Já tenho conta</a></div>
+  </div>
+
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img id="authPendFoto" class="auth-foto" alt="">
+    <div class="auth-pend-nome" id="authPendNome"></div>
+    <div class="auth-pend-email" id="authPendEmail"></div>
+    <p class="auth-sub" id="authPendMsg"></p>
+    <button class="auth-btn ghost" onclick="authLogout()">Sair</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-mark"><img src="../logo-ijui.jpg" alt="Brasão de Ijuí"></div>
+      <div class="logo-divider"></div>
+      <div class="logo-text">
+        <h1>Painel da Secretaria</h1>
+        <p>Município de Ijuí · Requisições e contratos</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span id="authUserChip" class="chip-auth" style="display:none"></span>
+      <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- De quem é este painel. Some só enquanto o acesso não foi confirmado. -->
+  <div class="pasta" id="pasta" style="display:none">
+    <div class="pasta-sigla" id="pastaSigla">—</div>
+    <div class="pasta-txt">
+      <h2 id="pastaNome">—</h2>
+      <p id="pastaSub"></p>
+    </div>
+    <div class="pasta-trocar" id="pastaTrocar"></div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="secao">
+    <div class="secao-top">
+      <h3>Requisições</h3>
+      <span class="cont" id="contReq"></span>
+      <div class="direita">
+        <input class="busca" id="buscaReq" type="text" placeholder="Procurar por número, credor ou objeto…"
+               oninput="aplicar()" autocomplete="off">
+      </div>
+    </div>
+    <div class="tab-box">
+      <table>
+        <thead><tr>
+          <th>Requisição</th><th>Recebida</th><th>Credor</th><th>Objeto</th>
+          <th>Modalidade</th><th>Empenho</th><th>Despacho</th><th style="text-align:right">Valor</th>
+        </tr></thead>
+        <tbody id="corpoReq"></tbody>
+      </table>
+      <div id="vazioReq"></div>
+      <div id="antigasReq"></div>
+      <div class="mais" id="maisReq" style="display:none">
+        <button class="btn-ghost" onclick="verMais('req')" id="btnMaisReq">Carregar mais ↓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="secao">
+    <div class="secao-top">
+      <h3>Contratos</h3>
+      <span class="cont" id="contCtr"></span>
+      <div class="direita">
+        <input class="busca" id="buscaCtr" type="text" placeholder="Procurar por número, empresa ou objeto…"
+               oninput="aplicar()" autocomplete="off">
+      </div>
+    </div>
+    <div class="tab-box">
+      <table>
+        <thead><tr>
+          <th>Contrato</th><th>Empresa</th><th>Objeto</th><th>Fiscais</th>
+          <th>Situação</th><th>Vencimento</th><th style="text-align:right">Valor</th>
+        </tr></thead>
+        <tbody id="corpoCtr"></tbody>
+      </table>
+      <div id="vazioCtr"></div>
+      <div class="mais" id="maisCtr" style="display:none">
+        <button class="btn-ghost" onclick="verMais('ctr')" id="btnMaisCtr">Carregar mais ↓</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape" id="rodape"></div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+/* O SDK entra por script, não por import: é o mesmo compat v10 que o resto
+   do sistema usa, e carregá-lo aqui do mesmo jeito mantém uma versão só. */
+function carregarSDK(){
+  const urls = [
+    'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js'
+  ];
+  return urls.reduce((p, src) => p.then(() => new Promise((ok, erro) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = ok; s.onerror = () => erro(new Error('não carregou ' + src));
+    document.head.appendChild(s);
+  })), Promise.resolve());
+}
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCH8DKzE8oPaQ3HpAex-3iqEaReKon05lM",
+  authDomain: "processos-ijui.firebaseapp.com",
+  projectId: "processos-ijui",
+  storageBucket: "processos-ijui.firebasestorage.app",
+  messagingSenderId: "385308750932",
+  appId: "1:385308750932:web:65e94a26e71451995fe9c1"
+};
+function temFirebase(){ return !!(FIREBASE_CONFIG && FIREBASE_CONFIG.projectId); }
+
+/* ══════════════ UTILIDADES ══════════════ */
+const HOJE = new Date(); HOJE.setHours(0,0,0,0);
+const fmtBRL = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function money(v){ return (v==null || isNaN(v)) ? '—' : fmtBRL.format(v); }
+function parseD(s){ if(!s) return null; const [y,m,d]=String(s).split('-').map(Number); return (y&&m&&d)?new Date(y,m-1,d):null; }
+function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
+function dias(s){ const d=parseD(s); return d===null ? null : Math.round((d-HOJE)/864e5); }
+function normalizar(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+function vazio(){ return '<span class="vazia">—</span>'; }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ══════════════ O ESCOPO ══════════════
+   Quais siglas esta conta enxerga. Vem do perfil (usuarios_v2.secretarias),
+   nunca da URL nem de um seletor — trocar de secretaria não é uma coisa que
+   esta tela faça.
+
+   É uma LISTA, e por um motivo concreto: os dois cadastros escrevem a mesma
+   secretaria de jeitos diferentes. Educação é "SMEd" nas requisições e
+   "SMED" nos contratos; Cultura é "SMCT" e "SMCET". Um painel com uma sigla
+   só nasceria com metade vazia, e a pessoa concluiria — com razão — que o
+   sistema está errado. Quem cadastra a conta em /usuarios/ marca as duas.
+
+   Quando a lista tem siglas de secretarias DIFERENTES (alguém que responde
+   por duas pastas), a faixa do topo oferece alternar entre elas. */
+let ESCOPO = [];            /* todas as siglas do perfil */
+let GRUPOS = [];            /* [{titulo, nome, siglas:[...]}] */
+let GRUPO_ATUAL = 0;
+let NOMES_SEC = {};         /* sigla -> nome por extenso, do arquivo do repositório */
+
+function siglasAtivas(){ return GRUPOS.length ? GRUPOS[GRUPO_ATUAL].siglas : []; }
+
+/* Agrupa as siglas do perfil por secretaria. Duas siglas que só diferem em
+   maiúsculas/minúsculas ou num acento são a MESMA pasta escrita de dois
+   jeitos, e têm de aparecer como uma só. */
+function montarGrupos(siglas){
+  const chave = s => normalizar(s).replace(/[^a-z0-9]/g,'');
+  const por = new Map();
+  siglas.forEach(s => {
+    const k = chave(s);
+    if(!por.has(k)) por.set(k, []);
+    por.get(k).push(s);
+  });
+  /* SMED e SMEd viram um grupo; SMS e SMS - CAPS II não, porque são
+     recortes diferentes — e quem cadastrou quis os dois separados. */
+  return [...por.values()].map(lista => {
+    const titulo = lista[0];
+    const nome = lista.map(s => NOMES_SEC[s]).find(Boolean) || titulo;
+    return {titulo, nome, siglas: lista};
+  });
+}
+
+/* A lista de secretarias com nome por extenso. É lista fixa (as abas da
+   planilha), não cadastro — por isso vem do repositório e não custa leitura
+   no Firestore.
+
+   Arquivo PRÓPRIO, de 1,4 KB. O requisicoes.json, que também a contém, tem
+   1,1 MB de histórico junto: baixá-lo para ler dezesseis nomes seria pagar
+   mil vezes o preço — e, numa tela que promete mostrar só uma secretaria,
+   seria também baixar as requisições de todas elas para o navegador. */
+function carregarNomes(){
+  return fetch('../requisicao/dados/secretarias.json', {cache:'no-store'})
+    .then(r => r.ok ? r.json() : {})
+    .then(d => { (d.secretarias || []).forEach(s => { NOMES_SEC[s.sigla] = s.nome; }); })
+    .catch(e => console.warn('nomes das secretarias:', e.message));
+}
+
+/* ══════════════ LEITURA ══════════════
+   O mesmo desenho do resto do sistema, pela mesma razão: ler o que cabe na
+   tela, não o cadastro inteiro.
+
+     requisições — os dois últimos meses da secretaria, mais as que ainda
+                   não têm data de recebimento (é como uma nasce). O resto
+                   vem num clique, e quando vem, entra só o que falta: as
+                   consultas dos dois meses continuam de pé.
+     contratos   — os da secretaria, por array-contains. Uma secretaria tem
+                   dezenas ou poucas centenas, não 1.294, então aqui não faz
+                   sentido recortar mais: recortar por ano esconderia
+                   justamente o contrato de 2022 que ainda está vigente.
+
+   Cada leva fica ouvindo. Trocar de grupo e voltar não relê nada. */
+let REQS = [], CTRS = [];
+const LEVAS = new Map();        /* nome -> lista (null = a caminho) */
+const DESLIGAR = new Map();
+let REQ_COMPLETA = false;
+let _semIndice = false;
+
+function inicioDaJanela(){
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-01';
+}
+function nomeDaJanela(){
+  const M = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const m = new Date().getMonth();
+  return M[(m+11)%12] + ' e ' + M[m];
+}
+
+function juntar(){
+  const ativas = siglasAtivas();
+  /* Só as levas do grupo que está na tela. As do outro continuam ouvindo —
+     voltar nele é instantâneo e não custa leitura —, mas misturar as duas
+     mostraria a pasta da vizinha, que é exatamente o que este painel
+     promete não fazer. */
+  const partes = [...LEVAS.entries()].filter(([nome]) =>
+    ativas.some(sig => nome.endsWith(':' + sig)));
+  if(!partes.length || partes.some(([,l]) => l === null)) return;
+  const req = new Map(), ctr = new Map();
+  partes.forEach(([nome, lista]) => {
+    const alvo = nome.indexOf('ctr:') === 0 ? ctr : req;
+    lista.forEach(x => alvo.set(String(x.id), x));
+  });
+  REQS = [...req.values()];
+  CTRS = [...ctr.values()].map(prepararContrato);
+  FONTE = 'firestore';
+  aplicar();
+}
+
+function ouvir(nome, consulta, aoFalhar){
+  if(DESLIGAR.has(nome)) return;
+  LEVAS.set(nome, null);
+  DESLIGAR.set(nome, consulta.onSnapshot(
+    snap => { LEVAS.set(nome, snap.docs.map(d => d.data())); juntar(); },
+    e => {
+      if(aoFalhar && aoFalhar(e)) return;
+      /* Uma leva que falha não pode travar as outras: enquanto ficasse
+         null, nada entraria e a tela pararia de atualizar, calada. */
+      console.error('painel da secretaria (' + nome + '):', e);
+      mostrarErro(e);
+      LEVAS.set(nome, []); juntar();
+    }));
+}
+
+function ligarConsultas(){
+  const db = firebase.firestore();
+  const ini = inicioDaJanela();
+  siglasAtivas().forEach(sig => {
+    /* Requisições: janela de dois meses + as sem data de recebimento. */
+    ouvir('req:janela:' + sig,
+      db.collection('requisicoes').where('sec','==',sig).where('recebido','>=',ini),
+      e => {
+        if(e && e.code === 'failed-precondition'){
+          /* Falta o índice composto (sec + recebido). Não é hora de deixar
+             a tela em branco: lê a secretaria inteira, que não precisa de
+             índice nenhum, e avisa no console com o link que o cria. */
+          console.warn('sem índice para o recorte de dois meses — lendo a secretaria inteira. '
+                     + 'Crie o índice pelo link que o Firestore mostra abaixo:', e.message);
+          _semIndice = true;
+          const f = DESLIGAR.get('req:janela:' + sig); if(f) f();
+          DESLIGAR.delete('req:janela:' + sig); LEVAS.delete('req:janela:' + sig);
+          ouvir('req:tudo:' + sig, db.collection('requisicoes').where('sec','==',sig));
+          marcarRecorte();
+          return true;
+        }
+        return false;
+      });
+    ouvir('req:semData:' + sig,
+      db.collection('requisicoes').where('sec','==',sig).where('recebido','==',null));
+    /* Contratos: os da secretaria, inteiros. array-contains é campo único —
+       o Firestore indexa sozinho, sem índice para criar no console. */
+    ouvir('ctr:' + sig,
+      db.collection('contratos').where('secretarias','array-contains',sig));
+  });
+  marcarRecorte();
+}
+
+/* "Ver as mais antigas": entra só o que falta. As consultas dos dois meses
+   continuam de pé — trocá-las pela secretaria inteira releria o que já está
+   na tela, e leitura repetida é leitura paga duas vezes. */
+function verRequisicoesAntigas(){
+  if(REQ_COMPLETA) return;
+  REQ_COMPLETA = true;
+  const db = firebase.firestore();
+  const ini = inicioDaJanela();
+  siglasAtivas().forEach(sig => {
+    if(_semIndice) ouvir('req:tudo:' + sig, db.collection('requisicoes').where('sec','==',sig));
+    else ouvir('req:antigas:' + sig,
+      db.collection('requisicoes').where('sec','==',sig).where('recebido','<',ini));
+  });
+  marcarRecorte();
+  toast('Trazendo as requisições anteriores…');
+}
+
+function marcarRecorte(){
+  const box = document.getElementById('antigasReq');
+  if(!box) return;
+  box.innerHTML = (REQ_COMPLETA || _semIndice) ? '' :
+    '<div class="aviso-recorte"><span>Mostrando as requisições de <b>' + nomeDaJanela() + '</b>. '
+    + 'As anteriores continuam no sistema.</span>'
+    + '<button class="btn-ghost" onclick="verRequisicoesAntigas()">Ver requisições mais antigas</button></div>';
+}
+
+function mostrarErro(e){
+  const msg = (e && e.code === 'permission-denied')
+    ? 'Esta conta não tem secretaria liberada no painel. Peça a um administrador para marcar a sua em /usuarios/.'
+    : ('Não consegui carregar: ' + (e && e.message || e));
+  document.getElementById('vazioReq').innerHTML =
+    '<div class="empty"><span>⚠️</span>' + esc(msg) + '</div>';
+}
+
+/* ══════════════ CONTRATO: VALOR E PRAZO VIGENTES ══════════════
+   Mesma conta do sistema de contratos: com aditivo, o valor e o prazo de
+   origem moram em valorBase/vencimentoBase e os campos valor/vencimento
+   passam a ser o resultado. Repetir a conta aqui é de propósito — este
+   painel lê o cadastro, não o recalcula de um jeito próprio. */
+function prepararContrato(c){
+  const adits = Array.isArray(c.aditivos) ? c.aditivos : [];
+  if(adits.length){
+    /* O valor de origem fica guardado em valorBase, como no sistema de
+       contratos — e não é preciosismo: a mesma leva é reaproveitada a cada
+       atualização ao vivo, e sem a base a conta somaria o aditivo de novo
+       a cada passada. Um contrato de 50 mil com aditivo de 25 viraria 100. */
+    if(c.valorBase === undefined) c.valorBase = c.valor;
+    if(c.vencimentoBase === undefined) c.vencimentoBase = c.vencimento;
+    const soma = adits.reduce((t,a) => t + (Number(a.valor) || 0), 0);
+    const nb = Number(c.valorBase);
+    c.valor = (c.valorBase == null || isNaN(nb)) ? (soma || null) : nb + soma;
+    const prazos = adits.map(a => a.vencimento).filter(Boolean).sort();
+    c.vencimento = prazos.length ? prazos[prazos.length-1] : c.vencimentoBase;
+  }
+  c._d = dias(c.vencimento);
+  c._adits = adits.length;
+  return c;
+}
+function ativo(c){ return c.situacao === 'ATIVO' || c.situacao === 'ATIVO-PARALIZADO'; }
+
+function badgeVenc(c){
+  const d = c._d;
+  if(d === null) return '<span class="badge b-gray">Sem data</span>';
+  if(!ativo(c))  return '<span class="badge b-gray">' + fmtD(c.vencimento) + '</span>';
+  if(d < 0)      return '<span class="badge b-red">⚠️ Vencido há ' + (-d) + 'd<br>' + fmtD(c.vencimento) + '</span>';
+  if(d <= 30)    return '<span class="badge b-red">⏰ Vence em ' + d + 'd<br>' + fmtD(c.vencimento) + '</span>';
+  if(d <= 90)    return '<span class="badge b-falta">⏰ Vence em ' + d + 'd<br>' + fmtD(c.vencimento) + '</span>';
+  return '<span class="badge b-ok">' + fmtD(c.vencimento) + '</span>';
+}
+function badgeSit(c){
+  if(c.situacao === 'ATIVO') return '<span class="badge b-ok">ATIVO</span>';
+  if(c.situacao === 'ATIVO-PARALIZADO') return '<span class="badge b-falta">PARALISADO</span>';
+  return '<span class="badge b-gray">' + esc(c.situacao || '—') + '</span>';
+}
+function rotuloReq(r){
+  if(r.num == null) return '—';
+  return String(r.num).padStart(3,'0') + '/' + r.ano + (r.sufixo ? ' ' + r.sufixo : '');
+}
+function nasceuNoSistema(r){ return !!r.criadaEm; }
+function badgeDespacho(r){
+  if(r.despacho) return '<span class="badge b-blue">' + esc(r.despacho) + '</span>';
+  /* A que veio da planilha foi contratada antes de a coluna existir: dizer
+     que ela "aguarda despacho" seria inventar uma pendência. */
+  if(!nasceuNoSistema(r)) return vazio();
+  return '<span class="badge b-falta">aguardando</span>';
+}
+function badgeEmpenho(r){
+  if(r.empenho) return '<span class="badge b-ok">' + esc(r.empenho) + '</span>';
+  if(!nasceuNoSistema(r)) return vazio();
+  return '<span class="badge b-falta">falta empenhar</span>';
+}
+
+/* ══════════════ OS NÚMEROS DO TOPO ══════════════
+   Cada um filtra a lista de baixo. São as perguntas que alguém da
+   secretaria realmente abre esta tela para fazer — não um retrato bonito do
+   banco de dados. */
+const CARTOES = [
+  {id:'req-todas',  alvo:'req', rotulo:'Requisições',        sub:nomeDaJanela,
+   filtro:()=>true},
+  {id:'req-desp',   alvo:'req', rotulo:'Aguardando despacho', sub:()=>'do Diretor', classe:'atencao',
+   filtro:r => nasceuNoSistema(r) && !r.despacho},
+  {id:'req-emp',    alvo:'req', rotulo:'Falta empenhar',      sub:()=>'lançadas no sistema', classe:'atencao',
+   filtro:r => nasceuNoSistema(r) && !r.empenho},
+  {id:'ctr-ativos', alvo:'ctr', rotulo:'Contratos vigentes',  sub:()=>'da secretaria', classe:'bom',
+   filtro:c => ativo(c)},
+  {id:'ctr-90',     alvo:'ctr', rotulo:'Vencem em 90 dias',   sub:()=>'renovar ou encerrar', classe:'atencao',
+   filtro:c => ativo(c) && c._d !== null && c._d >= 0 && c._d <= 90},
+  {id:'ctr-venc',   alvo:'ctr', rotulo:'Já vencidos',         sub:()=>'e ainda ativos', classe:'alerta',
+   filtro:c => ativo(c) && c._d !== null && c._d < 0}
+];
+let CARTAO_ON = '';
+
+function clicarCartao(id){
+  CARTAO_ON = (CARTAO_ON === id) ? '' : id;
+  aplicar();
+}
+function renderCards(){
+  const box = document.getElementById('cards');
+  box.innerHTML = CARTOES.map(c => {
+    const base = c.alvo === 'req' ? REQS : CTRS;
+    const n = base.filter(c.filtro).length;
+    return '<button class="card ' + (c.classe || '') + (CARTAO_ON === c.id ? ' on' : '') + '"'
+      + ' onclick="clicarCartao(\'' + c.id + '\')" aria-pressed="' + (CARTAO_ON === c.id) + '">'
+      + '<div class="card-n">' + n.toLocaleString('pt-BR') + '</div>'
+      + '<div class="card-r">' + esc(c.rotulo) + '</div>'
+      + '<div class="card-s">' + esc(c.sub()) + '</div></button>';
+  }).join('');
+}
+
+/* ══════════════ LISTAS ══════════════ */
+const LOTE = 60;
+let mostraReq = LOTE, mostraCtr = LOTE;
+let vistaReq = [], vistaCtr = [];
+let FONTE = 'arquivo';
+
+function verMais(qual){
+  if(qual === 'req') mostraReq += LOTE; else mostraCtr += LOTE;
+  desenhar();
+}
+function casa(termo, partes){
+  if(!termo) return true;
+  const alvo = normalizar(partes.filter(Boolean).join(' '));
+  return normalizar(termo).split(/\s+/).every(t => alvo.includes(t));
+}
+
+function aplicar(){
+  const cartao = CARTOES.find(c => c.id === CARTAO_ON);
+  const tReq = (document.getElementById('buscaReq') || {}).value || '';
+  const tCtr = (document.getElementById('buscaCtr') || {}).value || '';
+
+  vistaReq = REQS.filter(r => casa(tReq, [rotuloReq(r), r.credor, r.objeto, r.modalidade, r.empenho]))
+                 .filter(r => !cartao || cartao.alvo !== 'req' || cartao.filtro(r))
+                 .sort((a,b) => (b.recebido || '').localeCompare(a.recebido || '')
+                              || (Number(b.num)||0) - (Number(a.num)||0));
+  vistaCtr = CTRS.filter(c => casa(tCtr, [c.contr + '/' + c.ano, c.empresa, c.objeto, c.palavra]))
+                 .filter(c => !cartao || cartao.alvo !== 'ctr' || cartao.filtro(c))
+                 /* Vigente primeiro, e dentro deles o que vence antes: a
+                    lista existe para mostrar o que precisa de decisão. Um
+                    contrato encerrado no topo só porque venceu em 2025
+                    empurra para baixo o que ainda está de pé — e é esse que
+                    precisa ser renovado. Sem data vai para o fim. */
+                 .sort((a,b) => (ativo(b) - ativo(a))
+                             || (a.vencimento || '9999').localeCompare(b.vencimento || '9999'));
+  mostraReq = LOTE; mostraCtr = LOTE;
+  renderCards();
+  desenhar();
+}
+
+function linhaReq(r){
+  const cel = (v, rot, cls) => v
+    ? '<td class="' + (cls || '') + '" data-r="' + rot + '">' + v + '</td>'
+    : '<td class="vaziacel ' + (cls || '') + '">' + vazio() + '</td>';
+  return '<tr>'
+    + '<td class="num cel-tit" data-r="Req.">' + esc(rotuloReq(r)) + '</td>'
+    + cel(esc(fmtD(r.recebido)), 'Recebida', 'cel-meta')
+    + cel(esc(r.credor || ''), 'Credor', 'cel-meta')
+    + cel(esc(r.objeto || ''), 'Objeto', 'obj cel-obj')
+    + cel(esc(r.modalidade || ''), 'Modalidade', 'cel-meta')
+    + '<td class="cel-meta" data-r="Empenho">' + badgeEmpenho(r) + '</td>'
+    + '<td class="cel-meta" data-r="Despacho">' + badgeDespacho(r) + '</td>'
+    + '<td class="dinheiro cel-val" data-r="Valor">' + money(r.valor) + '</td>'
+    + '</tr>';
+}
+function linhaCtr(c){
+  const fis = [].concat(c.fiscalAdm || [], c.fiscalTec || []).filter(Boolean);
+  const cel = (v, rot, cls) => v
+    ? '<td class="' + (cls || '') + '" data-r="' + rot + '">' + v + '</td>'
+    : '<td class="vaziacel ' + (cls || '') + '">' + vazio() + '</td>';
+  return '<tr>'
+    + '<td class="num cel-meta" data-r="Contrato">' + esc(c.contr + '/' + c.ano)
+      + (c._adits ? ' <span class="badge b-gray">+' + c._adits + '</span>' : '') + '</td>'
+    + '<td class="cel-tit" data-r="Empresa">' + esc(c.empresa || '—') + '</td>'
+    + cel(esc(c.objeto || ''), 'Objeto', 'obj cel-obj')
+    + cel(esc(fis.join(', ')), 'Fiscais', 'cel-meta')
+    + '<td class="cel-meta" data-r="Situação">' + badgeSit(c) + '</td>'
+    + '<td class="cel-meta" data-r="Vencimento">' + badgeVenc(c) + '</td>'
+    + '<td class="dinheiro cel-val" data-r="Valor">' + money(c.valor) + '</td>'
+    + '</tr>';
+}
+
+function desenhar(){
+  const nada = (msg, dica) => '<div class="empty"><span>🔍</span>' + msg
+    + (dica ? '<br><span style="font-size:13px">' + dica + '</span>' : '') + '</div>';
+
+  document.getElementById('corpoReq').innerHTML = vistaReq.slice(0, mostraReq).map(linhaReq).join('');
+  document.getElementById('vazioReq').innerHTML = vistaReq.length ? '' :
+    nada('Nenhuma requisição com esses filtros.',
+         REQ_COMPLETA ? 'Ajuste a busca acima.' : 'As anteriores a ' + nomeDaJanela() + ' ainda não foram trazidas.');
+  document.getElementById('maisReq').style.display = vistaReq.length > mostraReq ? '' : 'none';
+  document.getElementById('btnMaisReq').textContent =
+    'Carregar mais (' + (vistaReq.length - mostraReq) + ' restantes) ↓';
+  document.getElementById('contReq').textContent = contar(vistaReq.length, REQS.length, 'requisição', 'requisições');
+
+  document.getElementById('corpoCtr').innerHTML = vistaCtr.slice(0, mostraCtr).map(linhaCtr).join('');
+  document.getElementById('vazioCtr').innerHTML = vistaCtr.length ? '' :
+    nada('Nenhum contrato com esses filtros.', 'Ajuste a busca acima.');
+  document.getElementById('maisCtr').style.display = vistaCtr.length > mostraCtr ? '' : 'none';
+  document.getElementById('btnMaisCtr').textContent =
+    'Carregar mais (' + (vistaCtr.length - mostraCtr) + ' restantes) ↓';
+  document.getElementById('contCtr').textContent = contar(vistaCtr.length, CTRS.length, 'contrato', 'contratos');
+
+  marcarRecorte();
+  marcarRodape();
+}
+function contar(vis, total, sing, plur){
+  if(!total) return '';
+  if(vis === total) return total.toLocaleString('pt-BR') + ' ' + (total === 1 ? sing : plur);
+  return vis.toLocaleString('pt-BR') + ' de ' + total.toLocaleString('pt-BR');
+}
+function marcarRodape(){
+  const el = document.getElementById('rodape');
+  if(!el) return;
+  const g = GRUPOS[GRUPO_ATUAL];
+  if(!g){ el.innerHTML = ''; return; }
+  /* Dizer o que esta tela NÃO tem é parte de ser honesta: quem procurar
+     aqui o contrato de outra pasta precisa saber que não é bug. */
+  el.innerHTML = 'Este painel mostra apenas o que é de <b>' + esc(g.titulo) + '</b>'
+    + (g.siglas.length > 1 ? ' (' + esc(g.siglas.join(' / ')) + ')' : '')
+    + '. O recorte é do banco, não da tela.<br>'
+    + 'Para lançar requisição ou cadastrar contrato, use as telas próprias do sistema.';
+}
+
+/* ══════════════ A FAIXA DE IDENTIDADE ══════════════ */
+function renderPasta(){
+  const g = GRUPOS[GRUPO_ATUAL];
+  document.getElementById('pasta').style.display = g ? '' : 'none';
+  if(!g) return;
+  document.getElementById('pastaSigla').textContent = g.titulo;
+  document.getElementById('pastaNome').textContent = g.nome;
+  document.getElementById('pastaSub').textContent =
+    g.siglas.length > 1
+      ? 'Também cadastrada como ' + g.siglas.filter(s => s !== g.titulo).join(', ') + ' nos contratos'
+      : 'Requisições e contratos desta secretaria';
+  /* Só aparece para quem responde por mais de uma pasta. Um botão que não
+     leva a lugar nenhum confunde mais do que ajuda. */
+  document.getElementById('pastaTrocar').innerHTML = GRUPOS.length < 2 ? '' :
+    GRUPOS.map((x, i) => '<button class="' + (i === GRUPO_ATUAL ? 'on' : '') + '"'
+      + ' onclick="trocarGrupo(' + i + ')">' + esc(x.titulo) + '</button>').join('');
+}
+function trocarGrupo(i){
+  if(i === GRUPO_ATUAL) return;
+  GRUPO_ATUAL = i;
+  CARTAO_ON = '';
+  renderPasta();
+  /* As consultas do grupo anterior ficam ouvindo: voltar nele é instantâneo
+     e não custa leitura. O que muda é o que a tela MOSTRA. */
+  ligarConsultas();
+  aplicar();
+}
+/* ══════════════ CONTAS E PERMISSÕES ══════════════
+   Contratos usa a MESMA conta do resto do sistema: o mesmo projeto do
+   Firebase, o mesmo Firebase Authentication e a mesma coleção "usuarios_v2"
+   da Agenda e do Sistema Interno — só que olhando o painel "contratos"
+   dentro de "acessos". Quem cuida só de contrato ganha nível em Contratos e
+   "Sem acesso" nos outros dois: continua sendo uma conta só, aprovada num
+   lugar só (o painel Usuários, dentro do Sistema Interno).
+
+   Diferente da Agenda e do Sistema Interno, aqui NADA é público: sem conta
+   aprovada com o painel liberado, a lista de contratos nem chega ao
+   navegador — as regras do Firestore negam a leitura, e a tela não cai no
+   arquivo dados/contratos.json (isso furaria a proteção inteira).
+
+   Três níveis, iguais aos dos outros painéis:
+     Sem acesso  → nem entra;
+     Visualizar  → vê tudo, mas todo botão de salvar é barrado;
+     Editar      → cadastra, edita e registra aditivos.
+   Ver CONTROLE-DE-ACESSO.md na raiz do repositório. */
+const AUTH_BOOTSTRAP_ADMIN_EMAIL = 'pedrohhpacifico@gmail.com';
+let authCurrentUser = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+let authPerfilUnsub = null;
+let usuariosV2ColRef = null;
+let authModo = 'entrar';
+
+/* Mesma normalização dos outros painéis: contas aprovadas antes do modelo
+   de três níveis guardam true/false, e continuam valendo sem migração. */
+function authNormalizaNivel(v){
+  if(v === true) return 'editar';
+  if(v === 'ver' || v === 'editar' || v === 'diretor') return v;
+  return 'nenhum';
+}
+function painelNivel(){
+  if(!authCurrentUser || authCurrentUser.status !== 'aprovado') return 'nenhum';
+  if(authCurrentUser.isAdmin) return 'editar';
+  return authNormalizaNivel(authCurrentUser.acessos && authCurrentUser.acessos.painel_secretaria);
+}
+function podeVerPainel(){ return painelNivel() !== 'nenhum'; }
+/* Uma conta pode ter o painel liberado e nenhuma secretaria marcada. Isso
+   não é acesso: é uma tela que não teria o que mostrar. Vale dizer isso em
+   vez de abrir um painel vazio e deixar a pessoa achando que o sistema
+   quebrou. */
+function siglasDoPerfil(){
+  const v = authCurrentUser && authCurrentUser.secretarias;
+  return Array.isArray(v) ? v.filter(Boolean) : (v ? [v] : []);
+}
+function temSecretaria(){ return siglasDoPerfil().length > 0; }
+
+/* ── Portão de acesso ── */
+function authEl(id){ return document.getElementById(id); }
+function authErr(msg){ const e = authEl('authErr'); if(e) e.textContent = msg || ''; }
+function authSetModo(m){
+  authModo = m;
+  authEl('authEntradaBox').style.display = (m === 'entrar') ? 'block' : 'none';
+  authEl('authCriarBox').style.display   = (m === 'criar')  ? 'block' : 'none';
+  authErr('');
+}
+function authMsgErro(e){
+  const m = {
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/user-not-found':'Não existe conta com esse e-mail.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':'Já existe conta com esse e-mail. Tente entrar em vez de criar.',
+    'auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.'
+  };
+  return m[e.code] || ('Erro: ' + e.message);
+}
+function authGoogle(){
+  authErr('');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(e => {
+    if(e.code === 'auth/popup-closed-by-user') return;
+    if(e.code === 'auth/popup-blocked'){ authErr('O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo.'); return; }
+    authErr('Não foi possível entrar com o Google: ' + e.message);
+  });
+}
+function authEntrarSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  const senha = authEl('authPass').value || '';
+  if(!email || !senha){ authErr('Informe e-mail e senha.'); return; }
+  authErr('');
+  firebase.auth().signInWithEmailAndPassword(email, senha).catch(e => authErr(authMsgErro(e)));
+}
+function authCriarConta(){
+  const nome  = (authEl('authNomeC').value || '').trim();
+  const email = (authEl('authEmailC').value || '').trim().toLowerCase();
+  const senha = authEl('authPassC').value || '';
+  const senha2 = authEl('authPass2').value || '';
+  if(!nome || !email || !senha){ authErr('Preencha todos os campos.'); return; }
+  if(senha.length < 6){ authErr('A senha deve ter ao menos 6 caracteres.'); return; }
+  if(senha !== senha2){ authErr('As senhas não conferem.'); return; }
+  authErr('');
+  firebase.auth().createUserWithEmailAndPassword(email, senha)
+    .then(cred => cred.user.updateProfile({displayName: nome}))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authEsqueciSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  if(!email){ authErr('Digite seu e-mail no campo acima primeiro.'); return; }
+  authErr('');
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => alert('Enviamos um e-mail para ' + email + ' com um link para redefinir a senha.'))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  firebase.auth().signOut();
+}
+
+/* ── Perfil (usuarios_v2) ── */
+function iniciarAutenticacao(){
+  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
+  firebase.auth().onAuthStateChanged(authAoAutenticar);
+}
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email || '').toLowerCase(),
+    nome:  user.displayName || (user.email || '').split('@')[0],
+    foto:  user.photoURL || '',
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || 'password',
+    status: 'pendente',
+    isAdmin: false,
+    acessos: {agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum', requisicao:'nenhum'},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra || {});
+}
+function authAoAutenticar(user){
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub = null; }
+  if(!user){ authCurrentUser = null; authStartGate(); return; }
+
+  const ref = usuariosV2ColRef.doc(user.uid);
+  ref.get().then(doc => {
+    if(doc.exists) return;
+    const ehResgate = (user.email || '').toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:'aprovado', isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar', requisicao:'editar'}
+    } : {}));
+  }).then(() => {
+    authPerfilUnsub = ref.onSnapshot(doc => {
+      /* Conta excluída por um admin com a aba aberta: sair devolve o portão. */
+      if(!doc.exists){ authCurrentUser = null; firebase.auth().signOut(); return; }
+      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
+      if(podeVerPainel()) authShowApp(); else authShowPendente();
+    }, e => console.warn('perfil: sem permissão de leitura (' + e.message + ')'));
+  }).catch(e => authErr('Erro ao preparar sua conta: ' + e.message));
+}
+
+function authShowApp(){
+  authCamposLogin(true);
+  authEl('authGate').style.display = 'none';
+  const chip = authEl('authUserChip');
+  if(chip && authCurrentUser){
+    chip.textContent = '\u{1F464} ' + (authCurrentUser.nome || authCurrentUser.email);
+    chip.style.display = 'inline-flex';
+  }
+  const sair = authEl('btnSair'); if(sair) sair.style.display = '';
+  /* Mesma regra do resto do sistema: os dados só são pedidos depois que o
+     acesso está confirmado. Aqui não se grava nada — o painel é só de
+     leitura —, então não há botão para esconder de ninguém. */
+  iniciarPainel();
+}
+function authShowPendente(){
+  authOcultarCarregando();
+  authEl('authGate').style.display = 'flex';
+  authEl('authEntradaBox').style.display = 'none';
+  authEl('authCriarBox').style.display = 'none';
+  authErr('');
+  authEl('authPendenteCard').style.display = 'block';
+  authEl('authPendNome').textContent  = authCurrentUser.nome || '';
+  authEl('authPendEmail').textContent = authCurrentUser.email || '';
+  const foto = authEl('authPendFoto');
+  foto.src = authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  authEl('authPendMsg').textContent = authCurrentUser.status === 'bloqueado'
+    ? 'Seu acesso foi bloqueado por um administrador.'
+    : 'Sua conta foi criada. Peça para um administrador liberar o painel de Contratos para você.';
+}
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(!i) return;
+    if(desligar){ i.value = ''; i.disabled = true; }
+    else i.disabled = false;
+  });
+}
+function authOcultarCarregando(){
+  const c = authEl('authCarregando');
+  if(c) c.style.display = 'none';
+}
+function authStartGate(){
+  authCamposLogin(false);
+  authOcultarCarregando();
+  authEl('authGate').style.display = 'flex';
+  authEl('authPendenteCard').style.display = 'none';
+  authSetModo('entrar');
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(i && !i._enterBound){
+      i._enterBound = true;
+      i.addEventListener('keydown', e => { if(e.key === 'Enter'){ (authModo === 'criar') ? authCriarConta() : authEntrarSenha(); } });
+    }
+  });
+}
+
+/* ══════════════ PARTIDA ══════════════
+   Nada é lido antes de o acesso estar confirmado — e, aqui, antes de o
+   ESCOPO estar conhecido. Uma consulta sem o recorte da secretaria seria
+   negada pelas regras de qualquer forma; melhor não mandá-la. */
+let _painelIniciado = false;
+function iniciarPainel(){
+  if(_painelIniciado) return;
+  _painelIniciado = true;
+  carregarNomes().then(() => {
+    ESCOPO = siglasDoPerfil();
+    GRUPOS = montarGrupos(ESCOPO);
+    GRUPO_ATUAL = 0;
+    renderPasta();
+    if(!GRUPOS.length){ semSecretaria(); return; }
+    ligarConsultas();
+    aplicar();
+  });
+}
+
+/* Painel liberado, secretaria em branco. Acontece quando alguém aprova a
+   conta e esquece de marcar a pasta — e o recado tem de dizer o que fazer,
+   não só que está vazio. */
+function semSecretaria(){
+  document.getElementById('cards').innerHTML = '';
+  document.getElementById('vazioReq').innerHTML =
+    '<div class="empty"><span>🔑</span>Sua conta tem o painel liberado, mas nenhuma secretaria marcada.<br>'
+    + '<span style="font-size:13px">Peça a um administrador para abrir <b>Usuários</b>, achar a sua conta e '
+    + 'marcar a secretaria dela. É isso que diz ao sistema o que este painel deve mostrar.</span></div>';
+  document.getElementById('vazioCtr').innerHTML = '';
+  document.getElementById('rodape').innerHTML = '';
+}
+
+/* Sem Firebase configurado esta tela não tem o que fazer: o escopo vem da
+   conta, e sem conta não há escopo. Melhor dizer isso do que mostrar uma
+   tela vazia sem explicação. */
+function semFirebase(){
+  document.getElementById('vazioReq').innerHTML =
+    '<div class="empty"><span>⚙️</span>Este painel precisa da conta do sistema para saber qual secretaria mostrar.</div>';
+}
+
+if(temFirebase()){
+  carregarSDK().then(() => { firebase.initializeApp(FIREBASE_CONFIG); iniciarAutenticacao(); })
+    .catch(e => { console.error('SDK do Firebase:', e); semFirebase(); });
+} else {
+  semFirebase();
+}
+</script>
+</body>
+</html>

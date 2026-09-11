@@ -1195,8 +1195,12 @@ function lembrarSecretaria(sigla){
   try{ localStorage.setItem(LEMBRAR_SEC, sigla); }catch(e){}
 }
 
+/* Só a lista de secretarias, que é a única coisa que esta tela ainda quer
+   do repositório. O requisicoes.json continua versionado como histórico da
+   migração, mas tem 1,1 MB — baixá-lo a cada visita para ler dezesseis
+   nomes desfaria, no download, a economia que se fez nas leituras. */
 function carregarDoArquivo(){
-  return fetch('dados/requisicoes.json', {cache:'no-cache'}).then(r => {
+  return fetch('dados/secretarias.json', {cache:'no-cache'}).then(r => {
     if(!r.ok) throw new Error('HTTP '+r.status);
     return r.json();
   });

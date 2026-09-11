@@ -55,6 +55,24 @@ service cloud.firestore {
     function pregoeiro() { return temAcesso('pregoeiro'); }
     function contratos() { return temAcesso('contratos'); }
     function requisicao(){ return temAcesso('requisicao'); }
+    // ── Painel da Secretaria ────────────────────────────────────────────
+    // Um acesso que NÃO é "ver o sistema": é ver a própria secretaria. Quem
+    // tem só ele enxerga as requisições e os contratos das siglas listadas
+    // no próprio perfil, e nada mais — nem outra secretaria, nem o cadastro
+    // inteiro.
+    //
+    // O escopo é uma LISTA porque os dois cadastros escrevem a mesma
+    // secretaria de jeitos diferentes (Educação é "SMEd" nas requisições e
+    // "SMED" nos contratos), e porque uma pessoa pode responder por mais de
+    // uma. Sem a lista, metade do painel nasceria vazia.
+    function painelSec()       { return temAcesso('painel_secretaria'); }
+    function minhasSiglas()    { return perfil().get('secretarias', []); }
+    // Numa consulta de LISTA o Firestore só aceita se a própria consulta
+    // garantir o recorte — é por isso que a tela sempre manda
+    // where('sec','==',...) / array-contains: sem isso, a regra nega.
+    function reqDaMinhaSec()   { return painelSec() && resource.data.sec in minhasSiglas(); }
+    function ctrDaMinhaSec()   { return painelSec() &&
+                                        resource.data.get('secretarias', []).hasAny(minhasSiglas()); }
     function algum()     { return agenda() || pregoeiro(); }
     // Pontos facultativos e aniversários dos servidores são os mesmos para a
     // Agenda de Licitações e para a Agenda de Contratos, lidos das mesmas
@@ -128,7 +146,13 @@ service cloud.firestore {
           (d.get('acessos', {}).get('agenda', 'nenhum')     in ['nenhum', false]) &&
           (d.get('acessos', {}).get('pregoeiro', 'nenhum')  in ['nenhum', false]) &&
           (d.get('acessos', {}).get('contratos', 'nenhum')  in ['nenhum', false]) &&
-          (d.get('acessos', {}).get('requisicao', 'nenhum') in ['nenhum', false]);
+          (d.get('acessos', {}).get('requisicao', 'nenhum') in ['nenhum', false]) &&
+          // O Painel da Secretaria entra na lista pelo mesmo motivo dos
+          // outros: quem se cadastra sozinho nao se da acesso nenhum. Hoje o
+          // status 'pendente' ja bastaria para barrar, mas a conta nao deve
+          // NASCER com um painel marcado — se um dia essa segunda trava for
+          // afrouxada, esta continua de pe.
+          (d.get('acessos', {}).get('painel_secretaria', 'nenhum') in ['nenhum', false]);
       }
       function nasceResgate(d) {
         return request.auth.token.email.lower() == 'pedrohhpacifico@gmail.com' &&
@@ -238,7 +262,7 @@ service cloud.firestore {
     // gravar exige nível "editar". Sem exclusão pela tela: contrato saindo
     // do ar é "situação: INATIVO", não documento apagado.
     match /contratos/{id} {
-      allow get, list: if contratos();
+      allow get, list: if contratos() || ctrDaMinhaSec();
       allow create, update: if contratosEdit();
       allow delete: if false;
     }
@@ -265,7 +289,7 @@ service cloud.firestore {
     //    tira o despacho primeiro.
     function temDespacho(){ return resource.data.get('despacho', '') != ''; }
     match /requisicoes/{id} {
-      allow get, list: if requisicao();
+      allow get, list: if requisicao() || reqDaMinhaSec();
       allow create: if requisicaoEdit() &&
         !(request.resource.data.get('despacho', '') != '');
       allow update: if (requisicaoEdit() && !mexeuNoDespacho())

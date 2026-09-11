@@ -28,7 +28,7 @@ aquele painel específico** — em vez de abertas por necessidade técnica.
 4. A liberação chega **na hora**, sem precisar relogar: quem estava com a
    aba aberta na tela de espera vê o sistema abrir sozinho.
 
-## Os quatro painéis
+## Os cinco painéis
 
 Uma conta só, com um nível para cada painel:
 
@@ -38,10 +38,15 @@ Uma conta só, com um nível para cada painel:
 | **Sistema Interno** | a central do pregoeiro | `/pregoeiro/` |
 | **Contratos** | o cadastro de contratos e aditivos | `/contratos/` |
 | **Requisições** | as requisições das secretarias | `/requisicao/` |
+| **Painel da Secretaria** | o que é de UMA secretaria, só leitura | `/secretaria/` |
 
-Os quatro moram no mesmo projeto do Firebase e usam a **mesma conta**: quem
+Os cinco moram no mesmo projeto do Firebase e usam a **mesma conta**: quem
 cuida só de contrato ganha nível em Contratos e "Sem acesso" nos outros
-três, e continua sendo uma pessoa, uma conta, aprovada num lugar só.
+quatro, e continua sendo uma pessoa, uma conta, aprovada num lugar só.
+
+O Painel da Secretaria é diferente dos outros quatro em uma coisa: além do
+nível, ele precisa de um **escopo** — quais siglas aquela conta enxerga.
+Ver a seção própria mais abaixo.
 
 A tela onde isso tudo se marca é **`/usuarios/`**. Ela não fica mais dentro
 do Sistema Interno: aprovar conta e distribuir acesso é trabalho de
@@ -258,6 +263,85 @@ Pendentes quanto em Aprovados: clique nele, escreva, e salve junto com o
 resto (o botão 💾, ou o próprio "Aprovar"). Deixar em branco não apaga o
 nome que já havia. Nomes já gravados no histórico não mudam — o registro
 guarda quem era na hora da edição, que é o que um histórico deve fazer.
+
+## Painel da Secretaria (`/secretaria/`)
+
+Uma tela por pasta. Quem entra vê **as requisições e os contratos da própria
+secretaria**, e nada mais: não existe "ver todas", não existe trocar para a
+secretaria da vizinha, não existe o cadastro inteiro.
+
+### O que ele responde
+
+A pergunta de quem trabalha numa secretaria não é a mesma de quem cuida do
+cadastro. É "como está o que é meu?" — quantas requisições estão esperando
+despacho, o que falta empenhar, qual contrato vence nos próximos noventa
+dias. Por isso o painel abre num resumo com esses números, e cada número é
+um **botão que filtra** a lista de baixo. Número que não leva a lugar nenhum
+é enfeite.
+
+É tela de **leitura**. Quem lança requisição continua em `/requisicao/`,
+quem cadastra contrato continua em `/contratos/`. Um cadastro em dois
+lugares vira dois cadastros.
+
+### O escopo é do banco, não da tela
+
+Esta é a parte que importa. O recorte **não é filtro de tela**: as siglas
+saem do perfil da conta e vão dentro da consulta ao Firestore, e as regras
+negam qualquer consulta que não as carregue. Pedir a coleção inteira, pedir
+a requisição da vizinha pelo id, pedir os contratos de outra pasta — tudo é
+recusado pelo banco.
+
+Isso não é detalhe de implementação. Se a tela lesse tudo e mostrasse um
+pedaço, bastaria abrir o console do navegador para ler o resto: **esconder
+não é proteger**. A prova está em `testes/t-regras.mjs`, seção "Painel da
+Secretaria", rodando dentro do emulador oficial do Firestore.
+
+### Por que o escopo é uma LISTA de siglas
+
+Porque os dois cadastros escrevem a mesma secretaria de jeitos diferentes:
+
+| Secretaria | Nas requisições | Nos contratos |
+|---|---|---|
+| Educação | `SMEd` | `SMED` |
+| Cultura e Turismo | `SMCT` | `SMCET` |
+| Desenvolvimento Econômico | `SEMDEC` | `SMDEC` |
+
+Um painel com uma sigla só nasceria com metade vazia, e a pessoa concluiria
+— com razão — que o sistema está quebrado. Por isso o campo em `/usuarios/`
+aceita **as duas grafias, separadas por vírgula**: `SMEd, SMED`. A tela
+junta as que são a mesma pasta e mostra uma só, dizendo no alto que ela
+também é "SMED" nos contratos.
+
+Quem responde por mais de uma pasta ganha um seletor para alternar. Quem
+responde por uma só não ganha botão nenhum — um botão que não leva a lugar
+nenhum confunde mais do que ajuda.
+
+### Como liberar uma secretaria
+
+1. A pessoa (ou a secretaria) se cadastra normalmente, em `/secretaria/`
+   mesmo, com **e-mail e senha** ou com Google.
+2. Em `/usuarios/`, na linha dela, ponha **Painel da Secretaria** em
+   "Visualizar" — aí aparece o campo **Secretarias**.
+3. Escreva as siglas: `SMEd, SMED`. Salve.
+
+Se você liberar o painel e esquecer as siglas, a tela pergunta antes de
+salvar — e, se salvar assim mesmo, a pessoa vê um recado dizendo exatamente
+o que falta, em vez de um painel vazio sem explicação.
+
+O convite por e-mail também leva as siglas junto: preparar o convite com a
+secretaria já escrita evita o passo que se esquece.
+
+### Não existe senha própria daqui
+
+A conta é a **mesma** do resto do sistema (Firebase Authentication +
+`usuarios_v2`). Um segundo cadastro de senhas seria um segundo lugar para
+vazar, sem recuperação de senha, sem reautenticação, e sem as regras
+conseguirem enxergar quem é quem. O que muda por secretaria é o **escopo**
+gravado no perfil, não o mecanismo de entrada.
+
+Se o que se quer é uma conta por secretaria (e não uma por servidor), basta
+criar uma conta com o e-mail da pasta — `educacao@…` — e marcar o escopo
+dela. O mecanismo é o mesmo; muda só quantas contas existem.
 
 ## Backup diário
 

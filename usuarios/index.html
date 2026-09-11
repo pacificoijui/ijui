@@ -430,7 +430,13 @@ var AUTH_PAINEIS=[
   {id:"pregoeiro", nome:"Sistema Interno", sufixo:"Pr"},
   {id:"contratos", nome:"Contratos",       sufixo:"Ct"},
   {id:"requisicao",nome:"Requisições",     sufixo:"Rq",
-   niveis: AUTH_NIVEIS_PADRAO.concat([["diretor","Diretor (só despacha)"]])}
+   niveis: AUTH_NIVEIS_PADRAO.concat([["diretor","Diretor (só despacha)"]])},
+  /* O Painel da Secretaria é o único acesso que precisa de um ESCOPO além
+     do nível: liberá-lo sem dizer QUAL secretaria abre uma tela que não tem
+     o que mostrar. Por isso ele traz o campo das siglas junto (usrCampoSec)
+     e só oferece "Visualizar" — é tela de leitura, não existe editar. */
+  {id:"painel_secretaria", nome:"Painel da Secretaria", sufixo:"Ps",
+   niveis: [["nenhum","Sem acesso"],["ver","Visualizar"]], escopo:true}
 ];
 var AUTH_ROTULO_NIVEL={ver:"visualizar", editar:"editar", diretor:"diretor"};
 function authResumoAcessos(acessos){
@@ -610,9 +616,39 @@ function usrLerNome(prefixo, uid, u){
 }
 function usrChipsAcesso(u, prefixo){
   return AUTH_PAINEIS.map(function(p){
-    return '<label class="usr-chk usr-chk-sel">'+p.nome+' <select id="'+prefixo+p.sufixo+'_'+u.uid+'">'
+    return '<label class="usr-chk usr-chk-sel">'+p.nome+' <select id="'+prefixo+p.sufixo+'_'+u.uid+'"'
+      +(p.escopo?' onchange="usrMostrarSec(\''+prefixo+'\',\''+u.uid+'\')"':'')+'>'
       +authOpcoesNivel(authNivelDe(u,p.id), p)+'</select></label>';
-  }).join('');
+  }).join('') + usrCampoSec(u, prefixo);
+}
+/* As siglas que o Painel da Secretaria enxerga. Texto, separado por vírgula,
+   e não uma lista para marcar: as siglas vêm de DOIS cadastros que as
+   escrevem diferente (Educação é "SMEd" nas requisições e "SMED" nos
+   contratos), e obrigar a escolher de uma lista só faria metade do painel
+   nascer vazia. O campo mostra as duas e explica por quê. */
+function usrCampoSec(u, prefixo){
+  var painel = AUTH_PAINEIS.find(function(p){ return p.escopo; });
+  var liberado = authNormalizaNivel(authNivelDe(u, painel.id)) !== "nenhum";
+  var v = Array.isArray(u.secretarias) ? u.secretarias.join(", ") : (u.secretarias || "");
+  return '<div class="usr-sec" id="'+prefixo+'SecBox_'+u.uid+'"'+(liberado?'':' style="display:none"')+'>'
+    + '<label class="usr-chk" style="flex:1;min-width:240px">Secretarias '
+    + '<input type="text" id="'+prefixo+'Sec_'+u.uid+'" value="'+escHtml(v)+'" '
+    + 'placeholder="SMEd, SMED" autocomplete="off"></label>'
+    + '<span class="usr-sec-dica">as siglas desta pasta, separadas por vírgula — '
+    + 'inclua as duas grafias se os cadastros divergirem (SMEd / SMED)</span></div>';
+}
+function usrMostrarSec(prefixo, uid){
+  var painel = AUTH_PAINEIS.find(function(p){ return p.escopo; });
+  var sel = document.getElementById(prefixo+painel.sufixo+'_'+uid);
+  var box = document.getElementById(prefixo+'SecBox_'+uid);
+  if(box) box.style.display = (sel && sel.value !== "nenhum") ? "" : "none";
+}
+/* Devolve as siglas escritas na linha, limpas. Campo vazio vira lista
+   vazia — e o painel, nesse caso, diz o que falta em vez de abrir vazio. */
+function usrLerSecretarias(prefixo, uid){
+  var el = document.getElementById(prefixo+'Sec_'+uid);
+  if(!el) return [];
+  return el.value.split(",").map(function(s){ return s.trim(); }).filter(Boolean);
 }
 /* Lê os três selects de uma linha do painel e devolve o objeto acessos. */
 function usrLerAcessos(prefixo, uid){
@@ -622,6 +658,16 @@ function usrLerAcessos(prefixo, uid){
     acessos[p.id]=(el&&el.value)||"nenhum";
   });
   return acessos;
+}
+/* Liberar o painel e esquecer a secretaria é o engano fácil aqui: a pessoa
+   entra e encontra uma tela que não tem o que mostrar. Melhor perguntar
+   agora do que ela descobrir depois. */
+function usrConfereEscopo(acessos, siglas){
+  var painel = AUTH_PAINEIS.find(function(p){ return p.escopo; });
+  if(authNormalizaNivel(acessos[painel.id])==="nenhum" || siglas.length) return true;
+  return confirm("O Painel da Secretaria foi liberado, mas nenhuma sigla foi escrita.\n\n"
+               + "A pessoa vai entrar e não encontrar nada, porque o sistema não sabe qual "
+               + "secretaria mostrar.\n\nSalvar mesmo assim?");
 }
 function usrNenhumAcesso(acessos){
   return AUTH_PAINEIS.every(function(p){ return authNormalizaNivel(acessos[p.id])==="nenhum"; });
@@ -655,7 +701,9 @@ function usuariosAprovar(uid){
      aprovou acha que liberou. */
   if(usrNenhumAcesso(acessos) &&
      !confirm("Nenhum painel foi liberado (todos em \"Sem acesso\").\n\nA pessoa vai continuar vendo \"aguardando liberação\".\n\nAprovar mesmo assim?")) return;
-  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos, nome:usrLerNome('pend', uid, u) })
+  if(!usrConfereEscopo(acessos, usrLerSecretarias('pend', uid))) return;
+  usuariosV2ColRef.doc(uid).update({ status:"aprovado", acessos:acessos,
+    secretarias:usrLerSecretarias('pend', uid), nome:usrLerNome('pend', uid, u) })
     .then(function(){ toast("Acesso liberado."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
@@ -673,7 +721,8 @@ function usuariosAplicarConvite(uid, conviteId){
   /* O convite foi preparado com o nome de quem se esperava: ele vale mais do
      que o pedaço do e-mail com que a conta nasceu. */
   var nomeConv=(convite.nome||"").trim() || usrLerNome('pend', uid, uConv);
-  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos, nome:nomeConv})
+  usuariosV2ColRef.doc(uid).update({status:"aprovado", acessos:acessos,
+    secretarias:Array.isArray(convite.secretarias)?convite.secretarias:[], nome:nomeConv})
     .then(function(){ return convitesColRef.doc(conviteId).delete(); })
     .then(function(){ toast("Acesso aplicado a partir do convite."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -722,7 +771,9 @@ function usuariosSalvarAcessos(uid, totalAdmins){
   if(!viraAdmin && usrNenhumAcesso(acessos) &&
      !confirm("Nenhum painel ficou liberado (todos em \"Sem acesso\").\n\n"
               +"A pessoa volta a ver \"aguardando liberação\".\n\nSalvar mesmo assim?")) return;
-  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin, nome:usrLerNome('apr', uid, u) })
+  if(!usrConfereEscopo(acessos, usrLerSecretarias('apr', uid))) return;
+  usuariosV2ColRef.doc(uid).update({ acessos:acessos, isAdmin:viraAdmin,
+    secretarias:usrLerSecretarias('apr', uid), nome:usrLerNome('apr', uid, u) })
     .then(function(){ toast("Alterações salvas."); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }
@@ -762,11 +813,25 @@ function convitesMontarNiveis(){
   if(!box) return;
   box.innerHTML=AUTH_PAINEIS.map(function(p){
     return '<label class="usr-chk usr-chk-sel">'+p.nome
-      +' <select id="cv'+p.sufixo+'">'+authOpcoesNivel("nenhum", p)+'</select></label>';
-  }).join('');
+      +' <select id="cv'+p.sufixo+'"'
+      +(p.escopo?' onchange="convitesMostrarSec()"':'')+'>'+authOpcoesNivel("nenhum", p)+'</select></label>';
+  }).join('')
+  /* O convite leva o escopo junto. Sem isso ele prometeria um painel e
+     entregaria uma tela vazia, e quem aplicasse o convite teria de lembrar
+     de completar — exatamente o passo que se esquece. */
+  + '<div class="usr-sec" id="cvSecBox" style="display:none">'
+  + '<label class="usr-chk" style="flex:1;min-width:240px">Secretarias '
+  + '<input type="text" id="cvSec" placeholder="SMEd, SMED" autocomplete="off"></label>'
+  + '<span class="usr-sec-dica">as siglas desta pasta, separadas por vírgula</span></div>';
+}
+function convitesMostrarSec(){
+  var painel=AUTH_PAINEIS.find(function(p){ return p.escopo; });
+  var sel=document.getElementById("cv"+painel.sufixo), box=document.getElementById("cvSecBox");
+  if(box) box.style.display=(sel && sel.value!=="nenhum") ? "" : "none";
 }
 function convitesLimparForm(){
-  ["cvNome","cvEmail"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+  ["cvNome","cvEmail","cvSec"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+  convitesMostrarSec();
   AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); if(e) e.value="nenhum"; });
 }
 function convitesSalvar(){
@@ -776,7 +841,9 @@ function convitesSalvar(){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
   var acessos={};
   AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); acessos[p.id]=(e&&e.value)||"nenhum"; });
-  convitesColRef.add({nome:nome, email:email, acessos:acessos, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
+  var secs=((document.getElementById("cvSec")||{}).value||"")
+    .split(",").map(function(x){ return x.trim(); }).filter(Boolean);
+  convitesColRef.add({nome:nome, email:email, acessos:acessos, secretarias:secs, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
 }

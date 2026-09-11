@@ -405,12 +405,12 @@ async function entrarComGoogle(pg, user){
     selects:[...document.querySelectorAll('#cvNiveis select')].map(s=>s.id),
     opcoesRq:[...(document.getElementById('cvRq')||{options:[]}).options].map(o=>o.value)
   }));
-  t('o convite por e-mail oferece os mesmos quatro painéis das linhas',
-    convite.selects.join('|')==='cvAg|cvPr|cvCt|cvRq', convite);
+  t('o convite por e-mail oferece os mesmos painéis das linhas',
+    convite.selects.join('|')==='cvAg|cvPr|cvCt|cvRq|cvPs', convite);
   t('com o nível Diretor entre eles, como no resto da tela',
     convite.opcoesRq.join('|')==='nenhum|ver|editar|diretor', convite);
   t('e nenhum painel escrito à mão sobrou no HTML do convite',
-    !/<select id="cv(Ag|Pr|Ct|Rq)"/.test(fs.readFileSync('../usuarios/index.html','utf8')));
+    !/<select id="cv(Ag|Pr|Ct|Rq|Ps)"/.test(fs.readFileSync('../usuarios/index.html','utf8')));
 
   await pgTela.evaluate(()=>{
     document.getElementById('cvNome').value='Nova Diretora';

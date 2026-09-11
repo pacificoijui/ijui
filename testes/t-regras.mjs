@@ -13,7 +13,8 @@
    dele. */
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, addDoc, Timestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, addDoc, Timestamp,
+         query, where } from "firebase/firestore";
 
 let ok = 0, mau = 0;
 async function t(nome, promessa) {
@@ -39,6 +40,13 @@ const CONTAS = {
   antiga:     { uid: "u-velha",   perfil: { email:"velha@x.com", status:"aprovado", isAdmin:false, acessos:{agenda:true, pregoeiro:true} } },
   // Documento estragado, sem o campo "acessos": não pode derrubar a regra.
   semAcessos: { uid: "u-quebrada",perfil: { email:"quebrada@x.com", status:"aprovado", isAdmin:false } },
+  // Painel da Secretaria: vê a PRÓPRIA secretaria e nada mais. Duas siglas
+  // porque os dois cadastros escrevem Educação diferente (SMEd / SMED).
+  secEduc:    { uid: "u-educ",    perfil: { email:"educ@x.com",  status:"aprovado", isAdmin:false,
+                                            acessos:{painel_secretaria:"ver"}, secretarias:["SMEd","SMED"] } },
+  // Mesmo acesso, outra secretaria: é com ela que se prova o isolamento.
+  secSaude:   { uid: "u-saude",   perfil: { email:"saude@x.com", status:"aprovado", isAdmin:false,
+                                            acessos:{painel_secretaria:"ver"}, secretarias:["SMS"] } },
 };
 
 const env = await initializeTestEnvironment({
@@ -67,6 +75,13 @@ await env.withSecurityRulesDisabled(async (ctx) => {
                                                         criadaEm: "2026-01-02T10:00:00.000Z" });
   await setDoc(doc(db, "requisicoes", "r-sem-campo2"), { num: 93, ano: 2026, sec: "GP",
                                                          criadaEm: "2026-01-03T10:00:00.000Z" });
+  /* Para o Painel da Secretaria: uma requisição e um contrato de cada lado,
+     com a sigla escrita como cada cadastro escreve. */
+  await setDoc(doc(db, "requisicoes", "r-educ"),  { num: 10, ano: 2026, sec: "SMEd", despacho: "" });
+  await setDoc(doc(db, "requisicoes", "r-saude"), { num: 11, ano: 2026, sec: "SMS",  despacho: "" });
+  await setDoc(doc(db, "contratos", "c-educ"),    { contr: 10, ano: 2026, empresa: "E", secretarias: ["SMED"] });
+  await setDoc(doc(db, "contratos", "c-saude"),   { contr: 11, ano: 2026, empresa: "S", secretarias: ["SMS"] });
+  await setDoc(doc(db, "contratos", "c-sem-sec"), { contr: 12, ano: 2026, empresa: "N" });
   await setDoc(doc(db, "decisoes", "d1"),     { texto: "…", assinantes: [] });
   await setDoc(doc(db, "rankings", "p1"),     { itens: [] });
   await setDoc(doc(db, "usuarios", "velho1"), { usuario: "julio" });
@@ -189,6 +204,52 @@ await t("e uma vez criado o campo, despachar volta a ser só do Diretor",
   nega(updateDoc(doc(como(CONTAS.reqEdita), "requisicoes", "r-sem-campo"), { despacho: "Pregão" })));
 await t("e quem só cuida de requisição não enxerga contrato",
   nega(getDocs(collection(como(CONTAS.reqEdita), "contratos"))));
+
+console.log("\n3c) Painel da Secretaria: cada uma enxerga a sua, e só a sua");
+/* A trava aqui não é de tela: numa consulta de LISTA o Firestore só aceita
+   se a própria consulta garantir o recorte. É por isso que o painel sempre
+   manda where('sec','==',...) — e é por isso que pedir sem o recorte falha,
+   que é exatamente o que impede alguém de ler o cadastro inteiro. */
+const q = (conta, col, ...f) => getDocs(query(collection(como(conta), col), ...f));
+await t("a secretaria lê as requisições dela",
+  pode(q(CONTAS.secEduc, "requisicoes", where("sec", "==", "SMEd"))));
+await t("e os contratos dela, pela sigla que o cadastro de contratos usa",
+  pode(q(CONTAS.secEduc, "contratos", where("secretarias", "array-contains", "SMED"))));
+/* O ponto do painel inteiro: sem isto ele seria uma tela que ESCONDE, e
+   esconder não é proteger. */
+await t("mas NÃO lê as requisições de outra secretaria",
+  nega(q(CONTAS.secEduc, "requisicoes", where("sec", "==", "SMS"))));
+await t("nem os contratos de outra",
+  nega(q(CONTAS.secEduc, "contratos", where("secretarias", "array-contains", "SMS"))));
+await t("nem o cadastro de requisições inteiro, sem recorte nenhum",
+  nega(getDocs(collection(como(CONTAS.secEduc), "requisicoes"))));
+await t("nem o cadastro de contratos inteiro",
+  nega(getDocs(collection(como(CONTAS.secEduc), "contratos"))));
+/* Pedir um documento pelo id é outra porta, e tem de estar fechada também:
+   senão bastaria adivinhar o id para ler a requisição da vizinha. */
+await t("nem abre pelo id uma requisição de outra secretaria",
+  nega(getDoc(doc(como(CONTAS.secEduc), "requisicoes", "r-saude"))));
+await t("e o painel é só de leitura — não grava requisição",
+  nega(updateDoc(doc(como(CONTAS.secEduc), "requisicoes", "r-educ"), { credor: "X" })));
+await t("nem contrato",
+  nega(updateDoc(doc(como(CONTAS.secEduc), "contratos", "c-educ"), { empresa: "X" })));
+await t("nem despacha nada",
+  nega(updateDoc(doc(como(CONTAS.secEduc), "requisicoes", "r-educ"), { despacho: "Pregão" })));
+/* A outra secretaria enxerga a dela, pelo mesmo caminho: o escopo é do
+   perfil, não do código. */
+await t("a outra secretaria enxerga a dela",
+  pode(q(CONTAS.secSaude, "requisicoes", where("sec", "==", "SMS"))));
+await t("e não enxerga a da primeira",
+  nega(q(CONTAS.secSaude, "requisicoes", where("sec", "==", "SMEd"))));
+/* Quem cuida do cadastro inteiro continua passando por cima disso tudo. */
+await t("quem tem o painel de contratos continua lendo o cadastro inteiro",
+  pode(getDocs(collection(como(CONTAS.soContrato), "contratos"))));
+/* E ninguém se dá o painel sozinho ao se cadastrar: a conta nasce sem ele,
+   como nasce sem todos os outros. */
+await t("ninguém nasce com o Painel da Secretaria já marcado",
+  nega(setDoc(doc(como(CONTAS.secEduc), "usuarios_v2", "u-educ-novo"),
+    { email: "educ@x.com", status: "pendente", isAdmin: false,
+      acessos: { painel_secretaria: "ver" }, secretarias: ["SMS"] })));
 
 console.log("\n4) Histórico dos contratos: registra, não reescreve, não some antes da hora");
 const agoraTs  = () => Timestamp.fromDate(new Date());

@@ -204,6 +204,13 @@
           if(f.op==='<=') return a<=b;
           if(f.op==='>')  return a>b;
           if(f.op==='>=') return a>=b;
+          /* Campo de LISTA: é assim que o Painel da Secretaria pergunta
+             "este contrato é da minha pasta?", porque um contrato pode
+             atender mais de uma. */
+          if(f.op==='array-contains')     return Array.isArray(a) && a.indexOf(b)>=0;
+          if(f.op==='array-contains-any') return Array.isArray(a) && (b||[]).some(function(v){ return a.indexOf(v)>=0; });
+          if(f.op==='in')                 return (b||[]).indexOf(a)>=0;
+          if(f.op==='not-in')             return (b||[]).indexOf(a)<0;
           return a===b;
         });
       });
@@ -251,6 +258,10 @@
             if(f.op==='<=') return a<=b;
             if(f.op==='>')  return a>b;
             if(f.op==='>=') return a>=b;
+            if(f.op==='array-contains')     return Array.isArray(a) && a.indexOf(b)>=0;
+            if(f.op==='array-contains-any') return Array.isArray(a) && (b||[]).some(function(v){ return a.indexOf(v)>=0; });
+            if(f.op==='in')                 return (b||[]).indexOf(a)>=0;
+            if(f.op==='not-in')             return (b||[]).indexOf(a)<0;
             return a===b;
           });
         });
