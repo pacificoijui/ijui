@@ -383,7 +383,12 @@ async function entrarComGoogle(pg, user){
     'u-c':{email:'c@ijui.rs.gov.br', nome:'Carla',  status:'aprovado', isAdmin:false, provedor:'password',
            acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'editar',requisicao:'editar'}},
     'u-d':{email:'d@ijui.rs.gov.br', nome:'Dora',   status:'aprovado', isAdmin:false, provedor:'password',
-           acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'ver',requisicao:'ver'}}}},
+           acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'ver',requisicao:'ver'}},
+    /* Com o Painel da Secretaria já liberado e uma pasta marcada — inclusive
+       uma sigla que a lista do arquivo não conhece. */
+    'u-e':{email:'educacao@ijui.rs.gov.br', nome:'Elis', status:'aprovado', isAdmin:false, provedor:'password',
+           acessos:{agenda:'nenhum',pregoeiro:'nenhum',contratos:'nenhum',requisicao:'nenhum',
+                    painel_secretaria:'ver'}, secretarias:['SMEd','SMED','XPTO']}}},
     {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
   /* Dentro do modal, 220px com rolagem própria fazia sentido. Numa página
      inteira, a caixinha cortava a terceira pessoa no meio, sem barra à
@@ -394,7 +399,7 @@ async function entrarComGoogle(pg, user){
       ultima:!!document.getElementById('aprRq_u-d')};
   });
   t('a lista de usuários cresce em vez de virar uma caixinha com rolagem',
-    !lista.cortada && lista.linhas===5, lista);
+    !lista.cortada && lista.linhas===6, lista);
   t('e a última pessoa da lista está lá inteira, com os seletores dela',
     lista.ultima, lista);
 
@@ -441,6 +446,68 @@ async function entrarComGoogle(pg, user){
     semAdmin.portao!=='none', semAdmin.portao);
   t('e o recado diz que a tela é de administrador, sem parecer erro',
     /só de administrador/.test(semAdmin.recado), semAdmin.recado.slice(0,160));
+
+  console.log('\n10ter) As secretarias do painel são caixas para marcar, não sigla digitada');
+  /* Digitar sigla é pedir para errar: quem marca o acesso não tem por que
+     saber que Educação é "SMEd" nas requisições e "SMED" nos contratos, e
+     uma letra trocada faz metade do painel nascer vazia sem dizer por quê. */
+  const picker=await pgTela.evaluate(()=>{
+    const box=document.getElementById('aprSecBox_u-e');
+    const chips=[...box.querySelectorAll('.sec-chip')];
+    return {
+      visivel: box.style.display!=='none',
+      quantos: chips.length,
+      marcados: chips.filter(c=>c.classList.contains('on'))
+                     .map(c=>c.querySelector('input').value),
+      /* o chip da Educação avisa que leva SMED junto */
+      avisaGrafia: /SMED/.test(chips.find(c=>c.querySelector('input').value==='SMEd').textContent),
+      /* a sigla que a lista não conhece não some: fica no campo de texto */
+      outras: document.getElementById('aprSec_u-e').value,
+      conta: document.getElementById('aprSecConta_u-e').textContent
+    };
+  });
+  t('a lista de secretarias virou caixas para marcar', picker.quantos>=16, picker);
+  t('a pasta já liberada aparece marcada', picker.marcados.join()==='SMEd', picker);
+  t('e o chip avisa que leva a outra grafia junto', picker.avisaGrafia, picker);
+  t('sigla fora da lista não some ao abrir a tela', picker.outras==='XPTO', picker);
+  t('a tela diz quantas estão marcadas', /1 marcada/.test(picker.conta), picker.conta);
+
+  /* O que vai para o banco: todas as grafias das marcadas, mais o texto. */
+  const salvo=await pgTela.evaluate(()=>usrLerSecretarias('apr','u-e'));
+  t('marcar uma pasta guarda TODAS as grafias dela',
+    salvo.includes('SMEd') && salvo.includes('SMED'), salvo);
+  t('e o que estava escrito à mão continua junto', salvo.includes('XPTO'), salvo);
+  t('sem repetir nada', salvo.length===new Set(salvo).size, salvo);
+
+  /* Marcar a Saúde acrescenta; "Limpar" zera tudo. */
+  await pgTela.evaluate(()=>{
+    const c=[...document.querySelectorAll('[data-sec="apr_u-e"]')].find(x=>x.value==='SMS');
+    c.checked=true; secMarcar(c);
+  });
+  const duas=await pgTela.evaluate(()=>usrLerSecretarias('apr','u-e'));
+  t('marcar outra pasta soma à primeira',
+    duas.includes('SMEd') && duas.includes('SMS'), duas);
+  await pgTela.evaluate(()=>secTodas('apr_u-e', false));
+  const limpo=await pgTela.evaluate(()=>({
+    siglas:usrLerSecretarias('apr','u-e'), conta:document.getElementById('aprSecConta_u-e').textContent}));
+  t('"Limpar" desmarca todas', !limpo.siglas.includes('SMEd') && !limpo.siglas.includes('SMS'), limpo);
+  t('e mesmo assim não joga fora a sigla escrita à mão', limpo.siglas.includes('XPTO'), limpo);
+  t('a conta acompanha', /nenhuma marcada/.test(limpo.conta), limpo.conta);
+
+  /* Quem não tem o painel liberado não vê as caixas — seria escolher pasta
+     para um acesso que não existe. */
+  t('quem não tem o painel liberado não vê as caixas',
+    await pgTela.evaluate(()=>document.getElementById('aprSecBox_u-a').style.display==='none'));
+  /* E o bloco aparece na hora em que o painel é liberado. */
+  await pgTela.evaluate(()=>{
+    const s=document.getElementById('aprPs_u-a'); s.value='ver'; usrMostrarSec('apr','u-a');
+  });
+  t('e ele aparece assim que o painel é liberado',
+    await pgTela.evaluate(()=>document.getElementById('aprSecBox_u-a').style.display!=='none'));
+
+  /* O campo antigo, de digitar tudo separado por vírgula, não existe mais. */
+  t('o campo de digitar as siglas à mão deixou de ser o caminho principal',
+    !/placeholder="SMEd, SMED"/.test(fs.readFileSync('../usuarios/index.html','utf8')));
 
   console.log('\n11) O link de consulta (?consulta=1) pede login em vez de dar erro de permissão');
   /* Esse painel LISTA a coleção de processos inteira, e listar exige conta

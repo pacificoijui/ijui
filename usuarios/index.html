@@ -188,6 +188,28 @@
   .usr-chk {display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);cursor:pointer;user-select:none}
   .usr-chk input {width:14px;height:14px;accent-color:var(--navy-light);margin:0}
   .usr-chk-sel select {font-size:11.5px;padding:3px 6px;border-radius:6px;border:1.5px solid var(--border);color:var(--navy);background:#fff;cursor:pointer}
+  /* ── Escolher as secretarias do Painel da Secretaria ── */
+  .usr-sec {flex:0 0 100%;margin-top:9px;padding-top:9px;border-top:1px dashed var(--border)}
+  .sec-topo {display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+  .sec-topo b {font-size:12px;color:var(--navy)}
+  .sec-conta {font-size:11.5px;color:var(--muted);font-weight:600;margin-right:auto}
+  .sec-chips {display:flex;flex-wrap:wrap;gap:6px}
+  .sec-chip {display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--border);
+    border-radius:20px;padding:5px 12px 5px 8px;font-size:12px;color:var(--text);cursor:pointer;
+    user-select:none;transition:all .13s}
+  .sec-chip:hover {border-color:var(--navy-light)}
+  .sec-chip.on {background:var(--navy);border-color:var(--navy);color:#fff}
+  .sec-chip input {display:none}
+  .sec-chip .tick {width:15px;height:15px;border-radius:4px;border:1.5px solid var(--muted);
+    display:inline-flex;align-items:center;justify-content:center;font-size:10px;color:transparent;flex-shrink:0}
+  .sec-chip.on .tick {background:var(--amarelo);border-color:var(--amarelo);color:#3d2800}
+  /* As outras grafias da mesma pasta: quem marca precisa ver o que leva
+     junto, sem que isso vire o assunto principal do chip. */
+  .sec-mais {font-style:normal;font-size:10.5px;opacity:.62}
+  .sec-outras {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:var(--muted)}
+  .sec-outras input {font-size:12px;padding:5px 9px;border-radius:7px;border:1.5px solid var(--border);
+    font-family:inherit;color:var(--navy);background:#fff;width:190px;outline:none}
+  .sec-outras input:focus {border-color:var(--navy-light)}
   .usr-convite-match {font-size:11.5px;font-weight:700;color:#8a6d1f;background:#fbf5e6;border:1px solid #ecd9a4;border-radius:7px;padding:5px 8px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .auth-chip {background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--amarelo);border-radius:12px}
   .btn-save {background:var(--real);border-radius:12px}
@@ -579,15 +601,25 @@ function fecharModalUsuarios(){ document.getElementById("modalUsuarios").classLi
 
 function usuariosV2Renderizar(){
   Promise.all([
+    /* A lista de secretarias entra junto: sem ela as caixas de marcar
+       nasceriam vazias, e quem abrisse a tela no primeiro instante veria um
+       painel sem secretaria nenhuma para escolher. Uma vez por visita — o
+       arquivo tem 1,4 KB e não muda. */
+    SECRETARIAS_LISTA.length ? Promise.resolve() : secCarregarLista(),
     usuariosV2ColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({uid:d.id}, d.data()); }); }),
     convitesColRef.get().then(function(s){ return s.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); }),
     usuariosAntigosRef.get().then(function(s){ return s.docs.map(function(d){ return d.data(); }); }).catch(function(){ return []; })
   ]).then(function(r){
-    _usuariosV2Cache=r[0]; _convitesCache=r[1];
-    usuariosRenderPendentes(r[0], r[1]);
-    usuariosRenderAprovados(r[0]);
-    convitesRenderLista(r[1], r[0]);
-    usuariosRenderAntigos(r[2]);
+    _usuariosV2Cache=r[1]; _convitesCache=r[2];
+    convitesMontarNiveis();   /* agora com a lista na mão */
+    usuariosRenderPendentes(r[1], r[2]);
+    usuariosRenderAprovados(r[1]);
+    convitesRenderLista(r[2], r[1]);
+    usuariosRenderAntigos(r[3]);
+    /* O "n marcadas" de cada linha só existe depois que a linha existe. */
+    document.querySelectorAll("[id$='SecConta_']").length;
+    r[1].forEach(function(u){ secContar("apr_"+u.uid); secContar("pend_"+u.uid); });
+    secContar("cv_novo");
   }).catch(function(e){
     document.getElementById("usrPendentesLista").innerHTML='<div class="usr-vazio">Erro ao carregar: '+escHtml(e.message)+'</div>';
   });
@@ -621,34 +653,99 @@ function usrChipsAcesso(u, prefixo){
       +authOpcoesNivel(authNivelDe(u,p.id), p)+'</select></label>';
   }).join('') + usrCampoSec(u, prefixo);
 }
-/* As siglas que o Painel da Secretaria enxerga. Texto, separado por vírgula,
-   e não uma lista para marcar: as siglas vêm de DOIS cadastros que as
-   escrevem diferente (Educação é "SMEd" nas requisições e "SMED" nos
-   contratos), e obrigar a escolher de uma lista só faria metade do painel
-   nascer vazia. O campo mostra as duas e explica por quê. */
+/* ── As secretarias que o Painel da Secretaria enxerga ──
+   Caixas para marcar, não um campo de texto. Digitar sigla é pedir para
+   errar: quem marca o acesso não tem por que saber que Educação é "SMEd"
+   nas requisições e "SMED" nos contratos, e uma letra trocada faz metade
+   do painel nascer vazia sem nada dizer por quê.
+
+   Marcar uma secretaria guarda TODAS as grafias dela — as duas ou três —,
+   e a lista de quais são vem do arquivo (secretarias.json), não do código:
+   descobrir uma grafia nova é acrescentar uma linha de dado.
+
+   O campo de texto continua existindo, pequeno e embaixo, para a sigla que
+   um dia apareça e ainda não esteja no arquivo. Sem ele, uma sigla gravada
+   antes e desconhecida da lista sumiria silenciosamente ao salvar. */
+var SECRETARIAS_LISTA = [];   /* [{sigla, nome, tambem:[{sigla,porque}]}] */
+function secCarregarLista(){
+  return fetch("../requisicao/dados/secretarias.json", {cache:"no-cache"})
+    .then(function(r){ return r.ok ? r.json() : {}; })
+    .then(function(d){ SECRETARIAS_LISTA = d.secretarias || []; })
+    .catch(function(e){ console.warn("lista de secretarias:", e.message); });
+}
+/* Todas as grafias de uma secretaria: a oficial e as que os contratos usam. */
+function secGrafias(s){
+  return [s.sigla].concat((s.tambem || []).map(function(t){ return t.sigla; }));
+}
+function secConhecidas(){
+  return SECRETARIAS_LISTA.reduce(function(a, s){ return a.concat(secGrafias(s)); }, []);
+}
 function usrCampoSec(u, prefixo){
   var painel = AUTH_PAINEIS.find(function(p){ return p.escopo; });
   var liberado = authNormalizaNivel(authNivelDe(u, painel.id)) !== "nenhum";
-  var v = Array.isArray(u.secretarias) ? u.secretarias.join(", ") : (u.secretarias || "");
-  return '<div class="usr-sec" id="'+prefixo+'SecBox_'+u.uid+'"'+(liberado?'':' style="display:none"')+'>'
-    + '<label class="usr-chk" style="flex:1;min-width:240px">Secretarias '
-    + '<input type="text" id="'+prefixo+'Sec_'+u.uid+'" value="'+escHtml(v)+'" '
-    + 'placeholder="SMEd, SMED" autocomplete="off"></label>'
-    + '<span class="usr-sec-dica">as siglas desta pasta, separadas por vírgula — '
-    + 'inclua as duas grafias se os cadastros divergirem (SMEd / SMED)</span></div>';
+  var tem = Array.isArray(u.secretarias) ? u.secretarias
+          : (u.secretarias ? [u.secretarias] : []);
+  /* O que está gravado e a lista não conhece continua no campo de texto —
+     salvar não pode apagar o que alguém pôs ali de propósito. */
+  var conhecidas = secConhecidas();
+  var outras = tem.filter(function(x){ return conhecidas.indexOf(x) < 0; });
+  var id = prefixo + '_' + u.uid;
+  var chips = SECRETARIAS_LISTA.map(function(s){
+    var on = secGrafias(s).some(function(g){ return tem.indexOf(g) >= 0; });
+    var extras = (s.tambem || []).map(function(t){ return t.sigla; }).join(", ");
+    return '<label class="sec-chip'+(on?" on":"")+'" title="'+escHtml(s.nome)
+      + (extras ? ' — inclui ' + escHtml(extras) : '') + '">'
+      + '<input type="checkbox" data-sec="'+id+'" value="'+escHtml(s.sigla)+'"'
+      + (on?" checked":"")+' onchange="secMarcar(this)">'
+      + '<span class="tick">✓</span><b>'+escHtml(s.sigla)+'</b>'
+      + (extras ? '<i class="sec-mais">+'+escHtml(extras)+'</i>' : '')
+      + '</label>';
+  }).join("");
+  return '<div class="usr-sec" id="'+prefixo+'SecBox_'+u.uid+'"'+(liberado?"":' style="display:none"')+'>'
+    + '<div class="sec-topo"><b>Secretarias deste painel</b>'
+    + '<span class="sec-conta" id="'+prefixo+'SecConta_'+u.uid+'"></span>'
+    + '<button type="button" class="usr-btn" onclick="secTodas(\''+id+'\',true)">Marcar todas</button>'
+    + '<button type="button" class="usr-btn" onclick="secTodas(\''+id+'\',false)">Limpar</button></div>'
+    + '<div class="sec-chips">'+chips+'</div>'
+    + '<label class="sec-outras">outras siglas, se alguma faltar na lista '
+    + '<input type="text" id="'+prefixo+'Sec_'+u.uid+'" value="'+escHtml(outras.join(", "))+'" '
+    + 'placeholder="nenhuma" autocomplete="off"></label></div>';
+}
+function secMarcar(el){
+  el.closest(".sec-chip").classList.toggle("on", el.checked);
+  secContar(el.getAttribute("data-sec"));
+}
+function secTodas(id, ligar){
+  document.querySelectorAll('[data-sec="'+id+'"]').forEach(function(c){
+    c.checked = ligar; c.closest(".sec-chip").classList.toggle("on", ligar);
+  });
+  secContar(id);
+}
+function secContar(id){
+  var n = document.querySelectorAll('[data-sec="'+id+'"]:checked').length;
+  var partes = id.split("_"), prefixo = partes[0], uid = partes.slice(1).join("_");
+  var el = document.getElementById(prefixo+"SecConta_"+uid);
+  if(el) el.textContent = n ? (n===1 ? "1 marcada" : n+" marcadas") : "nenhuma marcada";
 }
 function usrMostrarSec(prefixo, uid){
   var painel = AUTH_PAINEIS.find(function(p){ return p.escopo; });
   var sel = document.getElementById(prefixo+painel.sufixo+'_'+uid);
   var box = document.getElementById(prefixo+'SecBox_'+uid);
   if(box) box.style.display = (sel && sel.value !== "nenhum") ? "" : "none";
+  secContar(prefixo+'_'+uid);
 }
-/* Devolve as siglas escritas na linha, limpas. Campo vazio vira lista
-   vazia — e o painel, nesse caso, diz o que falta em vez de abrir vazio. */
+/* O que vai para o banco: uma lista plana de siglas — todas as grafias das
+   marcadas, mais o que estiver escrito em "outras". É a mesma forma de
+   antes, então nem o painel nem as regras precisaram mudar. */
 function usrLerSecretarias(prefixo, uid){
+  var siglas = [];
+  document.querySelectorAll('[data-sec="'+prefixo+'_'+uid+'"]:checked').forEach(function(c){
+    var s = SECRETARIAS_LISTA.find(function(x){ return x.sigla === c.value; });
+    if(s) siglas = siglas.concat(secGrafias(s));
+  });
   var el = document.getElementById(prefixo+'Sec_'+uid);
-  if(!el) return [];
-  return el.value.split(",").map(function(s){ return s.trim(); }).filter(Boolean);
+  if(el) siglas = siglas.concat(el.value.split(",").map(function(x){ return x.trim(); }).filter(Boolean));
+  return siglas.filter(function(x, i){ return siglas.indexOf(x) === i; });
 }
 /* Lê os três selects de uma linha do painel e devolve o objeto acessos. */
 function usrLerAcessos(prefixo, uid){
@@ -819,18 +916,14 @@ function convitesMontarNiveis(){
   /* O convite leva o escopo junto. Sem isso ele prometeria um painel e
      entregaria uma tela vazia, e quem aplicasse o convite teria de lembrar
      de completar — exatamente o passo que se esquece. */
-  + '<div class="usr-sec" id="cvSecBox" style="display:none">'
-  + '<label class="usr-chk" style="flex:1;min-width:240px">Secretarias '
-  + '<input type="text" id="cvSec" placeholder="SMEd, SMED" autocomplete="off"></label>'
-  + '<span class="usr-sec-dica">as siglas desta pasta, separadas por vírgula</span></div>';
+  + usrCampoSec({uid:"novo", secretarias:[]}, "cv");
+  /* O bloco nasce escondido: só aparece quando o painel é liberado. */
+  convitesMostrarSec();
 }
-function convitesMostrarSec(){
-  var painel=AUTH_PAINEIS.find(function(p){ return p.escopo; });
-  var sel=document.getElementById("cv"+painel.sufixo), box=document.getElementById("cvSecBox");
-  if(box) box.style.display=(sel && sel.value!=="nenhum") ? "" : "none";
-}
+function convitesMostrarSec(){ usrMostrarSec("cv", "novo"); }
 function convitesLimparForm(){
-  ["cvNome","cvEmail","cvSec"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+  ["cvNome","cvEmail","cvSec_novo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=""; });
+  secTodas("cv_novo", false);
   convitesMostrarSec();
   AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); if(e) e.value="nenhum"; });
 }
@@ -841,8 +934,7 @@ function convitesSalvar(){
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ alert("E-mail inválido."); return; }
   var acessos={};
   AUTH_PAINEIS.forEach(function(p){ var e=document.getElementById("cv"+p.sufixo); acessos[p.id]=(e&&e.value)||"nenhum"; });
-  var secs=((document.getElementById("cvSec")||{}).value||"")
-    .split(",").map(function(x){ return x.trim(); }).filter(Boolean);
+  var secs=usrLerSecretarias("cv", "novo");
   convitesColRef.add({nome:nome, email:email, acessos:acessos, secretarias:secs, criadoPor:(authCurrentUser&&authCurrentUser.email)||"", criadoEm:firebase.firestore.FieldValue.serverTimestamp()})
     .then(function(){ toast("Convite preparado."); convitesLimparForm(); usuariosV2Renderizar(); })
     .catch(function(e){ alert("Erro: "+e.message); });
@@ -919,7 +1011,9 @@ function authShowApp(){
     chip.style.display = "inline-flex";
   }
   var sair = document.getElementById("btnSair"); if(sair) sair.style.display = "";
-  convitesMontarNiveis();
+  /* convitesMontarNiveis roda dentro de usuariosV2Renderizar, depois que a
+     lista de secretarias chega — chamá-lo aqui desenharia as caixas vazias
+     e elas seriam redesenhadas um instante depois. */
   usuariosV2Renderizar();
 }
 /* Conta boa, mas sem ser administrador: não é caso de pedir liberação num
