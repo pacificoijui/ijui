@@ -6187,12 +6187,13 @@ function vencGerarODT(){
     st+='<style:style style:name="'+nome+'" style:family="table-cell">'
       +'<style:table-cell-properties '+props+'/></style:style>';
   }
-  var BD_TH='fo:border="0.02cm solid #b9c6e4"', BD_TD='fo:border="0.02cm solid #d8dff0"';
+  var BD_TH='fo:border="0.02cm solid #bfbfbf"', BD_TD='fo:border="0.02cm solid #d8dff0"';
   var PAD='fo:padding-top="0.08cm" fo:padding-bottom="0.08cm" fo:padding-left="0.12cm" fo:padding-right="0.12cm"';
 
-  /* Letras em preto no documento inteiro — só o cabeçalho de cada bloco
-     (fundo azul, letra branca: nome da empresa e cabeçalho de colunas)
-     continua colorido. */
+  /* Letras em preto no documento inteiro — só o nome da empresa continua
+     colorido (fundo azul, letra branca). O cabeçalho de colunas virou cinza,
+     no mesmo tom das atas, para a tabela colar sem destoar quando alguém
+     recorta e cola este bloco lá dentro. */
   pStyle('PTit','fo:text-align="center" fo:margin-top="0.15cm" fo:margin-bottom="0.1cm"',
          'fo:font-size="16pt" fo:font-weight="bold" fo:color="#000000"');
   pStyle('PSub','fo:text-align="center" fo:margin-bottom="0.05cm"',
@@ -6205,8 +6206,8 @@ function vencGerarODT(){
      encostadas (o fim de um item e o começo do outro) liam como se fosse
      tudo uma tabela só; com o vão, cada item lê como o seu próprio bloco. */
   pStyle('PGap','','fo:font-size="3pt"');
-  pStyle('PTh','fo:text-align="left"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
-  pStyle('PThR','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#ffffff"');
+  pStyle('PTh','fo:text-align="left"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#000000"');
+  pStyle('PThR','fo:text-align="right"','fo:font-size="9pt" fo:font-weight="bold" fo:color="#000000"');
   /* keep-with-next fica nos estilos da linha de DADOS agora: ela vem primeiro
      e precisa ficar grudada na descrição que vem logo abaixo — sem isso a
      linha de dados podia fechar a página e a descrição começar na seguinte. */
@@ -6225,16 +6226,18 @@ function vencGerarODT(){
   pStyle('PFoot','fo:text-align="center" fo:margin-top="0.3cm"','fo:font-size="8pt" fo:color="#000000"');
   pStyle('PFx','fo:text-align="left"','fo:font-size="4pt"');
 
-  cStyle('CTh','fo:background-color="#12306B" '+BD_TH+' '+PAD);
+  cStyle('CTh','fo:background-color="#D9D9D9" '+BD_TH+' '+PAD);
   cStyle('CTd',BD_TD+' '+PAD);
   /* As duas linhas de um item precisam ler como um bloco só: a cinza (que
      vem primeiro agora) fecha em cima e nas laterais, a da descrição fecha
-     embaixo, e entre elas fica um traço bem claro em vez de uma borda cheia. */
-  cStyle('CDados','fo:background-color="#F1F4FA" fo:border-left="0.02cm solid #d8dff0" '
-        +'fo:border-right="0.02cm solid #d8dff0" fo:border-top="0.02cm solid #d8dff0" '
+     embaixo, e entre elas fica um traço bem claro em vez de uma borda cheia.
+     Era um azul bem fraco (#F1F4FA); virou cinza bem fraquinho, para combinar
+     com o cabeçalho acima, que também deixou de ser azul. */
+  cStyle('CDados','fo:background-color="#F2F2F2" fo:border-left="0.02cm solid #dadada" '
+        +'fo:border-right="0.02cm solid #dadada" fo:border-top="0.02cm solid #dadada" '
         +'fo:border-bottom="none" '+PAD);
-  cStyle('CDesc','fo:border-left="0.02cm solid #d8dff0" fo:border-right="0.02cm solid #d8dff0" '
-        +'fo:border-bottom="0.02cm solid #d8dff0" fo:border-top="0.02cm solid #e6ebf5" '+PAD);
+  cStyle('CDesc','fo:border-left="0.02cm solid #dadada" fo:border-right="0.02cm solid #dadada" '
+        +'fo:border-bottom="0.02cm solid #dadada" fo:border-top="0.02cm solid #eaeaea" '+PAD);
   cStyle('CTot','fo:background-color="#EAF6EC" fo:border="0.02cm solid #cfe8d4" '+PAD);
   cStyle('CGap','fo:border="none" fo:padding="0cm"');
   FAIXA.forEach(function(f,i){ cStyle('CFx'+i,'fo:background-color="'+f[0]+'" fo:padding="0cm" fo:border="none"'); });
