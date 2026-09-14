@@ -3214,8 +3214,9 @@ function montarEmailConclusaoHtml(p, dataConcISO){
   +'<tr><td style="background:#0d2b52;padding:36px 40px 30px 40px;text-align:center;">'
   +'<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr><td style="width:86px;height:86px;border-radius:50%;background:#ffffff;text-align:center;vertical-align:middle;"><img src="cid:logoijui" width="54" alt="Iju&iacute;" style="display:inline-block;vertical-align:middle;border:0;"></td></tr></table>'
   +'<div style="color:#8fd99c;font-size:12px;font-weight:bold;letter-spacing:3px;margin-top:16px;">&#10003;&nbsp; PROCESSO CONCLU&Iacute;DO</div>'
-  +'<div style="color:#ffffff;font-size:26px;font-weight:bold;margin-top:8px;">'+escHtml(titulo)+'</div>'
-  +'<div style="color:#9fb4d0;font-size:13px;margin-top:8px;">Prefeitura Municipal de Iju&iacute; &nbsp;&bull;&nbsp; Setor de Licita&ccedil;&otilde;es</div>'
+  +'<div style="color:#ffffff;font-size:20px;font-weight:bold;margin-top:14px;line-height:1.42;">'+(objeto||"&mdash;")+'</div>'
+  +'<div style="display:inline-block;margin-top:14px;padding:5px 16px;background:rgba(255,255,255,0.14);border-radius:20px;color:#ffffff;font-size:13px;font-weight:bold;">'+escHtml(titulo)+'</div>'
+  +'<div style="color:#9fb4d0;font-size:12px;margin-top:16px;">Prefeitura Municipal de Iju&iacute; &nbsp;&bull;&nbsp; Setor de Licita&ccedil;&otilde;es</div>'
   +'</td></tr>'
   /* datas / duracao */
   +'<tr><td style="padding:28px 40px 0 40px;">'
@@ -3237,11 +3238,7 @@ function montarEmailConclusaoHtml(p, dataConcISO){
     +'<div style="border-left:4px solid #2e7d32;background:#f1f9f3;border-radius:0 10px 10px 0;padding:12px 16px;font-size:13.5px;color:#1b5e20;line-height:1.55;">'+fraseDur+'</div>'
     +'</td></tr>';
   }
-  /* objeto */
-  html+='<tr><td style="padding:24px 40px 0 40px;">'
-  +'<div style="font-size:11px;font-weight:bold;color:#7a8aa0;letter-spacing:2px;">OBJETO</div>'
-  +'<div style="font-size:14.5px;color:#22314a;line-height:1.65;margin-top:8px;">'+(objeto||"&mdash;")+'</div>'
-  +'</td></tr>';
+  /* o objeto já aparece em destaque no cabeçalho — não repete aqui embaixo */
   /* CTA */
   if(link){
     html+='<tr><td style="padding:30px 40px 8px 40px;text-align:center;">'
