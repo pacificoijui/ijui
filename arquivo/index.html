@@ -394,22 +394,55 @@ function render(){
   document.getElementById('tela').innerHTML = f();
 }
 
-/* ══════════════ CARGA ══════════════ */
+/* ══════════════ CARGA ══════════════
+   Duas cargas possíveis, e a diferença importa:
+
+   dados/*.json          a de verdade, convertida das planilhas do setor.
+                         NÃO está no repositório — este aqui é público —,
+                         então só existe na máquina de quem rodou o
+                         conversor.
+   dados/exemplo/*.json  fictícia, escrita à mão, versionada. É o que roda
+                         no ar, para a tela poder ser clicada por qualquer
+                         um sem expor credor, valor e assunto de memorando.
+
+   Tenta a real primeiro; não achando, cai no exemplo. E diz na tela qual
+   das duas está vendo — protótipo que não avisa com que dado está falando
+   é protótipo que vira decisão errada. */
 function carregar(){
-  const p = n => fetch('dados/' + n + '.json').then(r => r.ok ? r.json() : []).catch(() => []);
-  return Promise.all([p('tramites'), p('anulacoes'), p('memorandos'), p('pastas')])
-    .then(([t, a, m, pa]) => {
-      TRAMITES = t; ANULACOES = a; MEMORANDOS = m; PASTAS = pa;
-      if(!t.length && !a.length){
-        document.getElementById('tela').innerHTML =
-          '<div class="painel"><div class="vazio"><span>📂</span>Os dados ainda não foram gerados.<br>'
-          + '<span style="font-size:13px">Rode <code>python3 arquivo/ferramentas/planilhas-para-json.py PASTA --gravar</code></span></div></div>';
-        return;
-      }
-      document.getElementById('chipProto').textContent =
-        'PROTÓTIPO · ' + (TRAMITES.length + ANULACOES.length + MEMORANDOS.length + PASTAS.length) + ' REGISTROS DE 2026';
-      renderAbas(); render();
-    });
+  const puxa = (pasta, n) => fetch(pasta + n + '.json')
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  const quatro = pasta => Promise.all(
+    ['tramites','anulacoes','memorandos','pastas'].map(n => puxa(pasta, n)));
+
+  return quatro('dados/').then(r => {
+    const achouReal = r.some(x => Array.isArray(x) && x.length);
+    return achouReal ? {r: r, real: true}
+                     : quatro('dados/exemplo/').then(e => ({r: e, real: false}));
+  }).then(({r, real}) => {
+    const [t, a, m, pa] = r.map(x => Array.isArray(x) ? x : []);
+    TRAMITES = t; ANULACOES = a; MEMORANDOS = m; PASTAS = pa;
+    const n = t.length + a.length + m.length + pa.length;
+    if(!n){
+      document.getElementById('tela').innerHTML =
+        '<div class="painel"><div class="vazio"><span>📂</span>Não achei os dados.<br>'
+        + '<span style="font-size:13px">Rode <code>python3 arquivo/ferramentas/planilhas-para-json.py PASTA --gravar</code></span></div></div>';
+      return;
+    }
+    const chip = document.getElementById('chipProto');
+    chip.textContent = real ? ('PROTÓTIPO · ' + n + ' REGISTROS DE 2026')
+                            : ('PROTÓTIPO · ' + n + ' REGISTROS DE EXEMPLO');
+    if(!real) chip.title = 'Dados fictícios. A carga real das planilhas fica fora do repositório.';
+    renderAbas(); render();
+    if(!real){
+      const t0 = document.getElementById('tela');
+      t0.insertAdjacentHTML('afterbegin',
+        '<div class="nota" style="background:var(--amber-bg);border-left-color:var(--amber);color:#6b4500">'
+        + '<b>Estes números são de mentira.</b> A tela está rodando com dados de exemplo, inventados só para '
+        + 'ela poder ser clicada aqui no ar. A carga de verdade — 2.468 registros das quatro planilhas — não '
+        + 'entra neste repositório, que é público: ela sai do conversor e fica na máquina de quem rodou. '
+        + 'O desenho é o mesmo nos dois casos.</div>');
+    }
+  });
 }
 carregar();
 </script>

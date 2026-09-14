@@ -101,11 +101,29 @@ python3 arquivo/ferramentas/planilhas-para-json.py PASTA_COM_AS_PLANILHAS --grav
 
 Sem `--gravar` é ensaio. Ele também escreve `dados/CONFERIR.md`.
 
-**Estes arquivos não estão no repositório** (ver `.gitignore`), e é de
-propósito: este repositório é público — vira o site ijui.net —, e os dados
-trazem credores, valores e o assunto de cada memorando. Publicá-los é
-decisão de quem cuida do setor, não efeito colateral de um protótipo. Para
-ver a tela com dados de verdade, rode o conversor na sua máquina.
+**São duas cargas, e a diferença importa:**
+
+| Onde | O que é | Vai para o repositório? |
+|---|---|---|
+| `dados/*.json` | a real, convertida das planilhas do setor | **não** |
+| `dados/exemplo/*.json` | fictícia, escrita à mão | sim |
+
+A tela tenta a real primeiro e cai no exemplo se não achar — e diz no alto
+com qual das duas está falando. No ar (ijui.net/arquivo) roda sempre o
+exemplo; a real só existe na máquina de quem rodou o conversor.
+
+A carga real fica de fora porque **este repositório é público** (vira o
+site): ela traz credor, valor, empenho e o assunto de cada memorando. Nada
+disso é segredo — são atos administrativos, do tipo que o portal da
+transparência publica —, mas publicar um cadastro inteiro de uma vez é
+decisão de quem responde pelo setor, não efeito colateral de um protótipo.
+E é a única coisa aqui que não dá para desfazer: o que vai para o histórico
+do git de um repositório público não volta.
+
+Se um dia a decisão for publicar, a carga precisa ser varrida antes atrás
+de CPF, e-mail, telefone e assunto pessoal. Na conversão de 2026 isso foi
+feito e não havia nenhum — mas a conferência vale por carga, não para
+sempre.
 
 ## O que falta para virar módulo de verdade
 

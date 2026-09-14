@@ -1,0 +1,16 @@
+[
+{"arquivadoEm": "2026-06-01", "checklist": true, "id": 1, "modalidade": "CONCORRÊNCIA", "origem": "exemplo", "pregoeiro": "RODRIGO", "processo": "Conc 01 - Execução global de 29 unidades habitacionais", "vencedor": "Saneamento Exemplo - R$ 3.749.900,00"},
+{"arquivadoEm": "2026-05-21", "checklist": true, "id": 2, "modalidade": "CONCORRÊNCIA", "origem": "exemplo", "pregoeiro": "RODRIGO", "processo": "Conc 02 - Reparos na cobertura do ginásio", "vencedor": "Construtora Amostra | R$ 48.300,00"},
+{"arquivadoEm": "2026-04-10", "checklist": true, "id": 3, "modalidade": "CONCORRÊNCIA", "origem": "exemplo", "pregoeiro": "RODRIGO", "processo": "Conc 03 - Reperfilamento asfáltico na Rua Modelo", "vencedor": "Pavimentação Demo | R$ 355.499,22"},
+{"arquivadoEm": "2026-08-11", "checklist": true, "id": 4, "modalidade": "CONCORRÊNCIA", "origem": "exemplo", "pregoeiro": "LUCILDA", "processo": "Conc 04 - Instalação de iluminação pública", "vencedor": "Várias empresas"},
+{"arquivadoEm": "2026-03-31", "checklist": true, "id": 5, "modalidade": "PREGÃO", "origem": "exemplo", "pregoeiro": "LUCILDA", "processo": "PE. 01 - RP de materiais de sinalização", "vencedor": "Várias empresas"},
+{"arquivadoEm": "2026-02-24", "checklist": true, "id": 6, "modalidade": "PREGÃO", "origem": "exemplo", "pregoeiro": "PEDRO", "processo": "PE. 02 - RP de medicamentos", "vencedor": "Várias empresas"},
+{"arquivadoEm": "2026-03-18", "checklist": true, "id": 7, "modalidade": "PREGÃO", "origem": "exemplo", "pregoeiro": "PEDRO", "processo": "PE. 03 - Ração para cães e gatos", "vencedor": "REVOGADO"},
+{"arquivadoEm": "2026-02-24", "checklist": true, "id": 8, "modalidade": "PREGÃO", "origem": "exemplo", "pregoeiro": "PEDRO", "processo": "PE. 05 - RP de atendimento veterinário", "vencedor": "Clínica Exemplo | R$ 520.000,00"},
+{"arquivadoEm": "2026-08-11", "checklist": false, "id": 9, "modalidade": "PREGÃO", "origem": "exemplo", "pregoeiro": "PEDRO", "processo": "PE. 11 - RP de cortes de grama", "vencedor": "Várias empresas | R$ 119.031,00"},
+{"arquivadoEm": "2026-03-11", "checklist": true, "id": 10, "modalidade": "DISPENSA", "origem": "exemplo", "processo": "DL 02 - Bloqueios de trânsito", "vencedor": "Exemplar Ltda | R$ 54.240,00"},
+{"arquivadoEm": "2026-01-29", "checklist": true, "id": 11, "modalidade": "DISPENSA", "origem": "exemplo", "processo": "DL 03 - Manutenção da frota", "vencedor": "Oficina Demonstração | R$ 2.298,00"},
+{"arquivadoEm": "2026-02-13", "checklist": true, "id": 12, "modalidade": "DISPENSA", "origem": "exemplo", "processo": "DJ 06 - Revisão obrigatória de veículo", "vencedor": "Concessionária Amostra | R$ 1.968,00"},
+{"arquivadoEm": "2026-03-11", "checklist": false, "id": 13, "modalidade": "DISPENSA", "origem": "exemplo", "processo": "DL 45 - Licença ambiental", "vencedor": "Consultoria Fictícia | R$ 22.000,00"},
+{"arquivadoEm": "2026-06-10", "checklist": true, "id": 14, "modalidade": "INEXIGIBILIDADE", "origem": "exemplo", "processo": "INEX 04 - Capacitação de servidores", "vencedor": "Escola de Governo Exemplo | R$ 14.500,00"}
+]

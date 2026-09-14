@@ -1,0 +1,14 @@
+[
+{"descricao": "ABERTURA RP PARA REFORMA DE RESERVATÓRIOS", "entregueA": "JULIO", "id": 1, "num": "28/2026", "origem": "exemplo", "recebidoEm": "2026-02-26", "secretaria": "SMDS"},
+{"descricao": "PRORROGAÇÃO DE PRAZO E REAJUSTE CONT. 17/2023", "entregueA": "JULIETA", "id": 2, "num": "72/2026", "origem": "exemplo", "recebidoEm": "2026-03-18", "secretaria": "SMDS"},
+{"descricao": "CANCELAMENTO DO EMPENHO Nº 6582", "entregueA": "GABRIEL", "id": 3, "num": "114/2026", "origem": "exemplo", "recebidoEm": "2026-07-22", "secretaria": "SMDS"},
+{"descricao": "ESTORNO EMP. 328/26, PED. 71/26", "entregueA": "GABI", "id": 4, "num": "33/2026", "origem": "exemplo", "recebidoEm": "2026-08-15", "secretaria": "SMODUTRAN"},
+{"descricao": "ABERTURA RP EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL", "entregueA": "JULIO", "id": 5, "num": "45/2026", "origem": "exemplo", "recebidoEm": "2026-05-17", "secretaria": "SMS"},
+{"descricao": "ESTORNO DE EMPENHO — UNIFORMES", "entregueA": "GABI", "id": 6, "num": "39/2026", "origem": "exemplo", "recebidoEm": "2026-08-20", "secretaria": "SMED"},
+{"descricao": "ESTORNO EMP. 553/26 — OBRA CONCLUÍDA", "entregueA": "GABI", "id": 7, "num": "58/2026", "origem": "exemplo", "recebidoEm": "2026-08-27", "secretaria": "SMED"},
+{"descricao": "CANCELAMENTO PARCIAL DE EMPENHO", "entregueA": "MATHEUS", "id": 8, "num": "147/2026", "origem": "exemplo", "recebidoEm": "2026-08-22", "secretaria": "SMS"},
+{"descricao": "ESTORNO EMP. 269/26, PED. EMP. 26/26", "entregueA": "GABI", "id": 9, "num": "177/2026", "origem": "exemplo", "recebidoEm": "2026-08-30", "secretaria": "GP"},
+{"descricao": "PRORROGAÇÃO PRAZO E REAJUSTE, CONT. 43/23", "entregueA": "SERLI", "id": 10, "num": "191/2026", "origem": "exemplo", "recebidoEm": "2026-09-04", "secretaria": "SMDS"},
+{"descricao": "SOLICITAÇÃO DE ANULAÇÃO — MONITORAMENTO", "entregueA": "GABI", "id": 11, "num": "92/2026", "origem": "exemplo", "recebidoEm": "2026-09-05", "secretaria": "SMED"},
+{"descricao": "ESTORNO DE SALDO — COMBUSTÍVEL", "entregueA": "MATHEUS", "id": 12, "num": "61/2026", "origem": "exemplo", "recebidoEm": "2026-09-10", "secretaria": "SMDR"}
+]

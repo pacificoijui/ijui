@@ -1,6 +1,12 @@
-# Os dados convertidos das planilhas NÃO entram no repositório: ele é
-# público (vira o site ijui.net) e aqui há credor, valor e o assunto de
-# cada memorando. Publicar é decisão do setor, não efeito colateral.
-# Para gerar na sua máquina, ver ../LEIA-ME.md.
+# A carga REAL, convertida das planilhas do setor, não entra no
+# repositório: ele é público (vira o site ijui.net) e aqui há credor,
+# valor e o assunto de cada memorando. Publicar é decisão do setor —
+# ver LEIA-ME.md, "Os dados".
 *.json
 CONFERIR.md
+
+# A pasta exemplo/ é outra coisa: dados FICTÍCIOS, escritos à mão, que
+# fazem a tela funcionar no ar sem expor nada. Esses versionam — e a
+# negação precisa repetir o *.json, senão a regra de cima os pega também.
+!exemplo/
+!exemplo/*.json

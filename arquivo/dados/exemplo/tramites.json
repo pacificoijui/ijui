@@ -1,0 +1,18 @@
+[
+{"comQuem": "DENER", "docNum": "162/2026", "docTipo": "REQUISIÇÃO", "id": 1, "origem": "exemplo", "saiuEm": "2026-04-09", "secretaria": "SMDS", "tipo": "parecer"},
+{"comQuem": "DENER", "docNum": "42/2026", "docTipo": "MEMORANDO", "id": 2, "origem": "exemplo", "saiuEm": "2026-03-30", "secretaria": "SMED", "tipo": "parecer"},
+{"comQuem": "DENER", "docNum": "352 e 402/2026", "docTipo": "DISPENSA", "id": 3, "origem": "exemplo", "saiuEm": "2026-08-02", "tipo": "parecer"},
+{"comQuem": "DENER", "docNum": "473/2026", "docTipo": "REQUISIÇÃO", "id": 4, "origem": "exemplo", "saiuEm": "2026-06-03", "secretaria": "SMED", "tipo": "parecer"},
+{"comQuem": "ANDREI", "docNum": "12/2026", "docTipo": "INEXIGIBILIDADE", "id": 5, "origem": "exemplo", "saiuEm": "2026-03-18", "tipo": "assinatura"},
+{"comQuem": "ANDREI", "docNum": "161/2026", "docTipo": "DISPENSA", "id": 6, "origem": "exemplo", "saiuEm": "2026-05-04", "tipo": "assinatura"},
+{"comQuem": "ANDREI", "docNum": "36/2026", "docTipo": "CONCORRÊNCIA", "id": 7, "origem": "exemplo", "saiuEm": "2026-09-09", "tipo": "assinatura"},
+{"comQuem": "ANDREI", "docNum": "129/2026", "docTipo": "PREGÃO", "id": 8, "origem": "exemplo", "saiuEm": "2026-09-10", "tipo": "assinatura"},
+{"comQuem": "SERAFIM", "docNum": "242/2026", "docTipo": "REQUISIÇÃO", "id": 9, "origem": "exemplo", "saiuEm": "2026-08-21", "secretaria": "SMODUTRAN", "tipo": "assinatura"},
+{"comQuem": "MARLON", "docNum": "80/2023", "docTipo": "PREGÃO", "id": 10, "origem": "exemplo", "saiuEm": "2026-09-02", "tipo": "emprestimo"},
+{"comQuem": "MARLON", "docNum": "736/2025", "docTipo": "DISPENSA", "id": 11, "origem": "exemplo", "saiuEm": "2026-09-05", "tipo": "emprestimo"},
+{"comQuem": "ANDREI", "docNum": "410/2026", "docTipo": "DISPENSA", "id": 12, "origem": "exemplo", "saiuEm": "2026-09-05", "tipo": "assinatura", "voltouEm": "2026-09-06"},
+{"comQuem": "ANDREI", "docNum": "411/2026", "docTipo": "DISPENSA", "id": 13, "origem": "exemplo", "saiuEm": "2026-09-05", "tipo": "assinatura", "voltouEm": "2026-09-06"},
+{"comQuem": "SERAFIM", "docNum": "31/2026", "docTipo": "INEXIGIBILIDADE", "id": 14, "origem": "exemplo", "saiuEm": "2026-08-29", "tipo": "assinatura", "voltouEm": "2026-08-31"},
+{"comQuem": "SERLI", "docNum": "64/2023", "docTipo": "PREGÃO", "id": 15, "origem": "exemplo", "saiuEm": "2026-08-15", "tipo": "emprestimo", "voltouEm": "2026-08-24"},
+{"comQuem": "DENER", "docNum": "317/2026", "docTipo": "REQUISIÇÃO", "id": 16, "origem": "exemplo", "saiuEm": "2026-08-05", "secretaria": "SMDS", "tipo": "parecer", "voltouEm": "2026-08-12"}
+]
