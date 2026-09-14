@@ -1,4 +1,4 @@
-name: Backup diário do Firestore
+name: Backup semanal do Firestore
 
 on:
   schedule:
@@ -33,12 +33,12 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Enquanto o secret não existir, isto fica vazio e o passo de envio para o
-      # repositório privado é pulado — o backup diário segue pelo artifact.
+      # repositório privado é pulado — o backup semanal segue pelo artifact.
       BACKUP_TOKEN: ${{ secrets.BACKUP_TOKEN }}
       BACKUP_REPO: ${{ vars.BACKUP_REPO }}
       # Conta ADMIN do próprio sistema. Desde que as regras do Firestore foram
       # fechadas, ler as coleções exige login — ver CONTROLE-DE-ACESSO.md,
-      # seção "Backup diário", para criar essa conta e cadastrar os secrets.
+      # seção "Backup semanal", para criar essa conta e cadastrar os secrets.
       BACKUP_EMAIL: ${{ secrets.BACKUP_EMAIL }}
       BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
     steps:

@@ -1,32 +1,37 @@
 # Backup do sistema
 
 O banco do sistema é o Firestore do projeto `processos-ijui` — o mesmo de tudo:
-licitações, contratos e o cadastro de contas. Todo dia o GitHub roda sozinho o
-workflow [`backup-firestore.yml`](../workflows/backup-firestore.yml), que baixa
-todas as coleções e guarda o resultado.
+licitações, contratos e o cadastro de contas. Toda semana o GitHub roda sozinho
+o workflow [`backup-firestore.yml`](../workflows/backup-firestore.yml), que
+baixa todas as coleções e guarda o resultado.
 
 > **Atenção:** desde que as regras do Firestore foram fechadas, o backup só
 > funciona com os secrets `BACKUP_EMAIL` e `BACKUP_SENHA` configurados — ver
 > "Por que agora precisa de senha", mais abaixo. Sem eles a execução falha
 > avisando, em vez de guardar um backup vazio.
 
-O agendamento é para as **03:00 da manhã (horário de Brasília)**, mas o GitHub
-atrasa execuções agendadas quando os runners estão concorridos: na prática as
-últimas rodaram entre 07:50 e 10:00. Não há o que ajustar — é assim que o cron
-do Actions funciona, e o que importa é rodar uma vez por dia, longe do horário
-de expediente.
+O agendamento é **sábado, 09:00 UTC (06:00 da manhã em Brasília)** — de
+propósito semanal, não diário: a primeira rede contra edição errada é o
+histórico de edições dos contratos (desfazer, 365 dias); este backup é a
+segunda. O preço de ser semanal é real — entre um backup e o seguinte cabem
+até 7 dias de lançamento —, e é por isso que **antes de qualquer coisa
+arriscada** (importação grande, migração, limpeza em massa) o certo é rodar
+na mão primeiro, pelo **Run workflow** abaixo. O GitHub também atrasa
+execuções agendadas quando os runners estão concorridos, então o horário
+exato de cada rodada pode variar um pouco — não há o que ajustar, é assim
+que o cron do Actions funciona.
 
 ## Onde está o backup de hoje
 
 1. Abra o repositório no GitHub → aba **Actions**
-2. Clique em **Backup diário do Firestore** na lista da esquerda
+2. Clique em **Backup semanal do Firestore** na lista da esquerda
 3. Abra a execução do dia
 4. No fim da página, em **Artifacts**, baixe `backup-firestore-AAAA-MM-DD`
 
 O GitHub guarda **90 dias** de backups. Passado esse prazo ele apaga sozinho —
 por isso existe também a cópia permanente descrita abaixo.
 
-Para rodar um backup na hora, sem esperar as 03:00: mesma tela, botão
+Para rodar um backup na hora, sem esperar o próximo sábado: mesma tela, botão
 **Run workflow**.
 
 ## Cópia permanente, num repositório privado
@@ -39,7 +44,7 @@ estado atual é o backup de hoje, o histórico do git guarda todos os dias
 anteriores, e o diff de cada dia mostra o que mudou no banco.
 
 Enquanto o secret `BACKUP_TOKEN` não existir, esse passo é pulado e o backup
-diário continua funcionando normalmente pelo artifact.
+semanal continua funcionando normalmente pelo artifact.
 
 ### Como ligar (uma vez só, tudo pelo site do GitHub)
 
@@ -67,7 +72,7 @@ diário continua funcionando normalmente pelo artifact.
    Só se o repositório privado tiver outro nome: na aba **Variables**, criar
    `BACKUP_REPO` com `dono/nome`.
 
-4. **Conferir.** Aba **Actions** → *Backup diário do Firestore* → **Run
+4. **Conferir.** Aba **Actions** → *Backup semanal do Firestore* → **Run
    workflow**. Ao terminar, o repositório privado deve ter o commit
    `Backup de AAAA-MM-DD` e a pasta `atual/`.
 
@@ -148,8 +153,10 @@ Vale saber de antemão, para ninguém descobrir na hora do aperto:
 - **O projeto do Firebase em si.** Apagou, o `projectId` não volta: um projeto
   novo tem outro id e outra chave, e aí o `apiKey`/`projectId` do HTML tem de ser
   atualizado antes de restaurar.
-- **Até 24 horas de alterações.** O backup roda uma vez por dia; o que mudou
-  depois da última execução não está em lugar nenhum.
+- **Até 7 dias de alterações.** O backup roda uma vez por semana; o que mudou
+  depois da última execução não está em lugar nenhum. Para não carregar esse
+  risco sozinho antes de algo arriscado (importação grande, migração, limpeza
+  em massa), rode o backup na mão primeiro — veja acima.
 - **O próprio GitHub.** Se a conta for comprometida, o repositório de backups
   está lá dentro. Baixar uma cópia para fora de tempos em tempos (o artifact ou
   um `git clone` do repositório privado) é o que cobre esse caso.
@@ -172,7 +179,7 @@ dois secrets do repositório:
 
 Precisa ser administrador porque o backup também copia o cadastro de contas
 (`usuarios_v2`), que só admin lê. O passo a passo para criar essa conta está em
-`CONTROLE-DE-ACESSO.md`, seção "Backup diário".
+`CONTROLE-DE-ACESSO.md`, seção "Backup semanal".
 
 Sem os secrets o script **falha na cara**, com a mensagem explicando o que fazer
 — de propósito: gravar um backup vazio achando que está tudo bem é pior do que

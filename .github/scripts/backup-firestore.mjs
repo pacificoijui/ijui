@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Backup diario do Firestore do sistema de licitacoes de Ijui.
+// Backup semanal do Firestore do sistema de licitacoes de Ijui.
 //
 // Le todas as colecoes pela API REST do Firestore e grava:
 //
@@ -15,7 +15,7 @@
 //   BACKUP_EMAIL  e-mail de uma conta ADMIN do sistema
 //   BACKUP_SENHA  a senha dela
 //
-// Como criar essa conta, em CONTROLE-DE-ACESSO.md ("Backup diario").
+// Como criar essa conta, em CONTROLE-DE-ACESSO.md ("Backup semanal").
 //
 // Uso: node .github/scripts/backup-firestore.mjs [diretorio-de-saida]
 
@@ -119,7 +119,7 @@ async function entrar(chave) {
     throw new Error(
       "sem BACKUP_EMAIL/BACKUP_SENHA nos secrets do repositorio.\n" +
       "Desde que as regras do Firestore foram fechadas, o backup precisa entrar\n" +
-      "com uma conta admin do sistema. Ver CONTROLE-DE-ACESSO.md, secao \"Backup diario\"."
+      "com uma conta admin do sistema. Ver CONTROLE-DE-ACESSO.md, secao \"Backup semanal\"."
     );
   }
   // Tem de ser conta de E-MAIL/SENHA. Conta que entra pelo Google nao tem

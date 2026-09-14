@@ -1,4 +1,4 @@
-/* O backup diário copia coleção por coleção, de uma lista escrita à mão em
+/* O backup semanal copia coleção por coleção, de uma lista escrita à mão em
    .github/scripts/backup-firestore.mjs — a API REST do Firestore não lista
    coleções sem credencial de administrador do Google Cloud, então não há
    como descobri-las sozinho.
@@ -33,7 +33,7 @@ t('as regras declaram as coleções do sistema', noBanco.length>10, noBanco.leng
 t('e o script de backup tem a lista dele', noBackup.length>10, noBackup.length);
 
 const faltando = noBanco.filter(c=>noBackup.indexOf(c)<0);
-t('nenhuma coleção com regra ficou de fora do backup diário',
+t('nenhuma coleção com regra ficou de fora do backup semanal',
   faltando.length===0,
   {faltando, dica:'acrescente em LICITACOES, em .github/scripts/backup-firestore.mjs'});
 
@@ -136,6 +136,6 @@ t('e é pulada enquanto o token não existir, em vez de quebrar o backup',
 
 console.log('\n6) O caminho está escrito onde se procura por ele');
 t('CONTROLE-DE-ACESSO.md explica como criar a conta do backup',
-  /## Backup diário/.test(doc) && /BACKUP_EMAIL/.test(doc) && /\+backup/.test(doc));
+  /## Backup semanal/.test(doc) && /BACKUP_EMAIL/.test(doc) && /\+backup/.test(doc));
 
 console.log(`\n${ok} passaram, ${mau} falharam.`);

@@ -65,7 +65,7 @@ function args() {
 }
 
 // Restaurar grava, e gravar exige login desde que as regras foram fechadas
-// (ver CONTROLE-DE-ACESSO.md). Usa a mesma conta admin do backup diario:
+// (ver CONTROLE-DE-ACESSO.md). Usa a mesma conta admin do backup semanal:
 //   BACKUP_EMAIL=... BACKUP_SENHA=... node restaurar-firestore.mjs ...
 let TOKEN = "";
 async function entrar(chave) {
@@ -74,7 +74,7 @@ async function entrar(chave) {
   if (!email || !senha) {
     throw new Error(
       "defina BACKUP_EMAIL e BACKUP_SENHA (conta ADMIN do sistema) antes de restaurar.\n" +
-      "Ver CONTROLE-DE-ACESSO.md, secao \"Backup diario\"."
+      "Ver CONTROLE-DE-ACESSO.md, secao \"Backup semanal\"."
     );
   }
   const r = await fetch(

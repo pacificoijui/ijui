@@ -343,7 +343,7 @@ Se o que se quer é uma conta por secretaria (e não uma por servidor), basta
 criar uma conta com o e-mail da pasta — `educacao@…` — e marcar o escopo
 dela. O mecanismo é o mesmo; muda só quantas contas existem.
 
-## Backup diário
+## Backup semanal
 
 ### Quando roda, e o que ele cobre
 
@@ -359,7 +359,7 @@ O preço de ser semanal é real e está aqui para ninguém se surpreender:
 assim acontecer numa quinta, o backup mais novo é do sábado anterior.
 
 Por isso: **antes de qualquer coisa arriscada — importação grande, migração,
-limpeza em massa — rode o backup na mão**, em Actions → "Backup diário do
+limpeza em massa — rode o backup na mão**, em Actions → "Backup semanal do
 Firestore" → **Run workflow**. É o que fecha esse buraco exatamente quando
 ele importa.
 
@@ -381,8 +381,8 @@ justamente essa, então ela não serve aqui — não é preferência, é técnic
 E mesmo com uma conta admin de e-mail/senha nas mãos, usar a sua seria ruim:
 a senha vira um secret do repositório (quem tiver admin no GitHub pode
 trocá-la, e um workflow novo pode imprimi-la), o backup para calado no dia em
-que você mudar a sua senha, e o log passa a registrar você entrando todo dia
-às 3 da manhã.
+que você mudar a sua senha, e o log passa a registrar você entrando toda
+semana, de madrugada de sábado.
 
 ### O caminho
 
@@ -398,7 +398,7 @@ que você mudar a sua senha, e o log passa a registrar você entrando todo dia
    secret**, criando dois:
    - `BACKUP_EMAIL` — o e-mail dessa conta
    - `BACKUP_SENHA` — a senha dela
-4. Rode uma vez na mão para conferir: aba **Actions** → "Backup diário do
+4. Rode uma vez na mão para conferir: aba **Actions** → "Backup semanal do
    Firestore" → **Run workflow**.
 
 Sem esses secrets o backup falha com a mensagem explicando isso — de
