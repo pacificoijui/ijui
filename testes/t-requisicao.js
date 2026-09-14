@@ -869,7 +869,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const alvo=await dir.pg.evaluate(()=>filtrados[0].id);
   await dir.pg.click('td[data-id="'+alvo+'"][data-campo="despacho"]');
   await dir.pg.waitForTimeout(250);
-  /* Seis opções não cabem espremidas numa coluna de 130px: "Dispensa por
+  /* Nove opções não cabem espremidas numa coluna de 130px: "Dispensa por
      justificativa" virava "— sem despach". Abre num painel ancorado. */
   const pop=await dir.pg.evaluate(()=>{
     const p=document.getElementById('despPop'), r=p.getBoundingClientRect();
@@ -878,8 +878,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       opcoes:[...p.querySelectorAll('.desp-op')].map(b=>b.dataset.v),
       maisLargo:r.width>c.width, dentroDaTela:r.left>=0 && r.right<=window.innerWidth};
   });
-  t('e abre exatamente as seis modalidades que o Diretor pode assinar',
-    pop.aberto && pop.opcoes.join('|')==='Pregão|Concorrência|Dispensa por limite|Dispensa por justificativa|Inexigibilidade|Ata de Registro de Preços',
+  t('e abre exatamente as nove modalidades que o Diretor pode assinar',
+    pop.aberto && pop.opcoes.join('|')==='Pregão|Concorrência|Dispensa por limite|Dispensa por justificativa|Inexigibilidade|Ata de Registro de Preços|Chamamento público|Chamada pública|Contrato',
     pop);
   t('num painel mais largo que a coluna, e dentro da tela',
     pop.maisLargo && pop.dentroDaTela, pop);

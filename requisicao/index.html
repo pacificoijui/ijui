@@ -13,7 +13,7 @@
   ferramentas/planilha-para-json.py) serve só à primeira carga e à lista de
   secretarias.
 
-  A coluna DIRETOR é o despacho: uma lista fechada de seis modalidades que
+  A coluna DIRETOR é o despacho: uma lista fechada de nove modalidades que
   só quem tem o acesso "Diretor" pode assinar — e quem tem esse acesso não
   mexe em mais nada da requisição. Ver LEIA-ME.md e CONTROLE-DE-ACESSO.md.
 -->
@@ -1655,11 +1655,12 @@ const COLUNAS = ['num','receb','desp','cred','obj','mod','emp','cont','valor'];
 const NOME_COL = {num:'Requisição', receb:'Recebida', desp:'Diretor', cred:'Credor', obj:'Objeto',
                   mod:'Modalidade', emp:'Empenho', cont:'P/ contabilidade', valor:'Valor'};
 /* ── O despacho do Diretor ──
-   As seis modalidades que o Diretor pode assinar. A lista é fechada de
+   As nove modalidades que o Diretor pode assinar. A lista é fechada de
    propósito: despacho não é campo livre — é uma decisão entre opções
    previstas, e quem lança a requisição não escolhe nenhuma delas. */
 const MODALIDADES_DESPACHO = ['Pregão','Concorrência','Dispensa por limite',
-  'Dispensa por justificativa','Inexigibilidade','Ata de Registro de Preços'];
+  'Dispensa por justificativa','Inexigibilidade','Ata de Registro de Preços',
+  'Chamamento público','Chamada pública','Contrato'];
 /* O despacho tem TRÊS estados, não dois, e o terceiro é o que a migração
    trouxe: as 3.617 requisições que vieram da planilha já foram contratadas
    antes de a coluna existir. Oferecer "despachar" nelas encheria a tela de
