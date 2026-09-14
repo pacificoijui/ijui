@@ -1977,7 +1977,14 @@ function baseParaColuna(col){
 function renderPop(){
   if(!popCol) return;
   const col = popCol, busca = normalizar(document.getElementById('popBusca').value);
+  const txtAntes = COLF[col].txt;
   COLF[col].txt = document.getElementById('popBusca').value.trim();
+  /* Sem isto, o texto digitado só mudava a CONTAGEM mostrada aqui dentro do
+     menu — a tabela embaixo só refletia a busca quando algo mais chamava
+     aplicarFiltros() depois (marcar/desmarcar uma opção). Resultado: digitar
+     "600" no Nº não filtrava nada sozinho, e parecia que só o filtro por
+     Ano funcionava. */
+  if(COLF[col].txt !== txtAntes) aplicarFiltros();
   const base = baseParaColuna(col);
   let html = '';
   (FACETAS[col]||[]).forEach(g=>{
@@ -2235,6 +2242,29 @@ function proximoNumero(sec, ano){
   const dela = REQS.filter(r=>r.sec===sec && r.ano===ano && r.num!=null);
   return dela.length ? Math.max(...dela.map(r=>r.num)) + 1 : 1;
 }
+/* O "id" é a chave do documento no Firestore — não tem nada a ver com o
+   número da requisição (r.num), que é só o que aparece na tela. Calcular o
+   próximo id a partir do que está CARREGADO (REQS) é o que já causou o "O
+   banco não aceitou a alteração": a tela mostra uma secretaria por vez, e só
+   os últimos meses dela, então o maior id ali quase nunca é o maior id que
+   existe no banco inteiro. O id "livre" calculado dessa forma podia já
+   pertencer a uma requisição de outra secretaria (ou mais antiga) — e a
+   gravação virava, sem ninguém perceber, uma tentativa de ALTERAR aquele
+   documento em vez de criar um novo, o que as regras recusam (é isso que a
+   mensagem de permissão queria dizer quando aparecia aqui).
+   Por isso o próximo id vem de uma consulta ao banco inteiro — só o
+   documento de MAIOR id, um único documento lido — combinada com o que já
+   está na tela (para não colidir com uma requisição aberta agora mesmo,
+   nesta aba, que ainda não foi salva). */
+function proximoId(){
+  return firebase.firestore().collection('requisicoes')
+    .orderBy('id','desc').limit(1).get()
+    .then(snap => {
+      const maiorNoBanco = snap.empty ? 0 : (Number(snap.docs[0].data().id) || 0);
+      const maiorNaTela = REQS.reduce((m,r) => Math.max(m, Number(r.id)||0), 0);
+      return Math.max(maiorNoBanco, maiorNaTela) + 1;
+    });
+}
 function popularDatalists(){
   const uni = campo => [...new Set(REQS.map(r=>r[campo]).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   document.getElementById('dlCredores').innerHTML = uni('credor').map(v=>'<option value="'+esc(v)+'">').join('');
@@ -2245,34 +2275,38 @@ function novaRequisicao(){
   soltarNova();                       /* uma de cada vez em destaque */
   const ano = new Date().getFullYear();
   const sec = SEC_ATUAL || '';
-  const r = {
-    id: proximoId(), sec: sec, ano: ano,
-    num: sec ? proximoNumero(sec, ano) : null, sufixo: '',
-    /* Nasce recebida hoje: é o dia em que ela está sendo lançada. Um clique
-       na célula muda, se tiver chegado antes. */
-    recebido: hojeISO(), credor: '', objeto: '', valor: null,
-    modalidade: '', empenho: '', contabilidade: '',
-    /* A data de nascimento é o que põe esta requisição no fluxo do
-       despacho — e distingue as daqui das que vieram da planilha. */
-    criadaEm: new Date().toISOString(),
-    /* Nasce com o despacho VAZIO, escrito: é esse campo que põe a
-       requisição na fila do Diretor (despacho == ''). Campo ausente não
-       casa com consulta nenhuma no Firestore — sem esta linha ela nasceria
-       fora da fila, que é o defeito mais caro que esta tela poderia ter.
-       As regras aceitam criar com despacho vazio, e só com vazio. */
-    despacho: '',
-    _nova: true
-  };
-  prepararReq(r);
-  REQS.push(r);
-  /* Ela ainda NÃO vai para o banco: uma linha em branco criada por engano
-     viraria lixo permanente, porque as regras não deixam apagar
-     requisição. Vai no primeiro campo preenchido (salvarRequisicao). */
-  renderFaixaSecretarias(); aplicarFiltros();
-  /* A primeira coisa que se preenche é a secretaria, quando a tela está em
-     "Todas"; com uma secretaria escolhida, já é a data de recebimento. */
-  focarCelula(r.id, sec ? 'recebido' : 'num', true);
-  toast(sec ? ('Requisição nº '+r.rotulo+' aberta em '+sec+'.') : 'Escolha a secretaria na primeira coluna.');
+  return proximoId().then(id => {
+    const r = {
+      id: id, sec: sec, ano: ano,
+      num: sec ? proximoNumero(sec, ano) : null, sufixo: '',
+      /* Nasce recebida hoje: é o dia em que ela está sendo lançada. Um clique
+         na célula muda, se tiver chegado antes. */
+      recebido: hojeISO(), credor: '', objeto: '', valor: null,
+      modalidade: '', empenho: '', contabilidade: '',
+      /* A data de nascimento é o que põe esta requisição no fluxo do
+         despacho — e distingue as daqui das que vieram da planilha. */
+      criadaEm: new Date().toISOString(),
+      /* Nasce com o despacho VAZIO, escrito: é esse campo que põe a
+         requisição na fila do Diretor (despacho == ''). Campo ausente não
+         casa com consulta nenhuma no Firestore — sem esta linha ela nasceria
+         fora da fila, que é o defeito mais caro que esta tela poderia ter.
+         As regras aceitam criar com despacho vazio, e só com vazio. */
+      despacho: '',
+      _nova: true
+    };
+    prepararReq(r);
+    REQS.push(r);
+    /* Ela ainda NÃO vai para o banco: uma linha em branco criada por engano
+       viraria lixo permanente, porque as regras não deixam apagar
+       requisição. Vai no primeiro campo preenchido (salvarRequisicao). */
+    renderFaixaSecretarias(); aplicarFiltros();
+    /* A primeira coisa que se preenche é a secretaria, quando a tela está em
+       "Todas"; com uma secretaria escolhida, já é a data de recebimento. */
+    focarCelula(r.id, sec ? 'recebido' : 'num', true);
+    toast(sec ? ('Requisição nº '+r.rotulo+' aberta em '+sec+'.') : 'Escolha a secretaria na primeira coluna.');
+  }).catch(e => {
+    alert('Não consegui abrir uma requisição nova: ' + (e && e.message ? e.message : e));
+  });
 }
 /* Desfazer o que foi mexido nesta linha. Se ela veio da planilha, volta a
    ser o que era lá — não some do cadastro; quem foi criado aqui, esse sim

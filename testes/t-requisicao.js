@@ -266,13 +266,52 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('a tela mostra só as da secretaria escolhida', sms.todosSMS && sms.n>0, sms);
   t('e as outras nem estão na memória — não foram lidas', sms.naMemoria, sms);
 
+  console.log('\n2b) O próximo id nunca é só o que está na tela — senão colide');
+  /* O bug de verdade: a tela carrega uma secretaria por vez, e só os dois
+     últimos meses dela. Calcular o "próximo id" a partir do que está NA
+     TELA é apostar que o maior id visto ali é o maior id que existe no
+     banco — e não é. Isto já derrubou lançamentos de verdade: duas
+     empresas ganhando a mesma requisição, lançada duas vezes, uma delas
+     nascia com um id que já pertencia a outra requisição (de outra
+     secretaria, fora da tela), e a gravação virava sem querer uma
+     ALTERAÇÃO daquele documento alheio — que as regras recusam.
+     Aqui plantamos direto no banco uma requisição de outra secretaria
+     (não carregada), com um id bem maior do que qualquer coisa em SMS, e
+     conferimos que a próxima nasce depois dele, sem colidir. Roda ANTES da
+     seção 3 de propósito: dali em diante uma linha "_nova" fica pinada no
+     topo por várias seções, e chamar novaRequisicao() de novo no meio
+     soltaria essa marcação cedo demais. */
+  const colisao=await pg.evaluate(async ()=>{
+    await firebase.firestore().collection('requisicoes').doc('555555').set({
+      id:555555, sec:'GP', ano:2020, num:1, sufixo:'',
+      recebido:'2020-01-01', credor:'PLANTADA PRO TESTE', objeto:'', valor:null,
+      modalidade:'', empenho:'', contabilidade:'', despacho:'Pregão',
+      despachoPor:'x', despachoEm:'2020-01-01', criadaEm:'2020-01-01T00:00:00.000Z'
+    });
+    const maiorNaTela=Math.max(...REQS.map(r=>Number(r.id)||0));
+    await novaRequisicao();
+    const nova=REQS.find(r=>r._nova);
+    const semColisao=nova.id>555555;
+    /* novaRequisicao() já deixa a célula da data aberta para digitar: fecha
+       sem tentar gravar antes de descartar, senão a edição em aberto fica
+       apontando para uma linha que está prestes a sumir da tela. */
+    fecharEdicao(false);
+    descartarLinha(nova.id);
+    await firebase.firestore().collection('requisicoes').doc('555555').delete();
+    return {maiorNaTela, novoId:nova.id, semColisao};
+  });
+  t('a requisição plantada (de outra secretaria) não estava na tela',
+    colisao.maiorNaTela<555555, colisao);
+  t('e mesmo assim o próximo id nasce depois dela, sem colidir',
+    colisao.semColisao, colisao);
+
   console.log('\n3) Lançar na própria tabela, sem abrir formulário');
   /* A requisição não nasce pronta: chega, recebe data, depois objeto, depois
      empenho, depois vai para a contabilidade. O lançamento é uma linha nova
      no alto e cada etapa é um clique duplo na coluna certa. */
   t('não existe mais formulário de cadastro', !/id="ovForm"/.test(html));
-  const nova=await pg.evaluate(()=>{
-    novaRequisicao();
+  const nova=await pg.evaluate(async ()=>{
+    await novaRequisicao();
     const tr=document.querySelector('.tab tbody tr');
     const td=document.querySelector('td.editando');
     const r=REQS.find(x=>x._nova);
@@ -689,7 +728,10 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     abrirFiltroCol({stopPropagation(){}, currentTarget:document.querySelector('.cf[data-col="num"]')}, 'num');
     const alvo=REQS.find(r=>r.num!=null).rotulo.split('/')[0];
     document.getElementById('popBusca').value=alvo;
-    renderPop(); aplicarFiltros();
+    /* Só renderPop() — é exatamente o que o oninput da caixa chama de
+       verdade. Se um dia alguém tirar o aplicarFiltros() de dentro dela,
+       este teste tem de flagrar: a tabela para de acompanhar a digitação. */
+    renderPop();
     return {termo:alvo, achou:filtrados.length,
       titulo:document.getElementById('popTit').textContent,
       dica:document.getElementById('popBusca').placeholder,
@@ -933,8 +975,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
      não casa com consulta nenhuma no Firestore, e ela nasceria fora da fila
      — o defeito mais caro que esta tela poderia ter. */
   t('requisição nova nasce com o campo despacho escrito, vazio',
-    await dir.pg.evaluate(()=>{
-      const antes=REQS.length; novaRequisicao();
+    await dir.pg.evaluate(async ()=>{
+      const antes=REQS.length; await novaRequisicao();
       const nova=REQS.find(r=>r._nova);
       const ok = nova && nova.despacho==='' && 'despacho' in nova;
       descartarLinha(nova.id);
