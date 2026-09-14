@@ -58,6 +58,40 @@ vira pendência na primeira tela sozinho.
 **📨 Memorandos** — as 19 abas viram uma lista com busca. O memorando é o
 *porquê* de quase tudo: é ele que a anulação cita.
 
+## Os filtros
+
+Um motor só, igual nas quatro telas — o comportamento não muda de aba para
+aba. Cada tela declara de onde vem a lista, qual data conta como "quando
+veio", que facetas oferece e em que ordens pode ficar; o resto (marcar,
+contar, limpar, mostrar o que está ligado) é o mesmo código.
+
+| Tela | Filtra por | Ordena por |
+|---|---|---|
+| Na rua | com quem, tipo, documento, secretaria | fora há mais tempo · saiu por último · nome |
+| Anulações | secretaria, quem lançou, faixa de valor | mais recentes · mais antigas · maior valor · nº |
+| Arquivo | modalidade, pregoeiro, checklist, ano | arquivado por último · primeiro · processo A–Z |
+| Memorandos | secretaria, entregue para | mais recentes · mais antigos · secretaria A–Z |
+
+Mais o **período** (7, 30, 90 dias ou tudo) e a **busca**, em todas.
+
+Três decisões que valem explicação:
+
+**As opções saem dos dados, não de uma lista fixa.** Secretaria que não
+aparece no cadastro não vira opção — filtro que promete o que não tem faz
+procurar onde não há. Cada opção mostra quantas linhas traz.
+
+**A contagem considera os outros filtros ligados, menos o próprio.** Marcar
+"SMED" em Anulações faz "quem lançou" contar só dentro de SMED (136 e 162
+viram 45 e 55) — mas a lista de secretarias continua mostrando as outras 20,
+senão não haveria como marcar uma segunda.
+
+**O período é escolha única, as facetas são múltiplas.** "Os últimos que
+vieram" é uma pergunta só; "SMED ou SMS" são duas respostas para a mesma.
+Por isso período é botão segmentado e faceta é caixa de marcar.
+
+Cada aba guarda o filtro dela: trocar de aba e voltar não desmancha o que
+foi montado.
+
 ## Por que não é uma aba por planilha
 
 Seria o caminho curto e erraria o alvo. Copiar as 30 abas para a tela

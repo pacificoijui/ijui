@@ -130,9 +130,65 @@
   .nota{background:var(--blue-bg);border-left:4px solid var(--navy-light);border-radius:0 12px 12px 0;
     padding:14px 18px;font-size:13.5px;line-height:1.6;color:var(--navy-dark);margin-bottom:20px}
   .nota b{font-weight:800}
+
+  /* ── Barra de filtros ──
+     As opções não são lista fixa: saem do que existe nos dados, com a
+     contagem de cada uma. Secretaria que não aparece no cadastro não vira
+     opção de filtro — filtro que promete o que não tem faz procurar onde
+     não há. */
+  .barra{background:#fff;border:1.5px solid var(--border);border-radius:14px;box-shadow:var(--shadow);
+    padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .barra .busca{margin:0}
+  .fgrupo{position:relative}
+  .fbtn{background:#f6f9fc;border:1.5px solid var(--border);color:var(--navy);border-radius:10px;padding:9px 14px;
+    font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;white-space:nowrap}
+  .fbtn:hover{border-color:var(--navy-light);background:var(--blue-bg)}
+  .fbtn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .fbtn .seta{font-size:9px;opacity:.65}
+  .fpop{position:absolute;top:calc(100% + 6px);left:0;z-index:60;background:#fff;border:1.5px solid var(--border);
+    border-radius:14px;box-shadow:var(--shadow-md);min-width:250px;max-width:330px;padding:8px;display:none}
+  .fpop.open{display:block}
+  .fpop-lista{max-height:290px;overflow:auto}
+  .fop{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:13.5px}
+  .fop:hover{background:#f4f8fd}
+  .fop input{width:16px;height:16px;accent-color:var(--navy-light);cursor:pointer;flex-shrink:0}
+  .fop .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fop .qt{background:#eef3fa;color:var(--muted);border-radius:20px;padding:1px 8px;font-size:11.5px;font-weight:800}
+  .fpop-pe{border-top:1px solid var(--border);margin-top:6px;padding-top:7px;display:flex;justify-content:space-between}
+  .flink{background:none;border:none;color:var(--navy-light);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:5px 8px}
+  .flink:hover{text-decoration:underline}
+
+  /* Período: segmentado, porque "os últimos que vieram" é UMA escolha, não
+     várias marcadas ao mesmo tempo. */
+  .segm{display:flex;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;background:#f6f9fc}
+  .segm button{background:none;border:none;border-right:1px solid var(--border);padding:9px 13px;
+    font-family:inherit;font-size:12.5px;font-weight:700;color:var(--navy);cursor:pointer;white-space:nowrap}
+  .segm button:last-child{border-right:none}
+  .segm button:hover{background:var(--blue-bg)}
+  .segm button.on{background:var(--navy);color:#fff}
+  .fsel{border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:13px;
+    font-weight:700;color:var(--navy);background:#f6f9fc;cursor:pointer}
+  .fsel:focus{outline:none;border-color:var(--navy-light)}
+  .fconta{margin-left:auto;font-size:12.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{background:var(--blue-bg);color:var(--blue-text);border:1.5px solid #cddcf5;border-radius:20px;
+    padding:5px 8px 5px 13px;font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:7px}
+  .chip .x{cursor:pointer;background:rgba(30,74,138,.14);border-radius:50%;width:18px;height:18px;
+    display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1}
+  .chip .x:hover{background:rgba(30,74,138,.28)}
+  .chip-limpar{background:var(--red-bg);color:var(--red);border-color:#eec4c4;cursor:pointer;padding:5px 13px}
   @media(max-width:760px){
     header{padding:0 16px} main{padding:18px 16px 60px}
     .logo-text p{display:none} .pessoa-pior{margin-left:0;width:100%}
+    /* No celular o cabeçalho não cabe numa linha só: em vez de espremer o
+       título até sumir, a etiqueta de protótipo desce para a segunda. */
+    .header-inner{flex-wrap:wrap;padding:10px 0;gap:10px}
+    .logo-text h1{font-size:16px}
+    .proto-chip{font-size:10.5px;padding:5px 11px}
+    .barra{padding:10px}
+    .barra .busca{min-width:100%;max-width:none}
+    .fconta{margin-left:0}
+    .segm button{padding:9px 11px}
   }
 </style>
 </head>
@@ -198,7 +254,236 @@ function renderAbas(){
     '<button class="aba'+(telaAtual===t.id?' on':'')+(t.alerta&&t.conta()?' alerta':'')+'" onclick="irPara(\''+t.id+'\')">'
     + t.rot + '<span class="n">' + t.conta() + '</span></button>').join('');
 }
-function irPara(id){ telaAtual = id; renderAbas(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+function irPara(id){ telaAtual = id; fecharPop(); renderAbas(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+/* ══════════════ MOTOR DE FILTROS ══════════════
+   Um só, para as quatro telas. Cada tela diz de onde vem a lista, qual é a
+   data que conta como "quando veio", que facetas oferece e em que ordens
+   pode ficar. O resto — marcar, contar, limpar, mostrar o que está ativo —
+   é o mesmo código, e por isso o comportamento não varia de aba para aba.
+
+   As opções são DINÂMICAS: saem dos dados carregados, com a contagem de
+   cada uma, e a contagem já considera os outros filtros ligados. Assim o
+   menu diz a verdade sobre o que vai trazer, em vez de oferecer uma
+   secretaria que, com o período escolhido, não tem nenhuma linha. */
+const CFG = {
+  rua: {
+    lista: () => abertos(),
+    data: 'saiuEm', rotData: 'saída',
+    busca: t => [t.docTipo, t.docNum, t.comQuem, t.secretaria, t.tipo].join(' '),
+    facetas: [
+      {k:'comQuem',    rot:'Com quem',   v:t => t.comQuem || '(sem destino)'},
+      {k:'tipo',       rot:'Tipo',       v:t => t.tipo || '—'},
+      {k:'docTipo',    rot:'Documento',  v:t => t.docTipo || '—'},
+      {k:'secretaria', rot:'Secretaria', v:t => t.secretaria || '(não anotada)'}
+    ],
+    ordens: [
+      {k:'antigo',  rot:'Fora há mais tempo', f:(a,b) => (dias(b.saiuEm)||0) - (dias(a.saiuEm)||0)},
+      {k:'recente', rot:'Saiu por último',    f:(a,b) => (dias(a.saiuEm)||0) - (dias(b.saiuEm)||0)},
+      {k:'pessoa',  rot:'Nome de quem está',  f:(a,b) => String(a.comQuem||'').localeCompare(String(b.comQuem||''),'pt-BR')}
+    ]
+  },
+  anul: {
+    lista: () => ANULACOES,
+    data: 'contabilidadeEm', rotData: 'envio à contabilidade',
+    busca: a => [a.credor, a.requisicao, a.empenho, a.memorando, a.pedido, a.num+'/'+a.ano, a.quem].join(' '),
+    facetas: [
+      {k:'reqSec', rot:'Secretaria', v:a => a.reqSec || '(sem sigla)'},
+      {k:'quem',   rot:'Quem lançou', v:a => a.quem || '—'},
+      {k:'faixa',  rot:'Faixa de valor', v:a => faixaValor(a.valor), ordem:v => FAIXAS.findIndex(f => f[0] === v)}
+    ],
+    ordens: [
+      {k:'recente', rot:'Mais recentes',  f:(a,b) => String(b.contabilidadeEm||'').localeCompare(String(a.contabilidadeEm||''))},
+      {k:'antigo',  rot:'Mais antigas',   f:(a,b) => String(a.contabilidadeEm||'').localeCompare(String(b.contabilidadeEm||''))},
+      {k:'valor',   rot:'Maior valor',    f:(a,b) => (Number(b.valor)||0) - (Number(a.valor)||0)},
+      {k:'numero',  rot:'Nº da anulação', f:(a,b) => (b.num||0) - (a.num||0)}
+    ]
+  },
+  arq: {
+    lista: () => PASTAS,
+    data: 'arquivadoEm', rotData: 'arquivamento',
+    busca: p => [p.processo, p.vencedor, p.modalidade, p.pregoeiro, p.secretaria].join(' '),
+    facetas: [
+      {k:'modalidade', rot:'Modalidade', v:p => p.modalidade || '—'},
+      {k:'pregoeiro',  rot:'Pregoeiro',  v:p => p.pregoeiro || '(sem pregoeiro)'},
+      {k:'check',      rot:'Checklist',  v:p => p.checklist ? 'Conferido' : 'Não conferido'},
+      {k:'ano',        rot:'Ano',        v:p => (p.arquivadoEm||'').slice(0,4) || '(sem data)', ordem:v => -Number(v)}
+    ],
+    ordens: [
+      {k:'recente', rot:'Arquivado por último', f:(a,b) => String(b.arquivadoEm||'').localeCompare(String(a.arquivadoEm||''))},
+      {k:'antigo',  rot:'Arquivado primeiro',  f:(a,b) => String(a.arquivadoEm||'').localeCompare(String(b.arquivadoEm||''))},
+      {k:'proc',    rot:'Processo (A–Z)',      f:(a,b) => String(a.processo||'').localeCompare(String(b.processo||''),'pt-BR')}
+    ]
+  },
+  memo: {
+    lista: () => MEMORANDOS,
+    data: 'recebidoEm', rotData: 'recebimento',
+    busca: m => [m.num, m.descricao, m.secretaria, m.entregueA].join(' '),
+    facetas: [
+      {k:'secretaria', rot:'Secretaria',    v:m => m.secretaria || '—'},
+      {k:'entregueA',  rot:'Entregue para', v:m => m.entregueA || '(não anotado)'}
+    ],
+    ordens: [
+      {k:'recente', rot:'Mais recentes', f:(a,b) => String(b.recebidoEm||'').localeCompare(String(a.recebidoEm||''))},
+      {k:'antigo',  rot:'Mais antigos',  f:(a,b) => String(a.recebidoEm||'').localeCompare(String(b.recebidoEm||''))},
+      {k:'sec',     rot:'Secretaria (A–Z)', f:(a,b) => String(a.secretaria||'').localeCompare(String(b.secretaria||''),'pt-BR')}
+    ]
+  }
+};
+const FAIXAS = [
+  ['Até R$ 1 mil',        v => v != null && v < 1000],
+  ['R$ 1 mil a 10 mil',   v => v != null && v >= 1000 && v < 10000],
+  ['R$ 10 mil a 100 mil', v => v != null && v >= 10000 && v < 100000],
+  ['Acima de R$ 100 mil', v => v != null && v >= 100000]
+];
+function faixaValor(v){
+  if(v == null) return '(sem valor)';
+  const f = FAIXAS.find(([, teste]) => teste(v));
+  return f ? f[0] : '(sem valor)';
+}
+/* Períodos prontos: "os últimos que vieram" é a pergunta mais feita, e
+   pedir duas datas para respondê-la seria cobrar caro por pouco. */
+const PERIODOS = [
+  {k:'tudo', rot:'Tudo',      d:null},
+  {k:'7',    rot:'7 dias',    d:7},
+  {k:'30',   rot:'30 dias',   d:30},
+  {k:'90',   rot:'90 dias',   d:90}
+];
+
+/* Estado por tela: cada aba guarda o que estava filtrado nela. Trocar de
+   aba e voltar não desmancha o que a pessoa montou. */
+const F = {};
+function est(tela){
+  if(!F[tela]){
+    const cfg = CFG[tela];
+    F[tela] = {busca:'', sel:{}, periodo:'tudo', ordem:cfg.ordens[0].k};
+    cfg.facetas.forEach(f => { F[tela].sel[f.k] = new Set(); });
+  }
+  return F[tela];
+}
+function passaFaceta(item, cfg, e, pular){
+  return cfg.facetas.every(f => {
+    if(f.k === pular) return true;
+    const s = e.sel[f.k];
+    return !s || !s.size || s.has(f.v(item));
+  });
+}
+function passaPeriodo(item, cfg, e){
+  if(e.periodo === 'tudo') return true;
+  const n = dias(item[cfg.data]);
+  return n != null && n <= Number(e.periodo);
+}
+function passaBusca(item, cfg, e){
+  if(!e.busca.trim()) return true;
+  return normalizar(cfg.busca(item)).includes(normalizar(e.busca));
+}
+/* pular: ao contar as opções de uma faceta, ela mesma não entra no filtro —
+   senão marcar "SMED" faria as outras secretarias sumirem da lista e não
+   haveria como marcar uma segunda. */
+function filtrar(tela, pular){
+  const cfg = CFG[tela], e = est(tela);
+  return cfg.lista().filter(x => passaBusca(x, cfg, e) && passaPeriodo(x, cfg, e) && passaFaceta(x, cfg, e, pular));
+}
+function ordenada(tela){
+  const cfg = CFG[tela], e = est(tela);
+  const ord = cfg.ordens.find(o => o.k === e.ordem) || cfg.ordens[0];
+  return filtrar(tela).slice().sort(ord.f);
+}
+
+/* ── Desenho da barra ── */
+let popAberto = null;
+function fecharPop(){ popAberto = null; document.querySelectorAll('.fpop.open').forEach(p => p.classList.remove('open')); }
+document.addEventListener('click', ev => {
+  if(!popAberto) return;
+  if(ev.target.closest('.fgrupo')) return;
+  fecharPop();
+});
+function abrirPop(tela, k){
+  const jaEstava = popAberto === k;
+  fecharPop();
+  if(jaEstava) return;
+  popAberto = k;
+  const el = document.getElementById('pop-' + k);
+  if(el) el.classList.add('open');
+}
+function contarOpcoes(tela, faceta){
+  const base = filtrar(tela, faceta.k);
+  const conta = {};
+  base.forEach(x => { const v = faceta.v(x); conta[v] = (conta[v] || 0) + 1; });
+  let chaves = Object.keys(conta);
+  if(faceta.ordem) chaves.sort((a, b) => faceta.ordem(a) - faceta.ordem(b));
+  else chaves.sort((a, b) => conta[b] - conta[a] || a.localeCompare(b, 'pt-BR'));
+  return chaves.map(k => [k, conta[k]]);
+}
+function barra(tela){
+  const cfg = CFG[tela], e = est(tela);
+  const total = cfg.lista().length, vistos = filtrar(tela).length;
+
+  let h = '<div class="barra">';
+  h += '<input class="busca" placeholder="Procurar…" value="' + esc(e.busca)
+     + '" oninput="est(\'' + tela + '\').busca=this.value;render()">';
+
+  /* período — uma escolha só */
+  h += '<div class="segm">' + PERIODOS.map(p =>
+        '<button class="' + (e.periodo === p.k ? 'on' : '') + '" title="pela data de ' + esc(cfg.rotData)
+        + '" onclick="est(\'' + tela + '\').periodo=\'' + p.k + '\';render()">' + p.rot + '</button>').join('') + '</div>';
+
+  /* facetas — várias marcadas ao mesmo tempo */
+  cfg.facetas.forEach(f => {
+    const s = e.sel[f.k], ops = contarOpcoes(tela, f);
+    h += '<div class="fgrupo">'
+       + '<button class="fbtn' + (s.size ? ' on' : '') + '" onclick="abrirPop(\'' + tela + '\',\'' + f.k + '\')">'
+       + esc(f.rot) + (s.size ? ' · ' + s.size : '') + '<span class="seta">▼</span></button>'
+       + '<div class="fpop" id="pop-' + f.k + '"><div class="fpop-lista">';
+    if(!ops.length) h += '<div style="padding:12px;color:var(--muted);font-size:13px">Nada para filtrar aqui.</div>';
+    ops.forEach(([v, n]) => {
+      h += '<label class="fop"><input type="checkbox"' + (s.has(v) ? ' checked' : '')
+         + ' onchange="marcar(\'' + tela + '\',\'' + f.k + '\',this.dataset.v)" data-v="' + esc(v) + '">'
+         + '<span class="txt" title="' + esc(v) + '">' + esc(v) + '</span><span class="qt">' + n + '</span></label>';
+    });
+    h += '</div><div class="fpop-pe">'
+       + '<button class="flink" onclick="limparFaceta(\'' + tela + '\',\'' + f.k + '\')">Limpar</button>'
+       + '<button class="flink" onclick="fecharPop();render()">Pronto</button>'
+       + '</div></div></div>';
+  });
+
+  /* ordem */
+  h += '<select class="fsel" onchange="est(\'' + tela + '\').ordem=this.value;render()">'
+     + cfg.ordens.map(o => '<option value="' + o.k + '"' + (e.ordem === o.k ? ' selected' : '') + '>↕ '
+       + esc(o.rot) + '</option>').join('') + '</select>';
+
+  h += '<span class="fconta">' + vistos + ' de ' + total + '</span>';
+  h += '</div>';
+
+  /* o que está ligado, em chips que se tiram um a um */
+  const chips = [];
+  if(e.busca.trim()) chips.push(['“' + esc(e.busca.trim()) + '”', "limparBusca('" + tela + "')"]);
+  if(e.periodo !== 'tudo') chips.push(['últimos ' + e.periodo + ' dias', "est('" + tela + "').periodo='tudo';render()"]);
+  cfg.facetas.forEach(f => {
+    [...e.sel[f.k]].forEach(v => {
+      chips.push([esc(f.rot) + ': ' + esc(v), "marcar('" + tela + "','" + f.k + "'," + JSON.stringify(v) + ")"]);
+    });
+  });
+  if(chips.length){
+    h += '<div class="chips">' + chips.map(([t, acao]) =>
+         '<span class="chip">' + t + '<span class="x" onclick="' + acao.replace(/"/g, '&quot;') + '">✕</span></span>').join('')
+       + '<span class="chip chip-limpar" onclick="limparTudo(\'' + tela + '\')">limpar tudo</span></div>';
+  }
+  return h;
+}
+function marcar(tela, k, v){
+  const s = est(tela).sel[k];
+  if(s.has(v)) s.delete(v); else s.add(v);
+  render();
+}
+function limparFaceta(tela, k){ est(tela).sel[k] = new Set(); render(); }
+function limparBusca(tela){ est(tela).busca = ''; render(); }
+function limparTudo(tela){
+  const e = est(tela);
+  e.busca = ''; e.periodo = 'tudo';
+  CFG[tela].facetas.forEach(f => { e.sel[f.k] = new Set(); });
+  fecharPop(); render();
+}
 
 /* ══════════════ TELA 1: NA RUA ══════════════
    Agrupada POR PESSOA, e não por tipo de documento, porque é assim que a
@@ -206,53 +491,69 @@ function irPara(id){ telaAtual = id; renderAbas(); render(); window.scrollTo({to
    Andrei. A planilha ordena por data de lançamento, que é a ordem de quem
    escreve — esta ordena por quem tem de agir. */
 function telaRua(){
-  const fora = abertos().slice().sort((a,b)=>(dias(b.saiuEm)||0)-(dias(a.saiuEm)||0));
-  const velhos = fora.filter(t => (dias(t.saiuEm)||0) > 30);
-  const pior = fora.length ? dias(fora[0].saiuEm) : 0;
+  const fora = ordenada('rua');
+  const todos = abertos();
+  const velhos = fora.filter(t => (dias(t.saiuEm) || 0) > 30);
+  const pior = fora.length ? Math.max.apply(null, fora.map(t => dias(t.saiuEm) || 0)) : 0;
+  const oPior = fora.find(t => (dias(t.saiuEm) || 0) === pior);
 
   let h = '<div class="resumo">'
-    + cartao(fora.length, 'documentos fora', 'saíram e não consta a volta', fora.length?'perigo':'bom')
-    + cartao(velhos.length, 'fora há mais de 30 dias', 'estes não são atraso: são esquecimento', velhos.length?'perigo':'bom')
-    + cartao(pior ? pior+' dias' : '—', 'o mais antigo', fora.length?esc(fora[0].docTipo+' '+(fora[0].docNum||'')+' · '+(fora[0].comQuem||'')):'nada pendente','')
-    + cartao(new Set(fora.map(t=>t.comQuem||'—')).size, 'pessoas com papel', 'cada bloco abaixo é uma conversa','')
+    + cartao(fora.length + (fora.length !== todos.length ? ' de ' + todos.length : ''), 'documentos fora',
+             'saíram e não consta a volta', fora.length ? 'perigo' : 'bom')
+    + cartao(velhos.length, 'fora há mais de 30 dias', 'estes não são atraso: são esquecimento', velhos.length ? 'perigo' : 'bom')
+    + cartao(pior ? pior + ' dias' : '—', 'o mais antigo',
+             oPior ? esc(oPior.docTipo + ' ' + (oPior.docNum || '') + ' · ' + (oPior.comQuem || '')) : 'nada pendente', '')
+    + cartao(new Set(fora.map(t => t.comQuem || '—')).size, 'pessoas com papel', 'cada bloco abaixo é uma conversa', '')
     + '</div>';
 
   h += '<div class="nota">Esta tela é a razão do módulo existir. As quatro planilhas têm a coluna '
      + '<b>"DATA RETORNO"</b> — mas célula vazia não chama ninguém. Aqui o que está vazio vira fila, '
      + 'ordenada por quem está esperando há mais tempo.</div>';
 
-  if(!fora.length) return h + '<div class="painel"><div class="vazio"><span>✅</span>Nada fora. Todo documento que saiu, voltou.</div></div>';
+  h += barra('rua');
 
-  /* agrupa por quem está com o papel */
+  if(!todos.length) return h + '<div class="painel"><div class="vazio"><span>✅</span>Nada fora. Todo documento que saiu, voltou.</div></div>';
+  if(!fora.length) return h + '<div class="painel"><div class="vazio"><span>🔎</span>Nenhum documento com esses filtros.</div></div>';
+
+  /* Com ordenação por pessoa, agrupa; nas outras, a ordem escolhida manda e
+     o agrupamento seguiria quebrado — então vira lista corrida. */
+  const e = est('rua');
+  if(e.ordem === 'pessoa'){
+    const porPessoa = {};
+    fora.forEach(t => { const k = t.comQuem || '(sem destino anotado)'; (porPessoa[k] = porPessoa[k] || []).push(t); });
+    Object.keys(porPessoa).sort((a, b) => a.localeCompare(b, 'pt-BR')).forEach(nome => {
+      h += blocoPessoa(nome, porPessoa[nome]);
+    });
+    return h;
+  }
   const porPessoa = {};
   fora.forEach(t => { const k = t.comQuem || '(sem destino anotado)'; (porPessoa[k] = porPessoa[k] || []).push(t); });
-  const ordem = Object.keys(porPessoa).sort((a,b) =>
-    (dias(porPessoa[b][0].saiuEm)||0) - (dias(porPessoa[a][0].saiuEm)||0));
-
-  ordem.forEach(nome => {
-    const lista = porPessoa[nome];
-    const p = dias(lista[0].saiuEm) || 0;
-    h += '<div class="pessoa"><div class="pessoa-cab">'
-       + '<span class="pessoa-nome">' + esc(nome) + '</span>'
-       + '<span class="pessoa-conta">' + lista.length + (lista.length>1?' documentos':' documento') + '</span>'
-       + '<span class="pessoa-pior">mais antigo: ' + p + ' dias</span></div>';
-    lista.forEach(t => {
-      const n = dias(t.saiuEm);
-      h += '<div class="linha">'
-         + '<div class="selo-dias ' + classeDias(n) + '">' + (n==null?'—':n+'d') + '</div>'
-         + '<div class="doc"><b>' + esc(t.docTipo||'documento') + ' ' + esc(t.docNum||'') + '</b>'
-         + '<div class="met"><span class="etq">' + esc(t.tipo||'') + '</span>'
-         + (t.secretaria ? esc(t.secretaria) + ' · ' : '')
-         + 'saiu em ' + fmtD(t.saiuEm) + '</div></div>'
-         + '<button class="btn-voltou" onclick="marcarVolta(' + t.id + ')">✓ Voltou hoje</button>'
-         + '</div>';
-    });
-    h += '</div>';
-  });
+  const ordem = Object.keys(porPessoa).sort((a, b) =>
+    (dias(porPessoa[b][0].saiuEm) || 0) - (dias(porPessoa[a][0].saiuEm) || 0));
+  ordem.forEach(nome => { h += blocoPessoa(nome, porPessoa[nome]); });
   return h;
 }
+function blocoPessoa(nome, lista){
+  const p = Math.max.apply(null, lista.map(t => dias(t.saiuEm) || 0));
+  let h = '<div class="pessoa"><div class="pessoa-cab">'
+     + '<span class="pessoa-nome">' + esc(nome) + '</span>'
+     + '<span class="pessoa-conta">' + lista.length + (lista.length > 1 ? ' documentos' : ' documento') + '</span>'
+     + '<span class="pessoa-pior">mais antigo: ' + p + ' dias</span></div>';
+  lista.forEach(t => {
+    const n = dias(t.saiuEm);
+    h += '<div class="linha">'
+       + '<div class="selo-dias ' + classeDias(n) + '">' + (n == null ? '—' : n + 'd') + '</div>'
+       + '<div class="doc"><b>' + esc(t.docTipo || 'documento') + ' ' + esc(t.docNum || '') + '</b>'
+       + '<div class="met"><span class="etq">' + esc(t.tipo || '') + '</span>'
+       + (t.secretaria ? esc(t.secretaria) + ' · ' : '')
+       + 'saiu em ' + fmtD(t.saiuEm) + '</div></div>'
+       + '<button class="btn-voltou" onclick="marcarVolta(' + t.id + ')">✓ Voltou hoje</button>'
+       + '</div>';
+  });
+  return h + '</div>';
+}
 function cartao(valor, rotulo, sub, classe){
-  return '<div class="rc ' + (classe||'') + '"><div class="rot">' + esc(rotulo) + '</div>'
+  return '<div class="rc ' + (classe || '') + '"><div class="rot">' + esc(rotulo) + '</div>'
        + '<div class="val">' + esc(valor) + '</div><div class="sub">' + esc(sub) + '</div></div>';
 }
 /* No protótipo a baixa só vive na memória da aba — é para sentir o gesto:
@@ -261,123 +562,111 @@ function marcarVolta(id){
   const t = TRAMITES.find(x => x.id === id);
   if(!t) return;
   const n = dias(t.saiuEm);
-  if(!confirm('Registrar que ' + (t.docTipo||'o documento') + ' ' + (t.docNum||'')
-    + ' voltou hoje?\n\nEstá com ' + (t.comQuem||'—') + ' há ' + n + ' dias.')) return;
+  if(!confirm('Registrar que ' + (t.docTipo || 'o documento') + ' ' + (t.docNum || '')
+    + ' voltou hoje?\n\nEstá com ' + (t.comQuem || '—') + ' há ' + n + ' dias.')) return;
   const d = new Date();
-  t.voltouEm = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  t.voltouEm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   renderAbas(); render();
 }
 
 /* ══════════════ TELA 2: ANULAÇÕES ══════════════ */
-let buscaAnul = '';
 function telaAnul(){
-  const soma = ANULACOES.reduce((s,a)=>s+(Number(a.valor)||0),0);
-  const quem = {}; ANULACOES.forEach(a => { if(a.quem) quem[a.quem]=(quem[a.quem]||0)+1; });
-  const secs = {}; ANULACOES.forEach(a => { if(a.reqSec) secs[a.reqSec]=(secs[a.reqSec]||0)+1; });
-  const topo = Object.entries(secs).sort((a,b)=>b[1]-a[1])[0];
+  const lista = ordenada('anul');
+  const soma = lista.reduce((s, a) => s + (Number(a.valor) || 0), 0);
+  const quem = {}; lista.forEach(a => { if(a.quem) quem[a.quem] = (quem[a.quem] || 0) + 1; });
+  const secs = {}; lista.forEach(a => { if(a.reqSec) secs[a.reqSec] = (secs[a.reqSec] || 0) + 1; });
+  const topo = Object.entries(secs).sort((a, b) => b[1] - a[1])[0];
 
   let h = '<div class="resumo">'
-    + cartao(ANULACOES.length, 'anulações no ano', 'numeradas em sequência única','')
-    + cartao(money(soma), 'valor anulado', 'empenhos que voltaram para a dotação','')
-    + cartao(Object.entries(quem).map(([k,v])=>k+' '+v).join(' · ')||'—', 'quem lançou', 'a planilha guarda isso entre parênteses no número','')
-    + cartao(topo ? topo[0] : '—', 'secretaria que mais anula', topo ? topo[1]+' anulações no ano' : '','')
+    + cartao(lista.length, 'anulações', 'no recorte escolhido abaixo', '')
+    + cartao(money(soma), 'valor anulado', 'empenhos que voltaram para a dotação', '')
+    + cartao(Object.entries(quem).map(([k, v]) => k + ' ' + v).join(' · ') || '—', 'quem lançou', 'a planilha guarda isso entre parênteses no número', '')
+    + cartao(topo ? topo[0] : '—', 'secretaria que mais anula', topo ? topo[1] + ' anulações' : '', '')
     + '</div>';
 
   h += '<div class="nota">Cada anulação já cita a <b>requisição interna</b> (ex.: <code>09-72-2026-SMED</code>) '
      + 'e o <b>memorando</b> que a pediu. São ponteiros para coisas que o sistema já tem: a requisição vive em '
      + '<b>/requisicao/</b> e o memorando, na aba ao lado. Hoje a ligação existe só na cabeça de quem digitou.</div>';
 
-  const termo = normalizar(buscaAnul);
-  const lista = ANULACOES.filter(a => !termo ||
-    normalizar(a.credor + ' ' + a.requisicao + ' ' + a.empenho + ' ' + a.memorando + ' ' + a.num + '/' + a.ano).includes(termo));
-
-  h += '<div class="painel"><div class="painel-cab"><h2>Anulações de empenho</h2>'
-     + '<input class="busca" placeholder="Procurar credor, requisição, empenho…" value="' + esc(buscaAnul) + '" oninput="buscaAnul=this.value;render()">'
-     + '<span class="conta">' + lista.length + ' de ' + ANULACOES.length + '</span></div>';
-  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nada com esse texto.</div></div>';
+  h += barra('anul');
+  h += '<div class="painel">';
+  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhuma anulação com esses filtros.</div></div>';
 
   h += '<table><thead><tr><th>Nº</th><th>Requisição</th><th>Memorando</th><th>Pedido</th><th>Empenho</th>'
      + '<th>Credor</th><th class="num">Valor</th><th>Contabilidade</th><th>Voltou</th></tr></thead><tbody>';
-  lista.slice(0,300).forEach(a => {
-    h += '<tr><td><b>' + a.num + '/' + a.ano + '</b><div class="met" style="font-size:11px;color:var(--muted)">' + esc(a.quem||'') + '</div></td>'
-       + '<td>' + esc(a.requisicao||'—') + '</td>'
-       + '<td>' + esc(a.memorando||'—') + '</td>'
-       + '<td>' + esc(a.pedido||'—') + '</td>'
-       + '<td><b>' + esc(a.empenho||'—') + '</b></td>'
-       + '<td>' + esc(a.credor||'—') + '</td>'
+  lista.slice(0, 300).forEach(a => {
+    h += '<tr><td><b>' + a.num + '/' + a.ano + '</b><div style="font-size:11px;color:var(--muted)">' + esc(a.quem || '') + '</div></td>'
+       + '<td>' + esc(a.requisicao || '—') + '</td>'
+       + '<td>' + esc(a.memorando || '—') + '</td>'
+       + '<td>' + esc(a.pedido || '—') + '</td>'
+       + '<td><b>' + esc(a.empenho || '—') + '</b></td>'
+       + '<td>' + esc(a.credor || '—') + '</td>'
        + '<td class="num">' + money(a.valor) + '</td>'
        + '<td>' + fmtD(a.contabilidadeEm) + '</td>'
        + '<td>' + fmtD(a.retornoEm) + '</td></tr>';
   });
   h += '</tbody></table>';
-  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando as 300 primeiras</div>';
+  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando as 300 primeiras — use os filtros acima</div>';
   return h + '</div>';
 }
 
 /* ══════════════ TELA 3: ARQUIVO ══════════════ */
-let buscaArq = '';
 function telaArq(){
-  const termo = normalizar(buscaArq);
-  const lista = PASTAS.filter(p => !termo ||
-    normalizar(p.processo + ' ' + p.vencedor + ' ' + p.modalidade + ' ' + (p.pregoeiro||'')).includes(termo));
-  const semCheck = PASTAS.filter(p => p.arquivadoEm && !p.checklist).length;
-  const porMod = {}; PASTAS.forEach(p => { porMod[p.modalidade] = (porMod[p.modalidade]||0)+1; });
+  const lista = ordenada('arq');
+  const semCheck = lista.filter(p => p.arquivadoEm && !p.checklist).length;
+  const porMod = {}; lista.forEach(p => { porMod[p.modalidade] = (porMod[p.modalidade] || 0) + 1; });
 
   let h = '<div class="resumo">'
-    + cartao(PASTAS.length, 'processos arquivados', Object.entries(porMod).map(([k,v])=>v+' '+k.toLowerCase()).slice(0,3).join(' · '),'')
-    + cartao(abertos().filter(t=>t.tipo==='emprestimo').length, 'emprestados agora', 'saíram do arquivo e não voltaram', '')
-    + cartao(semCheck, 'sem checklist conferido', 'arquivado, mas a conferência não foi marcada', semCheck?'perigo':'bom')
+    + cartao(lista.length, 'processos arquivados',
+             Object.entries(porMod).sort((a, b) => b[1] - a[1]).map(([k, v]) => v + ' ' + k.toLowerCase()).slice(0, 3).join(' · '), '')
+    + cartao(abertos().filter(t => t.tipo === 'emprestimo').length, 'emprestados agora', 'saíram do arquivo e não voltaram', '')
+    + cartao(semCheck, 'sem checklist conferido', 'arquivado, mas a conferência não foi marcada', semCheck ? 'perigo' : 'bom')
     + '</div>';
 
   h += '<div class="nota">A pergunta que esta tela responde é <b>"onde está a DL 45/2025?"</b> — hoje ela custa '
      + 'abrir quatro cadernos e olhar aba por aba. Aqui é uma linha de busca, e o empréstimo (quem levou, quando) '
      + 'vira pendência na primeira tela sozinho.</div>';
 
-  h += '<div class="painel"><div class="painel-cab"><h2>O que está arquivado</h2>'
-     + '<input class="busca" placeholder="Procurar processo, vencedor, pregoeiro…" value="' + esc(buscaArq) + '" oninput="buscaArq=this.value;render()">'
-     + '<span class="conta">' + lista.length + ' de ' + PASTAS.length + '</span></div>';
-  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nada com esse texto.</div></div>';
+  h += barra('arq');
+  h += '<div class="painel">';
+  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum processo com esses filtros.</div></div>';
 
   h += '<table><thead><tr><th>Modalidade</th><th>Processo</th><th>Vencedor e valor</th><th>Pregoeiro</th>'
      + '<th>Arquivado em</th><th>Checklist</th></tr></thead><tbody>';
-  lista.slice(0,300).forEach(p => {
+  lista.slice(0, 300).forEach(p => {
     h += '<tr><td><span class="etq">' + esc(p.modalidade) + '</span></td>'
-       + '<td><b>' + esc(p.processo) + '</b>' + (p.secretaria?'<div style="font-size:11.5px;color:var(--muted)">'+esc(p.secretaria)+'</div>':'') + '</td>'
-       + '<td>' + esc(p.vencedor || '—') + (p.valor?' <b>'+money(p.valor)+'</b>':'') + '</td>'
+       + '<td><b>' + esc(p.processo) + '</b>' + (p.secretaria ? '<div style="font-size:11.5px;color:var(--muted)">' + esc(p.secretaria) + '</div>' : '') + '</td>'
+       + '<td>' + esc(p.vencedor || '—') + (p.valor ? ' <b>' + money(p.valor) + '</b>' : '') + '</td>'
        + '<td>' + esc(p.pregoeiro || '—') + '</td>'
        + '<td>' + fmtD(p.arquivadoEm) + '</td>'
        + '<td>' + (p.checklist ? '<span style="color:var(--green);font-weight:800">✓ conferido</span>'
                                : '<span style="color:var(--muted)">—</span>') + '</td></tr>';
   });
   h += '</tbody></table>';
-  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros</div>';
+  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros — use os filtros acima</div>';
   return h + '</div>';
 }
 
 /* ══════════════ TELA 4: MEMORANDOS ══════════════ */
-let buscaMemo = '';
 function telaMemo(){
-  const termo = normalizar(buscaMemo);
-  const lista = MEMORANDOS.filter(m => !termo ||
-    normalizar(m.num + ' ' + m.descricao + ' ' + m.secretaria + ' ' + (m.entregueA||'')).includes(termo));
-  const secs = new Set(MEMORANDOS.map(m => m.secretaria)).size;
+  const lista = ordenada('memo');
+  const secs = new Set(lista.map(m => m.secretaria)).size;
 
   let h = '<div class="resumo">'
-    + cartao(MEMORANDOS.length, 'memorandos recebidos', 'protocolo de entrada do setor','')
-    + cartao(secs, 'secretarias', 'eram 19 abas, uma por pasta','')
-    + cartao(new Set(MEMORANDOS.map(m=>m.entregueA).filter(Boolean)).size, 'pessoas que receberam', 'a coluna "entregue para"','')
+    + cartao(lista.length, 'memorandos recebidos', 'protocolo de entrada do setor', '')
+    + cartao(secs, 'secretarias', 'eram 19 abas, uma por pasta', '')
+    + cartao(new Set(lista.map(m => m.entregueA).filter(Boolean)).size, 'pessoas que receberam', 'a coluna "entregue para"', '')
     + '</div>';
 
   h += '<div class="nota">O memorando é o <b>porquê</b> de quase tudo: é ele que a anulação cita em "REF. MEMORANDO". '
      + 'Aqui é uma lista só, com busca — em vez de adivinhar em qual das 19 abas ele foi anotado.</div>';
 
-  h += '<div class="painel"><div class="painel-cab"><h2>Memorandos recebidos</h2>'
-     + '<input class="busca" placeholder="Procurar número, assunto, secretaria…" value="' + esc(buscaMemo) + '" oninput="buscaMemo=this.value;render()">'
-     + '<span class="conta">' + lista.length + ' de ' + MEMORANDOS.length + '</span></div>';
-  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nada com esse texto.</div></div>';
+  h += barra('memo');
+  h += '<div class="painel">';
+  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum memorando com esses filtros.</div></div>';
 
   h += '<table><thead><tr><th>Memorando</th><th>Secretaria</th><th>Recebido</th><th>Assunto</th><th>Entregue para</th></tr></thead><tbody>';
-  lista.slice(0,300).forEach(m => {
+  lista.slice(0, 300).forEach(m => {
     h += '<tr><td><b>' + esc(m.num || '—') + '</b></td>'
        + '<td><span class="etq">' + esc(m.secretaria) + '</span></td>'
        + '<td style="white-space:nowrap">' + fmtD(m.recebidoEm) + '</td>'
@@ -385,7 +674,7 @@ function telaMemo(){
        + '<td>' + esc(m.entregueA || '—') + '</td></tr>';
   });
   h += '</tbody></table>';
-  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros</div>';
+  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros — use os filtros acima</div>';
   return h + '</div>';
 }
 
