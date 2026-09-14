@@ -1,0 +1,417 @@
+<!--
+  Arquivo e Anulações — /arquivo/   (PROTÓTIPO)
+
+  As quatro planilhas que este módulo substitui (ANULAÇÕES, MEMORANDOS,
+  Controle do Arquivo e PROCESSOS, com 30 abas somadas) contam a mesma
+  história de quatro jeitos: um papel saiu daqui, foi parar com alguém, e
+  precisa voltar. Só isso. O que muda entre uma aba e outra é quem recebeu
+  e com que nome se chama a ida.
+
+  Por isso a tela não tem uma aba por planilha. Ela abre na única pergunta
+  que nenhuma das quatro sabe responder:
+
+      O QUE ESTÁ FORA AGORA, COM QUEM, E HÁ QUANTOS DIAS?
+
+  Nos dados de verdade do ano, essa pergunta tem 51 respostas — e a mais
+  antiga está fora há 182 dias. Ninguém escondeu: está lá, numa linha de uma
+  aba, com a coluna "DATA RETORNO" vazia. Célula vazia não chama ninguém.
+  O resto do módulo (anulações, arquivo, memorandos) existe para alimentar
+  essa primeira tela sem trabalho dobrado.
+
+  PROTÓTIPO: lê os arquivos de dados/*.json, convertidos das planilhas pelo
+  ferramentas/planilhas-para-json.py. Não grava, não pede login e não fala
+  com o Firestore. É para olhar, clicar e dizer o que muda — a ligação com
+  o banco e o portão de acesso vêm depois de o desenho estar certo, como
+  foi feito em /requisicao/.
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a6b">
+<link rel="icon" href="../logo-ijui.jpg">
+<title>Arquivo e Anulações – Município de Ijuí</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#1a3a6b; --navy-mid:#1e4a8a; --navy-dark:#12294d; --navy-light:#2e5da8;
+    --gold:#e8a020; --card:#fff; --bg:#eaeef6; --text:#1c2433; --muted:#6b7793;
+    --border:#dde4f0; --shadow:0 2px 10px rgba(20,40,80,.07); --shadow-md:0 6px 22px rgba(20,40,80,.10);
+    --blue-bg:#e7eefb; --blue-text:#1e4a8a;
+    --green:#2a8a3a; --green-bg:#e6f4ea;
+    --red:#c0282a;   --red-bg:#fbe7e7;
+    --amber:#c07000; --amber-bg:#fef3dc;
+    --radius:18px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',Arial,sans-serif;font-size:15px;color:var(--text);min-height:100vh;
+    background:radial-gradient(1200px 600px at 100% -10%,rgba(46,93,168,.10),transparent 60%),
+               radial-gradient(900px 500px at -10% 0%,rgba(232,160,32,.07),transparent 55%),var(--bg);
+    background-attachment:fixed;-webkit-font-smoothing:antialiased}
+  header{background:#fff;padding:0 32px;position:sticky;top:0;z-index:100;box-shadow:0 3px 16px rgba(15,32,80,.15);
+    border-bottom:4px solid;border-image:linear-gradient(90deg,var(--navy) 0%,var(--navy-light) 55%,var(--gold) 100%) 1}
+  .header-inner{max-width:1380px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:74px;gap:20px}
+  .logo-wrap{display:flex;align-items:center;gap:18px;min-width:0}
+  .logo-mark{width:46px;height:46px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(26,58,107,.18),inset 0 0 0 1.5px var(--border);flex-shrink:0;padding:6px}
+  .logo-mark img{width:100%;height:100%;object-fit:contain;display:block}
+  .logo-divider{width:2px;height:44px;background:var(--border);border-radius:2px}
+  .logo-text h1{font-size:18px;color:var(--navy);font-weight:700;line-height:1.2;white-space:nowrap}
+  .logo-text p{font-size:11.5px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+  .proto-chip{background:var(--amber-bg);color:var(--amber);border:1.5px solid #f0d9a8;border-radius:20px;
+    padding:6px 14px;font-size:11.5px;font-weight:800;letter-spacing:.6px;white-space:nowrap}
+
+  main{max-width:1380px;margin:0 auto;padding:24px 32px 70px}
+
+  /* ── Abas ── */
+  .abas{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .aba{background:#fff;border:1.5px solid var(--border);color:var(--navy);border-radius:12px;padding:11px 20px;
+    font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:9px;transition:.15s}
+  .aba:hover{border-color:var(--navy-light);background:var(--blue-bg)}
+  .aba.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .aba .n{background:rgba(0,0,0,.10);border-radius:20px;padding:1px 9px;font-size:12px;font-weight:800}
+  .aba.on .n{background:rgba(255,255,255,.22)}
+  .aba.alerta:not(.on){border-color:#e9b9b9;background:var(--red-bg);color:var(--red)}
+  .aba.alerta:not(.on) .n{background:rgba(192,40,42,.13)}
+
+  /* ── Cartões de resumo ── */
+  .resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+  .rc{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+  .rc .rot{font-size:10.5px;font-weight:800;letter-spacing:1.4px;color:var(--muted);text-transform:uppercase}
+  .rc .val{font-size:28px;font-weight:800;color:var(--navy);margin-top:6px;line-height:1.1}
+  .rc .sub{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .rc.perigo{border-color:#e9b9b9;background:linear-gradient(180deg,#fff,#fdf4f4)}
+  .rc.perigo .val{color:var(--red)}
+  .rc.bom{border-color:#bfe3c6;background:linear-gradient(180deg,#fff,#f4faf5)}
+  .rc.bom .val{color:var(--green)}
+
+  /* ── Blocos por pessoa ── */
+  .pessoa{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);
+    margin-bottom:16px;overflow:hidden}
+  .pessoa-cab{display:flex;align-items:center;gap:14px;padding:16px 22px;background:linear-gradient(135deg,var(--navy-dark),var(--navy-mid) 70%);color:#fff;flex-wrap:wrap}
+  .pessoa-nome{font-size:17px;font-weight:800;letter-spacing:.3px}
+  .pessoa-conta{background:rgba(255,255,255,.16);border-radius:20px;padding:4px 13px;font-size:12.5px;font-weight:700}
+  .pessoa-pior{margin-left:auto;font-size:12.5px;font-weight:700;background:rgba(255,255,255,.12);border-radius:20px;padding:5px 14px}
+  .linha{display:flex;align-items:center;gap:14px;padding:13px 22px;border-top:1px solid var(--border);flex-wrap:wrap}
+  .linha:hover{background:#f8fafd}
+  .selo-dias{min-width:92px;text-align:center;border-radius:10px;padding:7px 10px;font-size:13px;font-weight:800;flex-shrink:0}
+  .d-novo{background:var(--green-bg);color:var(--green)}
+  .d-medio{background:var(--amber-bg);color:var(--amber)}
+  .d-velho{background:var(--red-bg);color:var(--red)}
+  .doc{flex:1;min-width:210px}
+  .doc b{font-size:14.5px}
+  .doc .met{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .etq{display:inline-block;background:var(--blue-bg);color:var(--blue-text);border-radius:6px;padding:2px 9px;
+    font-size:11px;font-weight:800;letter-spacing:.4px;margin-right:6px}
+  .btn-voltou{background:var(--green-bg);color:var(--green);border:1.5px solid #bfe3c6;border-radius:10px;
+    padding:8px 15px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .btn-voltou:hover{background:#d8eede}
+
+  /* ── Tabelas ── */
+  .painel{background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .painel-cab{padding:16px 22px;border-bottom:1.5px solid var(--border);display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .painel-cab h2{font-size:16px;color:var(--navy);font-weight:800}
+  .busca{flex:1;min-width:220px;max-width:420px;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;
+    font-family:inherit;font-size:14px;background:#f8fafd}
+  .busca:focus{outline:none;border-color:var(--navy-light);background:#fff}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f5f8fc;text-align:left;font-size:10.5px;font-weight:800;letter-spacing:1.1px;color:var(--muted);
+    text-transform:uppercase;padding:11px 14px;border-bottom:1.5px solid var(--border);white-space:nowrap}
+  td{padding:11px 14px;border-bottom:1px solid #eef2f8;font-size:13.5px;vertical-align:top}
+  tbody tr:hover{background:#f8fafd}
+  .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .vazio{padding:48px 20px;text-align:center;color:var(--muted)}
+  .vazio span{display:block;font-size:34px;margin-bottom:10px}
+  .conta{font-size:12.5px;color:var(--muted);margin-left:auto}
+
+  .nota{background:var(--blue-bg);border-left:4px solid var(--navy-light);border-radius:0 12px 12px 0;
+    padding:14px 18px;font-size:13.5px;line-height:1.6;color:var(--navy-dark);margin-bottom:20px}
+  .nota b{font-weight:800}
+  @media(max-width:760px){
+    header{padding:0 16px} main{padding:18px 16px 60px}
+    .logo-text p{display:none} .pessoa-pior{margin-left:0;width:100%}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <div class="logo-mark"><img src="../logo-ijui.jpg" alt="Ijuí"></div>
+      <div class="logo-divider"></div>
+      <div class="logo-text">
+        <h1>Arquivo e Anulações</h1>
+        <p>Coordenadoria de Compras — COPAM</p>
+      </div>
+    </div>
+    <span class="proto-chip" id="chipProto">PROTÓTIPO · DADOS DE 2026</span>
+  </div>
+</header>
+
+<main>
+  <div class="abas" id="abas"></div>
+  <div id="tela"></div>
+</main>
+
+<script>
+/* ══════════════ DADOS ══════════════
+   No protótipo vêm dos arquivos convertidos das planilhas. Em produção
+   viram quatro coleções do Firestore — e a consulta da primeira tela é a
+   pequena de propósito: "voltouEm == null" traz 51 documentos, não os 978
+   do ano. A lição custou caro nos outros módulos (/contratos/ lia 1.300
+   documentos por abertura) e já nasce aplicada aqui. */
+let TRAMITES = [], ANULACOES = [], MEMORANDOS = [], PASTAS = [];
+const HOJE = new Date();
+
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtD(iso){ if(!iso) return '—'; const p=String(iso).split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso; }
+const fmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+function money(v){ return (v==null||isNaN(v)) ? '—' : fmtBRL.format(v); }
+function dias(iso){
+  if(!iso) return null;
+  const p = String(iso).split('-'); if(p.length!==3) return null;
+  const d = new Date(+p[0], +p[1]-1, +p[2]);
+  if(isNaN(d)) return null;
+  return Math.round((HOJE - d)/86400000);
+}
+/* A cor é do PRAZO, não do gosto: até uma semana é o tempo normal de uma
+   assinatura (a mediana medida nos dados é 1 dia); um mês fora já é outra
+   conversa. */
+function classeDias(n){ return n==null?'d-novo' : n>30?'d-velho' : n>7?'d-medio' : 'd-novo'; }
+
+function abertos(){ return TRAMITES.filter(t => t.saiuEm && !t.voltouEm); }
+function normalizar(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+
+/* ══════════════ ABAS ══════════════ */
+const TELAS = [
+  {id:'rua',  rot:'📍 Na rua',     conta:()=>abertos().length, alerta:true},
+  {id:'anul', rot:'✂️ Anulações',  conta:()=>ANULACOES.length},
+  {id:'arq',  rot:'🗄️ Arquivo',    conta:()=>PASTAS.length},
+  {id:'memo', rot:'📨 Memorandos', conta:()=>MEMORANDOS.length}
+];
+let telaAtual = 'rua';
+function renderAbas(){
+  document.getElementById('abas').innerHTML = TELAS.map(t =>
+    '<button class="aba'+(telaAtual===t.id?' on':'')+(t.alerta&&t.conta()?' alerta':'')+'" onclick="irPara(\''+t.id+'\')">'
+    + t.rot + '<span class="n">' + t.conta() + '</span></button>').join('');
+}
+function irPara(id){ telaAtual = id; renderAbas(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+/* ══════════════ TELA 1: NA RUA ══════════════
+   Agrupada POR PESSOA, e não por tipo de documento, porque é assim que a
+   pendência se resolve: não se cobra "as inexigibilidades", se fala com o
+   Andrei. A planilha ordena por data de lançamento, que é a ordem de quem
+   escreve — esta ordena por quem tem de agir. */
+function telaRua(){
+  const fora = abertos().slice().sort((a,b)=>(dias(b.saiuEm)||0)-(dias(a.saiuEm)||0));
+  const velhos = fora.filter(t => (dias(t.saiuEm)||0) > 30);
+  const pior = fora.length ? dias(fora[0].saiuEm) : 0;
+
+  let h = '<div class="resumo">'
+    + cartao(fora.length, 'documentos fora', 'saíram e não consta a volta', fora.length?'perigo':'bom')
+    + cartao(velhos.length, 'fora há mais de 30 dias', 'estes não são atraso: são esquecimento', velhos.length?'perigo':'bom')
+    + cartao(pior ? pior+' dias' : '—', 'o mais antigo', fora.length?esc(fora[0].docTipo+' '+(fora[0].docNum||'')+' · '+(fora[0].comQuem||'')):'nada pendente','')
+    + cartao(new Set(fora.map(t=>t.comQuem||'—')).size, 'pessoas com papel', 'cada bloco abaixo é uma conversa','')
+    + '</div>';
+
+  h += '<div class="nota">Esta tela é a razão do módulo existir. As quatro planilhas têm a coluna '
+     + '<b>"DATA RETORNO"</b> — mas célula vazia não chama ninguém. Aqui o que está vazio vira fila, '
+     + 'ordenada por quem está esperando há mais tempo.</div>';
+
+  if(!fora.length) return h + '<div class="painel"><div class="vazio"><span>✅</span>Nada fora. Todo documento que saiu, voltou.</div></div>';
+
+  /* agrupa por quem está com o papel */
+  const porPessoa = {};
+  fora.forEach(t => { const k = t.comQuem || '(sem destino anotado)'; (porPessoa[k] = porPessoa[k] || []).push(t); });
+  const ordem = Object.keys(porPessoa).sort((a,b) =>
+    (dias(porPessoa[b][0].saiuEm)||0) - (dias(porPessoa[a][0].saiuEm)||0));
+
+  ordem.forEach(nome => {
+    const lista = porPessoa[nome];
+    const p = dias(lista[0].saiuEm) || 0;
+    h += '<div class="pessoa"><div class="pessoa-cab">'
+       + '<span class="pessoa-nome">' + esc(nome) + '</span>'
+       + '<span class="pessoa-conta">' + lista.length + (lista.length>1?' documentos':' documento') + '</span>'
+       + '<span class="pessoa-pior">mais antigo: ' + p + ' dias</span></div>';
+    lista.forEach(t => {
+      const n = dias(t.saiuEm);
+      h += '<div class="linha">'
+         + '<div class="selo-dias ' + classeDias(n) + '">' + (n==null?'—':n+'d') + '</div>'
+         + '<div class="doc"><b>' + esc(t.docTipo||'documento') + ' ' + esc(t.docNum||'') + '</b>'
+         + '<div class="met"><span class="etq">' + esc(t.tipo||'') + '</span>'
+         + (t.secretaria ? esc(t.secretaria) + ' · ' : '')
+         + 'saiu em ' + fmtD(t.saiuEm) + '</div></div>'
+         + '<button class="btn-voltou" onclick="marcarVolta(' + t.id + ')">✓ Voltou hoje</button>'
+         + '</div>';
+    });
+    h += '</div>';
+  });
+  return h;
+}
+function cartao(valor, rotulo, sub, classe){
+  return '<div class="rc ' + (classe||'') + '"><div class="rot">' + esc(rotulo) + '</div>'
+       + '<div class="val">' + esc(valor) + '</div><div class="sub">' + esc(sub) + '</div></div>';
+}
+/* No protótipo a baixa só vive na memória da aba — é para sentir o gesto:
+   um clique fecha a pendência, em vez de procurar a linha certa em 30 abas. */
+function marcarVolta(id){
+  const t = TRAMITES.find(x => x.id === id);
+  if(!t) return;
+  const n = dias(t.saiuEm);
+  if(!confirm('Registrar que ' + (t.docTipo||'o documento') + ' ' + (t.docNum||'')
+    + ' voltou hoje?\n\nEstá com ' + (t.comQuem||'—') + ' há ' + n + ' dias.')) return;
+  const d = new Date();
+  t.voltouEm = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  renderAbas(); render();
+}
+
+/* ══════════════ TELA 2: ANULAÇÕES ══════════════ */
+let buscaAnul = '';
+function telaAnul(){
+  const soma = ANULACOES.reduce((s,a)=>s+(Number(a.valor)||0),0);
+  const quem = {}; ANULACOES.forEach(a => { if(a.quem) quem[a.quem]=(quem[a.quem]||0)+1; });
+  const secs = {}; ANULACOES.forEach(a => { if(a.reqSec) secs[a.reqSec]=(secs[a.reqSec]||0)+1; });
+  const topo = Object.entries(secs).sort((a,b)=>b[1]-a[1])[0];
+
+  let h = '<div class="resumo">'
+    + cartao(ANULACOES.length, 'anulações no ano', 'numeradas em sequência única','')
+    + cartao(money(soma), 'valor anulado', 'empenhos que voltaram para a dotação','')
+    + cartao(Object.entries(quem).map(([k,v])=>k+' '+v).join(' · ')||'—', 'quem lançou', 'a planilha guarda isso entre parênteses no número','')
+    + cartao(topo ? topo[0] : '—', 'secretaria que mais anula', topo ? topo[1]+' anulações no ano' : '','')
+    + '</div>';
+
+  h += '<div class="nota">Cada anulação já cita a <b>requisição interna</b> (ex.: <code>09-72-2026-SMED</code>) '
+     + 'e o <b>memorando</b> que a pediu. São ponteiros para coisas que o sistema já tem: a requisição vive em '
+     + '<b>/requisicao/</b> e o memorando, na aba ao lado. Hoje a ligação existe só na cabeça de quem digitou.</div>';
+
+  const termo = normalizar(buscaAnul);
+  const lista = ANULACOES.filter(a => !termo ||
+    normalizar(a.credor + ' ' + a.requisicao + ' ' + a.empenho + ' ' + a.memorando + ' ' + a.num + '/' + a.ano).includes(termo));
+
+  h += '<div class="painel"><div class="painel-cab"><h2>Anulações de empenho</h2>'
+     + '<input class="busca" placeholder="Procurar credor, requisição, empenho…" value="' + esc(buscaAnul) + '" oninput="buscaAnul=this.value;render()">'
+     + '<span class="conta">' + lista.length + ' de ' + ANULACOES.length + '</span></div>';
+  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nada com esse texto.</div></div>';
+
+  h += '<table><thead><tr><th>Nº</th><th>Requisição</th><th>Memorando</th><th>Pedido</th><th>Empenho</th>'
+     + '<th>Credor</th><th class="num">Valor</th><th>Contabilidade</th><th>Voltou</th></tr></thead><tbody>';
+  lista.slice(0,300).forEach(a => {
+    h += '<tr><td><b>' + a.num + '/' + a.ano + '</b><div class="met" style="font-size:11px;color:var(--muted)">' + esc(a.quem||'') + '</div></td>'
+       + '<td>' + esc(a.requisicao||'—') + '</td>'
+       + '<td>' + esc(a.memorando||'—') + '</td>'
+       + '<td>' + esc(a.pedido||'—') + '</td>'
+       + '<td><b>' + esc(a.empenho||'—') + '</b></td>'
+       + '<td>' + esc(a.credor||'—') + '</td>'
+       + '<td class="num">' + money(a.valor) + '</td>'
+       + '<td>' + fmtD(a.contabilidadeEm) + '</td>'
+       + '<td>' + fmtD(a.retornoEm) + '</td></tr>';
+  });
+  h += '</tbody></table>';
+  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando as 300 primeiras</div>';
+  return h + '</div>';
+}
+
+/* ══════════════ TELA 3: ARQUIVO ══════════════ */
+let buscaArq = '';
+function telaArq(){
+  const termo = normalizar(buscaArq);
+  const lista = PASTAS.filter(p => !termo ||
+    normalizar(p.processo + ' ' + p.vencedor + ' ' + p.modalidade + ' ' + (p.pregoeiro||'')).includes(termo));
+  const semCheck = PASTAS.filter(p => p.arquivadoEm && !p.checklist).length;
+  const porMod = {}; PASTAS.forEach(p => { porMod[p.modalidade] = (porMod[p.modalidade]||0)+1; });
+
+  let h = '<div class="resumo">'
+    + cartao(PASTAS.length, 'processos arquivados', Object.entries(porMod).map(([k,v])=>v+' '+k.toLowerCase()).slice(0,3).join(' · '),'')
+    + cartao(abertos().filter(t=>t.tipo==='emprestimo').length, 'emprestados agora', 'saíram do arquivo e não voltaram', '')
+    + cartao(semCheck, 'sem checklist conferido', 'arquivado, mas a conferência não foi marcada', semCheck?'perigo':'bom')
+    + '</div>';
+
+  h += '<div class="nota">A pergunta que esta tela responde é <b>"onde está a DL 45/2025?"</b> — hoje ela custa '
+     + 'abrir quatro cadernos e olhar aba por aba. Aqui é uma linha de busca, e o empréstimo (quem levou, quando) '
+     + 'vira pendência na primeira tela sozinho.</div>';
+
+  h += '<div class="painel"><div class="painel-cab"><h2>O que está arquivado</h2>'
+     + '<input class="busca" placeholder="Procurar processo, vencedor, pregoeiro…" value="' + esc(buscaArq) + '" oninput="buscaArq=this.value;render()">'
+     + '<span class="conta">' + lista.length + ' de ' + PASTAS.length + '</span></div>';
+  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nada com esse texto.</div></div>';
+
+  h += '<table><thead><tr><th>Modalidade</th><th>Processo</th><th>Vencedor e valor</th><th>Pregoeiro</th>'
+     + '<th>Arquivado em</th><th>Checklist</th></tr></thead><tbody>';
+  lista.slice(0,300).forEach(p => {
+    h += '<tr><td><span class="etq">' + esc(p.modalidade) + '</span></td>'
+       + '<td><b>' + esc(p.processo) + '</b>' + (p.secretaria?'<div style="font-size:11.5px;color:var(--muted)">'+esc(p.secretaria)+'</div>':'') + '</td>'
+       + '<td>' + esc(p.vencedor || '—') + (p.valor?' <b>'+money(p.valor)+'</b>':'') + '</td>'
+       + '<td>' + esc(p.pregoeiro || '—') + '</td>'
+       + '<td>' + fmtD(p.arquivadoEm) + '</td>'
+       + '<td>' + (p.checklist ? '<span style="color:var(--green);font-weight:800">✓ conferido</span>'
+                               : '<span style="color:var(--muted)">—</span>') + '</td></tr>';
+  });
+  h += '</tbody></table>';
+  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros</div>';
+  return h + '</div>';
+}
+
+/* ══════════════ TELA 4: MEMORANDOS ══════════════ */
+let buscaMemo = '';
+function telaMemo(){
+  const termo = normalizar(buscaMemo);
+  const lista = MEMORANDOS.filter(m => !termo ||
+    normalizar(m.num + ' ' + m.descricao + ' ' + m.secretaria + ' ' + (m.entregueA||'')).includes(termo));
+  const secs = new Set(MEMORANDOS.map(m => m.secretaria)).size;
+
+  let h = '<div class="resumo">'
+    + cartao(MEMORANDOS.length, 'memorandos recebidos', 'protocolo de entrada do setor','')
+    + cartao(secs, 'secretarias', 'eram 19 abas, uma por pasta','')
+    + cartao(new Set(MEMORANDOS.map(m=>m.entregueA).filter(Boolean)).size, 'pessoas que receberam', 'a coluna "entregue para"','')
+    + '</div>';
+
+  h += '<div class="nota">O memorando é o <b>porquê</b> de quase tudo: é ele que a anulação cita em "REF. MEMORANDO". '
+     + 'Aqui é uma lista só, com busca — em vez de adivinhar em qual das 19 abas ele foi anotado.</div>';
+
+  h += '<div class="painel"><div class="painel-cab"><h2>Memorandos recebidos</h2>'
+     + '<input class="busca" placeholder="Procurar número, assunto, secretaria…" value="' + esc(buscaMemo) + '" oninput="buscaMemo=this.value;render()">'
+     + '<span class="conta">' + lista.length + ' de ' + MEMORANDOS.length + '</span></div>';
+  if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nada com esse texto.</div></div>';
+
+  h += '<table><thead><tr><th>Memorando</th><th>Secretaria</th><th>Recebido</th><th>Assunto</th><th>Entregue para</th></tr></thead><tbody>';
+  lista.slice(0,300).forEach(m => {
+    h += '<tr><td><b>' + esc(m.num || '—') + '</b></td>'
+       + '<td><span class="etq">' + esc(m.secretaria) + '</span></td>'
+       + '<td style="white-space:nowrap">' + fmtD(m.recebidoEm) + '</td>'
+       + '<td>' + esc(m.descricao || '—') + '</td>'
+       + '<td>' + esc(m.entregueA || '—') + '</td></tr>';
+  });
+  h += '</tbody></table>';
+  if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros</div>';
+  return h + '</div>';
+}
+
+function render(){
+  const f = {rua:telaRua, anul:telaAnul, arq:telaArq, memo:telaMemo}[telaAtual];
+  document.getElementById('tela').innerHTML = f();
+}
+
+/* ══════════════ CARGA ══════════════ */
+function carregar(){
+  const p = n => fetch('dados/' + n + '.json').then(r => r.ok ? r.json() : []).catch(() => []);
+  return Promise.all([p('tramites'), p('anulacoes'), p('memorandos'), p('pastas')])
+    .then(([t, a, m, pa]) => {
+      TRAMITES = t; ANULACOES = a; MEMORANDOS = m; PASTAS = pa;
+      if(!t.length && !a.length){
+        document.getElementById('tela').innerHTML =
+          '<div class="painel"><div class="vazio"><span>📂</span>Os dados ainda não foram gerados.<br>'
+          + '<span style="font-size:13px">Rode <code>python3 arquivo/ferramentas/planilhas-para-json.py PASTA --gravar</code></span></div></div>';
+        return;
+      }
+      document.getElementById('chipProto').textContent =
+        'PROTÓTIPO · ' + (TRAMITES.length + ANULACOES.length + MEMORANDOS.length + PASTAS.length) + ' REGISTROS DE 2026';
+      renderAbas(); render();
+    });
+}
+carregar();
+</script>
+</body>
+</html>

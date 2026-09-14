@@ -1,0 +1,6 @@
+# Os dados convertidos das planilhas NÃO entram no repositório: ele é
+# público (vira o site ijui.net) e aqui há credor, valor e o assunto de
+# cada memorando. Publicar é decisão do setor, não efeito colateral.
+# Para gerar na sua máquina, ver ../LEIA-ME.md.
+*.json
+CONFERIR.md
