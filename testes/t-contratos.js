@@ -1078,14 +1078,45 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await new Promise(r=>setTimeout(r,400));
     abrirDet(c.id);
     const depois=document.getElementById('btnDetLicitacon').style.display!=='none';
-    /* o clique abre o portal numa janela à parte, sem sair da ficha */
+    const modal=document.querySelector('#ovDet .modal');
+    const larguraFicha=modal.getBoundingClientRect().width;
+
+    /* o clique abre o portal DENTRO da ficha, não numa janela à parte */
     const original=window.open; let janela=null;
-    window.open=(u,nome,feats)=>{ janela={u,nome,feats}; return null; };
+    window.open=(u,alvo,feats)=>{ janela={u,alvo,feats}; return null; };
     document.getElementById('btnDetLicitacon').click();
+    const embutido={
+      modo:modal.classList.contains('lc-modo'),
+      src:document.getElementById('detLicFrame').getAttribute('src'),
+      quadroÀMostra:document.getElementById('detLicQuadro').style.display!=='none',
+      dadosEscondidos:document.getElementById('detBody').style.display==='none',
+      rodapeEscondido:document.getElementById('detRodape').style.display==='none',
+      barraÀMostra:document.getElementById('detLicBarra').style.display!=='none',
+      cresceu:modal.getBoundingClientRect().width>larguraFicha,
+      alturaQuadro:document.getElementById('detLicQuadro').getBoundingClientRect().height,
+      abriuJanela:!!janela,
+      fichaAberta:document.getElementById('ovDet').classList.contains('open')
+    };
+    /* Esc volta para a ficha, em vez de fechar tudo */
+    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+    const aposEsc={modo:modal.classList.contains('lc-modo'),
+                   fichaAberta:document.getElementById('ovDet').classList.contains('open'),
+                   dadosÀMostra:document.getElementById('detBody').style.display!=='none',
+                   src:document.getElementById('detLicFrame').getAttribute('src')};
+
+    /* a saída para quem quer a página inteira continua existindo */
+    document.getElementById('btnDetLicitacon').click();
+    document.getElementById('detLicBarra').querySelector('[onclick*="NaAba"]').click();
     window.open=original;
-    const fichaAberta=document.getElementById('ovDet').classList.contains('open');
+    const naAba=janela;
+
+    /* abrir outro contrato não pode cair no portal do anterior */
+    const outro=CONTRATOS.find(x=>x.id!==c.id);
+    abrirDet(outro.id);
+    const trocou={modo:modal.classList.contains('lc-modo'),
+                  src:document.getElementById('detLicFrame').getAttribute('src')};
     fecharDet();
-    return {antes, temCampo, depois, janela, fichaAberta,
+    return {antes, temCampo, depois, embutido, aposEsc, naAba, trocou, larguraFicha,
             gravado:CONTRATOS.find(x=>x.id===c.id).linkLicitacon,
             noBanco:window.__STORE.contratos[String(c.id)].linkLicitacon};
   });
@@ -1096,12 +1127,28 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e vai para o banco, não só para a tela',
     fichaLink.noBanco==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23', fichaLink);
   t('com o link, a ficha ganha o botão LicitaCon', fichaLink.depois===true, fichaLink);
-  t('que abre o endereço cadastrado numa janela à parte',
-    fichaLink.janela && fichaLink.janela.u===fichaLink.gravado && fichaLink.janela.nome==='licitacon', fichaLink);
+  t('o portal abre DENTRO da ficha, no endereço cadastrado',
+    fichaLink.embutido.src===fichaLink.gravado && fichaLink.embutido.quadroÀMostra, fichaLink.embutido);
+  t('sem abrir janela nenhuma por fora', fichaLink.embutido.abriuJanela===false, fichaLink.embutido);
+  t('a ficha cresce para caber a página do portal',
+    fichaLink.embutido.modo && fichaLink.embutido.cresceu, fichaLink.embutido);
+  t('e o quadro do portal tem altura de verdade, não uma tira',
+    fichaLink.embutido.alturaQuadro>300, fichaLink.embutido);
+  t('os dados do contrato e os botões saem da frente',
+    fichaLink.embutido.dadosEscondidos && fichaLink.embutido.rodapeEscondido
+    && fichaLink.embutido.barraÀMostra, fichaLink.embutido);
+  t('a ficha em si continua aberta — voltar é um clique',
+    fichaLink.embutido.fichaAberta, fichaLink.embutido);
+  t('Esc volta para a ficha em vez de fechar tudo',
+    fichaLink.aposEsc.fichaAberta && !fichaLink.aposEsc.modo && fichaLink.aposEsc.dadosÀMostra, fichaLink.aposEsc);
+  t('e ao voltar o portal é solto, não fica carregado escondido',
+    fichaLink.aposEsc.src==='about:blank', fichaLink.aposEsc);
+  t('"abrir em nova aba" continua ali, para quem quer a página inteira',
+    fichaLink.naAba && fichaLink.naAba.u===fichaLink.gravado && fichaLink.naAba.alvo==='_blank', fichaLink.naAba);
   t('sem entregar a página de origem para o portal (noopener)',
-    fichaLink.janela && /noopener/.test(fichaLink.janela.feats), fichaLink);
-  t('e a ficha continua aberta atrás, para conferir documento contra cadastro',
-    fichaLink.fichaAberta, fichaLink);
+    fichaLink.naAba && /noopener/.test(fichaLink.naAba.feats), fichaLink.naAba);
+  t('abrir outro contrato começa pela ficha, não no portal do anterior',
+    fichaLink.trocou.modo===false && fichaLink.trocou.src==='about:blank', fichaLink.trocou);
 
   /* O mutirão: cadastrar os links do que já está no sistema sem abrir um
      formulário por contrato. */
