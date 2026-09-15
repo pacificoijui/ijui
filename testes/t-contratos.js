@@ -649,10 +649,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   const aditivou=await pg.evaluate(()=>{
     novoAditivo();
     const nSugerido=document.getElementById('faN').value;
-    /* "Renovação contratual" é o tipo que mexe nos dois: prazo e valor. */
+    /* "Renovação contratual" é o tipo que mexe nos três: início, prazo e valor. */
     document.getElementById('faTipo').value='Renovação contratual';
     aditTrocouTipo();
     document.getElementById('faData').value='2026-10-01';
+    document.getElementById('faInicio').value='2027-04-01';
     document.getElementById('faVenc').value='2028-03-31';
     document.getElementById('faValor').value='50000';
     document.getElementById('faObs').value='Prorrogação de 12 meses.';
@@ -666,7 +667,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     const c=CONTRATOS.find(x=>x.contr===900);
     const tr=[...document.querySelectorAll('.tab tbody tr')].find(t=>t.textContent.includes('TESTE ENGENHARIA'));
     return {n:c.aditivos.length, valor:c.valor, valorBase:c.valorBase, venc:c.vencimento,
-            vencBase:c.vencimentoBase, dias:c._d,
+            vencBase:c.vencimentoBase, dias:c._d, inicio:c.aditivos[0].inicioRenovacao,
             linha:tr?tr.textContent.replace(/\s+/g,' '):'',
             ficha:document.getElementById('detBody').textContent.replace(/\s+/g,' ')};
   });
@@ -685,6 +686,8 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     /contrato R\$\s300.000,00 \+ aditivos R\$\s50.000,00/.test(comAditivo.ficha), comAditivo.ficha.slice(0,300));
   t('e lista o aditivo com o que ele mudou',
     /Aditivo nº 1/.test(comAditivo.ficha) && /Prorrogação de 12 meses/.test(comAditivo.ficha), comAditivo.ficha.slice(0,400));
+  t('o início da renovação foi guardado', comAditivo.inicio==='2027-04-01', comAditivo.inicio);
+  t('e aparece na ficha', /início em 01\/04\/2027/.test(comAditivo.ficha), comAditivo.ficha.slice(0,400));
 
   const reeditou=await pg.evaluate(()=>{
     abrirAdit(0);
@@ -739,6 +742,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     !razao.ids.includes('faValor') && !razao.ids.includes('faVenc'), razao.ids);
   const reaj = await campos('Reajustamento de preço');
   t('reajuste pergunta qual índice foi aplicado', reaj.ids.includes('faIndice'), reaj.ids);
+  const renov = await campos('Renovação contratual');
+  t('renovação pede o início do novo período, além do vencimento',
+    renov.ids.includes('faInicio') && renov.ids.includes('faVenc'), renov.ids);
+  t('e o início vem ANTES do vencimento na tela',
+    renov.ids.indexOf('faInicio') < renov.ids.indexOf('faVenc'), renov.ids);
+  const outros = await campos('Outros');
+  t('"Outros" não pede prazo nem valor — só a observação, que é sempre fixa',
+    !outros.ids.includes('faVenc') && !outros.ids.includes('faValor') && !outros.ids.includes('faInicio'), outros.ids);
 
   /* Trocar de tipo por engano não pode apagar o que já foi digitado. */
   const guardou = await pg.evaluate(()=>{
@@ -793,9 +804,16 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     /redução de R\$\s?30\.000,00/.test(depoisReducao.ficha), depoisReducao.ficha.slice(0,400));
 
   console.log('\n7d) Encerrar contrato: não é aditivo, tem botão e registro próprios');
-  const encerrarValidacao = await pg.evaluate(()=>{
+  const opcoesEncerrar = await pg.evaluate(()=>{
     const c=CONTRATOS.find(x=>x.contr===901);
     abrirDet(c.id); abrirEncerrar();
+    return [...document.getElementById('encTipo').options].map(o=>o.value);
+  });
+  t('além de distrato e rescisão, oferece os dois termos de recebimento',
+    opcoesEncerrar.includes('Termo de recebimento de obra pronta') &&
+    opcoesEncerrar.includes('Termo de recebimento de serviços prestados'), opcoesEncerrar);
+
+  const encerrarValidacao = await pg.evaluate(()=>{
     document.getElementById('encTipo').value='Rescisão'; encerrarNota();
     const semData=(()=>{ let avisou=false; const orig=window.alert;
       window.alert=()=>{avisou=true;}; salvarEncerrar(); window.alert=orig; return avisou; })();
@@ -934,18 +952,19 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     }));
   await pg.evaluate(()=>{ document.getElementById('fBusca').value=''; buscarEmTudo(); });
 
-  console.log('\n7g) Apostilamento: numeração própria, some do aditivo');
+  console.log('\n7g) Apostilamento: numeração própria, não mexe em prazo nem em valor');
   const apost = await pg.evaluate(()=>{
     const c=CONTRATOS.find(x=>x.contr===901);
     abrirDet(c.id); novoApostilamento();
     const n1 = document.getElementById('apN').value;
+    const temVenc = !!document.getElementById('apVenc');
+    const temValor = !!document.getElementById('apValor');
     document.getElementById('apData').value='2026-10-01';
-    document.getElementById('apVenc').value='2027-09-30';
-    document.getElementById('apValor').value='5000';
+    document.getElementById('apObs').value='Reclassificação da dotação orçamentária.';
     apostNota();
     const nota = document.getElementById('apostNota').textContent;
     salvarApost();
-    return {n1, nota};
+    return {n1, nota, temVenc, temValor};
   });
   await pg.waitForTimeout(400);
   const depoisApost = await pg.evaluate(()=>{
@@ -954,10 +973,12 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
             nAposts:(c.apostilamentos||[]).length,
             ficha:document.getElementById('detBody').textContent.replace(/\s+/g,' ')};
   });
+  t('não tem campo de vencimento nem de valor — só data e observação',
+    !apost.temVenc && !apost.temValor, apost);
   t('a numeração do apostilamento começa em 1, independente da contagem de aditivos', apost.n1==='1', apost.n1);
-  t('a nota avisa o novo valor e o novo vencimento', /75\.000/.test(apost.nota) && /30\/09\/2027/.test(apost.nota), apost.nota);
-  t('o apostilamento soma no valor do contrato, igual um aditivo', depoisApost.valor===75000, depoisApost.valor);
-  t('e muda o vencimento, igual um aditivo', depoisApost.venc==='2027-09-30', depoisApost.venc);
+  t('a nota diz que não mexe em prazo nem em valor', /sem mexer no prazo nem no valor/.test(apost.nota), apost.nota);
+  t('o apostilamento NÃO muda o valor do contrato', depoisApost.valor===70000, depoisApost.valor);
+  t('nem o vencimento', depoisApost.venc==='2027-06-30', depoisApost.venc);
   t('não entra na lista de aditivos', depoisApost.nAditivos===1, depoisApost);
   t('entra na lista própria de apostilamentos', depoisApost.nAposts===1, depoisApost);
   t('a ficha mostra a seção de apostilamentos', /Apostilamentos/.test(depoisApost.ficha), depoisApost.ficha.slice(0,700));
@@ -973,7 +994,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     const c=CONTRATOS.find(x=>x.contr===901);
     return {valor:c.valor, venc:c.vencimento, n:(c.apostilamentos||[]).length};
   });
-  t('excluir o apostilamento devolve o valor e o prazo de antes dele',
+  t('excluir o apostilamento não deixa resto — valor e prazo continuam os mesmos',
     semApost.valor===70000 && semApost.venc==='2027-06-30' && semApost.n===0, semApost);
 
   pg.on('dialog', d=>d.accept());

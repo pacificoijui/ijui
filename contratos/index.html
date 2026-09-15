@@ -804,8 +804,9 @@
   </div>
 </div>
 
-<!-- MODAL ENCERRAR CONTRATO (distrato / rescisão) — não é aditivo: é o fim
-     do contrato, tem botão e registro próprios (c.encerramento). -->
+<!-- MODAL ENCERRAR CONTRATO (distrato / rescisão / termo de recebimento) —
+     não é aditivo: é o fim do contrato, tem botão e registro próprios
+     (c.encerramento). -->
 <div class="overlay" id="ovEncerrar" onclick="if(event.target===this)fecharEncerrar()">
   <div class="modal" style="max-width:560px">
     <div class="modal-header"><h2 id="encerrarTitulo">Encerrar contrato</h2><button class="modal-close" onclick="fecharEncerrar()">✕</button></div>
@@ -816,6 +817,8 @@
           <select id="encTipo" onchange="encerrarNota()">
             <option value="Distrato">Distrato (acordo entre as partes)</option>
             <option value="Rescisão">Rescisão (por descumprimento)</option>
+            <option value="Termo de recebimento de obra pronta">Termo de recebimento de obra pronta</option>
+            <option value="Termo de recebimento de serviços prestados">Termo de recebimento de serviços prestados</option>
           </select>
         </div>
         <div class="fcampo s6"><label>Encerra em</label><input type="date" id="encData" onchange="encerrarNota()"></div>
@@ -849,12 +852,10 @@
       <div id="apostAviso"></div>
       <div class="fgrid">
         <div class="fcampo s4"><label>Nº do apostilamento</label><input type="text" id="apN" placeholder="Ex: 1"></div>
-        <div class="fcampo s8"><label>Data de registro</label><input type="date" id="apData" onchange="apostNota()"></div>
-        <div class="fcampo s6"><label>Novo vencimento</label><input type="date" id="apVenc" onchange="apostNota()"><span class="dica">Deixe vazio se não muda o prazo.</span></div>
-        <div class="fcampo s6"><label>Variação do valor (R$)</label><input type="text" id="apValor" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="apostNota()"><span class="dica">Use sinal de menos para uma redução.</span></div>
-        <div class="fcampo s12"><label>Observação</label><textarea id="apObs" rows="2"></textarea></div>
+        <div class="fcampo s8"><label>Data de registro</label><input type="date" id="apData"></div>
+        <div class="fcampo s12"><label>Observação</label><textarea id="apObs" rows="3"></textarea></div>
       </div>
-      <div class="dica" style="margin-top:2px;line-height:1.5">Registro unilateral da Administração — não é termo aditivo, mas fica na ficha do contrato, com numeração própria.</div>
+      <div class="dica" style="margin-top:2px;line-height:1.5">Registro unilateral da Administração — não é termo aditivo, não mexe em prazo nem em valor, mas fica na ficha do contrato, com numeração própria.</div>
       <div class="aviso aviso-azul" id="apostNota" style="margin:15px 0 0"></div>
     </div>
     <div class="modal-footer" style="justify-content:space-between">
@@ -2450,6 +2451,7 @@ function aditivosHTML(c){
       const t = tipoAditivo(a.tipo);
       const info = [];
       if(a.data) info.push('assinado em '+fmtD(a.data));
+      if(a.inicioRenovacao) info.push('início em <b>'+fmtD(a.inicioRenovacao)+'</b>');
       if(a.vencNovo) info.push('novo vencimento <b>'+fmtD(a.vencNovo)+'</b>');
       if(Number(a.valor)) info.push((Number(a.valor)>0 ? 'acréscimo' : 'redução')+' de <b>'+money(Math.abs(Number(a.valor)))+'</b>');
       if(a.indice) info.push('índice '+esc(a.indice));
@@ -2669,7 +2671,7 @@ function popularDatalists(){
 const TIPOS_ADITIVO = [
   {nome:'Prorrogação de prazo contratual', prazo:true,
    dica:'Estende o prazo. O vencimento do contrato passa a ser a data nova.'},
-  {nome:'Renovação contratual', prazo:true, valor:'qualquer',
+  {nome:'Renovação contratual', inicio:true, prazo:true, valor:'qualquer',
    dica:'Novo período contratual. Se vier com valor para o período, informe também.'},
   {nome:'Acréscimo de valor por aumento de quantitativo', valor:'mais',
    dica:'Mesma coisa contratada, em quantidade maior.'},
@@ -2687,8 +2689,7 @@ const TIPOS_ADITIVO = [
    dica:'Revisão de preços por variação dos custos — típica de serviço contínuo.'},
   {nome:'Alteração da natureza ou razão social do contratado', razao:true,
    dica:'A empresa contratada muda de nome ou de natureza jurídica. O contrato é o mesmo.'},
-  {nome:'Outros', valor:'qualquer', prazo:true,
-   dica:'Para o que não se encaixa nos anteriores. Descreva na observação.'}
+  {nome:'Outros', dica:'Para o que não se encaixa nos anteriores. Não mexe em prazo nem em valor — descreva na observação.'}
 ];
 const TIPO_ADITIVO_GENERICO = {nome:'Outros', valor:'qualquer', prazo:true,
   dica:'Tipo antigo, de antes desta lista: os campos ficam todos à mostra.'};
@@ -2739,6 +2740,13 @@ function aditMontarCampos(a){
     '<div class="fcampo ' + classe + '"><label>' + rotulo + '</label>' + html
     + (dica ? '<span class="dica">' + dica + '</span>' : '') + '</div>';
   let html = '<div class="fgrid" style="margin:0">';
+
+  /* Só a Renovação contratual pede isto: o novo período tem uma data em que
+     COMEÇA a valer, além da data em que TERMINA (o vencimento). Vem antes
+     do vencimento na tela, na mesma ordem em que os dois acontecem. */
+  if(t.inicio) html += campo('s6', 'Início da renovação',
+    '<input type="date" id="faInicio" onchange="aditNota()" value="' + esc(jaTem.inicioRenovacao || '') + '">',
+    'Data em que o novo período contratual começa a valer.');
 
   if(t.prazo) html += campo('s6', 'Novo vencimento',
     '<input type="date" id="faVenc" onchange="aditNota()" value="' + esc(jaTem.vencNovo || '') + '">',
@@ -2801,6 +2809,7 @@ function lerAditivoDoForm(){
   if(aditCampo('faRazao'))  a.razaoNova = aditCampo('faRazao');
   if(aditCampo('faCnpj'))   a.cnpjNovo  = aditCampo('faCnpj');
   if(aditCampo('faIndice')) a.indice    = aditCampo('faIndice');
+  if(aditCampo('faInicio')) a.inicioRenovacao = aditCampo('faInicio');
   return a;
 }
 /* Copia o contrato, aplica o aditivo que está no formulário e recalcula, sem
@@ -2859,10 +2868,12 @@ function excluirAditivo(){
   gravar(c, 'Aditivo excluído.', 'aditivo-excluiu');
 }
 
-/* ══════════════ ENCERRAR CONTRATO (distrato / rescisão) ══════════════
-   Não é aditivo: é o fim do contrato. Fica em c.encerramento, um objeto só
-   (o contrato encerra uma vez), guardando também a situação de antes, para
-   "reabrir" saber para onde voltar. */
+/* ══════════════ ENCERRAR CONTRATO ══════════════
+   Distrato, rescisão, ou o encerramento normal por entrega (termo de
+   recebimento de obra pronta ou de serviços prestados). Não é aditivo: é o
+   fim do contrato. Fica em c.encerramento, um objeto só (o contrato encerra
+   uma vez), guardando também a situação de antes, para "reabrir" saber para
+   onde voltar. */
 function fecharEncerrar(){ document.getElementById('ovEncerrar').classList.remove('open'); }
 function abrirEncerrar(){
   if(!detAtual) return;
@@ -2920,8 +2931,10 @@ function reabrirContrato(){
 
 /* ══════════════ APOSTILAMENTO ══════════════
    Registro unilateral da Administração: não é termo aditivo, por isso tem
-   numeração e lista próprias (c.apostilamentos), separadas de c.aditivos —
-   mas mexe no valor e no vencimento do mesmo jeito que um aditivo mexeria. */
+   numeração e lista próprias (c.apostilamentos), separadas de c.aditivos.
+   E, diferente do aditivo, nunca mexe em prazo nem em valor — é só registro
+   (reclassificação de dotação, atualização de CNPJ, etc.); o que muda o
+   contrato é sempre aditivo. */
 let apostIdx = null;
 function fecharApost(){ document.getElementById('ovApost').classList.remove('open'); }
 function novoApostilamento(){ if(detAtual) abrirApost(null); }
@@ -2938,8 +2951,6 @@ function abrirApost(i){
   const set = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
   set('apN', a ? a.n : proximoNumeroApostilamento(detAtual));
   set('apData', a && a.data);
-  set('apVenc', a && a.vencNovo);
-  porValor('apValor', a ? a.valor : null);
   set('apObs', a && a.obs);
   document.getElementById('apExcluir').style.display = a ? '' : 'none';
   document.getElementById('apostAviso').innerHTML = avisoGravacao();
@@ -2950,37 +2961,21 @@ function lerApostDoForm(){
   return {
     n: valCampo('apN'),
     data: valCampo('apData') || null,
-    vencNovo: valCampo('apVenc') || null,
-    valor: lerValor('apValor'),
     obs: valCampo('apObs')
   };
 }
-/* Mesma ideia do simularAditivo: copia, aplica o que está no formulário,
-   recalcula, sem tocar no original. */
-function simularApost(){
-  const c = JSON.parse(JSON.stringify(paraGravar(detAtual)));
-  c.apostilamentos = Array.isArray(c.apostilamentos) ? c.apostilamentos : [];
-  if(apostIdx != null) c.apostilamentos[apostIdx] = lerApostDoForm();
-  else c.apostilamentos.push(lerApostDoForm());
-  return recalcularContrato(c);
-}
+/* Sem prazo nem valor para mexer, a nota é sempre a mesma — mas continua
+   avisando, para quem lança não achar que esqueceu algo na tela. */
 function apostNota(){
   if(!detAtual) return;
-  const s = simularApost(), partes = [];
-  if(s.vencimento !== detAtual.vencimento)
-    partes.push('o vencimento passa de <b>'+fmtD(detAtual.vencimento)+'</b> para <b>'+fmtD(s.vencimento)+'</b>');
-  if(Number(s.valor||0) !== Number(detAtual.valor||0))
-    partes.push('o valor passa de <b>'+money(detAtual.valor)+'</b> para <b>'+money(s.valor)+'</b>');
-  document.getElementById('apostNota').innerHTML = partes.length
-    ? 'Ao salvar: '+partes.join('; e ')+'.'
-    : 'Fica registrado no histórico do contrato, sem mexer no prazo nem no valor.';
+  document.getElementById('apostNota').innerHTML =
+    'Fica registrado no histórico do contrato, sem mexer no prazo nem no valor.';
 }
 function salvarApost(){
   if(!detAtual) return;
   const a = lerApostDoForm();
-  if(isNaN(a.valor)){ alert('Não entendi o valor "'+valCampo('apValor')+'".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
-  if(!a.data && !a.vencNovo && a.valor == null && !a.obs){
-    alert('Preencha ao menos a data, o novo vencimento, o valor ou uma observação.');
+  if(!a.data && !a.obs){
+    alert('Preencha ao menos a data ou uma observação.');
     return;
   }
   const c = Object.assign({}, detAtual);
@@ -3603,28 +3598,35 @@ function pdfContratoAgora(){
     item('Encerramento', e.tipo + ' em ' + fmtD(e.data)
       + (e.motivo ? ' — motivo: '+e.motivo : '') + (e.obs ? ' — '+e.obs : ''));
   }
-  if(aditsPdf.length){
-    item('Aditivos', aditsPdf.map((a,i) => {
-      const p = ['Aditivo '+(a.n ? 'nº '+a.n : (i+1))];
-      if(a.tipo) p.push(a.tipo);
-      if(a.data) p.push('assinado em '+fmtD(a.data));
-      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
-      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
-      if(a.indice) p.push('índice '+a.indice);
-      if(a.razaoNova) p.push('passa a ser '+a.razaoNova+(a.cnpjNovo ? ' ('+a.cnpjNovo+')' : ''));
-      if(a.motivo) p.push('motivo: '+a.motivo);
-      return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
-    }).join('\n'));
-  }
-  if(apostsPdf.length){
-    item('Apostilamentos', apostsPdf.map((a,i) => {
-      const p = ['Apostilamento '+(a.n ? 'nº '+a.n : (i+1))];
-      if(a.data) p.push('registrado em '+fmtD(a.data));
-      if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
-      if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
-      return p.join(' · ') + (a.obs ? ' — '+a.obs : '');
-    }).join('\n'));
-  }
+  /* Cada aditivo no seu PRÓPRIO item(), com "Aditivo nº X" como rótulo —
+     não um bloco só com todos emendados. O jsPDF não desenha quebra de
+     linha embutida no texto (pdfTexto() tira o \n, que fica fora da faixa
+     de caracteres aceita pelas fontes padrão), então tentar separar os
+     aditivos com \n dentro de uma string só nunca funcionou de verdade:
+     saíam colados, sem nem um espaço entre um e outro. */
+  aditsPdf.forEach((a,i) => {
+    const p = [];
+    if(a.tipo) p.push(a.tipo);
+    if(a.data) p.push('assinado em '+fmtD(a.data));
+    if(a.inicioRenovacao) p.push('início em '+fmtD(a.inicioRenovacao));
+    if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
+    if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
+    if(a.indice) p.push('índice '+a.indice);
+    if(a.razaoNova) p.push('passa a ser '+a.razaoNova+(a.cnpjNovo ? ' ('+a.cnpjNovo+')' : ''));
+    if(a.motivo) p.push('motivo: '+a.motivo);
+    /* Sem nenhum detalhe (só a observação), não sobra um "— texto" solto
+       com um traço na frente de nada. */
+    item('Aditivo '+(a.n ? 'nº '+a.n : (i+1)),
+      p.length ? p.join(' · ') + (a.obs ? ' — '+a.obs : '') : (a.obs || ''));
+  });
+  apostsPdf.forEach((a,i) => {
+    const p = [];
+    if(a.data) p.push('registrado em '+fmtD(a.data));
+    if(a.vencNovo) p.push('novo vencimento '+fmtD(a.vencNovo));
+    if(Number(a.valor)) p.push((Number(a.valor)>0?'acréscimo':'redução')+' de '+money(Math.abs(Number(a.valor))));
+    item('Apostilamento '+(a.n ? 'nº '+a.n : (i+1)),
+      p.length ? p.join(' · ') + (a.obs ? ' — '+a.obs : '') : (a.obs || ''));
+  });
 
   const total = doc.getNumberOfPages();
   const emitido = 'Emitido em ' + new Date().toLocaleString('pt-BR');
