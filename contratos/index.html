@@ -338,6 +338,7 @@
   .aviso { border-radius: 10px; padding: 11px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 15px; }
   .aviso-amarelo { background: var(--amber-bg); color: #7a5b00; border: 1.5px solid #f0dca3; }
   .aviso-azul { background: var(--blue-bg); color: var(--blue-text); border: 1.5px solid #c9d9f5; }
+  .aviso-verde { background: var(--green-bg); color: #1d6b2b; border: 1.5px solid #bfe3c8; }
   .aviso .acao { color: inherit; font-weight: 800; text-decoration: underline; background: none; border: none;
     font-family: inherit; font-size: inherit; cursor: pointer; padding: 0; margin-left: 8px; }
 
@@ -358,17 +359,6 @@
     font-weight: 600; box-shadow: var(--shadow-lg); z-index: 900; opacity: 0; pointer-events: none;
     transition: opacity .2s, transform .2s; max-width: 90vw; text-align: center; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  /* Modal relatórios */
-  .rep-opt { display: flex; gap: 12px; align-items: flex-start; border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
-  .rep-opt:hover { border-color: var(--navy-light); background: var(--blue-bg); }
-  .rep-opt input { margin-top: 3px; accent-color: var(--navy); }
-  .rep-opt .rt { font-weight: 700; color: var(--navy); font-size: 14.5px; }
-  .rep-opt .rd { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
-  .rep-scope { display: flex; gap: 8px; flex-wrap: wrap; }
-  #repSelWrap { border: 1.5px solid var(--border); border-radius: 14px; padding: 14px; background: #f7f9fd; }
-  .sel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-  .sel-title { font-size: 12px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: .5px; }
-  .sel-acts { display: flex; gap: 6px; }
   .mini-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px; padding: 5px 12px; font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: border-color .15s, background .15s; }
   .mini-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
 
@@ -414,18 +404,25 @@
   .usr-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); cursor: pointer; user-select: none; }
   .usr-chk-sel select { font-size: 11.5px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border); color: var(--navy); background: #fff; cursor: pointer; }
   .badge-tipo { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--amber-bg); color: var(--amber); font-weight: 700; }
-  .sel-busca { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 13.5px; background: #fff; outline: none; margin-bottom: 10px; }
-  .sel-busca:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
-  .sel-list { display: flex; flex-wrap: wrap; gap: 7px; max-height: 190px; overflow-y: auto; padding: 2px; }
-  .sel-item { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1.5px solid var(--border); border-radius: 20px; padding: 7px 13px; font-size: 12.5px; font-weight: 600; color: var(--text); cursor: pointer; user-select: none; transition: all .14s; }
-  .sel-item:hover { border-color: var(--navy-light); }
-  .sel-item.on { background: var(--navy); border-color: var(--navy); color: #fff; }
-  .sel-item input { display: none; }
-  .sel-item .tick { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; flex-shrink: 0; }
-  .sel-item.on .tick { background: var(--gold); border-color: var(--gold); color: #3d2800; }
-  .sel-item .qt { opacity: .6; font-weight: 700; font-size: 11px; }
-  .sel-count { font-size: 12px; color: var(--muted); margin-top: 9px; font-weight: 600; }
-  .sel-count b { color: var(--navy); }
+  /* ══ Painel "faltam os links do LicitaCon" ══
+     Mutirão de cadastro: uma linha por contrato ativo sem link, a caixa já
+     à mostra, e o contrato sai da conta assim que o link é colado. */
+  .lc-busca { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 13.5px; background: #fff; outline: none; margin-bottom: 12px; }
+  .lc-busca:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .lc-lista { display: flex; flex-direction: column; gap: 8px; max-height: 54vh; overflow-y: auto; padding: 2px; }
+  .lc-item { border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: #fbfcff; }
+  .lc-item.ok { border-color: #bfe3c8; background: var(--green-bg); }
+  .lc-topo { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .lc-n { font-size: 13px; font-weight: 800; color: #000; }
+  .lc-emp { font-size: 12.5px; color: var(--muted); }
+  .lc-linha { display: flex; gap: 7px; align-items: center; margin-top: 7px; }
+  .lc-linha input { flex: 1; min-width: 0; padding: 8px 11px; border: 1.5px solid var(--border); border-radius: 9px; font-family: inherit; font-size: 13px; background: #fff; outline: none; }
+  .lc-linha input:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .lc-status { font-size: 12px; font-weight: 700; color: var(--muted); margin-top: 5px; }
+  .lc-status .ok { color: var(--green); }
+  .lc-status .erro { color: var(--red); }
+  .lc-pill { background: rgba(0,0,0,.16); border-radius: 20px; padding: 1px 8px; font-size: 12px; font-weight: 800; }
+  .lc-vazio { font-size: 13.5px; color: var(--muted); text-align: center; padding: 26px 10px; line-height: 1.55; }
 
   .only-mobile { display: none; }
   .mobile-bar { display: none; }
@@ -516,14 +513,13 @@
     /* no celular cada campo ocupa a linha inteira */
     .fgrid .fcampo { grid-column: span 12; }
     .fcampo input, .fcampo select, .fcampo textarea { font-size: 16px; }
-    .rep-opt { padding: 13px 12px; }
-    .sel-list { max-height: 168px; }
-    .sel-item { padding: 9px 13px; font-size: 13px; }
+    .lc-lista { max-height: 62vh; }
+    .lc-linha input { font-size: 16px; }
 
     /* barra de ações fixa embaixo */
     /* A barra quebra em duas linhas em vez de esticar a página para fora da
-       tela: são cinco atalhos agora (contrato, PDF, agenda, relatórios,
-       histórico) e num celular estreito eles não cabem lado a lado. */
+       tela: são cinco atalhos (contrato, PDF, agenda, LicitaCon, histórico)
+       e num celular estreito eles não cabem lado a lado. */
     .mobile-bar { display: flex; flex-wrap: wrap; position: fixed; left: 0; right: 0; bottom: 0; z-index: 300; gap: 8px;
       padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
       background: rgba(255,255,255,0.94); backdrop-filter: blur(10px);
@@ -558,7 +554,7 @@
       <button class="btn-ghost so-editor" onclick="novoContrato()">＋ Novo contrato</button>
       <a class="btn-ghost btn-link" id="btnAgenda" href="agenda/" style="display:none">📅 Agenda</a>
       <button class="btn-ghost" id="btnHist" onclick="abrirHistorico()" style="display:none">🕘 Histórico</button>
-      <button class="btn-gold" onclick="abrirModalRelatorio()">🖨️ Relatórios PDF</button>
+      <button class="btn-gold so-editor" id="btnLicitacon" onclick="abrirPainelLicitacon()">🔗 Links LicitaCon <span class="lc-pill" id="licitaconFalta"></span></button>
     </div>
   </div>
 </header>
@@ -697,7 +693,7 @@
   <button class="mb-btn mb-primary" onclick="pdfDoFiltro()">🖨️ PDF</button>
   <a class="mb-btn" id="mbAgenda" href="agenda/" style="display:none">📅 Agenda</a>
   <button class="mb-btn" id="mbHist" onclick="abrirHistorico()" style="display:none">🕘 Histórico</button>
-  <button class="mb-btn mb-gold" onclick="abrirModalRelatorio()">📄 Relatórios</button>
+  <button class="mb-btn mb-gold so-editor" onclick="abrirPainelLicitacon()">🔗 LicitaCon</button>
 </div>
 
 <!-- MODAL DETALHE -->
@@ -711,6 +707,8 @@
       <button class="btn-ghost so-editor" onclick="novoApostilamento()">📌 Apostilamento</button>
       <button class="btn-danger so-editor" onclick="abrirEncerrar()">⛔ Encerrar contrato</button>
       <button class="btn-primary so-editor" onclick="editarContrato()">✏️ Editar</button>
+      <!-- Só aparece com o link cadastrado: sem ele o botão não teria onde ir. -->
+      <button class="btn-gold" id="btnDetLicitacon" onclick="abrirLicitacon()" style="display:none">🔗 LicitaCon</button>
       <button class="btn-primary" onclick="pdfContratoAtual()">🖨️ Ficha em PDF</button>
     </div>
   </div>
@@ -761,6 +759,10 @@
             <span>⛔ Não pode prorrogar</span>
           </label></div>
         <div class="fcampo s12"><label>Observações</label><textarea id="fcObs" rows="2"></textarea></div>
+        <div class="fcampo s12"><label>Link do LicitaCon</label>
+          <input type="url" id="fcLink" placeholder="https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23...">
+          <span class="dica">Endereço deste contrato no portal do TCE-RS, onde ficam os documentos. Com ele preenchido, a ficha ganha o botão <b>🔗 LicitaCon</b>.</span>
+        </div>
       </div>
       <div class="aviso aviso-azul" id="fcNota" style="display:none;margin:15px 0 0"></div>
     </div>
@@ -875,45 +877,21 @@
 <datalist id="listaPalavras"></datalist>
 <div class="toast" id="toast"></div>
 
-<!-- MODAL RELATÓRIOS -->
-<div class="overlay" id="ovRep" onclick="if(event.target===this)fecharRep()">
-  <div class="modal">
-    <div class="modal-header"><h2>🖨️ Relatórios em PDF</h2><button class="modal-close" onclick="fecharRep()">✕</button></div>
+<!-- PAINEL DOS LINKS DO LICITACON
+     Mutirão: os contratos ativos que ainda não têm o endereço da própria
+     página no portal do TCE-RS, um embaixo do outro, com a caixa já aberta.
+     Cola o link, sai do campo, salvou — e o contrato sai da conta. -->
+<div class="overlay" id="ovLic" onclick="if(event.target===this)fecharPainelLicitacon()">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header"><h2>🔗 Links do LicitaCon</h2><button class="modal-close" onclick="fecharPainelLicitacon()">✕</button></div>
     <div class="modal-body">
-      <label class="rep-opt"><input type="radio" name="repTipo" value="geral" checked onchange="onTipoRel()">
-        <div><div class="rt">📋 Relatório geral</div><div class="rd">Lista completa dos contratos, na ordenação escolhida na tela.</div></div></label>
-      <label class="rep-opt"><input type="radio" name="repTipo" value="secretaria" onchange="onTipoRel()">
-        <div><div class="rt">🏛️ Por secretaria</div><div class="rd">Agrupado por secretaria. Permite escolher todas ou apenas algumas.</div></div></label>
-      <label class="rep-opt"><input type="radio" name="repTipo" value="vencimento" onchange="onTipoRel()">
-        <div><div class="rt">⏰ Por vencimento</div><div class="rd">Agrupado por urgência: vencidos, até 30, 60, 90, 180 dias e demais — ideal para planejar prorrogações.</div></div></label>
-      <label class="rep-opt"><input type="radio" name="repTipo" value="fiscal" onchange="onTipoRel()">
-        <div><div class="rt">👤 Por fiscal</div><div class="rd">Agrupado por fiscal responsável. Permite escolher todos ou apenas alguns.</div></div></label>
-
-      <div id="repSelWrap" style="display:none">
-        <div class="sel-head">
-          <div class="sel-title" id="repSelTitle">Secretarias incluídas</div>
-          <div class="sel-acts">
-            <button class="mini-btn" onclick="repSelTodos(true)">Selecionar todas</button>
-            <button class="mini-btn" onclick="repSelTodos(false)">Limpar</button>
-          </div>
-        </div>
-        <input type="text" id="repSelBusca" class="sel-busca" placeholder="🔎 Filtrar da lista..." oninput="renderRepSel()">
-        <div class="sel-list" id="repSelList"></div>
-        <div class="sel-count" id="repSelCount"></div>
-      </div>
-      <hr class="det-hr">
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Abrangência</div>
-        <div class="rep-scope">
-          <button class="filter-btn active" data-scope="filtro" onclick="setScope(this)">Contratos filtrados na tela</button>
-          <button class="filter-btn" data-scope="ativos" onclick="setScope(this)">Todos os ativos</button>
-          <button class="filter-btn" data-scope="todos" onclick="setScope(this)">Todos os contratos</button>
-        </div>
-      </div>
+      <div id="licAviso"></div>
+      <div id="licAnos"></div>
+      <input type="text" class="lc-busca" id="licBusca" placeholder="🔎 Filtrar por número, empresa ou objeto..." oninput="renderPainelLicitacon()">
+      <div class="lc-lista" id="licLista"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn-ghost" onclick="fecharRep()">Cancelar</button>
-      <button class="btn-gold" onclick="gerarRelatorio()">Gerar PDF ⬇</button>
+      <button class="btn-ghost" onclick="fecharPainelLicitacon()">Fechar</button>
     </div>
   </div>
 </div>
@@ -1729,6 +1707,27 @@ function parseD(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); 
 function fmtD(s){ const d=parseD(s); return d ? d.toLocaleDateString('pt-BR') : '—'; }
 function dias(s){ const d=parseD(s); return d===null ? null : Math.round((d-HOJE)/864e5); }
 function esc(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* ── O link do contrato no LicitaCon (portal do TCE-RS) ──
+   Devolve o endereço pronto para abrir, ou '' se não for endereço de
+   verdade. Só http e https passam: o que está aqui foi digitado por gente e
+   vai parar num window.open — um "javascript:" colado no campo viraria
+   script rodando na página. Quem cola só "portal.tce.rs.gov.br/..." ganha o
+   https:// na frente, que é como o endereço chega quando se copia da barra.
+
+   O domínio ainda é conferido à parte porque o navegador é generoso demais:
+   new URL('https://isso aqui não é link') não dá erro — ele transforma a
+   frase em domínio codificado e devolve um endereço de aparência legítima.
+   Sem esta conferência, uma anotação digitada no campo viraria um botão
+   LicitaCon que não leva a lugar nenhum. */
+function linkLicitacon(v){
+  const s = String(v == null ? '' : v).trim();
+  if(!s) return '';
+  try{
+    const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(s) ? s : 'https://' + s);
+    if(u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(u.hostname) ? u.href : '';
+  }catch(e){ return ''; }
+}
 /* ══════════════ SITUAÇÃO DO CONTRATO ══════════════
    Quatro estados, e a diferença que importa é uma só: o contrato ainda
    existe ou não. ATIVO, PARALISADO e PROCESSO JUDICIAL são contratos DE PÉ
@@ -1985,6 +1984,7 @@ function aplicarFiltros(sortForcado){
   renderChips();
   marcarSetas();
   marcarBotoesColuna();
+  atualizarContadorLicitacon();
   document.getElementById('buscaBox').classList.toggle('tem-texto', !!document.getElementById('fBusca').value);
 }
 function ordenar(){
@@ -2438,7 +2438,22 @@ function abrirDet(id){
     encerramentoHTML +
     aditivosHTML(c) +
     apostilamentosHTML(c);
+  document.getElementById('btnDetLicitacon').style.display = linkLicitacon(c.linkLicitacon) ? '' : 'none';
   document.getElementById('ovDet').classList.add('open');
+}
+/* Os documentos do contrato moram no portal do TCE-RS, não aqui. O botão
+   abre aquela página numa janela à parte — a ficha continua aberta atrás,
+   que é o que se quer quando se está conferindo um documento contra o
+   cadastro. Sem id, abre o contrato que está na ficha. */
+function abrirLicitacon(id){
+  const c = id == null ? detAtual : CONTRATOS.find(x => x.id === id);
+  const u = linkLicitacon(c && c.linkLicitacon);
+  if(!u){ alert('Este contrato ainda não tem o link do LicitaCon cadastrado.'); return; }
+  const larg = Math.min(1120, screen.width - 40), alt = Math.min(800, screen.height - 120);
+  window.open(u, 'licitacon', 'noopener,width='+larg+',height='+alt
+    + ',left=' + Math.max(0, Math.round((screen.width-larg)/2))
+    + ',top='  + Math.max(0, Math.round((screen.height-alt)/2))
+    + ',scrollbars=yes,resizable=yes');
 }
 /* Os aditivos ficam na própria ficha: cada um abre para edição no clique. */
 function aditivosHTML(c){
@@ -2537,6 +2552,7 @@ function abrirForm(id){
   set('fcTipo', c && c.tipo);
   set('fcPalavra', c && c.palavra);
   set('fcObs', c && c.obs);
+  set('fcLink', c && c.linkLicitacon);
   /* As opções saem de SITUACOES: acrescentar uma é acrescentar uma linha
      lá, e não caçar <option> escrito à mão em três lugares. */
   const selSit = document.getElementById('fcSituacao');
@@ -2574,6 +2590,12 @@ function salvarForm(){
   if(!valCampo('fcEmpresa')){ alert('Informe a empresa.'); return; }
   const repetido = CONTRATOS.find(x => x.contr === contr && x.ano === ano && x.id !== formId);
   if(repetido && !confirm('Já existe o contrato nº '+contr+'/'+ano+' ('+repetido.empresa+').\nCadastrar assim mesmo?')) return;
+  const linkDigitado = valCampo('fcLink').trim();
+  const link = linkLicitacon(linkDigitado);
+  if(linkDigitado && !link){
+    alert('Não entendi o link do LicitaCon:\n\n' + linkDigitado + '\n\nCole o endereço da página do contrato no portal do TCE-RS, como ele aparece na barra do navegador.');
+    return;
+  }
   const base = formId != null ? CONTRATOS.find(x => x.id === formId) : {id: proximoId()};
   const c = Object.assign({}, base, {
     contr: contr, ano: ano,
@@ -2585,6 +2607,7 @@ function salvarForm(){
     naoProrroga: document.getElementById('fcNaoProrroga').checked,
     palavra:    valCampo('fcPalavra').toUpperCase(),
     obs:        valCampo('fcObs'),
+    linkLicitacon: link,
     secretarias: lerLista(valCampo('fcSecretarias')).map(s => s.toUpperCase()),
     fiscalAdm:   lerLista(valCampo('fcFiscalAdm')),
     fiscalTec:   lerLista(valCampo('fcFiscalTec'))
@@ -3142,6 +3165,7 @@ const HIST_ACOES = {
   'apostilamento-criou':  'cadastrou um apostilamento no contrato',
   'apostilamento-editou': 'alterou um apostilamento do contrato',
   'apostilamento-excluiu':'excluiu um apostilamento do contrato',
+  licitacon:        'cadastrou o link do LicitaCon no contrato',
   encerrou:         'encerrou o contrato',
   reabriu:          'reabriu o contrato',
   desfez:           'desfez uma alteração no contrato'
@@ -3230,64 +3254,118 @@ function histDesfazer(idRegistro){
     .catch(e => alert('Não consegui desfazer: ' + e.message));
 }
 
-/* ══════════════ RELATÓRIOS PDF (jsPDF) ══════════════ */
-let repScope = 'filtro';
-const repSel = { secretaria: new Set(), fiscal: new Set() };  /* vazio = todos */
-function abrirModalRelatorio(){ document.getElementById('ovRep').classList.add('open'); onTipoRel(); }
-function fecharRep(){ document.getElementById('ovRep').classList.remove('open'); }
-function setScope(btn){ document.querySelectorAll('[data-scope]').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); repScope = btn.dataset.scope; renderRepSel(); }
-function tipoRel(){ const el=document.querySelector('[name=repTipo]:checked'); return el?el.value:'geral'; }
-
-/* universo de secretarias / fiscais dentro da abrangência escolhida */
-function universoRel(tipo){
-  const mapa = {};
-  baseItens(repScope).forEach(c=>{
-    const chaves = tipo==='secretaria'
-      ? (c.secretarias.length?c.secretarias:['(SEM SECRETARIA)'])
-      : (fiscais(c).length?fiscais(c):['(SEM FISCAL DEFINIDO)']);
-    chaves.forEach(k=>mapa[k]=(mapa[k]||0)+1);
+/* ══════════════ PAINEL DOS LINKS DO LICITACON ══════════════
+   Os documentos de cada contrato ficam no portal do TCE-RS, e o caminho até
+   lá é um endereço por contrato. Contrato novo já nasce com o link, no
+   formulário; o cadastro antigo é mutirão — e é para isso que este painel
+   existe: a lista do que falta, a caixa já aberta em cada linha, e o
+   contrato saindo da conta assim que o link é colado. */
+function faltaLicitacon(){
+  return CONTRATOS.filter(c => isAtivo(c) && !linkLicitacon(c.linkLicitacon))
+                  .sort((a,b) => (b.ano - a.ano) || (b.contr - a.contr));
+}
+/* O número no botão do cabeçalho é o lembrete: enquanto houver contrato
+   ativo sem link, ele fica à vista. */
+function atualizarContadorLicitacon(){
+  const n = faltaLicitacon().length;
+  const pilula = document.getElementById('licitaconFalta');
+  if(pilula) pilula.textContent = n || '';
+  const botao = document.getElementById('btnLicitacon');
+  if(botao) botao.title = n ? n + ' contrato(s) ativo(s) ainda sem o link do LicitaCon'
+                            : 'Todos os contratos ativos já têm o link do LicitaCon';
+  const aviso = document.getElementById('licAviso');
+  if(aviso && document.getElementById('ovLic').classList.contains('open')){
+    aviso.innerHTML = n
+      ? '<div class="aviso aviso-azul">Faltam <b>' + n + '</b> contrato(s) ativo(s) sem o link. '
+        + 'Cole o endereço e saia do campo — salva sozinho.</div>'
+      : '<div class="aviso aviso-verde">Todos os contratos ativos já têm o link do LicitaCon.</div>';
+  }
+}
+function abrirPainelLicitacon(){
+  document.getElementById('ovLic').classList.add('open');
+  document.getElementById('licBusca').value = '';
+  renderPainelLicitacon();
+  atualizarContadorLicitacon();
+}
+function fecharPainelLicitacon(){ document.getElementById('ovLic').classList.remove('open'); }
+/* A tela abre só no ano corrente. Quem veio catalogar contrato antigo
+   precisa saber que o resto do cadastro ainda não está na memória — senão
+   o painel diz "faltam 3" e a pessoa acha que acabou. */
+function licitaconTrazerAnos(){
+  verTudoContratos();
+  renderPainelLicitacon();
+}
+function renderPainelLicitacon(){
+  document.getElementById('licAnos').innerHTML = CT_TUDO ? '' :
+    '<div class="aviso aviso-amarelo">Na memória estão só os contratos de <b>' + ANO_CORRENTE + '</b>. '
+    + 'Para cadastrar os antigos, <button class="acao" onclick="licitaconTrazerAnos()">traga todos os anos</button>.</div>';
+  const busca = normalizar(document.getElementById('licBusca').value.trim());
+  const faltam = faltaLicitacon();
+  const vis = busca ? faltam.filter(c => textoTudo(c).includes(busca)) : faltam;
+  document.getElementById('licLista').innerHTML = vis.length
+    ? vis.map(c =>
+        '<div class="lc-item" data-id="' + c.id + '">'
+        + '<div class="lc-topo"><span class="lc-n">nº ' + c.contr + '/' + c.ano + '</span>'
+        + '<span class="lc-emp">' + esc(c.empresa) + '</span></div>'
+        + '<div class="lc-linha">'
+        + '<input type="url" placeholder="Cole aqui o link do contrato no LicitaCon"'
+        + ' onchange="salvarLinkLicitacon(' + c.id + ', this)"'
+        + ' onkeydown="if(event.key===\'Enter\')this.blur()">'
+        + '<button class="mini-btn" onclick="salvarLinkLicitacon(' + c.id + ', this.previousElementSibling)">Salvar</button>'
+        + '</div><div class="lc-status"></div></div>').join('')
+    : '<div class="lc-vazio">' + (faltam.length
+        ? 'Nenhum contrato dessa busca está sem link.'
+        : 'Nenhum contrato ativo sem o link do LicitaCon. 🎉') + '</div>';
+  atualizarContadorLicitacon();
+}
+/* Salva uma linha do mutirão. A lista NÃO é redesenhada aqui de propósito:
+   a linha recém-salva sairia debaixo do cursor no meio do trabalho. Ela
+   fica, marcada de verde, até o painel ser aberto de novo. */
+function salvarLinkLicitacon(id, campo){
+  const c = CONTRATOS.find(x => x.id === id); if(!c) return;
+  const item = campo.closest('.lc-item');
+  const aviso = item.querySelector('.lc-status');
+  const digitado = campo.value.trim();
+  if(!digitado){ aviso.innerHTML = ''; item.classList.remove('ok'); return; }
+  const url = linkLicitacon(digitado);
+  if(!url){
+    item.classList.remove('ok');
+    aviso.innerHTML = '<span class="erro">Não parece um endereço. Cole a página do contrato no portal do TCE-RS.</span>';
+    return;
+  }
+  /* o botão "Salvar" tira o foco da caixa e dispara o onchange antes do
+     clique: sem isto, o mesmo link entraria duas vezes no histórico */
+  if(linkLicitacon(c.linkLicitacon) === url){ marcarLinhaLicitacon(item, id); return; }
+  aviso.textContent = 'salvando…';
+  gravar(Object.assign({}, c, {linkLicitacon: url}), 'Link do LicitaCon salvo.', 'licitacon').then(() => {
+    /* gravar() avisa o erro na tela e segue adiante; quem diz se entrou é o
+       cadastro em memória, que só é trocado quando o banco aceitou */
+    const atual = CONTRATOS.find(x => x.id === id);
+    if(!atual || linkLicitacon(atual.linkLicitacon) !== url){
+      aviso.innerHTML = '<span class="erro">Não salvou. Tente de novo.</span>';
+      return;
+    }
+    campo.value = url;
+    marcarLinhaLicitacon(item, id);
+    atualizarContadorLicitacon();
   });
-  return Object.entries(mapa).sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0],'pt-BR'));
 }
-function onTipoRel(){
-  const tipo = tipoRel();
-  const wrap = document.getElementById('repSelWrap');
-  const mostra = (tipo==='secretaria' || tipo==='fiscal');
-  wrap.style.display = mostra ? '' : 'none';
-  if(!mostra) return;
-  document.getElementById('repSelTitle').textContent = tipo==='secretaria' ? 'Quais secretarias incluir?' : 'Quais fiscais incluir?';
-  document.getElementById('repSelBusca').placeholder = tipo==='secretaria' ? '🔎 Filtrar secretarias...' : '🔎 Digite o nome do fiscal...';
-  renderRepSel();
+function marcarLinhaLicitacon(item, id){
+  item.classList.add('ok');
+  const aviso = item.querySelector('.lc-status');
+  aviso.innerHTML = '<span class="ok">✓ salvo</span> ';
+  const conferir = document.createElement('button');
+  conferir.className = 'mini-btn';
+  conferir.textContent = 'conferir';
+  conferir.onclick = () => abrirLicitacon(id);
+  aviso.appendChild(conferir);
 }
-function renderRepSel(){
-  const tipo = tipoRel();
-  if(tipo!=='secretaria' && tipo!=='fiscal') return;
-  const busca = document.getElementById('repSelBusca').value.trim().toLowerCase();
-  const uni = universoRel(tipo);
-  const sel = repSel[tipo];
-  /* remove seleções que não existem mais na abrangência */
-  const validas = new Set(uni.map(u=>u[0]));
-  [...sel].forEach(k=>{ if(!validas.has(k)) sel.delete(k); });
-  const vis = uni.filter(([k])=>!busca || k.toLowerCase().includes(busca));
-  document.getElementById('repSelList').innerHTML = vis.length
-    ? vis.map(([k,n])=>`<label class="sel-item ${sel.has(k)?'on':''}" onclick="toggleRepSel(event,'${k.replace(/'/g,"\\'")}')"><span class="tick">✓</span>${esc(k)} <span class="qt">${n}</span></label>`).join('')
-    : '<span style="font-size:12.5px;color:var(--muted)">Nenhum resultado para essa busca.</span>';
-  document.getElementById('repSelCount').innerHTML = sel.size
-    ? `<b>${sel.size}</b> de ${uni.length} selecionado(s) — o PDF trará apenas esses grupos.`
-    : `Nenhum marcado: o PDF trará <b>todos os ${uni.length}</b> grupos.`;
-}
-function toggleRepSel(ev, chave){
-  ev.preventDefault();
-  const tipo = tipoRel(); const sel = repSel[tipo];
-  sel.has(chave) ? sel.delete(chave) : sel.add(chave);
-  renderRepSel();
-}
-function repSelTodos(marcar){
-  const tipo = tipoRel(); const sel = repSel[tipo];
-  sel.clear();
-  if(marcar) universoRel(tipo).forEach(([k])=>sel.add(k));
-  renderRepSel();
-}
+
+/* ══════════════ PDF DA LISTA (jsPDF) ══════════════
+   Uma saída só: o PDF do que está filtrado na tela. Os relatórios agrupados
+   (por secretaria, por fiscal, por faixa de vencimento) saíram — a própria
+   tabela já filtra por essas colunas, e imprimir o filtro dá o mesmo papel
+   sem um segundo lugar para escolher a mesma coisa. */
 /* PDF direto do filtro da tela, sem abrir modal */
 function pdfDoFiltro(){
   if(!filtrados.length){ alert('Nenhum contrato no filtro atual. Ajuste a busca e tente novamente.'); return; }
@@ -3399,29 +3477,12 @@ function pdfRows(doc, itens, yStart, tituloPag, sub){
   });
   return y;
 }
-function pdfGroupHeader(doc, txt, extra, y, tituloPag, sub){
-  if(y+14 > PH-MB){ doc.addPage(); pdfHeader(doc, tituloPag, sub); y = MT-4; }
-  doc.setFillColor(231,238,251); doc.rect(ML,y,CW,7.5,'F');
-  doc.setDrawColor(46,93,168); doc.setLineWidth(.7); doc.line(ML,y,ML,y+7.5);
-  doc.setFont('helvetica','bold'); doc.setFontSize(9.5); doc.setTextColor(30,74,138);
-  doc.text(pdfTexto(txt), ML+3, y+5.1);
-  if(extra){ doc.setFontSize(8.5); doc.text(pdfTexto(extra), PW-MR-2, y+5.1, {align:'right'}); }
-  return pdfTableHeader(doc, y+8.5);
-}
-function pdfSubtotal(doc, itens, y){
-  if(y+7 > PH-MB) return y; /* subtotal cabe; se não, omite discretamente */
-  doc.setFont('helvetica','bold'); doc.setFontSize(8.4); doc.setTextColor(26,58,107);
-  doc.text(`Subtotal: ${itens.length} contrato(s)`, PW-MR-2, y+4, {align:'right'});
-  return y+7;
-}
 function baseItens(sc){
-  sc = sc || repScope;
   if(sc==='filtro') return [...filtrados];
   if(sc==='ativos') return CONTRATOS.filter(isAtivo);
   return [...CONTRATOS];
 }
 function scopeLabel(sc){
-  sc = sc || repScope;
   if(sc!=='filtro') return sc==='ativos' ? 'Todos os contratos ativos' : 'Todos os contratos cadastrados';
   const p = [];
   if(F.busca) p.push('busca "'+document.getElementById('fBusca').value.trim()+'"');
@@ -3437,91 +3498,28 @@ function scopeLabel(sc){
   });
   return `Filtro da tela: ${filtrados.length} contrato(s)` + (p.length? ' — '+p.join(' · ') : '');
 }
-function gerarRelatorio(tipoForce, scopeForce){
-  return carregarLogoPdf().then(() => gerarRelatorioAgora(tipoForce, scopeForce));
+function gerarRelatorio(tipo, sc){
+  return carregarLogoPdf().then(() => gerarRelatorioAgora(tipo, sc));
 }
-function gerarRelatorioAgora(tipoForce, scopeForce){
-  const tipo = tipoForce || tipoRel();
-  const sc = scopeForce || repScope;
+function gerarRelatorioAgora(tipo, sc){
   const doc = pdfBase(); if(!doc) return;
   const itens = baseItens(sc);
   if(!itens.length){ alert('Nenhum contrato na abrangência selecionada.'); return; }
   const sub = scopeLabel(sc);
-  let titulo='', arquivo='';
+  const doFiltro = (tipo === 'geral' && sc === 'filtro');
+  const titulo = doFiltro ? 'Relatório dos contratos filtrados' : 'Relatório geral de contratos';
+  const arquivo = doFiltro ? 'contratos_filtro' : 'contratos_geral';
 
-  if(tipo==='geral'){
-    titulo = (tipoForce==='geral' && scopeForce==='filtro') ? 'Relatório dos contratos filtrados' : 'Relatório geral de contratos';
-    arquivo = (tipoForce==='geral' && scopeForce==='filtro') ? 'contratos_filtro' : 'contratos_geral';
-    pdfHeader(doc,titulo,sub);
-    let y = pdfTableHeader(doc, MT-4);
-    y = pdfRows(doc, itens, y, titulo, sub);
-    if(y+8>PH-MB){ doc.addPage(); pdfHeader(doc,titulo,sub); y=MT-4; }
-    doc.setFillColor(26,58,107); doc.rect(ML,y+2,CW,8,'F');
-    doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(246,185,59);
-    doc.text(`TOTAL: ${itens.length} contrato(s)`, PW-MR-3, y+7.4, {align:'right'});
-  }
-
-  if(tipo==='secretaria'){
-    titulo='Contratos por secretaria'; arquivo='contratos_por_secretaria';
-    const grupos = {};
-    itens.forEach(c=>{ (c.secretarias.length?c.secretarias:['(SEM SECRETARIA)']).forEach(s=>{ (grupos[s]=grupos[s]||[]).push(c); }); });
-    let chaves = Object.keys(grupos).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    if(!tipoForce && repSel.secretaria.size) chaves = chaves.filter(k=>repSel.secretaria.has(k));
-    if(!chaves.length){ alert('Nenhuma secretaria selecionada tem contratos nessa abrangência.'); return; }
-    if(repSel.secretaria.size && !tipoForce){ arquivo += '_selecao'; titulo += ' (seleção)'; }
-    pdfHeader(doc,titulo,sub);
-    let y = MT-4;
-    chaves.forEach(sec=>{
-      const its = grupos[sec].sort((a,b)=>(a._d===null?1e9:a._d)-(b._d===null?1e9:b._d));
-      y = pdfGroupHeader(doc, sec, `${its.length} contrato(s)`, y, titulo, sub);
-      y = pdfRows(doc, its, y, titulo, sub);
-      y = pdfSubtotal(doc, its, y);
-    });
-  }
-
-  if(tipo==='vencimento'){
-    titulo='Contratos por vencimento'; arquivo='contratos_por_vencimento';
-    pdfHeader(doc,titulo,sub);
-    const faixas = [
-      ['⚠ JÁ VENCIDOS', c=>c._d!==null&&c._d<0],
-      ['VENCEM EM ATÉ 30 DIAS', c=>c._d!==null&&c._d>=0&&c._d<=30],
-      ['VENCEM DE 31 A 60 DIAS', c=>c._d!==null&&c._d>30&&c._d<=60],
-      ['VENCEM DE 61 A 90 DIAS', c=>c._d!==null&&c._d>60&&c._d<=90],
-      ['VENCEM DE 91 A 180 DIAS', c=>c._d!==null&&c._d>90&&c._d<=180],
-      ['VENCEM APÓS 180 DIAS', c=>c._d!==null&&c._d>180],
-      ['SEM DATA DE VENCIMENTO', c=>c._d===null],
-    ];
-    let y = MT-4;
-    faixas.forEach(([lab,fn])=>{
-      const its = itens.filter(fn).sort((a,b)=>(a._d===null?1e9:a._d)-(b._d===null?1e9:b._d));
-      if(!its.length) return;
-      y = pdfGroupHeader(doc, lab, `${its.length} contrato(s)`, y, titulo, sub);
-      y = pdfRows(doc, its, y, titulo, sub);
-      y = pdfSubtotal(doc, its, y);
-    });
-  }
-
-  if(tipo==='fiscal'){
-    titulo='Contratos por fiscal'; arquivo='contratos_por_fiscal';
-    const grupos = {};
-    itens.forEach(c=>{ const fs=fiscais(c); (fs.length?fs:['(SEM FISCAL DEFINIDO)']).forEach(f=>{ (grupos[f]=grupos[f]||[]).push(c); }); });
-    let chaves = Object.keys(grupos).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    if(!tipoForce && repSel.fiscal.size) chaves = chaves.filter(k=>repSel.fiscal.has(k));
-    if(!chaves.length){ alert('Nenhum fiscal selecionado tem contratos nessa abrangência.'); return; }
-    if(repSel.fiscal.size && !tipoForce){ arquivo += '_selecao'; titulo += ' (seleção)'; }
-    pdfHeader(doc,titulo,sub);
-    let y = MT-4;
-    chaves.forEach(f=>{
-      const its = grupos[f].sort((a,b)=>(a._d===null?1e9:a._d)-(b._d===null?1e9:b._d));
-      y = pdfGroupHeader(doc, 'FISCAL: '+f.toUpperCase(), `${its.length} contrato(s)`, y, titulo, sub);
-      y = pdfRows(doc, its, y, titulo, sub);
-      y = pdfSubtotal(doc, its, y);
-    });
-  }
+  pdfHeader(doc,titulo,sub);
+  let y = pdfTableHeader(doc, MT-4);
+  y = pdfRows(doc, itens, y, titulo, sub);
+  if(y+8>PH-MB){ doc.addPage(); pdfHeader(doc,titulo,sub); y=MT-4; }
+  doc.setFillColor(26,58,107); doc.rect(ML,y+2,CW,8,'F');
+  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(246,185,59);
+  doc.text(`TOTAL: ${itens.length} contrato(s)`, PW-MR-3, y+7.4, {align:'right'});
 
   pdfFooter(doc);
   doc.save(arquivo + '_' + new Date().toISOString().slice(0,10) + '.pdf');
-  fecharRep();
 }
 
 /* Ficha individual do contrato */
@@ -3655,10 +3653,10 @@ document.addEventListener('keydown', e=>{
   if(ovApost.classList.contains('open')){ fecharApost(); return; }
   if(ovEncerrar.classList.contains('open')){ fecharEncerrar(); return; }
   if(ovForm.classList.contains('open')){ fecharForm(); return; }
-  fecharDet(); fecharRep(); fecharFiltrosMobile();
+  fecharDet(); fecharPainelLicitacon(); fecharFiltrosMobile();
 });
 /* fecha os modais com o botão voltar do celular */
-window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharApost(); fecharEncerrar(); fecharForm(); fecharDet(); fecharRep(); fecharFiltrosMobile(); });
+window.addEventListener('popstate', ()=>{ fecharPop(); fecharAdit(); fecharApost(); fecharEncerrar(); fecharForm(); fecharDet(); fecharPainelLicitacon(); fecharFiltrosMobile(); });
 
 /* A tarja do cabeçalho diz de onde vieram os dados — sem ela não dá para
    saber, olhando a tela, se o Firestore respondeu ou se caiu no arquivo. */

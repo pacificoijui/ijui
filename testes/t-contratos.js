@@ -1038,6 +1038,132 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     noBanco.gravou && noBanco.valor===300000 && noBanco.rascunhoVazio, noBanco);
   t('e foi gravado sem os campos internos da tela', noBanco.temCampoInterno===false, noBanco);
 
+  console.log('\n7h) O link do LicitaCon: onde ficam os documentos do contrato');
+  /* O que separa um endereço de uma anotação qualquer. Importa porque o
+     valor do campo vai parar num window.open: "javascript:" colado aqui
+     seria script rodando na página, e frase solta viraria um botão que não
+     leva a lugar nenhum (o navegador aceita 'https://frase com espaço' e
+     devolve um domínio codificado, de aparência legítima). */
+  const link=await pg.evaluate(()=>({
+    tce:          linkLicitacon('https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23'),
+    semProtocolo: linkLicitacon('portal.tce.rs.gov.br/aplicprod/f?p=50500:23'),
+    comEspacos:   linkLicitacon('  https://portal.tce.rs.gov.br/x  '),
+    script:       linkLicitacon('javascript:alert(document.cookie)'),
+    dados:        linkLicitacon('data:text/html,<script>alert(1)</script>'),
+    frase:        linkLicitacon('pedir o link para a Andréia'),
+    palavra:      linkLicitacon('licitacon'),
+    vazio:        linkLicitacon(''),
+    nulo:         linkLicitacon(null)
+  }));
+  t('o endereço do portal do TCE passa inteiro',
+    link.tce==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23', link);
+  t('colar sem "https://" ganha o https na frente',
+    link.semProtocolo==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23', link);
+  t('espaço sobrando na hora de colar não atrapalha',
+    link.comEspacos==='https://portal.tce.rs.gov.br/x', link);
+  t('"javascript:" não passa — seria script rodando na página', link.script==='', link);
+  t('"data:" também não passa', link.dados==='', link);
+  t('uma frase não vira link, por mais que o navegador aceite',
+    link.frase==='' && link.palavra==='', link);
+  t('campo em branco é campo em branco', link.vazio==='' && link.nulo==='', link);
+
+  const fichaLink=await pg.evaluate(async ()=>{
+    const c=CONTRATOS.find(x=>x.contr===900&&x.ano===2026);
+    abrirDet(c.id);
+    const antes=document.getElementById('btnDetLicitacon').style.display!=='none';
+    abrirForm(c.id);
+    const temCampo=!!document.getElementById('fcLink');
+    document.getElementById('fcLink').value='portal.tce.rs.gov.br/aplicprod/f?p=50500:23';
+    salvarForm();
+    await new Promise(r=>setTimeout(r,400));
+    abrirDet(c.id);
+    const depois=document.getElementById('btnDetLicitacon').style.display!=='none';
+    /* o clique abre o portal numa janela à parte, sem sair da ficha */
+    const original=window.open; let janela=null;
+    window.open=(u,nome,feats)=>{ janela={u,nome,feats}; return null; };
+    document.getElementById('btnDetLicitacon').click();
+    window.open=original;
+    const fichaAberta=document.getElementById('ovDet').classList.contains('open');
+    fecharDet();
+    return {antes, temCampo, depois, janela, fichaAberta,
+            gravado:CONTRATOS.find(x=>x.id===c.id).linkLicitacon,
+            noBanco:window.__STORE.contratos[String(c.id)].linkLicitacon};
+  });
+  t('o formulário do contrato tem o campo do link', fichaLink.temCampo);
+  t('sem link cadastrado, a ficha não mostra o botão', fichaLink.antes===false, fichaLink);
+  t('o que foi colado é guardado já normalizado',
+    fichaLink.gravado==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23', fichaLink);
+  t('e vai para o banco, não só para a tela',
+    fichaLink.noBanco==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23', fichaLink);
+  t('com o link, a ficha ganha o botão LicitaCon', fichaLink.depois===true, fichaLink);
+  t('que abre o endereço cadastrado numa janela à parte',
+    fichaLink.janela && fichaLink.janela.u===fichaLink.gravado && fichaLink.janela.nome==='licitacon', fichaLink);
+  t('sem entregar a página de origem para o portal (noopener)',
+    fichaLink.janela && /noopener/.test(fichaLink.janela.feats), fichaLink);
+  t('e a ficha continua aberta atrás, para conferir documento contra cadastro',
+    fichaLink.fichaAberta, fichaLink);
+
+  /* O mutirão: cadastrar os links do que já está no sistema sem abrir um
+     formulário por contrato. */
+  const mutirao=await pg.evaluate(async ()=>{
+    abrirPainelLicitacon();
+    const aberto=document.getElementById('ovLic').classList.contains('open');
+    const linhas=()=>[...document.querySelectorAll('#licLista .lc-item')];
+    const soSemLink=linhas().every(l=>{
+      const c=CONTRATOS.find(x=>x.id===Number(l.dataset.id));
+      return isAtivo(c) && !c.linkLicitacon;
+    });
+    const naFila=faltaLicitacon().length;
+    const contados=linhas().length;
+    const pilulaAntes=document.getElementById('licitaconFalta').textContent;
+
+    const linha=linhas()[0], id=Number(linha.dataset.id), campo=linha.querySelector('input');
+    campo.value='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:55';
+    campo.dispatchEvent(new Event('change'));
+    await new Promise(r=>setTimeout(r,450));
+    const salvo={gravado:CONTRATOS.find(x=>x.id===id).linkLicitacon,
+                 verde:linha.classList.contains('ok'),
+                 recado:linha.querySelector('.lc-status').textContent,
+                 continua:!!document.querySelector('#licLista .lc-item[data-id="'+id+'"]'),
+                 fila:faltaLicitacon().length,
+                 pilula:document.getElementById('licitaconFalta').textContent};
+    /* clicar em "Salvar" logo depois não pode gravar de novo: o próprio
+       clique tira o foco da caixa e já dispara o onchange */
+    linha.querySelector('.mini-btn').click();
+    await new Promise(r=>setTimeout(r,300));
+    salvo.depoisDoBotao=CONTRATOS.find(x=>x.id===id).linkLicitacon;
+
+    const outra=linhas().find(l=>!l.classList.contains('ok'));
+    const idRuim=Number(outra.dataset.id), campoRuim=outra.querySelector('input');
+    campoRuim.value='javascript:alert(1)';
+    campoRuim.dispatchEvent(new Event('change'));
+    await new Promise(r=>setTimeout(r,300));
+    const recusado={gravado:CONTRATOS.find(x=>x.id===idRuim).linkLicitacon,
+                    recado:outra.querySelector('.lc-status').textContent,
+                    verde:outra.classList.contains('ok')};
+    fecharPainelLicitacon();
+    return {aberto, soSemLink, naFila, contados, pilulaAntes, salvo, recusado};
+  });
+  t('o painel do mutirão abre', mutirao.aberto);
+  t('e lista exatamente os contratos ativos que estão sem link',
+    mutirao.contados===mutirao.naFila && mutirao.contados>0, mutirao);
+  t('nenhum deles tem link — é a fila do que falta', mutirao.soSemLink);
+  t('o botão do cabeçalho mostra quantos faltam',
+    mutirao.pilulaAntes===String(mutirao.naFila), mutirao);
+  t('colar o link na linha salva o contrato',
+    mutirao.salvo.gravado==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:55', mutirao.salvo);
+  t('a linha fica verde e diz que salvou',
+    mutirao.salvo.verde && /salvo/.test(mutirao.salvo.recado), mutirao.salvo);
+  t('mas continua na tela — não some debaixo do cursor no meio do trabalho',
+    mutirao.salvo.continua, mutirao.salvo);
+  t('o contrato sai da fila e o contador acompanha',
+    mutirao.salvo.fila===mutirao.naFila-1 && mutirao.salvo.pilula===String(mutirao.salvo.fila), mutirao.salvo);
+  t('clicar em "Salvar" depois disso não estraga o que já estava salvo',
+    mutirao.salvo.depoisDoBotao===mutirao.salvo.gravado, mutirao.salvo);
+  t('o que não é endereço não é gravado', !mutirao.recusado.gravado, mutirao.recusado);
+  t('e a recusa é explicada na própria linha, sem marcar como salvo',
+    /não parece um endereço/i.test(mutirao.recusado.recado) && !mutirao.recusado.verde, mutirao.recusado);
+
   console.log('\n8) Tempo real: o que uma pessoa salva aparece na tela da outra');
   /* Grava direto no banco, como se fosse a outra pessoa em outro
      computador, e confere que a tela reage sozinha — sem F5. */

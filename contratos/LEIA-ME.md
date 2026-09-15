@@ -133,7 +133,7 @@ ficar vazio.
 | Tipo | O que pergunta |
 |---|---|
 | Prorrogação de prazo contratual | novo vencimento |
-| Renovação contratual | novo vencimento e valor |
+| Renovação contratual | início da renovação, novo vencimento e valor |
 | Acréscimo de valor por aumento de quantitativo | valor acrescido |
 | Acréscimo do valor por inclusão de itens novos | valor acrescido |
 | Redução de valor por supressão de quantidade | valor suprimido |
@@ -142,7 +142,7 @@ ficar vazio.
 | Reajustamento de preço | variação do valor e o índice aplicado |
 | Repactuação | variação do valor e o índice aplicado |
 | Alteração da natureza ou razão social do contratado | nova razão social e CNPJ |
-| Outros | valor e/ou prazo, livre |
+| Outros | só a observação — não mexe em prazo nem em valor |
 
 **O sinal vem do tipo, não de quem digita.** Uma supressão pede o valor sem
 sinal e guarda negativo. Pedir "−5.000" é pedir para alguém esquecer o
@@ -160,13 +160,15 @@ mostra. Nada precisou ser convertido.
 Distrato, Rescisão e Apostilamento **não são aditivo** — cada um tem botão,
 formulário e registro próprios, descritos a seguir.
 
-### Encerrar contrato (distrato ou rescisão)
+### Encerrar contrato
 
-Distrato (acordo entre as partes) e rescisão (por descumprimento) encerram o
-contrato — não mudam uma cláusula, acabam com ele. Por isso não moram na
-lista de aditivos: moram em `encerramento`, um objeto só (o contrato encerra
-uma vez), com o tipo, a data, a observação e — só para rescisão, que precisa
-justificar — o motivo.
+São quatro os jeitos de um contrato acabar: **distrato** (acordo entre as
+partes), **rescisão** (por descumprimento), **termo de recebimento de obra
+pronta** e **termo de recebimento de serviços prestados** — os dois últimos
+são o fim normal, o contrato cumprido. Nenhum deles muda uma cláusula:
+acabam com o contrato. Por isso não moram na lista de aditivos: moram em
+`encerramento`, um objeto só (o contrato encerra uma vez), com o tipo, a
+data, a observação e — só para rescisão, que precisa justificar — o motivo.
 
 Ao salvar, o contrato passa para **INATIVO** e o vencimento passa a ser a
 data do encerramento; o valor não muda. A situação de antes fica guardada
@@ -182,10 +184,10 @@ contratada. Também não é aditivo: mora em `apostilamentos`, uma lista à
 parte de `aditivos`, com numeração própria (o primeiro apostilamento de um
 contrato é sempre o nº 1, mesmo que o contrato já tenha vários aditivos).
 
-Mexe no valor e no vencimento do contrato exatamente como um aditivo
-mexeria — entra na mesma soma e no mesmo cálculo de prazo vigente — só que
-fica separado na ficha, no PDF e no histórico, porque juridicamente é outra
-coisa.
+Pede só o número, a data e a observação: **não mexe em prazo nem em
+valor**. O que se registra ali é o ato em si — a correção de um dado, a
+mudança de dotação, o que não altera o que foi contratado. Fica separado na
+ficha, no PDF e no histórico, porque juridicamente é outra coisa.
 
 ### As quatro situações
 
@@ -256,7 +258,36 @@ Depois disso quem manda é o banco. O arquivo do repositório fica como
 histórico — e o **Exportar JSON** da tela continua gerando uma cópia no
 mesmo formato quando você quiser atualizar esse histórico.
 
+## Link do LicitaCon
+
+Os documentos de cada contrato — edital, termo assinado, aditivos — não
+ficam aqui: ficam no portal do TCE-RS, o **LicitaCon**, uma página por
+contrato. O sistema guarda o endereço dessa página em `linkLicitacon`, e
+com ele preenchido a ficha ganha o botão **🔗 LicitaCon**, que abre o
+portal numa janela à parte — a ficha continua aberta atrás, que é o que se
+quer quando se confere documento contra cadastro.
+
+Contrato novo já nasce com o link, no próprio formulário. Para o cadastro
+antigo existe o **🔗 Links LicitaCon** no cabeçalho: a lista dos contratos
+ativos que ainda estão sem endereço, com a caixa já aberta em cada linha.
+Cola, sai do campo, salvou — e o contrato sai da conta. O número no botão
+é quantos ainda faltam. A tela abre só no ano corrente, então o painel
+avisa e oferece trazer os outros anos antes do mutirão.
+
+O campo recusa o que não for endereço `http`/`https`. Não é implicância: o
+valor vai parar num `window.open`, e um `javascript:` colado ali seria
+script rodando na página. O domínio é conferido à parte porque o navegador
+é generoso demais — `new URL('https://frase com espaço')` não dá erro, ele
+codifica a frase e devolve um endereço de aparência legítima, que viraria
+um botão levando a lugar nenhum.
+
 ## Relatórios e fichas em PDF
+
+São duas saídas: o **PDF do filtro atual**, que imprime exatamente os
+contratos filtrados na tela, e a **Ficha em PDF** de um contrato. Os
+relatórios agrupados (por secretaria, por fiscal, por faixa de vencimento)
+saíram: a própria tabela filtra por essas colunas, e imprimir o filtro dá
+o mesmo papel sem um segundo lugar para escolher a mesma coisa.
 
 Mesmo desenho dos Pedidos de Diligência do Sistema Interno: logo do
 município no alto, título abaixo, e o rodapé com a identificação e a
