@@ -1078,55 +1078,14 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await new Promise(r=>setTimeout(r,400));
     abrirDet(c.id);
     const depois=document.getElementById('btnDetLicitacon').style.display!=='none';
-    /* O clique abre o portal numa janela à parte, sem sair da ficha. A
-       janela é fingida: abre vazia, guarda para onde foi mandada, e diz se
-       o laço de volta (opener) foi cortado antes de ela sair daqui. */
+    /* o clique abre o portal numa janela à parte, sem sair da ficha */
     const original=window.open; let janela=null;
-    window.open=(endereco,nome,feats)=>{
-      janela={abertaEm:endereco, nome, feats, idas:[], opener:{}, fechada:false, focou:false};
-      return {set opener(v){ janela.opener=v; }, get opener(){ return janela.opener; },
-              get closed(){ return janela.fechada; },
-              focus(){ janela.focou=true; },
-              location:{ set href(v){ janela.idas.push(v); }, get href(){ return janela.idas[janela.idas.length-1]; } }};
-    };
+    window.open=(endereco,nome,feats)=>{ janela={endereco,nome,feats}; return null; };
     document.getElementById('btnDetLicitacon').click();
-    const logoApos=janela.idas.slice();
-    /* o aquecimento é uma segunda ida ao mesmo endereço, pouco depois */
-    await new Promise(r=>setTimeout(r,1600));
-    const depoisDeAquecer=janela.idas.slice();
-
-    /* na segunda vez o caminho já está quente: abre e pronto, sem
-       recarregar em cima de quem já está lendo */
-    janela=null;
-    document.getElementById('btnDetLicitacon').click();
-    await new Promise(r=>setTimeout(r,1600));
-    const segundaVez=janela.idas.slice();
-
-    /* janela fechada pela pessoa antes do aquecimento não é reaberta */
-    janela=null;
-    licitaconQuente=false;
-    document.getElementById('btnDetLicitacon').click();
-    janela.fechada=true;
-    const aposFechar=janela.idas.slice();
-    await new Promise(r=>setTimeout(r,1600));
-    const naoReabriu=janela.idas.length===aposFechar.length;
-
-    /* bloqueador de pop-up: window.open devolve null e a pessoa precisa
-       saber disso, em vez de clicar num botão que não faz nada */
-    window.open=()=>null;
-    let recado=null; const alertaOriginal=window.alert;
-    window.alert=m=>{ recado=m; };
-    document.getElementById('btnDetLicitacon').click();
-    window.alert=alertaOriginal;
     window.open=original;
-
     const fichaAberta=document.getElementById('ovDet').classList.contains('open');
     fecharDet();
-    return {antes, temCampo, depois, logoApos, depoisDeAquecer, segundaVez,
-            naoReabriu, recado, fichaAberta,
-            nome:janela&&janela.nome, feats:janela&&janela.feats,
-            abertaEm:janela&&janela.abertaEm, opener:janela&&janela.opener,
-            focou:janela&&janela.focou,
+    return {antes, temCampo, depois, janela, fichaAberta,
             gravado:CONTRATOS.find(x=>x.id===c.id).linkLicitacon,
             noBanco:window.__STORE.contratos[String(c.id)].linkLicitacon};
   });
@@ -1137,25 +1096,17 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('e vai para o banco, não só para a tela',
     fichaLink.noBanco==='https://portal.tce.rs.gov.br/aplicprod/f?p=50500:23', fichaLink);
   t('com o link, a ficha ganha o botão LicitaCon', fichaLink.depois===true, fichaLink);
-  t('que manda o endereço cadastrado para uma janela à parte',
-    fichaLink.logoApos[0]===fichaLink.gravado && fichaLink.nome==='licitacon', fichaLink);
-  t('a janela nasce vazia, para o opener ser cortado antes de ela sair daqui',
-    fichaLink.abertaEm==='' && fichaLink.opener===null, fichaLink);
-  t('e recebe o foco, em vez de abrir escondida atrás da tela',
-    fichaLink.focou===true, fichaLink);
-  /* O caminho até o portal esquenta na primeira ida — DNS, TLS e a sessão
-     de lá. Aquecer daqui não serve: o navegador separa conexão e cache por
-     site de origem. Quem aquece é a própria janela do portal, indo duas
-     vezes. */
-  t('na primeira da visita ela vai ao portal duas vezes, para aquecer o caminho',
-    fichaLink.logoApos.length===1 && fichaLink.depoisDeAquecer.length===2
-    && fichaLink.depoisDeAquecer[1]===fichaLink.gravado, fichaLink);
-  t('nas seguintes vai uma vez só — o caminho já está quente e recarregar atrapalharia',
-    fichaLink.segundaVez.length===1, fichaLink);
-  t('e janela fechada antes do aquecimento não é reaberta por trás',
-    fichaLink.naoReabriu, fichaLink);
-  t('se o navegador bloquear a janela, a tela diz — não fica um botão morto',
-    /pop-?up/i.test(fichaLink.recado||''), fichaLink);
+  t('que abre o endereço cadastrado numa janela à parte',
+    fichaLink.janela && fichaLink.janela.endereco===fichaLink.gravado
+    && fichaLink.janela.nome==='licitacon', fichaLink);
+  /* Já foi tentado abrir a janela vazia e mandá-la ao portal depois, para
+     aquecer o caminho indo duas vezes. Deixava a janela em branco: a
+     Central do Pregoeiro some com pop-up que nunca mostrou nada, e a
+     segunda ida aborta o carregamento onde a sessão do portal nasce. */
+  t('numa ida só e já no endereço — janela vazia a Central descarta',
+    fichaLink.janela && fichaLink.janela.endereco!=='', fichaLink);
+  t('sem entregar a página de origem para o portal (noopener)',
+    fichaLink.janela && /noopener/.test(fichaLink.janela.feats), fichaLink);
   t('e a ficha continua aberta atrás, para conferir documento contra cadastro',
     fichaLink.fichaAberta, fichaLink);
 

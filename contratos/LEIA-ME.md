@@ -267,22 +267,13 @@ com ele preenchido a ficha ganha o botão **🔗 LicitaCon**, que abre o
 portal numa janela à parte — a ficha continua aberta atrás, que é o que se
 quer quando se confere documento contra cadastro.
 
-**A primeira janela do dia vai ao portal duas vezes.** Não é engano: a
-primeira ida é lenta — DNS, TLS e a sessão do portal nascendo do zero — e
-a segunda, logo em seguida, encontra tudo pronto e abre rápido. Aquecer
-esse caminho a partir daqui não funciona, porque o navegador guarda
-conexão e cache **separados por site de origem**: o que esta página
-aquecesse ficaria na partição dela, não na do portal. Quem aquece o
-caminho do portal é uma janela do próprio portal, e por isso ela é
-mandada ao endereço outra vez cerca de um segundo depois de abrir
-(`LICITACON_AQUECER_MS`). Da segunda janela em diante vai uma vez só — o
-caminho já está quente, e recarregar por cima só atrapalharia quem já
-está lendo a página.
-
-A janela nasce vazia e só depois é mandada para fora. Parece rodeio, mas
-é o que permite as duas coisas ao mesmo tempo: guardar a referência dela
-(para poder mandá-la de novo) e cortar o `window.opener` antes de ela
-sair — com `noopener` no `window.open`, a referência voltaria nula.
+**Uma ida só, e já no endereço.** Foi tentado abrir a janela vazia e
+mandá-la ao portal depois, indo duas vezes para aquecer o caminho — à mão,
+abrir/fechar/abrir realmente deixa a segunda ida rápida. Na Central do
+Pregoeiro, que é onde esta tela roda de verdade, isso deixava a janela
+**em branco**, por dois motivos somados: a Central some com pop-up que
+nunca mostrou nada, e a segunda ida aborta o carregamento no meio — junto
+com a sessão do portal, que nasce nele.
 
 **Janela à parte, e não embutido na ficha.** Foi tentado: um quadro dentro
 da própria ficha, para os documentos parecerem parte do sistema. O portal
