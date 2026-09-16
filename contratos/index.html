@@ -2456,15 +2456,51 @@ function abrirDet(id){
    portal recusa ser mostrado dentro de outro site — é decisão dele, num
    cabeçalho da resposta, e não há nada a fazer deste lado. O quadro vinha
    em branco. A janela à parte é o caminho que existe. */
+
+/* ── Por que a primeira janela vai ao portal duas vezes ──
+   A primeira ida do dia é lenta: DNS, TLS e a sessão do portal nascendo do
+   zero. A segunda, logo em seguida, encontra tudo isso pronto e abre
+   rápido — foi medido abrindo à mão, fechando e abrindo de novo.
+
+   Aquecer daqui não resolve: o navegador guarda conexão e cache separados
+   por site de origem, e o que esta página aquecesse ficaria na partição
+   DELA, não na do portal. Quem aquece o caminho do portal é uma janela do
+   próprio portal. Por isso a primeira janela é mandada ao endereço outra
+   vez, pouco depois de abrir.
+
+   Só na primeira da visita: dali em diante o caminho já está quente, e
+   recarregar de novo só atrapalharia quem já está lendo a página. */
+const LICITACON_AQUECER_MS = 1200;
+let licitaconQuente = false, licitaconT = null;
 function abrirLicitacon(id){
   const c = id == null ? detAtual : CONTRATOS.find(x => x.id === id);
   const u = linkLicitacon(c && c.linkLicitacon);
   if(!u){ alert('Este contrato ainda não tem o link do LicitaCon cadastrado.'); return; }
   const larg = Math.min(1120, screen.width - 40), alt = Math.min(800, screen.height - 120);
-  window.open(u, 'licitacon', 'noopener,width='+larg+',height='+alt
+  /* Abre em branco, e não direto no endereço, por causa do window.opener:
+     com 'noopener' no window.open a referência da janela voltaria nula e
+     não haveria como mandá-la ao portal de novo. Abrindo vazia ela nasce
+     na origem desta página, dá para cortar o opener ali mesmo, e só então
+     ela sai para fora — o portal recebe a janela sem laço de volta. */
+  const w = window.open('', 'licitacon', 'width='+larg+',height='+alt
     + ',left=' + Math.max(0, Math.round((screen.width-larg)/2))
     + ',top='  + Math.max(0, Math.round((screen.height-alt)/2))
     + ',scrollbars=yes,resizable=yes');
+  if(!w){
+    alert('O navegador bloqueou a janela do LicitaCon.\n\nLibere as janelas pop-up para este site e clique de novo.');
+    return;
+  }
+  try{ w.opener = null; }catch(e){}
+  w.location.href = u;
+  w.focus();
+  clearTimeout(licitaconT);
+  if(licitaconQuente) return;
+  licitaconQuente = true;
+  licitaconT = setTimeout(() => {
+    /* .closed é uma das poucas coisas que dá para ler de uma janela de
+       outro site — e evita reabrir o que a pessoa já fechou */
+    try{ if(!w.closed) w.location.href = u; }catch(e){}
+  }, LICITACON_AQUECER_MS);
 }
 /* Os aditivos ficam na própria ficha: cada um abre para edição no clique. */
 function aditivosHTML(c){
