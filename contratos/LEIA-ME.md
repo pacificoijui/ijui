@@ -281,6 +281,35 @@ recusa ser exibido dentro de outro site — é decisão dele, num cabeçalho da
 resposta, e não há nada a fazer deste lado. O quadro vinha em branco.
 Quem for mexer aqui, não perca tempo tentando de novo.
 
+### Dentro da Central do Pregoeiro: guia em vez de pop-up
+
+Esta tela roda, no dia a dia, como uma guia da **Central do Pregoeiro**
+(o aplicativo em Electron). E a Central já resolve o pop-up feio, sem
+precisar de uma linha de código aqui: ela intercepta **todo** `window.open`
+de dentro de uma guia e, se o endereço pertencer a alguma guia cadastrada,
+entrega o link para **ela** em vez de abrir janelinha (é o roteador de
+links da v11.26, campo *"🔗 Links que devem abrir NESTA guia"* no ✎ de cada
+guia).
+
+Para o LicitaCon abrir como guia, basta cadastrar `portal.tce.rs.gov.br`
+numa guia **própria** — não na guia dos Contratos. Se o endereço for
+vinculado à guia dos Contratos, o clique navega a própria guia para o
+portal e o cadastro some da tela; e, pior, o roteador para de agir, porque
+ele só roteia quando o link sai de um lugar **diferente** do destino.
+
+De quebra isso resolve a lentidão: a guia tem partição de sessão própria e
+fica viva, então do segundo contrato em diante o portal já está quente e
+logado — que é o efeito que abrir/fechar/abrir à mão produzia.
+
+A Central também oferece esse vínculo sozinha: quando um link sem dono
+abre em janelinha, ela pergunta *"de qual guia é esse link?"*. Se alguém
+já respondeu "não perguntar mais", o caminho é o ✎ da guia.
+
+Nada disso é configurável daqui: a página não tem como falar com a
+Central. As guias são `<webview>` sem `preload`, então `window.central`
+não existe dentro delas — o único canal entre esta tela e a Central é o
+`window.open`, que é justamente o que o roteador escuta.
+
 Contrato novo já nasce com o link, no próprio formulário. Para o cadastro
 antigo existe o **🔗 Links LicitaCon** no cabeçalho: a lista dos contratos
 ativos que ainda estão sem endereço, com a caixa já aberta em cada linha.
