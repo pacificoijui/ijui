@@ -55,6 +55,7 @@ service cloud.firestore {
     function pregoeiro() { return temAcesso('pregoeiro'); }
     function contratos() { return temAcesso('contratos'); }
     function requisicao(){ return temAcesso('requisicao'); }
+    function arquivo()   { return temAcesso('arquivo'); }
     // ── Painel da Secretaria ────────────────────────────────────────────
     // Um acesso que NÃO é "ver o sistema": é ver a própria secretaria. Quem
     // tem só ele enxerga as requisições e os contratos das siglas listadas
@@ -94,6 +95,7 @@ service cloud.firestore {
     // registro. O administrador alcança os dois, porque pode se marcar
     // Diretor a qualquer momento — negar aqui só somaria um passo.
     function requisicaoEdit(){ return podeEditar('requisicao'); }
+    function arquivoEdit()   { return podeEditar('arquivo'); }
     function requisicaoDiretor(){
       return aprovado() && (admin() || nivel('requisicao') == 'diretor');
     }
@@ -147,6 +149,7 @@ service cloud.firestore {
           (d.get('acessos', {}).get('pregoeiro', 'nenhum')  in ['nenhum', false]) &&
           (d.get('acessos', {}).get('contratos', 'nenhum')  in ['nenhum', false]) &&
           (d.get('acessos', {}).get('requisicao', 'nenhum') in ['nenhum', false]) &&
+          (d.get('acessos', {}).get('arquivo', 'nenhum')    in ['nenhum', false]) &&
           // O Painel da Secretaria entra na lista pelo mesmo motivo dos
           // outros: quem se cadastra sozinho nao se da acesso nenhum. Hoje o
           // status 'pendente' ja bastaria para barrar, mas a conta nao deve
@@ -296,6 +299,39 @@ service cloud.firestore {
                     || (requisicaoEdit() && soCriouDespachoVazio())
                     || (requisicaoDiretor() && soMexeuNoDespacho());
       allow delete: if requisicaoEdit() && !temDespacho();
+    }
+
+    // ── Arquivo e Anulações ──────────────────────────────────────────────
+    // Quatro coleções, uma por planilha do setor: o que saiu e espera
+    // voltar (tramites), a anulação de empenho, o memorando recebido e o
+    // que está arquivado. Nada é público — ver exige o painel "arquivo"
+    // liberado, como nos contratos e nas requisições.
+    //
+    // Apagar não existe em nenhuma das quatro, de propósito: o módulo é
+    // registro de trâmite, e o que precisa acontecer com um trâmite errado
+    // é ele ser CORRIGIDO, não sumir. Documento que sai do arquivo e volta
+    // vira "voltouEm" preenchido — a linha continua lá, contando o que
+    // houve. Sem a linha, ninguém consegue responder depois por onde o
+    // papel andou, que é a única coisa que este módulo existe para saber.
+    match /arquivo_tramites/{id} {
+      allow get, list: if arquivo();
+      allow create, update: if arquivoEdit();
+      allow delete: if false;
+    }
+    match /arquivo_anulacoes/{id} {
+      allow get, list: if arquivo();
+      allow create, update: if arquivoEdit();
+      allow delete: if false;
+    }
+    match /arquivo_memorandos/{id} {
+      allow get, list: if arquivo();
+      allow create, update: if arquivoEdit();
+      allow delete: if false;
+    }
+    match /arquivo_pastas/{id} {
+      allow get, list: if arquivo();
+      allow create, update: if arquivoEdit();
+      allow delete: if false;
     }
 
     // Histórico de edições dos contratos: um registro por gravação, com o

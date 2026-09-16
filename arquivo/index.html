@@ -18,11 +18,14 @@
   O resto do módulo (anulações, arquivo, memorandos) existe para alimentar
   essa primeira tela sem trabalho dobrado.
 
-  PROTÓTIPO: lê os arquivos de dados/*.json, convertidos das planilhas pelo
-  ferramentas/planilhas-para-json.py. Não grava, não pede login e não fala
-  com o Firestore. É para olhar, clicar e dizer o que muda — a ligação com
-  o banco e o portão de acesso vêm depois de o desenho estar certo, como
-  foi feito em /requisicao/.
+  Ligado no Firestore do projeto processos-ijui, atrás do mesmo portão de
+  acesso do resto do sistema (painel "arquivo" em usuarios_v2). Quatro
+  coleções, uma por planilha — e NENHUMA é lida na abertura: cada tela lê a
+  sua, quando é aberta. A do arquivo é lida uma MODALIDADE por vez, como as
+  Requisições são lidas uma secretaria por vez.
+
+  A carga real fica fora do repositório (que é público) e sobe pela própria
+  tela, no botão "Importar planilhas". Ver LEIA-ME.md.
 -->
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -35,6 +38,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --navy:#1a3a6b; --navy-mid:#1e4a8a; --navy-dark:#12294d; --navy-light:#2e5da8;
@@ -190,9 +196,105 @@
     .fconta{margin-left:0}
     .segm button{padding:9px 11px}
   }
+
+  .header-acoes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .mini-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px;
+    padding: 5px 12px; font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
+    transition: border-color .15s, background .15s; }
+  .mini-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+
+  /* ── A faixa das modalidades ──
+     Mesmo papel da faixa de secretarias das Requisições: o Controle do
+     Arquivo é uma aba por modalidade, e é assim que o setor procura — "a
+     dispensa tal", "o pregão tal". A faixa é o recorte, não um filtro:
+     cada botão é uma consulta própria ao banco. */
+  .mod-faixa { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .mod-btn { background: #fff; border: 1.5px solid var(--border); color: var(--navy); border-radius: 20px;
+    padding: 7px 14px; font-family: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px; transition: border-color .15s, background .15s; }
+  .mod-btn:hover { border-color: var(--navy-light); background: var(--blue-bg); }
+  .mod-btn.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .mod-n { background: rgba(0,0,0,.14); border-radius: 20px; padding: 1px 8px; font-size: 11.5px; font-weight: 800; }
+  .mod-btn.on .mod-n { background: rgba(255,255,255,.22); }
+  /* ── Portão de acesso ── */
+  .chip-auth { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--navy); background: var(--blue-bg); padding: 5px 11px; border-radius: 20px; }
+  #authGate { position: fixed; inset: 0; z-index: 12000; display: none; align-items: center; justify-content: center; padding: 18px;
+              background: radial-gradient(1000px 520px at 15% -10%, #1E52CC 0%, transparent 55%), linear-gradient(160deg, #0D2B7E 0%, #081C52 75%); }
+  .auth-card { background: #fff; border-radius: 18px; padding: 30px 28px; width: 100%; max-width: 380px; box-shadow: 0 24px 60px rgba(0,0,0,.35); text-align: center; }
+  .auth-marca { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .auth-titulo { font-size: 21px; font-weight: 800; color: var(--navy); margin: 6px 0 4px; }
+  .auth-sub { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+  .auth-google { width: 100%; display: flex; align-items: center; justify-content: center; gap: 9px; background: #fff; border: 1.5px solid var(--border);
+                 border-radius: 10px; padding: 11px; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--text); cursor: pointer; }
+  .auth-google:hover { background: var(--blue-bg); border-color: var(--navy-light); }
+  .auth-ou { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 11.5px; }
+  .auth-ou::before, .auth-ou::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-input { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 14px; margin-bottom: 9px; outline: none; box-sizing: border-box; }
+  .auth-input:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .auth-btn { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 10px; padding: 12px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .auth-btn:hover { background: var(--navy-light); }
+  .auth-btn.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--border); margin-top: 14px; }
+  .auth-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; font-size: 12.5px; }
+  .auth-links a { color: var(--navy-light); font-weight: 600; text-decoration: none; }
+  .auth-links a:hover { text-decoration: underline; }
+  .auth-err { color: var(--red); font-size: 12.5px; font-weight: 600; margin-top: 12px; min-height: 16px; }
+  .auth-foto { width: 54px; height: 54px; border-radius: 50%; object-fit: cover; background: #dde4f0; margin-bottom: 10px; }
+  .auth-pend-nome { font-size: 15px; font-weight: 800; color: var(--navy); }
+  .auth-pend-email { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
 </style>
 </head>
 <body>
+<div id="authGate">
+  <!-- Enquanto o Firebase confere se já existe sessão nesta máquina, quem já
+       está logado não pode ver o formulário de login piscando: o portão abre
+       neste aviso e, só se não houver ninguém logado, dá lugar ao formulário
+       (authStartGate). -->
+  <div class="auth-card" id="authCarregando">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Requisições</h1>
+    <p class="auth-sub">Verificando seu acesso…</p>
+  </div>
+
+  <div class="auth-card" id="authEntradaBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Requisições</h1>
+    <p class="auth-sub">Entre com a mesma conta do sistema de licitações e contratos.</p>
+    <button class="auth-google" id="authBtnGoogle" onclick="authGoogle()">
+      <svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.6 30.2 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.6c-.3 2.1-1.6 5.2-4.6 7.3l7.1 5.5c4.2-3.9 6.9-9.7 6.9-16.5z"/><path fill="#FBBC05" d="M10.4 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16.3 0 20 0 24s1 7.7 2.6 10.8l7.8-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.1-5.5c-2 1.4-4.6 2.3-8.8 2.3-6.3 0-11.7-3.7-13.6-9.3l-7.8 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+      Entrar com Google
+    </button>
+    <div class="auth-ou"><span>ou</span></div>
+    <input type="email" id="authEmail" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPass" class="auth-input" placeholder="Senha" autocomplete="current-password">
+    <button class="auth-btn" id="authBtnEntrar" onclick="authEntrarSenha()">Entrar</button>
+    <div class="auth-links">
+      <a href="#" onclick="authEsqueciSenha();return false;">Esqueci a senha</a>
+      <a href="#" onclick="authSetModo('criar');return false;">Criar uma conta</a>
+    </div>
+    <div class="auth-err" id="authErr"></div>
+  </div>
+
+  <div class="auth-card" id="authCriarBox" style="display:none">
+    <div class="auth-marca">Município de Ijuí</div>
+    <h1 class="auth-titulo">Criar conta</h1>
+    <p class="auth-sub">Depois de criada, um administrador libera o seu acesso.</p>
+    <input type="text" id="authNomeC" class="auth-input" placeholder="Nome completo" autocomplete="name">
+    <input type="email" id="authEmailC" class="auth-input" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="authPassC" class="auth-input" placeholder="Senha (mínimo 6 caracteres)" autocomplete="new-password">
+    <input type="password" id="authPass2" class="auth-input" placeholder="Repita a senha" autocomplete="new-password">
+    <button class="auth-btn" id="authBtnCriar" onclick="authCriarConta()">Criar conta</button>
+    <div class="auth-links"><a href="#" onclick="authSetModo('entrar');return false;">Já tenho conta</a></div>
+  </div>
+
+  <div class="auth-card" id="authPendenteCard" style="display:none">
+    <img id="authPendFoto" class="auth-foto" alt="">
+    <div class="auth-pend-nome" id="authPendNome"></div>
+    <div class="auth-pend-email" id="authPendEmail"></div>
+    <p class="auth-sub" id="authPendMsg"></p>
+    <button class="auth-btn ghost" onclick="authLogout()">Sair</button>
+  </div>
+</div>
+
 <header>
   <div class="header-inner">
     <div class="logo-wrap">
@@ -203,16 +305,266 @@
         <p>Coordenadoria de Compras — COPAM</p>
       </div>
     </div>
-    <span class="proto-chip" id="chipProto">PROTÓTIPO · DADOS DE 2026</span>
+    <div class="header-acoes">
+      <span id="authUserChip" class="chip-auth" style="display:none"></span>
+      <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
+      <button class="mini-btn so-editor" style="display:none" onclick="importarArquivo()"
+              title="Sobe dados/*.json — a carga convertida das planilhas — para o banco">⬆️ Importar planilhas</button>
+    </div>
   </div>
 </header>
 
 <main>
   <div class="abas" id="abas"></div>
+  <!-- O recado da importação mora FORA de #tela: render() reescreve #tela
+       inteiro, e o "✓ subiu" desapareceria no primeiro redesenho — que é
+       justamente o que a importação faz ao terminar. -->
+  <div id="impNota" style="display:none"></div>
   <div id="tela"></div>
 </main>
 
 <script>
+/* ══════════════ CONTAS E PERMISSÕES ══════════════
+   O Arquivo usa a MESMA conta do resto do sistema: o mesmo projeto do
+   Firebase e a mesma coleção "usuarios_v2" da Agenda, do Sistema Interno,
+   dos Contratos e das Requisições — só que olhando o painel "arquivo"
+   dentro de "acessos".
+
+   Nada aqui é público: sem conta aprovada com o painel liberado, nenhuma
+   das quatro coleções chega ao navegador. Três níveis:
+
+     Sem acesso  → nem entra;
+     Visualizar  → vê tudo, não grava nada;
+     Editar      → marca a volta, lança anulação, importa.
+
+   A trava de verdade são as regras do Firestore; o que esta tela faz é
+   avisar antes, com todas as letras. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCH8DKzE8oPaQ3HpAex-3iqEaReKon05lM",
+  authDomain: "processos-ijui.firebaseapp.com",
+  projectId: "processos-ijui",
+  storageBucket: "processos-ijui.firebasestorage.app",
+  messagingSenderId: "385308750932",
+  appId: "1:385308750932:web:65e94a26e71451995fe9c1"
+};
+const AUTH_BOOTSTRAP_ADMIN_EMAIL = 'pedrohhpacifico@gmail.com';
+let authCurrentUser = null;   /* {uid,email,nome,foto,status,isAdmin,acessos} — perfil em usuarios_v2 */
+let authPerfilUnsub = null;
+let usuariosV2ColRef = null;
+let authModo = 'entrar';
+
+/* Mesma normalização dos outros painéis: contas aprovadas antes do modelo
+   de três níveis guardam true/false, e continuam valendo sem migração. */
+function authNormalizaNivel(v){
+  if(v === true) return 'editar';
+  if(v === 'ver' || v === 'editar') return v;
+  return 'nenhum';
+}
+function arqNivel(){
+  if(!authCurrentUser || authCurrentUser.status !== 'aprovado') return 'nenhum';
+  if(authCurrentUser.isAdmin) return 'editar';
+  return authNormalizaNivel(authCurrentUser.acessos && authCurrentUser.acessos.arquivo);
+}
+function arqPodeVer(){ return arqNivel() !== 'nenhum'; }
+function arqPodeEditar(){ return arqNivel() === 'editar' || ehAdmin(); }
+function ehAdmin(){ return !!(authCurrentUser && authCurrentUser.isAdmin); }
+
+/* ── Portão de acesso ── */
+function authEl(id){ return document.getElementById(id); }
+function authErr(msg){ const e = authEl('authErr'); if(e) e.textContent = msg || ''; }
+function authSetModo(m){
+  authModo = m;
+  authEl('authEntradaBox').style.display = (m === 'entrar') ? 'block' : 'none';
+  authEl('authCriarBox').style.display   = (m === 'criar')  ? 'block' : 'none';
+  authErr('');
+}
+function authMsgErro(e){
+  const m = {
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/user-not-found':'Não existe conta com esse e-mail.',
+    'auth/wrong-password':'Senha incorreta.',
+    'auth/invalid-login-credentials':'E-mail ou senha incorretos.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/email-already-in-use':'Já existe conta com esse e-mail. Tente entrar em vez de criar.',
+    'auth/weak-password':'Senha muito fraca (mínimo 6 caracteres).',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.'
+  };
+  return m[e.code] || ('Erro: ' + e.message);
+}
+function authGoogle(){
+  authErr('');
+  const provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(e => {
+    if(e.code === 'auth/popup-closed-by-user') return;
+    if(e.code === 'auth/popup-blocked'){ authErr('O navegador bloqueou o pop-up de login. Permita pop-ups para este site e tente de novo.'); return; }
+    authErr('Não foi possível entrar com o Google: ' + e.message);
+  });
+}
+function authEntrarSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  const senha = authEl('authPass').value || '';
+  if(!email || !senha){ authErr('Informe e-mail e senha.'); return; }
+  authErr('');
+  firebase.auth().signInWithEmailAndPassword(email, senha).catch(e => authErr(authMsgErro(e)));
+}
+function authCriarConta(){
+  const nome  = (authEl('authNomeC').value || '').trim();
+  const email = (authEl('authEmailC').value || '').trim().toLowerCase();
+  const senha = authEl('authPassC').value || '';
+  const senha2 = authEl('authPass2').value || '';
+  if(!nome || !email || !senha){ authErr('Preencha todos os campos.'); return; }
+  if(senha.length < 6){ authErr('A senha deve ter ao menos 6 caracteres.'); return; }
+  if(senha !== senha2){ authErr('As senhas não conferem.'); return; }
+  authErr('');
+  firebase.auth().createUserWithEmailAndPassword(email, senha)
+    .then(cred => cred.user.updateProfile({displayName: nome}))
+    .catch(e => authErr(authMsgErro(e)));
+}
+function authEsqueciSenha(){
+  const email = (authEl('authEmail').value || '').trim().toLowerCase();
+  if(!email){ authErr('Digite seu e-mail no campo acima primeiro.'); return; }
+  authErr('');
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(() => alert('Enviamos um e-mail para ' + email + ' com um link para redefinir a senha.'))
+    .catch(e => authErr(authMsgErro(e)));
+}
+/* ── Confirmar quem é, antes de apagar ──
+   Excluir é a única coisa no sistema que apaga cadastro, e um computador
+   deixado aberto no balcão não pode virar uma exclusão. Então antes de
+   apagar o Firebase reautentica a conta: senha, para quem entrou com
+   senha; a janela do Google, para quem entrou pelo Google.
+
+   A cada exclusão, sempre — nada fica guardado de uma para a outra. Estar
+   com o sistema aberto não é o mesmo que ser a pessoa, e é exatamente esse
+   o caso que isto existe para cobrir.
+
+   Não é a tela conferindo a senha — é o Firebase. A tela nunca vê nem
+   guarda nada; se a reautenticação falhar, a exclusão simplesmente não
+   acontece. */
+function confirmarIdentidade(){
+  const u = firebase.auth().currentUser;
+  if(!u) return Promise.reject(new Error('Sessão encerrada. Entre de novo.'));
+  const porGoogle = (u.providerData || []).some(p => p && p.providerId === 'google.com');
+  if(porGoogle){
+    /* Sem "prompt", o Google pode reautenticar em silêncio — a sessão já
+       está aberta, a janela abre e fecha sozinha, e a confirmação não
+       confirma nada. "select_account" força a escolha da conta toda vez,
+       que é o mais perto de uma pergunta que o Google oferece aqui.
+
+       Vale dizer o limite com todas as letras: para conta do Google não
+       existe senha a conferir do lado do navegador — a sessão É a
+       credencial. Quem precisar da senha de verdade a cada exclusão deve
+       usar conta de e-mail e senha. */
+    const prov = new firebase.auth.GoogleAuthProvider();
+    if(prov.setCustomParameters) prov.setCustomParameters({prompt: 'select_account'});
+    return u.reauthenticateWithPopup(prov)
+      .catch(e => {
+        if(e.code === 'auth/popup-closed-by-user') throw new Error('Confirmação cancelada.');
+        if(e.code === 'auth/user-mismatch')
+          throw new Error('Essa não é a conta que está usando o sistema. A requisição não foi excluída.');
+        throw new Error('Não consegui confirmar sua conta: ' + e.message);
+      });
+  }
+  const senha = prompt('Para excluir, confirme a sua senha:');
+  if(senha === null) return Promise.reject(new Error('Confirmação cancelada.'));
+  if(!senha) return Promise.reject(new Error('Senha em branco.'));
+  const cred = firebase.auth.EmailAuthProvider.credential(u.email, senha);
+  return u.reauthenticateWithCredential(cred).catch(e => {
+    throw new Error(e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential'
+      ? 'Senha incorreta. A requisição não foi excluída.'
+      : 'Não consegui confirmar sua conta: ' + e.message);
+  });
+}
+function authLogout(){
+  if(!confirm('Deseja sair do sistema?')) return;
+  firebase.auth().signOut();
+}
+
+/* ── Perfil (usuarios_v2) ── */
+function iniciarAutenticacaoRequisicoes(){
+  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
+  firebase.auth().onAuthStateChanged(authAoAutenticar);
+}
+function authPerfilPadrao(user, extra){
+  return Object.assign({
+    email: (user.email || '').toLowerCase(),
+    nome:  user.displayName || (user.email || '').split('@')[0],
+    foto:  user.photoURL || '',
+    provedor: (user.providerData[0] && user.providerData[0].providerId) || 'password',
+    status: 'pendente',
+    isAdmin: false,
+    acessos: {agenda:'nenhum', pregoeiro:'nenhum', contratos:'nenhum', requisicao:'nenhum'},
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  }, extra || {});
+}
+function authAoAutenticar(user){
+  if(authPerfilUnsub){ authPerfilUnsub(); authPerfilUnsub = null; }
+  if(!user){ authCurrentUser = null; authStartGate(); return; }
+
+  const ref = usuariosV2ColRef.doc(user.uid);
+  ref.get().then(doc => {
+    if(doc.exists) return;
+    const ehResgate = (user.email || '').toLowerCase() === AUTH_BOOTSTRAP_ADMIN_EMAIL;
+    return ref.set(authPerfilPadrao(user, ehResgate ? {
+      status:'aprovado', isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar', requisicao:'editar'}
+    } : {}));
+  }).then(() => {
+    authPerfilUnsub = ref.onSnapshot(doc => {
+      /* Conta excluída por um admin com a aba aberta: sair devolve o portão. */
+      if(!doc.exists){ authCurrentUser = null; firebase.auth().signOut(); return; }
+      authCurrentUser = Object.assign({uid:user.uid}, doc.data());
+      if(arqPodeVer()) authShowApp(); else authShowPendente();
+    }, e => console.warn('perfil: sem permissão de leitura (' + e.message + ')'));
+  }).catch(e => authErr('Erro ao preparar sua conta: ' + e.message));
+}
+
+function authShowPendente(){
+  authOcultarCarregando();
+  authEl('authGate').style.display = 'flex';
+  authEl('authEntradaBox').style.display = 'none';
+  authEl('authCriarBox').style.display = 'none';
+  authErr('');
+  authEl('authPendenteCard').style.display = 'block';
+  authEl('authPendNome').textContent  = authCurrentUser.nome || '';
+  authEl('authPendEmail').textContent = authCurrentUser.email || '';
+  const foto = authEl('authPendFoto');
+  foto.src = authCurrentUser.foto || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44'><rect width='44' height='44' fill='%23dde4f0'/></svg>";
+  authEl('authPendMsg').textContent = authCurrentUser.status === 'bloqueado'
+    ? 'Seu acesso foi bloqueado por um administrador.'
+    : 'Sua conta foi criada. Peça para um administrador liberar o painel de Arquivo para você.';
+}
+/* Depois que a pessoa entrou, o formulário de login continua no documento
+   (só escondido) — e para o gerenciador de senhas do navegador ele continua
+   sendo um formulário de login à espera, o que fazia a senha salva acabar
+   despejada no campo de busca da tela. Esvaziar e desabilitar tira os
+   campos do alcance dele; authStartGate devolve tudo se o portão voltar. */
+function authCamposLogin(desligar){
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(!i) return;
+    if(desligar){ i.value = ''; i.disabled = true; }
+    else i.disabled = false;
+  });
+}
+function authOcultarCarregando(){
+  const c = authEl('authCarregando');
+  if(c) c.style.display = 'none';
+}
+function authStartGate(){
+  authCamposLogin(false);
+  authOcultarCarregando();
+  authEl('authGate').style.display = 'flex';
+  authEl('authPendenteCard').style.display = 'none';
+  authSetModo('entrar');
+  ['authEmail','authPass','authNomeC','authEmailC','authPassC','authPass2'].forEach(id => {
+    const i = authEl(id);
+    if(i && !i._enterBound){
+      i._enterBound = true;
+      i.addEventListener('keydown', e => { if(e.key === 'Enter'){ (authModo === 'criar') ? authCriarConta() : authEntrarSenha(); } });
+    }
+  });
+}
+
 /* ══════════════ DADOS ══════════════
    No protótipo vêm dos arquivos convertidos das planilhas. Em produção
    viram quatro coleções do Firestore — e a consulta da primeira tela é a
@@ -243,18 +595,23 @@ function normalizar(s){ return String(s==null?'':s).toLowerCase().normalize('NFD
 
 /* ══════════════ ABAS ══════════════ */
 const TELAS = [
-  {id:'rua',  rot:'📍 Na rua',     conta:()=>abertos().length, alerta:true},
-  {id:'anul', rot:'✂️ Anulações',  conta:()=>ANULACOES.length},
-  {id:'arq',  rot:'🗄️ Arquivo',    conta:()=>PASTAS.length},
-  {id:'memo', rot:'📨 Memorandos', conta:()=>MEMORANDOS.length}
+  /* A conta de cada aba é a do que FOI LIDO, e some enquanto a leitura não
+     aconteceu. Mostrar "0" numa coleção que a tela nem pediu é inventar um
+     número — e é a diferença entre "não há nada" e "ainda não perguntei". */
+  {id:'rua',  rot:'📍 Na rua',     conta:()=>CARREGADA.has('rua')  ? abertos().length   : null, alerta:true},
+  {id:'anul', rot:'✂️ Anulações',  conta:()=>CARREGADA.has('anul') ? ANULACOES.length   : null},
+  {id:'arq',  rot:'🗄️ Arquivo',    conta:()=>CARREGADA.has('arq')  ? PASTAS.length      : null},
+  {id:'memo', rot:'📨 Memorandos', conta:()=>CARREGADA.has('memo') ? MEMORANDOS.length  : null}
 ];
 let telaAtual = 'rua';
 function renderAbas(){
-  document.getElementById('abas').innerHTML = TELAS.map(t =>
-    '<button class="aba'+(telaAtual===t.id?' on':'')+(t.alerta&&t.conta()?' alerta':'')+'" onclick="irPara(\''+t.id+'\')">'
-    + t.rot + '<span class="n">' + t.conta() + '</span></button>').join('');
+  document.getElementById('abas').innerHTML = TELAS.map(t => {
+    const n = t.conta();
+    return '<button class="aba'+(telaAtual===t.id?' on':'')+(t.alerta&&n?' alerta':'')+'" onclick="irPara(\''+t.id+'\')">'
+      + t.rot + (n===null ? '' : '<span class="n">' + n + '</span>') + '</button>';
+  }).join('');
 }
-function irPara(id){ telaAtual = id; fecharPop(); renderAbas(); render(); window.scrollTo({top:0,behavior:'smooth'}); }
+function irPara(id){ telaAtual = id; fecharPop(); renderAbas(); render(); lerTela(id); window.scrollTo({top:0,behavior:'smooth'}); }
 
 /* ══════════════ MOTOR DE FILTROS ══════════════
    Um só, para as quatro telas. Cada tela diz de onde vem a lista, qual é a
@@ -304,7 +661,6 @@ const CFG = {
     data: 'arquivadoEm', rotData: 'arquivamento',
     busca: p => [p.processo, p.vencedor, p.modalidade, p.pregoeiro, p.secretaria].join(' '),
     facetas: [
-      {k:'modalidade', rot:'Modalidade', v:p => p.modalidade || '—'},
       {k:'pregoeiro',  rot:'Pregoeiro',  v:p => p.pregoeiro || '(sem pregoeiro)'},
       {k:'check',      rot:'Checklist',  v:p => p.checklist ? 'Conferido' : 'Não conferido'},
       {k:'ano',        rot:'Ano',        v:p => (p.arquivadoEm||'').slice(0,4) || '(sem data)', ordem:v => -Number(v)}
@@ -558,16 +914,6 @@ function cartao(valor, rotulo, sub, classe){
 }
 /* No protótipo a baixa só vive na memória da aba — é para sentir o gesto:
    um clique fecha a pendência, em vez de procurar a linha certa em 30 abas. */
-function marcarVolta(id){
-  const t = TRAMITES.find(x => x.id === id);
-  if(!t) return;
-  const n = dias(t.saiuEm);
-  if(!confirm('Registrar que ' + (t.docTipo || 'o documento') + ' ' + (t.docNum || '')
-    + ' voltou hoje?\n\nEstá com ' + (t.comQuem || '—') + ' há ' + n + ' dias.')) return;
-  const d = new Date();
-  t.voltouEm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  renderAbas(); render();
-}
 
 /* ══════════════ TELA 2: ANULAÇÕES ══════════════ */
 function telaAnul(){
@@ -612,29 +958,44 @@ function telaAnul(){
 
 /* ══════════════ TELA 3: ARQUIVO ══════════════ */
 function telaArq(){
+  /* A faixa vem antes de tudo porque é a primeira decisão: o Controle do
+     Arquivo é uma aba por modalidade, e é assim que se procura. */
+  let h = faixaModalidades();
+
+  if(!MOD_ATUAL){
+    return h + '<div class="painel"><div class="vazio"><span>🗄️</span>'
+      + 'Escolha a modalidade acima.<br>'
+      + '<span style="font-size:13px">O arquivo é lido uma modalidade por vez — são 659 processos no ano, '
+      + 'e ninguém procura em todos ao mesmo tempo.</span></div></div>';
+  }
+  if(_lendo === 'arq' || !CARREGADA.has('arq')){
+    return h + '<div class="painel"><div class="vazio"><span>⏳</span>Carregando ' + esc(MOD_ATUAL) + '…</div></div>';
+  }
+
   const lista = ordenada('arq');
   const semCheck = lista.filter(p => p.arquivadoEm && !p.checklist).length;
-  const porMod = {}; lista.forEach(p => { porMod[p.modalidade] = (porMod[p.modalidade] || 0) + 1; });
 
-  let h = '<div class="resumo">'
-    + cartao(lista.length, 'processos arquivados',
-             Object.entries(porMod).sort((a, b) => b[1] - a[1]).map(([k, v]) => v + ' ' + k.toLowerCase()).slice(0, 3).join(' · '), '')
+  h += '<div class="resumo">'
+    + cartao(lista.length, 'processos arquivados', 'em ' + MOD_ATUAL.toLowerCase(), '')
     + cartao(abertos().filter(t => t.tipo === 'emprestimo').length, 'emprestados agora', 'saíram do arquivo e não voltaram', '')
     + cartao(semCheck, 'sem checklist conferido', 'arquivado, mas a conferência não foi marcada', semCheck ? 'perigo' : 'bom')
     + '</div>';
 
   h += '<div class="nota">A pergunta que esta tela responde é <b>"onde está a DL 45/2025?"</b> — hoje ela custa '
-     + 'abrir quatro cadernos e olhar aba por aba. Aqui é uma linha de busca, e o empréstimo (quem levou, quando) '
-     + 'vira pendência na primeira tela sozinho.</div>';
+     + 'abrir quatro cadernos e olhar aba por aba. Aqui é a modalidade acima mais uma linha de busca, e o '
+     + 'empréstimo (quem levou, quando) vira pendência na primeira tela sozinho.</div>';
 
   h += barra('arq');
   h += '<div class="painel">';
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum processo com esses filtros.</div></div>';
 
-  h += '<table><thead><tr><th>Modalidade</th><th>Processo</th><th>Vencedor e valor</th><th>Pregoeiro</th>'
+  /* Sem coluna de modalidade: a faixa acima já diz em qual delas se está, e
+     repetir a mesma palavra em trezentas linhas só rouba largura do objeto,
+     que é o que se lê. */
+  h += '<table><thead><tr><th>Processo</th><th>Vencedor e valor</th><th>Pregoeiro</th>'
      + '<th>Arquivado em</th><th>Checklist</th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(p => {
-    h += '<tr><td><span class="etq">' + esc(p.modalidade) + '</span></td>'
+    h += '<tr>'
        + '<td><b>' + esc(p.processo) + '</b>' + (p.secretaria ? '<div style="font-size:11.5px;color:var(--muted)">' + esc(p.secretaria) + '</div>' : '') + '</td>'
        + '<td>' + esc(p.vencedor || '—') + (p.valor ? ' <b>' + money(p.valor) + '</b>' : '') + '</td>'
        + '<td>' + esc(p.pregoeiro || '—') + '</td>'
@@ -683,57 +1044,190 @@ function render(){
   document.getElementById('tela').innerHTML = f();
 }
 
-/* ══════════════ CARGA ══════════════
-   Duas cargas possíveis, e a diferença importa:
+/* ══════════════ AS QUATRO COLEÇÕES ══════════════
+   Uma coleção por planilha, no mesmo banco do resto do sistema:
 
-   dados/*.json          a de verdade, convertida das planilhas do setor.
-                         NÃO está no repositório — este aqui é público —,
-                         então só existe na máquina de quem rodou o
-                         conversor.
-   dados/exemplo/*.json  fictícia, escrita à mão, versionada. É o que roda
-                         no ar, para a tela poder ser clicada por qualquer
-                         um sem expor credor, valor e assunto de memorando.
+     arquivo_tramites    o papel que saiu e espera voltar
+     arquivo_anulacoes   anulação de empenho
+     arquivo_memorandos  memorando recebido
+     arquivo_pastas      o que está arquivado
 
-   Tenta a real primeiro; não achando, cai no exemplo. E diz na tela qual
-   das duas está vendo — protótipo que não avisa com que dado está falando
-   é protótipo que vira decisão errada. */
-function carregar(){
-  const puxa = (pasta, n) => fetch(pasta + n + '.json')
-    .then(r => r.ok ? r.json() : null).catch(() => null);
-  const quatro = pasta => Promise.all(
-    ['tramites','anulacoes','memorandos','pastas'].map(n => puxa(pasta, n)));
+   NENHUMA é lida na abertura. Cada tela lê a sua, e só quando é aberta —
+   a lição de /contratos/, que lia 1.300 documentos por abertura para
+   mostrar 141. Aqui a primeira tela, que é a razão do módulo, nasce
+   pequena de propósito: where('voltouEm','==',null) traz as 51 pendências,
+   não os 978 trâmites do ano. */
+const COLECOES = { rua:'arquivo_tramites', anul:'arquivo_anulacoes',
+                   memo:'arquivo_memorandos', arq:'arquivo_pastas' };
+const CARREGADA = new Set();     /* tela -> a leitura já foi feita */
+let _lendo = null;               /* tela sendo lida agora */
 
-  return quatro('dados/').then(r => {
-    const achouReal = r.some(x => Array.isArray(x) && x.length);
-    return achouReal ? {r: r, real: true}
-                     : quatro('dados/exemplo/').then(e => ({r: e, real: false}));
-  }).then(({r, real}) => {
-    const [t, a, m, pa] = r.map(x => Array.isArray(x) ? x : []);
-    TRAMITES = t; ANULACOES = a; MEMORANDOS = m; PASTAS = pa;
-    const n = t.length + a.length + m.length + pa.length;
-    if(!n){
-      document.getElementById('tela').innerHTML =
-        '<div class="painel"><div class="vazio"><span>📂</span>Não achei os dados.<br>'
-        + '<span style="font-size:13px">Rode <code>python3 arquivo/ferramentas/planilhas-para-json.py PASTA --gravar</code></span></div></div>';
-      return;
-    }
-    const chip = document.getElementById('chipProto');
-    chip.textContent = real ? ('PROTÓTIPO · ' + n + ' REGISTROS DE 2026')
-                            : ('PROTÓTIPO · ' + n + ' REGISTROS DE EXEMPLO');
-    if(!real) chip.title = 'Dados fictícios. A carga real das planilhas fica fora do repositório.';
+function col(tela){ return firebase.firestore().collection(COLECOES[tela]); }
+function comId(snap){ return snap.docs.map(d => Object.assign({_id:d.id}, d.data())); }
+
+/* ── A faixa das modalidades ──
+   Lista fechada de propósito, como o despacho das Requisições: modalidade
+   não é campo livre. "REQ. NÃO SE APLICA" não é modalidade de licitação —
+   é o que o setor arquiva sem licitação — e está aqui porque está nos
+   dados e alguém precisa achar. */
+const MODALIDADES_ARQUIVO = ['DISPENSA', 'PREGÃO', 'CONCORRÊNCIA', 'INEXIGIBILIDADE', 'REQ. NÃO SE APLICA'];
+const CHAVE_MOD = 'arquivo_ijui_modalidade';
+let MOD_ATUAL = '';
+function lembrarModalidade(m){ try{ localStorage.setItem(CHAVE_MOD, m); }catch(e){} }
+function modalidadeLembrada(){
+  try{ const m = localStorage.getItem(CHAVE_MOD); return MODALIDADES_ARQUIVO.indexOf(m) >= 0 ? m : ''; }catch(e){ return ''; }
+}
+/* Sem "Todas", pela mesma razão das Requisições: era a única leitura que
+   custava a coleção inteira, e é justamente a que ninguém precisa para
+   trabalhar. O número só aparece na modalidade carregada — nas outras
+   seria invenção, porque a tela não as leu. */
+function faixaModalidades(){
+  return '<div class="mod-faixa">' + MODALIDADES_ARQUIVO.map(m =>
+    '<button class="mod-btn' + (MOD_ATUAL === m ? ' on' : '') + '"'
+    + ' onclick="escolherModalidade(' + JSON.stringify(m).replace(/"/g, '&quot;') + ')">'
+    + esc(m)
+    + (MOD_ATUAL === m ? '<span class="mod-n">' + PASTAS.length + '</span>' : '')
+    + '</button>').join('') + '</div>';
+}
+function escolherModalidade(m){
+  if(m === MOD_ATUAL) return;
+  MOD_ATUAL = m;
+  lembrarModalidade(m);
+  CARREGADA.delete('arq');
+  PASTAS = [];
+  /* Filtro da modalidade anterior não vale para esta: pregoeiro marcado em
+     DISPENSA esconderia tudo em CONCORRÊNCIA. Os conjuntos são
+     REFEITOS, não trocados por {} — o resto do motor conta com um Set em
+     cada faceta. */
+  const e = est('arq');
+  CFG.arq.facetas.forEach(f => { e.sel[f.k] = new Set(); });
+  e.busca = '';
+  render();
+  lerTela('arq');
+}
+
+/* ══════════════ LEITURA ══════════════
+   Cada tela pede a sua coleção uma vez por visita. Erro de permissão é
+   dito na tela: "carregando" eterno esconde o que aconteceu. */
+function lerTela(tela){
+  if(!arqPodeVer() || CARREGADA.has(tela) || _lendo === tela) return Promise.resolve();
+  if(tela === 'arq' && !MOD_ATUAL) return Promise.resolve();
+  _lendo = tela;
+  render();
+  let q = col(tela);
+  if(tela === 'rua')      q = q.where('voltouEm', '==', null);
+  else if(tela === 'arq') q = q.where('modalidade', '==', MOD_ATUAL);
+  return q.get().then(snap => {
+    const lista = comId(snap);
+    if(tela === 'rua')       TRAMITES = lista;
+    else if(tela === 'anul') ANULACOES = lista;
+    else if(tela === 'memo') MEMORANDOS = lista;
+    else                     PASTAS = lista;
+    CARREGADA.add(tela);
+    _lendo = null;
     renderAbas(); render();
-    if(!real){
-      const t0 = document.getElementById('tela');
-      t0.insertAdjacentHTML('afterbegin',
-        '<div class="nota" style="background:var(--amber-bg);border-left-color:var(--amber);color:#6b4500">'
-        + '<b>Estes números são de mentira.</b> A tela está rodando com dados de exemplo, inventados só para '
-        + 'ela poder ser clicada aqui no ar. A carga de verdade — 2.468 registros das quatro planilhas — não '
-        + 'entra neste repositório, que é público: ela sai do conversor e fica na máquina de quem rodou. '
-        + 'O desenho é o mesmo nos dois casos.</div>');
-    }
+  }).catch(e => {
+    _lendo = null;
+    document.getElementById('tela').innerHTML =
+      '<div class="painel"><div class="vazio"><span>🔒</span>Não consegui ler o arquivo.<br>'
+      + '<span style="font-size:13px">' + esc(e.message) + '</span></div></div>';
   });
 }
-carregar();
+
+/* ══════════════ MARCAR A VOLTA ══════════════
+   O "✓ Voltou hoje" da primeira tela: fecha a pendência sem procurar a
+   linha certa em trinta abas. */
+function marcarVolta(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const t = TRAMITES.find(x => x._id === id);
+  if(!t) return;
+  const hoje = new Date().toISOString().slice(0, 10);
+  col('rua').doc(id).update({voltouEm: hoje}).then(() => {
+    /* some da lista: a tela é "o que está fora", e isto acabou de voltar */
+    TRAMITES = TRAMITES.filter(x => x._id !== id);
+    renderAbas(); render();
+  }).catch(e => alert('Não consegui gravar: ' + e.message));
+}
+
+/* ══════════════ IMPORTAÇÃO ══════════════
+   A carga real sai das planilhas pelo conversor e fica em dados/*.json, na
+   máquina de quem rodou — ela NÃO está no repositório, que é público. Por
+   isso subir o cadastro é um gesto da tela, aqui, e não um passo de deploy:
+   quem tem os arquivos ao lado do index.html clica e sobe.
+
+   Grava em lotes de 400 (o limite do Firestore é 500) e usa o id da própria
+   carga como id do documento — importar duas vezes reescreve, não duplica. */
+const LOTE_IMPORT = 400;
+function importarArquivo(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  if(!confirm('Subir a carga de dados/*.json para o banco?\n\nO que já estiver lá com o mesmo número é reescrito.')) return;
+  const nota = document.getElementById('impNota');
+  const dizer = m => { nota.style.display = ''; nota.className = 'nota'; nota.textContent = m; };
+  dizer('⏳ lendo os arquivos…');
+
+  const puxa = n => fetch('dados/' + n + '.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  const quais = [['tramites','rua'], ['anulacoes','anul'], ['memorandos','memo'], ['pastas','arq']];
+  Promise.all(quais.map(([n]) => puxa(n))).then(cargas => {
+    const total = cargas.reduce((t, c) => t + (Array.isArray(c) ? c.length : 0), 0);
+    if(!total){
+      dizer('Não achei dados/*.json. Rode o conversor primeiro: python3 arquivo/ferramentas/planilhas-para-json.py PASTA --gravar');
+      return;
+    }
+    let feitos = 0;
+    const gravarLote = (tela, itens, i) => {
+      if(i >= itens.length) return Promise.resolve();
+      const fatia = itens.slice(i, i + LOTE_IMPORT);
+      const lote = firebase.firestore().batch();
+      fatia.forEach(item => lote.set(col(tela).doc(String(item.id)), item));
+      return lote.commit().then(() => {
+        feitos += fatia.length;
+        dizer('subindo… ' + feitos + ' de ' + total);
+        return gravarLote(tela, itens, i + LOTE_IMPORT);
+      });
+    };
+    return quais.reduce((p, [nome, tela], k) => p.then(() => {
+      const itens = Array.isArray(cargas[k]) ? cargas[k] : [];
+      return itens.length ? gravarLote(tela, itens, 0) : null;
+    }), Promise.resolve()).then(() => {
+      dizer('✓ ' + feitos + ' registros no banco.');
+      CARREGADA.clear(); PASTAS = []; TRAMITES = []; ANULACOES = []; MEMORANDOS = [];
+      lerTela(telaAtual);
+    });
+  }).catch(e => dizer('Não consegui subir: ' + e.message));
+}
+
+/* ══════════════ ABERTURA ══════════════ */
+function authShowApp(){
+  authCamposLogin(true);
+  authEl('authGate').style.display = 'none';
+  const chip = authEl('authUserChip');
+  if(chip && authCurrentUser){
+    chip.textContent = '👤 ' + (authCurrentUser.nome || authCurrentUser.email)
+      + (arqPodeEditar() ? '' : ' · só visualização');
+    chip.style.display = 'inline-flex';
+  }
+  const sair = authEl('btnSair'); if(sair) sair.style.display = '';
+  document.querySelectorAll('.so-editor').forEach(el => { el.style.display = arqPodeEditar() ? '' : 'none'; });
+  MOD_ATUAL = modalidadeLembrada();
+  renderAbas(); render();
+  /* Só agora — com o acesso confirmado — a primeira coleção é pedida.
+     Pedir antes tomaria "permissão negada" e a leitura morreria sem
+     tentar de novo. */
+  lerTela(telaAtual);
+}
+
+/* ── Perfil (usuarios_v2) ── */
+function iniciarAutenticacaoArquivo(){
+  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
+  firebase.auth().onAuthStateChanged(authAoAutenticar);
+}
+
+/* A tela começa fechada: o portão em pé antes de qualquer coisa, e é ele
+   que pede as coleções depois de confirmar quem entrou. */
+renderAbas();
+document.getElementById('authGate').style.display = 'flex';
+firebase.initializeApp(FIREBASE_CONFIG);
+iniciarAutenticacaoArquivo();
 </script>
 </body>
 </html>

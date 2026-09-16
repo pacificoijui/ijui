@@ -1,7 +1,12 @@
 # Arquivo e Anulações — `/arquivo/`
 
-**Protótipo.** Lê `dados/*.json`, não grava, não pede login e não fala com o
-Firestore. É para olhar, clicar e dizer o que muda.
+Ligado no Firestore do projeto `processos-ijui` — o mesmo banco do resto do
+sistema — atrás do mesmo portão de acesso, olhando o painel **`arquivo`** em
+`usuarios_v2`. Três níveis: sem acesso não entra, *Visualizar* vê e não
+grava, *Editar* marca a volta e importa.
+
+Quatro coleções, uma por planilha: `arquivo_tramites`, `arquivo_anulacoes`,
+`arquivo_memorandos` e `arquivo_pastas`.
 
 ## O que estas quatro planilhas são, na verdade
 
@@ -51,9 +56,22 @@ numerado em sequência única e com o valor somado no alto (R$ 11,1 milhões em
 sistema já tem: a requisição vive em `/requisicao/`, o memorando na aba ao
 lado. Hoje essa ligação existe só na cabeça de quem digitou.
 
-**🗄️ Arquivo** — responde "onde está a DL 45/2025?" com uma linha de busca,
-em vez de quatro cadernos e aba por aba. O empréstimo (quem levou, quando)
-vira pendência na primeira tela sozinho.
+**🗄️ Arquivo** — responde "onde está a DL 45/2025?" com a modalidade e uma
+linha de busca, em vez de quatro cadernos e aba por aba. O empréstimo (quem
+levou, quando) vira pendência na primeira tela sozinho.
+
+É lido **uma modalidade por vez**, pela faixa do alto — do mesmo jeito que
+as Requisições são lidas uma secretaria por vez, e pela mesma razão: o
+Controle do Arquivo é uma aba por modalidade, e é assim que se procura ("a
+dispensa tal", "o pregão tal"). A faixa é **recorte, não filtro**: cada
+botão é uma consulta própria (`where('modalidade','==',…)`), e as 449
+dispensas não são lidas para mostrar os 26 da concorrência.
+
+Não há "Todas", pela mesma razão das Requisições: seria a única leitura a
+custar a coleção inteira, e é justamente a que ninguém precisa para
+trabalhar. O número ao lado do botão só aparece na modalidade carregada —
+nas outras seria invenção, porque a tela não as leu. A coluna "Modalidade"
+saiu da tabela junto: a faixa já diz onde se está.
 
 **📨 Memorandos** — as 19 abas viram uma lista com busca. O memorando é o
 *porquê* de quase tudo: é ele que a anulação cita.
@@ -69,7 +87,7 @@ contar, limpar, mostrar o que está ligado) é o mesmo código.
 |---|---|---|
 | Na rua | com quem, tipo, documento, secretaria | fora há mais tempo · saiu por último · nome |
 | Anulações | secretaria, quem lançou, faixa de valor | mais recentes · mais antigas · maior valor · nº |
-| Arquivo | modalidade, pregoeiro, checklist, ano | arquivado por último · primeiro · processo A–Z |
+| Arquivo | pregoeiro, checklist, ano (dentro da modalidade) | arquivado por último · primeiro · processo A–Z |
 | Memorandos | secretaria, entregue para | mais recentes · mais antigos · secretaria A–Z |
 
 Mais o **período** (7, 30, 90 dias ou tudo) e a **busca**, em todas.
@@ -125,7 +143,7 @@ digitação, é a planilha **não tendo como dizer** que o documento não voltou
 passou para outra pessoa. O sistema precisa disso como um gesto próprio
 ("passar para"), senão a pendência se perde na troca de mãos.
 
-## Os dados
+## Os dados, e como eles entram no banco
 
 `dados/*.json` sai das planilhas por:
 
@@ -135,43 +153,35 @@ python3 arquivo/ferramentas/planilhas-para-json.py PASTA_COM_AS_PLANILHAS --grav
 
 Sem `--gravar` é ensaio. Ele também escreve `dados/CONFERIR.md`.
 
-**São duas cargas, e a diferença importa:**
+**A carga real NÃO está no repositório**, e isso muda como ela sobe. Este
+repositório é público (vira o site ijui.net), e a carga traz credor, valor,
+empenho e o assunto de cada memorando. Nada disso é segredo — são atos
+administrativos, do tipo que o portal da transparência publica —, mas
+publicar um cadastro inteiro de uma vez é decisão de quem responde pelo
+setor, não efeito colateral de um deploy. E é a única coisa aqui que não dá
+para desfazer: o que vai para o histórico do git de um repositório público
+não volta.
 
-| Onde | O que é | Vai para o repositório? |
-|---|---|---|
-| `dados/*.json` | a real, convertida das planilhas do setor | **não** |
-| `dados/exemplo/*.json` | fictícia, escrita à mão | sim |
+Por isso **subir o cadastro é um gesto da tela**, e não um passo de
+publicação: quem tem os `dados/*.json` ao lado do `index.html` clica em
+**⬆️ Importar planilhas** e a carga vai para as quatro coleções. Grava em
+lotes de 400 (o limite do Firestore é 500) e usa o número da própria carga
+como identificador do documento — **importar duas vezes reescreve, não
+duplica**, então repetir depois de acrescentar linhas na planilha é seguro.
 
-A tela tenta a real primeiro e cai no exemplo se não achar — e diz no alto
-com qual das duas está falando. No ar (ijui.net/arquivo) roda sempre o
-exemplo; a real só existe na máquina de quem rodou o conversor.
+Se um dia a decisão for publicar a carga no repositório, ela precisa ser
+varrida antes atrás de CPF, e-mail, telefone e assunto pessoal. Na conversão
+de 2026 isso foi feito e não havia nenhum — mas a conferência vale por
+carga, não para sempre.
 
-A carga real fica de fora porque **este repositório é público** (vira o
-site): ela traz credor, valor, empenho e o assunto de cada memorando. Nada
-disso é segredo — são atos administrativos, do tipo que o portal da
-transparência publica —, mas publicar um cadastro inteiro de uma vez é
-decisão de quem responde pelo setor, não efeito colateral de um protótipo.
-E é a única coisa aqui que não dá para desfazer: o que vai para o histórico
-do git de um repositório público não volta.
+`dados/exemplo/*.json` continua versionado: é a carga fictícia, escrita à
+mão, que serviu ao protótipo.
 
-Se um dia a decisão for publicar, a carga precisa ser varrida antes atrás
-de CPF, e-mail, telefone e assunto pessoal. Na conversão de 2026 isso foi
-feito e não havia nenhum — mas a conferência vale por carga, não para
-sempre.
+## O que falta
 
-## O que falta para virar módulo de verdade
+1. **Cadastrar pela tela**: a anulação (com numeração automática), o
+   trâmite novo e o "passar para outra pessoa" — hoje a tela grava a volta,
+   e o resto ainda entra pela planilha e pela importação.
+2. **Ligar na requisição** — a anulação cita `09-72-2026-SMED`, que já
+   existe em `/requisicao/`. Clicar e abrir a requisição fecha o ciclo.
 
-Nesta ordem, e nenhum passo é grande:
-
-1. **Portão de acesso** — o mesmo `usuarios_v2` do resto, com um painel novo
-   (`arquivo`) e os três níveis de sempre. Sem isso não sobe com dado real.
-2. **Firestore** — quatro coleções (`arquivo_tramites`, `arquivo_anulacoes`,
-   `arquivo_memorandos`, `arquivo_pastas`) mais as regras. A consulta da
-   primeira tela já nasce pequena de propósito: `where('voltouEm','==',null)`
-   traz 51 documentos, não os 978 do ano — a lição de `/contratos/`, que lia
-   1.300 por abertura, já vem aplicada.
-3. **Gravar**: o "✓ Voltou hoje", o cadastro de anulação (com numeração
-   automática) e o "passar para outra pessoa".
-4. **Ligar na requisição** — a anulação cita `09-72-2026-SMED`, que já existe
-   em `/requisicao/`. Clicar e abrir a requisição fecha o ciclo.
-5. **Testes** — `testes/t-arquivo.js`, no mesmo molde dos outros.
