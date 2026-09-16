@@ -404,20 +404,10 @@
   .usr-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text); cursor: pointer; user-select: none; }
   .usr-chk-sel select { font-size: 11.5px; padding: 3px 6px; border-radius: 6px; border: 1.5px solid var(--border); color: var(--navy); background: #fff; cursor: pointer; }
   .badge-tipo { font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--amber-bg); color: var(--amber); font-weight: 700; }
-  /* ══ O LicitaCon dentro da ficha ══
-     A ficha é mais larga que os outros modais porque é ela que abre o
-     portal do TCE embutido: em 640px a página de lá ficaria espremida. No
-     modo LicitaCon ela cresce até quase a tela inteira e vira coluna —
-     barra fixa em cima, quadro do portal tomando o resto. */
+  /* A ficha é mais larga que os outros modais: é ela que carrega objeto,
+     aditivos e apostilamentos, e em 640px o objeto virava um bolo de
+     linhas curtas. */
   #ovDet .modal { max-width: 880px; }
-  #ovDet .modal.lc-modo { max-width: 1500px; width: 96vw; height: 94vh; max-height: 94vh;
-    overflow: hidden; display: flex; flex-direction: column; }
-  .lc-barra { display: flex; align-items: center; gap: 9px; padding: 10px 16px; flex-wrap: wrap;
-    background: #f7f9fd; border-bottom: 1px solid var(--border); }
-  .lc-url { flex: 1; min-width: 120px; font-size: 11.5px; color: var(--muted);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lc-quadro { flex: 1; min-height: 0; background: #fff; }
-  .lc-quadro iframe { width: 100%; height: 100%; border: 0; display: block; }
 
   /* ══ Painel "faltam os links do LicitaCon" ══
      Mutirão de cadastro: uma linha por contrato ativo sem link, a caixa já
@@ -530,10 +520,6 @@
     .fcampo input, .fcampo select, .fcampo textarea { font-size: 16px; }
     .lc-lista { max-height: 62vh; }
     .lc-linha input { font-size: 16px; }
-    /* no celular o portal embutido pega a folha inteira que a tela tem */
-    #ovDet .modal.lc-modo { width: 100%; max-width: 100%; height: 92vh; max-height: 92vh; }
-    .lc-barra { padding: 9px 12px; gap: 7px; }
-    .lc-url { display: none; }
 
     /* barra de ações fixa embaixo */
     /* A barra quebra em duas linhas em vez de esticar a página para fora da
@@ -720,20 +706,7 @@
   <div class="modal">
     <div class="modal-header"><h2 id="detTitle">Contrato</h2><button class="modal-close" onclick="fecharDet()">✕</button></div>
     <div class="modal-body" id="detBody"></div>
-    <!-- O portal do TCE aberto aqui dentro, no lugar da ficha. Fica fora do
-         .modal-body de propósito: o quadro precisa esticar até o rodapé, e
-         o corpo da ficha tem recuo e rolagem próprios. -->
-    <div class="lc-barra" id="detLicBarra" style="display:none">
-      <button class="mini-btn" onclick="fecharLicitacon()">← Voltar à ficha</button>
-      <span class="lc-url" id="detLicUrl"></span>
-      <button class="mini-btn" onclick="recarregarLicitacon()">⟳ Recarregar</button>
-      <button class="mini-btn" onclick="abrirLicitaconNaAba()">↗ Abrir em nova aba</button>
-    </div>
-    <div class="lc-quadro" id="detLicQuadro" style="display:none">
-      <iframe id="detLicFrame" title="LicitaCon — portal do TCE-RS"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"></iframe>
-    </div>
-    <div class="modal-footer" id="detRodape">
+    <div class="modal-footer">
       <button class="btn-ghost" onclick="fecharDet()">Fechar</button>
       <button class="btn-ghost so-editor" onclick="novoAditivo()">＋ Aditivo</button>
       <button class="btn-ghost so-editor" onclick="novoApostilamento()">📌 Apostilamento</button>
@@ -2471,55 +2444,27 @@ function abrirDet(id){
     aditivosHTML(c) +
     apostilamentosHTML(c);
   document.getElementById('btnDetLicitacon').style.display = linkLicitacon(c.linkLicitacon) ? '' : 'none';
-  /* abrir outro contrato sempre começa pela ficha, nunca no portal que
-     ficou aberto do contrato anterior */
-  fecharLicitacon();
   document.getElementById('ovDet').classList.add('open');
 }
-/* Os documentos do contrato moram no portal do TCE-RS, não aqui — mas quem
-   consulta não precisa saber disso. O portal abre DENTRO da própria ficha,
-   no lugar dos dados do contrato, e "← Voltar à ficha" desfaz. A ficha
-   continua aberta o tempo todo: sair do portal é um clique, não é fechar
-   uma janela e procurar de novo onde se estava.
+/* Os documentos do contrato moram no portal do TCE-RS, não aqui. O botão
+   abre aquela página numa janela à parte — a ficha continua aberta atrás,
+   que é o que se quer quando se está conferindo um documento contra o
+   cadastro. Sem id, abre o contrato que está na ficha.
 
-   O portal pode recusar ser exibido dentro de outro site (é escolha dele,
-   no cabeçalho da resposta). Se recusar, o navegador escreve isso no
-   quadro — e "↗ Abrir em nova aba", ali do lado, resolve. */
-function abrirLicitacon(){
-  const u = linkLicitacon(detAtual && detAtual.linkLicitacon);
-  if(!u){ alert('Este contrato ainda não tem o link do LicitaCon cadastrado.'); return; }
-  document.querySelector('#ovDet .modal').classList.add('lc-modo');
-  document.getElementById('detBody').style.display = 'none';
-  document.getElementById('detRodape').style.display = 'none';
-  document.getElementById('detLicBarra').style.display = '';
-  document.getElementById('detLicQuadro').style.display = '';
-  document.getElementById('detLicUrl').textContent = u;
-  document.getElementById('detLicFrame').src = u;
-}
-function licitaconEmbutidoAberto(){
-  return document.querySelector('#ovDet .modal').classList.contains('lc-modo');
-}
-function fecharLicitacon(){
-  document.querySelector('#ovDet .modal').classList.remove('lc-modo');
-  document.getElementById('detBody').style.display = '';
-  document.getElementById('detRodape').style.display = '';
-  document.getElementById('detLicBarra').style.display = 'none';
-  document.getElementById('detLicQuadro').style.display = 'none';
-  /* solta a página do portal: um quadro escondido continua carregado, e o
-     próximo contrato abriria mostrando o portal do contrato anterior */
-  document.getElementById('detLicFrame').src = 'about:blank';
-}
-function recarregarLicitacon(){
-  const u = linkLicitacon(detAtual && detAtual.linkLicitacon);
-  if(u) document.getElementById('detLicFrame').src = u;
-}
-/* A saída para quem precisa da página inteira — e o plano B se o portal
-   não aceitar ser exibido embutido. Sem id, é o contrato da ficha. */
-function abrirLicitaconNaAba(id){
+   Já foi tentado exibir o portal embutido, num quadro dentro da ficha, para
+   parecer parte do sistema. NÃO FUNCIONA, e não adianta tentar de novo: o
+   portal recusa ser mostrado dentro de outro site — é decisão dele, num
+   cabeçalho da resposta, e não há nada a fazer deste lado. O quadro vinha
+   em branco. A janela à parte é o caminho que existe. */
+function abrirLicitacon(id){
   const c = id == null ? detAtual : CONTRATOS.find(x => x.id === id);
   const u = linkLicitacon(c && c.linkLicitacon);
   if(!u){ alert('Este contrato ainda não tem o link do LicitaCon cadastrado.'); return; }
-  window.open(u, '_blank', 'noopener');
+  const larg = Math.min(1120, screen.width - 40), alt = Math.min(800, screen.height - 120);
+  window.open(u, 'licitacon', 'noopener,width='+larg+',height='+alt
+    + ',left=' + Math.max(0, Math.round((screen.width-larg)/2))
+    + ',top='  + Math.max(0, Math.round((screen.height-alt)/2))
+    + ',scrollbars=yes,resizable=yes');
 }
 /* Os aditivos ficam na própria ficha: cada um abre para edição no clique. */
 function aditivosHTML(c){
@@ -2566,7 +2511,7 @@ function apostilamentosHTML(c){
   }).join('') + '</div>';
   return '<hr class="det-hr"><div class="det-row"><div class="k">Apostilamentos ('+aposts.length+')</div><div class="v">'+miolo+'</div></div>';
 }
-function fecharDet(){ fecharLicitacon(); document.getElementById('ovDet').classList.remove('open'); }
+function fecharDet(){ document.getElementById('ovDet').classList.remove('open'); }
 
 /* ══════════════ CADASTRO E EDIÇÃO DE CONTRATO ══════════════ */
 let formId = null;                       /* null = contrato novo */
@@ -3423,7 +3368,7 @@ function marcarLinhaLicitacon(item, id){
   const conferir = document.createElement('button');
   conferir.className = 'mini-btn';
   conferir.textContent = 'conferir';
-  conferir.onclick = () => abrirLicitaconNaAba(id);
+  conferir.onclick = () => abrirLicitacon(id);
   aviso.appendChild(conferir);
 }
 
@@ -3719,9 +3664,6 @@ document.addEventListener('keydown', e=>{
   if(ovApost.classList.contains('open')){ fecharApost(); return; }
   if(ovEncerrar.classList.contains('open')){ fecharEncerrar(); return; }
   if(ovForm.classList.contains('open')){ fecharForm(); return; }
-  /* do portal embutido, Esc volta para a ficha — fechar tudo de uma vez
-     obrigaria a procurar o contrato outra vez */
-  if(licitaconEmbutidoAberto()){ fecharLicitacon(); return; }
   fecharDet(); fecharPainelLicitacon(); fecharFiltrosMobile();
 });
 /* fecha os modais com o botão voltar do celular */

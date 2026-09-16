@@ -263,24 +263,15 @@ mesmo formato quando você quiser atualizar esse histórico.
 Os documentos de cada contrato — edital, termo assinado, aditivos — não
 ficam aqui: ficam no portal do TCE-RS, o **LicitaCon**, uma página por
 contrato. O sistema guarda o endereço dessa página em `linkLicitacon`, e
-com ele preenchido a ficha ganha o botão **🔗 LicitaCon**.
+com ele preenchido a ficha ganha o botão **🔗 LicitaCon**, que abre o
+portal numa janela à parte — a ficha continua aberta atrás, que é o que se
+quer quando se confere documento contra cadastro.
 
-O portal abre **dentro da própria ficha**, não numa janela à parte: a
-ficha cresce para quase a tela inteira e o portal ocupa o lugar dos dados
-do contrato, com uma barra em cima — **← Voltar à ficha**, **⟳ Recarregar**
-e **↗ Abrir em nova aba**. `Esc` também volta para a ficha. Para quem
-consulta, os documentos passam a ser parte do sistema, e não outro site
-que se abre por fora e se perde entre as janelas. Ao voltar, o quadro é
-solto (`about:blank`): um portal escondido continuaria carregado, e o
-próximo contrato abriria mostrando a página do anterior.
-
-Quem hospeda a página é o TCE, então é dele a palavra final sobre deixar
-ou não ser exibida dentro de outro site — é um cabeçalho da resposta
-(`X-Frame-Options`/`frame-ancestors`). Se recusar, o navegador escreve
-isso no quadro, e o **↗ Abrir em nova aba** ali do lado resolve. O quadro
-roda com `sandbox`: script, formulário, download e pop-up liberados, que é
-o que o portal precisa, e navegação do topo bloqueada — assim a página de
-lá não tem como levar o sistema junto para outro endereço.
+**Janela à parte, e não embutido na ficha.** Foi tentado: um quadro dentro
+da própria ficha, para os documentos parecerem parte do sistema. O portal
+recusa ser exibido dentro de outro site — é decisão dele, num cabeçalho da
+resposta, e não há nada a fazer deste lado. O quadro vinha em branco.
+Quem for mexer aqui, não perca tempo tentando de novo.
 
 Contrato novo já nasce com o link, no próprio formulário. Para o cadastro
 antigo existe o **🔗 Links LicitaCon** no cabeçalho: a lista dos contratos
@@ -290,9 +281,8 @@ Cola, sai do campo, salvou — e o contrato sai da conta. O número no botão
 avisa e oferece trazer os outros anos antes do mutirão.
 
 O campo recusa o que não for endereço `http`/`https`. Não é implicância: o
-valor vai parar no `src` de um quadro e num `window.open`, e um
-`javascript:` colado ali seria script rodando na página. O domínio é
-conferido à parte — e isso importa mais do que parece — porque o navegador
+valor vai parar num `window.open`, e um `javascript:` colado ali seria
+script rodando na página. O domínio é conferido à parte porque o navegador
 é generoso demais — `new URL('https://frase com espaço')` não dá erro, ele
 codifica a frase e devolve um endereço de aparência legítima, que viraria
 um botão levando a lugar nenhum.
