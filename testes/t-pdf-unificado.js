@@ -149,6 +149,22 @@ const TEXTO=[
   t('gera mesmo sem título/processo/data', /^Pedido Diligencia 032 2026/.test(magro.arquivo||''), magro.arquivo);
   t('o texto simples saiu', /Texto simples\./.test(magro.linhas.join(' ')), magro.linhas);
 
+  console.log('\n7) O marca-texto amarelo saiu do sistema (Decisão e Diligência)');
+  /* ==destaque== continua sendo RECONHECIDO (documento antigo com essa
+     marcação abre limpo, sem "==" literal na tela nem no PDF), mas não
+     pinta mais tarja nenhuma — em lugar nenhum: nem no PDF, nem na prévia
+     em tela, nem no editor de folha. */
+  t('a cor e a função da tarja amarela saíram do gerador de PDF',
+    !/\bcMarca\b/.test(fonte) && !/\bmarcaCaixa\b/.test(fonte));
+  t('o botão "Destacar" (Ctrl+M) saiu da barra do editor',
+    fonte.indexOf('docEdMarcar')<0 && !/Marca-texto amarelo/.test(fonte));
+  t('a instrução para a IA não ensina mais o ==marca-texto==',
+    !/==marca-texto==/.test(fonte) && !/tarja[\s\S]{0,20}amarela no PDF/.test(fonte));
+  t('e passa a pedir negrito nas palavras que precisam saltar aos olhos',
+    /Use \*\*negrito\*\* nas palavras que precisam saltar aos olhos/.test(fonte));
+  t('nenhum CSS de <mark> amarelo sobrou (folha, prévia, ou global)',
+    !/mark\s*\{[^}]*background:\s*#fff082/.test(fonte) && !/mark\{background:var\(--amarelo\)/.test(fonte));
+
   console.log('\nerros JS:', errs.length?errs:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);
   await b.close();
