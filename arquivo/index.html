@@ -480,11 +480,6 @@ function authLogout(){
   firebase.auth().signOut();
 }
 
-/* ── Perfil (usuarios_v2) ── */
-function iniciarAutenticacaoRequisicoes(){
-  usuariosV2ColRef = firebase.firestore().collection('usuarios_v2');
-  firebase.auth().onAuthStateChanged(authAoAutenticar);
-}
 function authPerfilPadrao(user, extra){
   return Object.assign({
     email: (user.email || '').toLowerCase(),
@@ -903,7 +898,9 @@ function blocoPessoa(nome, lista){
        + '<div class="met"><span class="etq">' + esc(t.tipo || '') + '</span>'
        + (t.secretaria ? esc(t.secretaria) + ' · ' : '')
        + 'saiu em ' + fmtD(t.saiuEm) + '</div></div>'
-       + '<button class="btn-voltou" onclick="marcarVolta(' + t.id + ')">✓ Voltou hoje</button>'
+       /* o id que vai aqui é o do DOCUMENTO no banco (_id), não o número da
+          planilha (id): é por ele que a gravação encontra a linha */
+       + '<button class="btn-voltou" onclick="marcarVolta(' + JSON.stringify(t._id).replace(/"/g, '&quot;') + ')">✓ Voltou hoje</button>'
        + '</div>';
   });
   return h + '</div>';

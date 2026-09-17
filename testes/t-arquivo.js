@@ -178,20 +178,25 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   t('ao fim, as quatro foram lidas — uma por vez, sob demanda', abas.lidas.length === 4, abas);
 
   console.log('\n6) "✓ Voltou hoje" grava no banco, não só na tela');
-  const voltou = await pg.evaluate(async () => {
-    irPara('rua'); await new Promise(r => setTimeout(r, 300));
-    const antes = TRAMITES.length;
-    const alvo = TRAMITES[0];
-    marcarVolta(alvo._id);
-    await new Promise(r => setTimeout(r, 400));
-    const doc = window.__STORE.arquivo_tramites[alvo._id];
-    return {antes, depois: TRAMITES.length, gravado: doc && doc.voltouEm,
-            saiuDaLista: !TRAMITES.some(x => x._id === alvo._id)};
-  });
+  /* O CLIQUE, não a função. Chamar marcarVolta(alvo._id) direto daqui
+     passava por cima do bug que existiu: o botão mandava t.id (o número da
+     planilha, 3) e a função procurava por _id (o id do documento, "3") —
+     "3" === 3 é falso, e o botão não fazia nada, calado. Teste que chama a
+     função nunca teria visto. */
+  await pg.evaluate(async () => { irPara('rua'); await new Promise(r => setTimeout(r, 300)); });
+  const alvo = await pg.evaluate(() => TRAMITES[0]._id);
+  const antes = await pg.evaluate(() => TRAMITES.length);
+  await pg.click('.btn-voltou');
+  await pg.waitForTimeout(500);
+  const voltou = await pg.evaluate((id) => {
+    const doc = window.__STORE.arquivo_tramites[id];
+    return {depois: TRAMITES.length, gravado: doc && doc.voltouEm,
+            saiuDaLista: !TRAMITES.some(x => x._id === id)};
+  }, alvo);
   t('o retorno foi gravado com a data de hoje',
     /^\d{4}-\d{2}-\d{2}$/.test(voltou.gravado || ''), voltou);
   t('e a pendência sai da tela — ela é "o que está fora"',
-    voltou.saiuDaLista && voltou.depois === voltou.antes - 1, voltou);
+    voltou.saiuDaLista && voltou.depois === antes - 1, {antes, ...voltou});
   await pg.close();
 
   console.log('\n7) Quem só visualiza não grava');
