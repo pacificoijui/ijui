@@ -309,7 +309,7 @@
       <span id="authUserChip" class="chip-auth" style="display:none"></span>
       <button class="mini-btn" id="btnSair" onclick="authLogout()" style="display:none">Sair</button>
       <button class="mini-btn so-editor" style="display:none" onclick="importarArquivo()"
-              title="Sobe dados/*.json — a carga convertida das planilhas — para o banco">⬆️ Importar planilhas</button>
+              title="Escolha os JSON do conversor no seu computador para subir ao banco">⬆️ Importar planilhas</button>
     </div>
   </div>
 </header>
@@ -319,6 +319,8 @@
   <!-- O recado da importação mora FORA de #tela: render() reescreve #tela
        inteiro, e o "✓ subiu" desapareceria no primeiro redesenho — que é
        justamente o que a importação faz ao terminar. -->
+  <input type="file" id="impArquivos" accept=".json,application/json" multiple
+         style="display:none" onchange="importarEscolhidos(this)">
   <div id="impNota" style="display:none"></div>
   <div id="tela"></div>
 </main>
@@ -1215,21 +1217,56 @@ function marcarVolta(id){
    Grava em lotes de 400 (o limite do Firestore é 500) e usa o id da própria
    carga como id do documento — importar duas vezes reescreve, não duplica. */
 const LOTE_IMPORT = 400;
+/* Os quatro arquivos são ESCOLHIDOS no computador, não buscados no
+   servidor. A primeira versão fazia fetch('dados/tramites.json') — e não
+   funcionava nunca, pela razão que é o motivo de a carga existir: ela é
+   gitignored porque o repositório é público, então nunca está ao lado do
+   index.html no ar. Quem abria pelo site só via "não achei".
+
+   Escolher do disco também é o gesto certo: a carga vive na máquina de
+   quem rodou o conversor, e é de lá que ela sobe. */
 function importarArquivo(){
   if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
-  if(!confirm('Subir a carga de dados/*.json para o banco?\n\nO que já estiver lá com o mesmo número é reescrito.')) return;
+  document.getElementById('impArquivos').click();
+}
+/* Cada arquivo é reconhecido pelo NOME — tramites.json, anulacoes.json,
+   memorandos.json, pastas.json — que é como o conversor os escreve. Dá
+   para mandar os quatro de uma vez ou um por vez. */
+const NOME_CARGA = { tramites:'rua', anulacoes:'anul', memorandos:'memo', pastas:'arq' };
+function importarEscolhidos(input){
   const nota = document.getElementById('impNota');
-  const dizer = m => { nota.style.display = ''; nota.className = 'nota'; nota.textContent = m; };
-  dizer('⏳ lendo os arquivos…');
+  const dizer = (m, cls) => { nota.style.display = ''; nota.className = 'nota' + (cls || ''); nota.textContent = m; };
+  const arquivos = [...(input.files || [])];
+  input.value = '';                      /* escolher o mesmo arquivo de novo dispara change outra vez */
+  if(!arquivos.length) return;
 
-  const puxa = n => fetch('dados/' + n + '.json').then(r => r.ok ? r.json() : null).catch(() => null);
-  const quais = [['tramites','rua'], ['anulacoes','anul'], ['memorandos','memo'], ['pastas','arq']];
-  Promise.all(quais.map(([n]) => puxa(n))).then(cargas => {
-    const total = cargas.reduce((t, c) => t + (Array.isArray(c) ? c.length : 0), 0);
-    if(!total){
-      dizer('Não achei dados/*.json. Rode o conversor primeiro: python3 arquivo/ferramentas/planilhas-para-json.py PASTA --gravar');
+  const lidos = [], recusados = [];
+  Promise.all(arquivos.map(f => new Promise(res => {
+    const base = f.name.replace(/\.json$/i, '').toLowerCase();
+    const tela = NOME_CARGA[base];
+    if(!tela){ recusados.push(f.name + ' (nome não reconhecido)'); return res(); }
+    const fr = new FileReader();
+    fr.onload = () => {
+      try{
+        const dados = JSON.parse(fr.result);
+        if(!Array.isArray(dados) || !dados.length){ recusados.push(f.name + ' (vazio)'); return res(); }
+        if(dados.some(x => x == null || x.id === undefined)){ recusados.push(f.name + ' (tem linha sem id)'); return res(); }
+        lidos.push({tela: tela, nome: base, itens: dados});
+      }catch(e){ recusados.push(f.name + ' (não é JSON válido)'); }
+      res();
+    };
+    fr.onerror = () => { recusados.push(f.name + ' (não consegui ler)'); res(); };
+    fr.readAsText(f);
+  }))).then(() => {
+    if(!lidos.length){
+      dizer('Nada para subir. ' + (recusados.length ? recusados.join('; ') : '')
+        + ' Os arquivos precisam se chamar tramites.json, anulacoes.json, memorandos.json ou pastas.json.', ' aviso-amarelo');
       return;
     }
+    const total = lidos.reduce((t, c) => t + c.itens.length, 0);
+    if(!confirm('Subir ' + total + ' registros (' + lidos.map(c => c.nome).join(', ') + ') para o banco?\n\n'
+      + 'O que já estiver lá com o mesmo número é reescrito.')) { dizer('Importação cancelada.'); return; }
+
     let feitos = 0;
     const gravarLote = (tela, itens, i) => {
       if(i >= itens.length) return Promise.resolve();
@@ -1252,15 +1289,15 @@ function importarArquivo(){
         return gravarLote(tela, itens, i + LOTE_IMPORT);
       });
     };
-    return quais.reduce((p, [nome, tela], k) => p.then(() => {
-      const itens = Array.isArray(cargas[k]) ? cargas[k] : [];
-      return itens.length ? gravarLote(tela, itens, 0) : null;
-    }), Promise.resolve()).then(() => {
-      dizer('✓ ' + feitos + ' registros no banco.');
-      CARREGADA.clear(); PASTAS = []; TRAMITES = []; ANULACOES = []; MEMORANDOS = [];
-      lerTela(telaAtual);
-    });
-  }).catch(e => dizer('Não consegui subir: ' + e.message));
+    return lidos.reduce((p, c) => p.then(() => gravarLote(c.tela, c.itens, 0)), Promise.resolve())
+      .then(() => {
+        dizer('✓ ' + feitos + ' registros no banco.'
+          + (recusados.length ? ' Fora: ' + recusados.join('; ') : ''));
+        CARREGADA.clear(); PASTAS = []; TRAMITES = []; ANULACOES = []; MEMORANDOS = [];
+        lerTela(telaAtual);
+      })
+      .catch(e => dizer('Não consegui subir: ' + e.message, ' aviso-amarelo'));
+  });
 }
 
 /* ══════════════ ABERTURA ══════════════ */

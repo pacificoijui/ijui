@@ -199,11 +199,21 @@ para desfazer: o que vai para o histórico do git de um repositório público
 não volta.
 
 Por isso **subir o cadastro é um gesto da tela**, e não um passo de
-publicação: quem tem os `dados/*.json` ao lado do `index.html` clica em
-**⬆️ Importar planilhas** e a carga vai para as quatro coleções. Grava em
-lotes de 400 (o limite do Firestore é 500) e usa o número da própria carga
-como identificador do documento — **importar duas vezes reescreve, não
-duplica**, então repetir depois de acrescentar linhas na planilha é seguro.
+publicação: **⬆️ Importar planilhas** abre o seletor de arquivos, você
+escolhe os JSON **no seu computador** e eles vão para as quatro coleções.
+Grava em lotes de 400 (o limite do Firestore é 500) e usa o número da
+própria carga como identificador do documento — **importar duas vezes
+reescreve, não duplica**, então repetir depois de acrescentar linhas na
+planilha é seguro. Cada arquivo é reconhecido pelo nome (`tramites.json`,
+`anulacoes.json`, `memorandos.json`, `pastas.json`), e dá para mandar os
+quatro de uma vez ou um por vez.
+
+A primeira versão fazia `fetch('dados/tramites.json')`, buscando a carga
+no servidor, ao lado do `index.html`. **Não funcionava nunca**, e pela
+mesma razão que a carga existe: ela é gitignored porque o repositório é
+público, então nunca está lá. Quem abria pelo site só via "não achei
+dados/*.json". Escolher do disco também é o gesto certo — a carga vive na
+máquina de quem rodou o conversor, e é de lá que ela sobe.
 
 Se um dia a decisão for publicar a carga no repositório, ela precisa ser
 varrida antes atrás de CPF, e-mail, telefone e assunto pessoal. Na conversão

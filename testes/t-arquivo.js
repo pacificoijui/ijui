@@ -260,33 +260,40 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   t('o botão de importar não aparece para ele', !leitura.botaoImportar, leitura);
   await ver.close();
 
-  console.log('\n8) A importação sobe a carga sem duplicar');
+  console.log('\n8) A importação sobe os arquivos ESCOLHIDOS no computador');
   const imp = await b.newPage({viewport:{width:1280, height:900}});
   imp.on('dialog', d => d.accept());
   await abrirArquivo(imp, 'editar', false);          /* banco vazio */
-  /* dados/*.json não está no repositório: o teste serve a carga no lugar
-     dele, que é exatamente o que a máquina do setor tem ao lado do HTML. */
-  await imp.route('**/arquivo/dados/pastas.json',     r => r.fulfill({status:200, contentType:'application/json', body:JSON.stringify(Object.values(pastas))}));
-  await imp.route('**/arquivo/dados/tramites.json',   r => r.fulfill({status:200, contentType:'application/json', body:JSON.stringify(Object.values(tramites))}));
-  await imp.route('**/arquivo/dados/anulacoes.json',  r => r.fulfill({status:200, contentType:'application/json', body:JSON.stringify(Object.values(anulacoes))}));
-  await imp.route('**/arquivo/dados/memorandos.json', r => r.fulfill({status:200, contentType:'application/json', body:JSON.stringify(Object.values(memorandos))}));
   const vazio = await imp.evaluate(() => Object.keys(window.__STORE.arquivo_pastas || {}).length);
   t('o banco começou vazio', vazio === 0, {vazio});
-  const subiu = await imp.evaluate(async () => {
-    importarArquivo();
-    await new Promise(r => setTimeout(r, 1500));
-    return {pastas: Object.keys(window.__STORE.arquivo_pastas).length,
-            tramites: Object.keys(window.__STORE.arquivo_tramites).length,
-            recado: (document.getElementById('impNota') || {}).textContent || ''};
-  });
+
+  /* A carga NÃO está no servidor — é gitignored, o repositório é público —
+     então ela chega pelo seletor de arquivos, como na máquina do setor.
+     A primeira versão buscava dados/*.json ao lado do index.html e só
+     sabia dizer "não achei". */
+  const tmp = require('os').tmpdir() + '/t-arquivo-carga';
+  fs.mkdirSync(tmp, {recursive: true});
+  const escrever = (nome, obj) => {
+    const caminho = tmp + '/' + nome + '.json';
+    fs.writeFileSync(caminho, JSON.stringify(Object.values(obj)));
+    return caminho;
+  };
+  const caminhos = [escrever('pastas', pastas), escrever('tramites', tramites),
+                    escrever('anulacoes', anulacoes), escrever('memorandos', memorandos)];
+  await imp.setInputFiles('#impArquivos', caminhos);
+  await imp.waitForTimeout(2000);
+  const subiu = await imp.evaluate(() => ({
+    pastas: Object.keys(window.__STORE.arquivo_pastas).length,
+    tramites: Object.keys(window.__STORE.arquivo_tramites).length,
+    recado: (document.getElementById('impNota') || {}).textContent || ''
+  }));
   t('as pastas subiram', subiu.pastas === TOTAL_PASTAS, subiu);
   t('os trâmites também', subiu.tramites === Object.keys(tramites).length, subiu);
   t('e a tela diz quantos entraram', /\d+ registros no banco/.test(subiu.recado), subiu);
-  const denovo = await imp.evaluate(async () => {
-    importarArquivo();
-    await new Promise(r => setTimeout(r, 1500));
-    return Object.keys(window.__STORE.arquivo_pastas).length;
-  });
+
+  await imp.setInputFiles('#impArquivos', caminhos);
+  await imp.waitForTimeout(2000);
+  const denovo = await imp.evaluate(() => Object.keys(window.__STORE.arquivo_pastas).length);
   t('importar de novo reescreve, não duplica', denovo === TOTAL_PASTAS, {denovo, esperado: TOTAL_PASTAS});
 
   /* O ano tem de ser gravado NA IMPORTAÇÃO. O Firestore não filtra por "os
@@ -303,6 +310,15 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     anoNoBanco.memo.indexOf(null) >= 0 && anoNoBanco.memo.indexOf(2062) < 0, anoNoBanco.memo);
   t('e o ano da anulação, que já vem da planilha, é preservado',
     anoNoBanco.anul.indexOf(ANO) >= 0, anoNoBanco.anul);
+
+  /* Arquivo com nome que o conversor não gera não entra calado. */
+  const errado = tmp + '/planilha-qualquer.json';
+  fs.writeFileSync(errado, JSON.stringify([{id: 1, x: 'nada a ver'}]));
+  await imp.setInputFiles('#impArquivos', [errado]);
+  await imp.waitForTimeout(800);
+  const recusa = await imp.evaluate(() => document.getElementById('impNota').textContent);
+  t('arquivo de nome desconhecido é recusado, com o nome certo na tela',
+    /não reconhecido/.test(recusa) && /tramites\.json/.test(recusa), recusa.slice(0, 180));
   await imp.close();
 
   console.log('\nerros JS: ' + (errs.length ? errs.join(' | ') : 'nenhum'));
