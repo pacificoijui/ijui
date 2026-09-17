@@ -50,7 +50,14 @@ const tramites = {
   '2': {id:2, docTipo:'Processo', docNum:'102', comQuem:'ANDREI', saiuEm:'2026-08-20', voltouEm:null, tipo:'assinatura'},
   '3': {id:3, docTipo:'Pasta',    docNum:'103', comQuem:'MAITÊ',  saiuEm:'2026-09-01', voltouEm:null, tipo:'emprestimo'},
   '4': {id:4, docTipo:'Processo', docNum:'104', comQuem:'DENER',  saiuEm:'2026-02-02', voltouEm:'2026-02-03', tipo:'assinatura'},
-  '5': {id:5, docTipo:'Processo', docNum:'105', comQuem:'DENER',  saiuEm:'2026-03-02', voltouEm:'2026-03-04', tipo:'assinatura'}
+  '5': {id:5, docTipo:'Processo', docNum:'105', comQuem:'DENER',  saiuEm:'2026-03-02', voltouEm:'2026-03-04', tipo:'assinatura'},
+  /* Os três casos do link "Na rua" → Arquivo (ver 6c): docTipo reconhecido
+     numa assinatura sugere catalogar; docTipo de papelada (EXTRATOS) não
+     sugere nada; e um empréstimo — documento que JÁ está arquivado — não
+     sugere de novo mesmo com docTipo mapeado. */
+  '6': {id:6, docTipo:'DL',       docNum:'999/2026', comQuem:'ANDREI', saiuEm:'2026-09-01', voltouEm:null, tipo:'assinatura'},
+  '7': {id:7, docTipo:'EXTRATOS', docNum:'50/2026',  comQuem:'ANDREI', saiuEm:'2026-09-02', voltouEm:null, tipo:'assinatura'},
+  '8': {id:8, docTipo:'DL',       docNum:'888/2026', comQuem:'MAITÊ',  saiuEm:'2026-09-03', voltouEm:null, tipo:'emprestimo'}
 };
 /* Anulações e memorandos são cadernos ANUAIS, lidos um ano por vez. A
    semente tem os três casos que importam: o ano corrente, um ano velho (que
@@ -212,6 +219,22 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     await pg.evaluate(() => !/Modalidade/.test(document.querySelector('.barra') ? document.querySelector('.barra').textContent : '')
       || !document.querySelector('[onclick*="modalidade"]')));
 
+  console.log('\n4b) O clique de verdade no botão da janela (não a função)');
+  /* JSON.stringify(tela) dentro de um onclick="..." já entre aspas duplas
+     quebrava o atributo no primeiro par — onclick="trocarJanela("arq","30")"
+     fecha ali mesmo, e o resto vira lixo fora do atributo (o navegador lê
+     um onclick vazio e "arq" sobra como um atributo bugado, sem valor). O
+     botão RENDERIZAVA normal, e chamar trocarJanela() direto — como os
+     testes acima fazem, de propósito, para testar a lógica — nunca veria
+     isso: só o clique de verdade no HTML gerado revela. */
+  const antesDoClique = await pg.evaluate(() => janelaDe('arq'));
+  await pg.click('.mod-faixa:has(button:has-text("30 dias")) button:has-text("Tudo")');
+  await pg.waitForTimeout(600);
+  const depoisDoClique = await pg.evaluate(() => janelaDe('arq'));
+  t('o clique de verdade muda a janela — não só a chamada direta da função',
+    antesDoClique === '30' && depoisDoClique === 'tudo', {antesDoClique, depoisDoClique});
+  await pg.evaluate(async () => { trocarJanela('arq', '30'); await new Promise(r => setTimeout(r, 400)); });
+
   console.log('\n5) Cada aba lê a sua coleção, na hora que é aberta');
   const abas = await pg.evaluate(async () => {
     irPara('anul'); await new Promise(r => setTimeout(r, 400));
@@ -222,60 +245,51 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   /* Últimos 30 dias + os sem data — não o ano, muito menos a coleção. */
   t('abrir Anulações lê só as do mês', abas.depoisAnul.anul === 1, {veio: abas.depoisAnul.anul});
   t('e não lê os memorandos junto', abas.depoisAnul.memo === 0, abas);
-  t('abrir Memorandos lê só os do mês, mais o sem data',
-    abas.memo === 2, {veio: abas.memo});
-  t('ao fim, as quatro foram lidas — uma por vez, sob demanda', abas.lidas.length === 4, abas);
+  /* Memorandos não tem janela por data — sem secretaria escolhida, nada é
+     lido, igual ao Arquivo sem modalidade escolhida. */
+  t('abrir Memorandos sozinho não lê nada — falta escolher a secretaria',
+    abas.memo === 0, {veio: abas.memo});
+  t('só três telas foram lidas até aqui — a quarta espera a secretaria',
+    abas.lidas.length === 3, abas);
 
-  console.log('\n5b) A janela de leitura: 30 dias por padrão, e o resto a um clique');
-  const janela = await pg.evaluate(() => ({
-    atual: janelaDe('memo'),
-    botoes: [...document.querySelectorAll('.mod-btn')].map(b => b.textContent.trim()),
-    descricoes: MEMORANDOS.map(m => m.descricao),
-    nota: document.getElementById('tela').textContent
+  console.log('\n5b) Memorandos: uma secretaria por vez, como nas Requisições');
+  const semSec = await pg.evaluate(() => ({
+    lidas: [...CARREGADA], memo: MEMORANDOS.length,
+    faixa: [...document.querySelectorAll('.mod-btn')].map(b => b.textContent.trim()),
+    pede: /Escolha a secretaria/.test(document.getElementById('tela').textContent)
   }));
-  t('a tela abre nos últimos 30 dias, não no ano', janela.atual === '30', janela);
-  t('e oferece 30 dias, 90 dias, este ano e tudo',
-    janela.botoes.join('|') === '30 dias|90 dias|Este ano|Tudo', janela.botoes);
-  t('o memorando deste mês vem', janela.descricoes.indexOf('deste mes') >= 0, janela.descricoes);
-  t('o de quatro meses atrás NÃO vem — é o que economiza leitura',
-    janela.descricoes.indexOf('do ano, fora do mes') < 0, janela.descricoes);
-  /* Documento sem data tem de aparecer em qualquer janela: se o recorte o
-     escondesse, o sistema teria perdido um registro. */
-  t('mas o sem data vem sempre, em qualquer janela',
-    janela.descricoes.indexOf('sem data na planilha') >= 0, janela.descricoes);
-  t('e a tela diz qual janela está lendo', /últimos 30 dias/.test(janela.nota), janela.nota.slice(0, 200));
+  t('a faixa oferece as secretarias conhecidas',
+    semSec.faixa.indexOf('SMED') >= 0 && semSec.faixa.indexOf('SMS') >= 0, semSec.faixa);
+  t('sem secretaria escolhida, nada é lido — nem uma consulta',
+    semSec.lidas.indexOf('memo') < 0 && semSec.memo === 0, semSec);
+  t('e a tela pede a escolha em vez de ficar vazia sem explicação', semSec.pede, semSec);
 
-  const ano = await pg.evaluate(async () => {
-    trocarJanela('memo', 'ano');
+  const smed = await pg.evaluate(async () => {
+    escolherSecretariaMemo('SMED');
+    await new Promise(r => setTimeout(r, 600));
+    return {descricoes: MEMORANDOS.map(m => m.descricao),
+            naFaixa: document.querySelector('.mod-btn.on').textContent.trim()};
+  });
+  t('SMED traz só o memorando de SMED', smed.descricoes.join() === 'deste mes', smed);
+  t('o botão marcado é o da secretaria lida, com a conta dela',
+    /SMED/.test(smed.naFaixa) && smed.naFaixa.indexOf('1') >= 0, smed);
+
+  const sms = await pg.evaluate(async () => {
+    escolherSecretariaMemo('SMS');
     await new Promise(r => setTimeout(r, 600));
     return MEMORANDOS.map(m => m.descricao);
   });
-  t('"Este ano" alcança o que ficou fora do mês', ano.indexOf('do ano, fora do mes') >= 0, ano);
-  t('e ainda não traz os de anos atrás', ano.indexOf('de anos atras') < 0, ano);
+  /* SMS lida por INTEIRO, sem recorte de data — é a diferença para as
+     outras telas: uma secretaria sozinha já é pequena. */
+  t('trocar de secretaria troca o recorte, não soma em cima do anterior',
+    sms.indexOf('deste mes') < 0, sms);
+  t('e traz TODO o histórico da secretaria, sem corte de data — inclusive o antigo',
+    sms.indexOf('do ano, fora do mes') >= 0 && sms.indexOf('de anos atras') >= 0, sms);
+  t('e o sem data também, porque não há janela para escondê-lo',
+    sms.indexOf('sem data na planilha') >= 0, sms);
 
-  const tudo = await pg.evaluate(async () => {
-    trocarJanela('memo', 'tudo');
-    await new Promise(r => setTimeout(r, 600));
-    return MEMORANDOS.length;
-  });
-  t('"Tudo" alcança o cadastro inteiro', tudo === Object.keys(memorandos).length, {tudo});
-
-  /* Procurar é dizer "não está à vista". Buscar dentro de 30 dias não
-     acharia o processo antigo, e a pessoa concluiria que ele não existe. */
-  const busca = await pg.evaluate(async () => {
-    trocarJanela('memo', '30');
-    await new Promise(r => setTimeout(r, 600));
-    const antes = {janela: janelaDe('memo'), n: MEMORANDOS.length};
-    aoBuscar('memo', 'a');
-    await new Promise(r => setTimeout(r, 700));
-    return {antes, depois: janelaDe('memo'), n: MEMORANDOS.length,
-            recado: (document.getElementById('impNota') || {}).textContent || ''};
-  });
-  t('digitar na busca abre o cadastro inteiro sozinho',
-    busca.antes.janela === '30' && busca.depois === 'tudo' && busca.n > busca.antes.n, busca);
-  t('e a tela avisa que abriu, em vez de alargar calada',
-    /busca abriu o cadastro inteiro/.test(busca.recado), busca.recado);
-  await pg.evaluate(async () => { aoBuscar('memo', ''); trocarJanela('memo', '30'); await new Promise(r => setTimeout(r, 500)); });
+  t('a faceta de secretaria saiu dos filtros — a faixa ocupou o lugar dela',
+    await pg.evaluate(() => !document.querySelector('[onclick*="secretaria"]')));
 
   console.log('\n6) "✓ Voltou hoje" grava no banco, não só na tela');
   /* O CLIQUE, não a função. Chamar marcarVolta(alvo._id) direto daqui
@@ -366,6 +380,67 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   });
   t('e ele está lá, na modalidade nova', achou);
   await pg2.close();
+
+  console.log('\n6c) "Na rua" → Arquivo: sugere catalogar quando volta da assinatura');
+  /* docTipo ("DL") e docNum ("999/2026") do trâmite não batem sozinhos com
+     modalidade+processo da pasta — dá para SUGERIR, com a pessoa confirmando
+     duas vezes: no confirm() antes de sair de "Na rua", e no "Salvar" do
+     formulário que abre já preenchido. Os três casos que importam: docTipo
+     reconhecido soma para DISPENSA; docTipo de papelada (EXTRATOS) não
+     sugere nada; e um empréstimo — documento já arquivado voltando de uma
+     consulta — não sugere de novo, mesmo com docTipo mapeado. */
+  const pg3 = await b.newPage({viewport:{width:1280, height:900}});
+  const dialogos = [];
+  pg3.on('dialog', d => { dialogos.push(d.message()); d.accept(); });
+  await abrirArquivo(pg3, 'editar');
+  const hojeISO = new Date().toISOString().slice(0, 10);
+
+  const posId = await pg3.evaluate(() => TRAMITES.find(x => x.docNum === '999/2026')._id);
+  await pg3.click('.linha:has-text("999/2026") .btn-voltou');
+  await pg3.waitForTimeout(700);
+  const positivo = await pg3.evaluate((id) => ({
+    gravou: window.__STORE.arquivo_tramites[id].voltouEm,
+    tela: telaAtual, mod: MOD_ATUAL,
+    formAberto: document.getElementById('ovPasta').classList.contains('open'),
+    proc: document.getElementById('paProc').value,
+    data: document.getElementById('paData').value,
+    modNoForm: document.getElementById('paMod').value
+  }), posId);
+  t('pergunta antes de sugerir, citando o documento e o motivo',
+    dialogos.some(m => /DL/.test(m) && /999\/2026/.test(m) && /assinatura/.test(m)), dialogos);
+  t('mas o retorno é gravado de qualquer forma — o "voltou" não depende do "sim"',
+    /^\d{4}-\d{2}-\d{2}$/.test(positivo.gravou || ''), positivo);
+  t('a tela pula direto para o Arquivo', positivo.tela === 'arq', positivo);
+  t('já na modalidade certa, vinda do docTipo "DL"', positivo.mod === 'DISPENSA', positivo);
+  t('o formulário de processo novo abre sozinho', positivo.formAberto, positivo);
+  t('com o processo pré-preenchido a partir do trâmite', positivo.proc === 'DL 999/2026', positivo);
+  t('e a data de hoje, sem precisar digitar', positivo.data === hojeISO, positivo);
+  t('o formulário concorda com a modalidade da tela', positivo.modNoForm === 'DISPENSA', positivo);
+  /* Nada foi gravado no arquivo ainda — só sugerido. Cadastrar de verdade é
+     o "Salvar" de sempre, já coberto em 6b. */
+  t('mas nada entrou de fato no arquivo — é sugestão, não cadastro automático',
+    await pg3.evaluate(() => !PASTAS.some(x => x.processo === 'DL 999/2026')));
+  await pg3.evaluate(() => fecharPasta());
+
+  dialogos.length = 0;
+  await pg3.evaluate(async () => { irPara('rua'); await new Promise(r => setTimeout(r, 300)); });
+  await pg3.click('.linha:has-text("50/2026") .btn-voltou');
+  await pg3.waitForTimeout(500);
+  const semMapa = await pg3.evaluate(() => ({
+    tela: telaAtual, formAberto: document.getElementById('ovPasta').classList.contains('open')
+  }));
+  t('documento que é papelada (EXTRATOS), não processo, não sugere nada',
+    dialogos.length === 0 && semMapa.tela === 'rua' && !semMapa.formAberto, {dialogos, semMapa});
+
+  dialogos.length = 0;
+  await pg3.click('.linha:has-text("888/2026") .btn-voltou');
+  await pg3.waitForTimeout(500);
+  const emprestimo = await pg3.evaluate(() => ({
+    tela: telaAtual, formAberto: document.getElementById('ovPasta').classList.contains('open')
+  }));
+  t('documento emprestado — já catalogado — não sugere de novo, mesmo com docTipo mapeado',
+    dialogos.length === 0 && emprestimo.tela === 'rua' && !emprestimo.formAberto, {dialogos, emprestimo});
+  await pg3.close();
 
   console.log('\n7) Quem só visualiza não grava');
   const ver = await b.newPage({viewport:{width:1280, height:900}});

@@ -60,6 +60,21 @@ lado. Hoje essa ligação existe só na cabeça de quem digitou.
 linha de busca, em vez de quatro cadernos e aba por aba. O empréstimo (quem
 levou, quando) vira pendência na primeira tela sozinho.
 
+Fica **ao lado de 📍 Na rua** na barra de abas, e não por acaso: são as duas
+pontas da mesma história — o documento sai para assinatura, volta assinado,
+precisa ser catalogado. Um "✓ Voltou hoje" num trâmite de assinatura, com um
+`docTipo` reconhecido (DL, PE, Inex, Conc — os mesmos tipos que viram
+modalidade), pergunta na hora se é para catalogar; aceitando, a tela pula
+para o Arquivo, já na modalidade certa, com o formulário de **Novo processo**
+aberto e o campo "Processo" escrito (`DL 999/2026`) e a data de hoje — a
+pessoa confere e completa (vencedor, valor, pregoeiro), não digita do zero.
+O retorno em si é gravado de qualquer jeito, sim ou não na pergunta: o que
+muda é só se o Arquivo abre atrás. Nada entra no cadastro sem o "Salvar" de
+sempre — a sugestão nunca cria pasta sozinha. Papelada do processo (EXTRATOS,
+SÚMULAS, ADITIVOS…) e empréstimo (documento que já estava arquivado, só saiu
+para uma consulta) não disparam a pergunta — não são processo novo virando
+pasta.
+
 É lido **uma modalidade por vez**, pela faixa do alto — do mesmo jeito que
 as Requisições são lidas uma secretaria por vez, e pela mesma razão: o
 Controle do Arquivo é uma aba por modalidade, e é assim que se procura ("a
@@ -73,8 +88,13 @@ trabalhar. O número ao lado do botão só aparece na modalidade carregada —
 nas outras seria invenção, porque a tela não as leu. A coluna "Modalidade"
 saiu da tabela junto: a faixa já diz onde se está.
 
-**📨 Memorandos** — as 19 abas viram uma lista com busca. O memorando é o
-*porquê* de quase tudo: é ele que a anulação cita.
+**📨 Memorandos** — as 18 abas (16 secretarias e dois "genéricos" que a
+planilha mistura junto, "DOCUMENTAÇÕES DIVERSAS" e "GP") viram uma faixa de
+secretarias, na mesma lógica das Requisições: **uma secretaria por vez**,
+lida por inteiro — sem recorte de data, porque uma secretaria sozinha já é
+pequena (~30 memorandos no ano, contra 533 no cadastro inteiro). O
+memorando é o *porquê* de quase tudo: é ele que a anulação cita em
+"REF. MEMORANDO".
 
 ## Quanto do cadastro cada tela lê
 
@@ -87,7 +107,7 @@ chega é **dos últimos 30 dias**. É a conta que `/contratos/` já pagou —
 | Na rua | `voltouEm == null` | **51** dos 978 trâmites |
 | Arquivo | `arquivadoEm >= hoje-30` | ~55 das 659 pastas |
 | Anulações | `contabilidadeEm >= hoje-30` | ~25 das 298 |
-| Memorandos | `recebidoEm >= hoje-30` | ~45 das 533 |
+| Memorandos | `secretaria == escolhida` | ~30 das 533 (uma secretaria) |
 
 Cada tela lê a sua coleção **uma vez por visita**, e só quando é aberta.
 
@@ -96,6 +116,12 @@ peneirava o que já tinha sido baixado — a mesma pergunta em dois lugares,
 uma lendo do banco e outra filtrando o resultado, com respostas
 diferentes. Agora os botões **30 dias · 90 dias · Este ano · Tudo** mandam
 na consulta. A tela diz qual janela está lendo.
+
+**Memorandos é a exceção: não tem janela de data.** A secretaria já é o
+recorte — uma secretaria sozinha (~30 memorandos) não precisa de mais uma
+peneira por cima. O período (7/30/90/tudo) continua na tela, mas como
+filtro sobre o que já foi lido daquela secretaria, não como consulta —
+igual a como o período funcionava em todo lugar antes desta mudança.
 
 **A busca alarga sozinha.** Procurar é dizer "não está à vista": buscar a
 DL 45/2025 dentro de 30 dias não acharia nada, e a pessoa concluiria que o
@@ -156,9 +182,13 @@ contar, limpar, mostrar o que está ligado) é o mesmo código.
 | Na rua | com quem, tipo, documento, secretaria | fora há mais tempo · saiu por último · nome |
 | Anulações | secretaria, quem lançou, faixa de valor | mais recentes · mais antigas · maior valor · nº |
 | Arquivo | pregoeiro, checklist, ano (dentro da modalidade) | arquivado por último · primeiro · processo A–Z |
-| Memorandos | secretaria, entregue para | mais recentes · mais antigos · secretaria A–Z |
+| Memorandos | entregue para | mais recentes · mais antigos |
 
-Mais o **período** (7, 30, 90 dias ou tudo) e a **busca**, em todas.
+Mais o **período** (7, 30, 90 dias ou tudo) e a **busca**, em todas — em
+Memorandos, o período filtra dentro da secretaria já lida, não o banco.
+
+A coluna "Secretaria" saiu da tabela de Memorandos, como a de "Modalidade"
+saiu do Arquivo: a faixa de secretarias acima já diz qual é.
 
 Três decisões que valem explicação:
 

@@ -656,9 +656,14 @@ const TELAS = [
   /* A conta de cada aba é a do que FOI LIDO, e some enquanto a leitura não
      aconteceu. Mostrar "0" numa coleção que a tela nem pediu é inventar um
      número — e é a diferença entre "não há nada" e "ainda não perguntei". */
+  /* Arquivo logo ao lado de "Na rua", de propósito: são as duas pontas da
+     mesma história — o documento sai, e o documento se cataloga — e
+     "✓ Voltou hoje" pode levar de uma direto para a outra (ver
+     ofereceCatalogar). Ficarem vizinhas é o que faz esse salto parecer
+     natural, em vez de pular para o fim da barra. */
   {id:'rua',  rot:'📍 Na rua',     conta:()=>CARREGADA.has('rua')  ? abertos().length   : null, alerta:true},
-  {id:'anul', rot:'✂️ Anulações',  conta:()=>CARREGADA.has('anul') ? ANULACOES.length   : null},
   {id:'arq',  rot:'🗄️ Arquivo',    conta:()=>CARREGADA.has('arq')  ? PASTAS.length      : null},
+  {id:'anul', rot:'✂️ Anulações',  conta:()=>CARREGADA.has('anul') ? ANULACOES.length   : null},
   {id:'memo', rot:'📨 Memorandos', conta:()=>CARREGADA.has('memo') ? MEMORANDOS.length  : null}
 ];
 let telaAtual = 'rua';
@@ -733,14 +738,14 @@ const CFG = {
     lista: () => MEMORANDOS,
     data: 'recebidoEm', rotData: 'recebimento',
     busca: m => [m.num, m.descricao, m.secretaria, m.entregueA].join(' '),
+    /* Sem faceta de secretaria: a faixa já é o recorte — uma lista de
+       opções com uma opção só é lugar de clicar sem nada acontecer. */
     facetas: [
-      {k:'secretaria', rot:'Secretaria',    v:m => m.secretaria || '—'},
-      {k:'entregueA',  rot:'Entregue para', v:m => m.entregueA || '(não anotado)'}
+      {k:'entregueA', rot:'Entregue para', v:m => m.entregueA || '(não anotado)'}
     ],
     ordens: [
       {k:'recente', rot:'Mais recentes', f:(a,b) => String(b.recebidoEm||'').localeCompare(String(a.recebidoEm||''))},
-      {k:'antigo',  rot:'Mais antigos',  f:(a,b) => String(a.recebidoEm||'').localeCompare(String(b.recebidoEm||''))},
-      {k:'sec',     rot:'Secretaria (A–Z)', f:(a,b) => String(a.secretaria||'').localeCompare(String(b.secretaria||''),'pt-BR')}
+      {k:'antigo',  rot:'Mais antigos',  f:(a,b) => String(a.recebidoEm||'').localeCompare(String(b.recebidoEm||''))}
     ]
   }
 };
@@ -1096,27 +1101,40 @@ function telaArq(){
 
 /* ══════════════ TELA 4: MEMORANDOS ══════════════ */
 function telaMemo(){
-  const lista = ordenada('memo');
-  const secs = new Set(lista.map(m => m.secretaria)).size;
+  /* A faixa vem antes de tudo, como no Arquivo: é a primeira decisão — a
+     planilha era uma aba por secretaria, e é assim que se procura. */
+  let h = faixaSecretariasMemo();
 
-  let h = '<div class="resumo">'
-    + cartao(lista.length, 'memorandos recebidos', 'protocolo de entrada do setor', '')
-    + cartao(secs, 'secretarias', 'eram 19 abas, uma por pasta', '')
+  if(!SEC_MEMO_ATUAL){
+    return h + '<div class="painel"><div class="vazio"><span>📨</span>'
+      + 'Escolha a secretaria acima.<br>'
+      + '<span style="font-size:13px">Como nas Requisições: uma secretaria por vez, lida por inteiro — '
+      + 'são 533 memorandos no ano, e ninguém procura em todos ao mesmo tempo.</span></div></div>';
+  }
+  if(_lendo === 'memo' || !CARREGADA.has('memo')){
+    return h + '<div class="painel"><div class="vazio"><span>⏳</span>Carregando ' + esc(SEC_MEMO_ATUAL) + '…</div></div>';
+  }
+
+  const lista = ordenada('memo');
+
+  h += '<div class="resumo">'
+    + cartao(lista.length, 'memorandos recebidos', 'em ' + SEC_MEMO_ATUAL, '')
     + cartao(new Set(lista.map(m => m.entregueA).filter(Boolean)).size, 'pessoas que receberam', 'a coluna "entregue para"', '')
     + '</div>';
 
   h += '<div class="nota">O memorando é o <b>porquê</b> de quase tudo: é ele que a anulação cita em "REF. MEMORANDO". '
-     + 'Aqui é uma lista só, com busca — em vez de adivinhar em qual das 19 abas ele foi anotado.</div>';
+     + 'Aqui é a secretaria acima mais uma linha de busca — em vez de adivinhar em qual das abas ele foi anotado.</div>';
 
-  h += botoesDaJanela('memo');
   h += barra('memo');
   h += '<div class="painel">';
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum memorando com esses filtros.</div></div>';
 
-  h += '<table><thead><tr><th>Memorando</th><th>Secretaria</th><th>Recebido</th><th>Assunto</th><th>Entregue para</th></tr></thead><tbody>';
+  /* Sem coluna de secretaria: a faixa acima já diz qual é, como no
+     Arquivo — repetir o mesmo nome em trezentas linhas só rouba largura
+     do assunto, que é o que se lê. */
+  h += '<table><thead><tr><th>Memorando</th><th>Recebido</th><th>Assunto</th><th>Entregue para</th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(m => {
     h += '<tr><td><b>' + esc(m.num || '—') + '</b></td>'
-       + '<td><span class="etq">' + esc(m.secretaria) + '</span></td>'
        + '<td style="white-space:nowrap">' + fmtD(m.recebidoEm) + '</td>'
        + '<td>' + esc(m.descricao || '—') + '</td>'
        + '<td>' + esc(m.entregueA || '—') + '</td></tr>';
@@ -1134,9 +1152,15 @@ function telaMemo(){
 function botoesDaJanela(tela){
   if(!temJanela(tela)) return '';
   const atual = janelaDe(tela);
+  /* JSON.stringify devolve aspas DUPLAS, e o onclick já está entre aspas
+     duplas — "trocarJanela("arq","30")" fecha o atributo no primeiro par e
+     quebra o HTML ali mesmo. O botão renderizava, mas o clique não fazia
+     nada: era um atributo onclick truncado, não uma função com bug. Por
+     isso &quot;, como em escolherModalidade() e abrirPasta(). */
   const bts = JANELAS_DA_TELA[tela].map(k =>
     '<button class="mod-btn' + (k === atual ? ' on' : '') + '"'
-    + ' onclick="trocarJanela(' + JSON.stringify(tela) + ',' + JSON.stringify(k) + ')">'
+    + ' onclick="trocarJanela(' + JSON.stringify(tela).replace(/"/g, '&quot;') + ','
+    + JSON.stringify(k).replace(/"/g, '&quot;') + ')">'
     + esc(JANELAS[k].rot) + '</button>').join('');
   const nota = atual === 'tudo' ? 'Lendo o cadastro inteiro desta tela.'
     : atual === 'ano' ? 'Lendo <b>' + ANO_CORRENTE + '</b> — mais o que está sem data.'
@@ -1190,14 +1214,18 @@ const COLECOES = { rua:'arquivo_tramites', anul:'arquivo_anulacoes',
 const CARREGADA = new Set();     /* tela -> a leitura já foi feita */
 
 /* ── A JANELA DE LEITURA ──
-   O sistema abre nos ÚLTIMOS 30 DIAS, não no ano inteiro. Não é filtro em
-   cima do que já foi baixado: é o que a consulta pede ao banco. Ler 533
-   memorandos do ano para mostrar os 45 do mês é o mesmo erro que
-   /contratos/ cometeu com 1.294 documentos, e cada leitura dessas é paga.
+   Anulações e Arquivo abrem nos ÚLTIMOS 30 DIAS, não no ano inteiro (os
+   Memorandos usam outro recorte — por secretaria, ver faixaSecretariasMemo
+   — porque uma secretaria sozinha já é pequena, sem precisar de data).
+   Não é filtro em cima do que já foi baixado: é o que a consulta pede ao
+   banco. Ler 298 anulações do ano para mostrar as 25 do mês é o mesmo
+   erro que /contratos/ cometeu com 1.294 documentos, e cada leitura
+   dessas é paga.
 
    Quem precisa de mais tem os botões — "Este ano", "Tudo" — e a BUSCA
-   alarga sozinha: procurar a DL 45/2025 em 30 dias não acharia nada, e
-   quem digita está justamente procurando o que não está à vista.
+   alarga sozinha: procurar um processo de meses atrás em 30 dias não
+   acharia nada, e quem digita está justamente procurando o que não está
+   à vista.
 
    Cada janela é uma consulta de UM campo só, de propósito. Cruzar dois
    (modalidade E data) obrigaria a criar índice composto no console a cada
@@ -1220,10 +1248,16 @@ const JANELAS = {
 /* Cada tela oferece as janelas que sabe cumprir. O arquivo não tem "este
    ano" porque ele já é lido uma modalidade por vez, e cruzar modalidade
    com ano seria o índice composto de novo. */
-const JANELAS_DA_TELA = { anul: ['30','90','ano','tudo'], memo: ['30','90','ano','tudo'], arq: ['30','90','tudo'] };
+const JANELAS_DA_TELA = { anul: ['30','90','ano','tudo'], arq: ['30','90','tudo'] };
 const CAMPO_DATA = { anul: 'contabilidadeEm', memo: 'recebidoEm', arq: 'arquivadoEm' };
 function temJanela(tela){ return !!JANELAS_DA_TELA[tela]; }
-function temJanelaDeAno(tela){ return (JANELAS_DA_TELA[tela] || []).indexOf('ano') >= 0; }
+/* Anulação e memorando ganham "ano" na importação mesmo que a tela não
+   tenha mais um botão "Este ano" (memorando passou a ser lido por
+   secretaria, não por data) — é metadado barato de guardar, e sobra para
+   um filtro futuro dentro da secretaria já carregada, sem precisar
+   reimportar o cadastro inteiro depois. */
+const TELAS_COM_ANO_DERIVADO = ['anul', 'memo'];
+function temAnoDerivado(tela){ return TELAS_COM_ANO_DERIVADO.indexOf(tela) >= 0; }
 const JANELA = {};   /* tela -> chave da janela */
 function janelaDe(tela){ return JANELA[tela] || (JANELA[tela] = '30'); }
 function isoHaDias(n){
@@ -1285,12 +1319,59 @@ function escolherModalidade(m){
   lerTela('arq');
 }
 
+/* ── A faixa das secretarias, nos Memorandos ──
+   Mesma lógica das Requisições: uma secretaria por vez, lida por inteiro
+   e guardada em memória enquanto durar a visita — sem data de corte,
+   porque o volume de UMA secretaria (~30 memorandos no ano) já é pequeno
+   por si só, ao contrário do cadastro inteiro (533). Não é a mesma conta
+   das outras telas: lá o recorte é por DATA porque uma modalidade sozinha
+   ainda podia ter centenas (449 dispensas); aqui a secretaria já resolve.
+
+   Lista fechada, como MODALIDADES_ARQUIVO: são os nomes das abas da
+   planilha "MEMORANDOS 2026", que incluem catch-alls que não são
+   secretaria de verdade ("DOCUMENTAÇÕES DIVERSAS", "GP") — por isso não é
+   a mesma lista de dados/secretarias.json das Requisições, que são só as
+   secretarias oficiais. Aba nova na planilha = linha nova aqui. */
+const SECRETARIAS_MEMO = ['SMA', 'SMCT', 'SMDR', 'SMDS', 'SMED', 'SMEL', 'SMF', 'SMG', 'SMH',
+  'SMMA', 'SMODUTRAN', 'SMS', 'SMS - CAPS II', 'SEMDEC', 'SEPLAN', 'GP',
+  'NUCLEO PROJETOSENGENHEIROS', 'DOCUMENTAÇÕES DIVERSAS'];
+const CHAVE_SEC_MEMO = 'arquivo_ijui_secretaria_memo';
+let SEC_MEMO_ATUAL = '';
+function lembrarSecretariaMemo(s){ try{ localStorage.setItem(CHAVE_SEC_MEMO, s); }catch(e){} }
+function secretariaMemoLembrada(){
+  try{ const s = localStorage.getItem(CHAVE_SEC_MEMO); return SECRETARIAS_MEMO.indexOf(s) >= 0 ? s : ''; }catch(e){ return ''; }
+}
+/* Sem "Todas", pela mesma razão de sempre: seria a única leitura a custar
+   o cadastro inteiro, e ninguém precisa dela para trabalhar. O número só
+   aparece na secretaria carregada. */
+function faixaSecretariasMemo(){
+  return '<div class="mod-faixa">' + SECRETARIAS_MEMO.map(s =>
+    '<button class="mod-btn' + (SEC_MEMO_ATUAL === s ? ' on' : '') + '"'
+    + ' onclick="escolherSecretariaMemo(' + JSON.stringify(s).replace(/"/g, '&quot;') + ')">'
+    + esc(s)
+    + (SEC_MEMO_ATUAL === s ? '<span class="mod-n">' + MEMORANDOS.length + '</span>' : '')
+    + '</button>').join('') + '</div>';
+}
+function escolherSecretariaMemo(s){
+  if(s === SEC_MEMO_ATUAL) return;
+  SEC_MEMO_ATUAL = s;
+  lembrarSecretariaMemo(s);
+  CARREGADA.delete('memo');
+  MEMORANDOS = [];
+  const e = est('memo');
+  CFG.memo.facetas.forEach(f => { e.sel[f.k] = new Set(); });
+  e.busca = '';
+  render();
+  lerTela('memo');
+}
+
 /* ══════════════ LEITURA ══════════════
    Cada tela pede a sua coleção uma vez por visita. Erro de permissão é
    dito na tela: "carregando" eterno esconde o que aconteceu. */
 function lerTela(tela){
   if(!arqPodeVer() || CARREGADA.has(tela) || _lendo === tela) return Promise.resolve();
   if(tela === 'arq' && !MOD_ATUAL) return Promise.resolve();
+  if(tela === 'memo' && !SEC_MEMO_ATUAL) return Promise.resolve();
   _lendo = tela;
   render();
   /* A janela vira consulta aqui. Em toda janela por DATA vai junto a
@@ -1308,8 +1389,13 @@ function lerTela(tela){
                col(tela).where('ano', '==', null).get()];
   } else {
     let q = col(tela);
-    if(tela === 'rua')      q = q.where('voltouEm', '==', null);
-    else if(tela === 'arq') q = q.where('modalidade', '==', MOD_ATUAL);
+    if(tela === 'rua')       q = q.where('voltouEm', '==', null);
+    else if(tela === 'arq')  q = q.where('modalidade', '==', MOD_ATUAL);
+    /* Memorando: uma secretaria por vez, por inteiro — sem data de corte.
+       O volume de uma secretaria sozinha (~30 no ano) já é pequeno; não
+       precisa da união com "sem data" das outras janelas, porque não há
+       recorte de data aqui para escondê-lo. */
+    else if(tela === 'memo') q = q.where('secretaria', '==', SEC_MEMO_ATUAL);
     pedidos = [q.get()];
   }
   return Promise.all(pedidos).then(snaps => {
@@ -1341,6 +1427,60 @@ function lerTela(tela){
 /* ══════════════ MARCAR A VOLTA ══════════════
    O "✓ Voltou hoje" da primeira tela: fecha a pendência sem procurar a
    linha certa em trinta abas. */
+
+/* ── "Na rua" → Arquivo: o mesmo papel, dois momentos ──
+   Saiu para assinatura, voltou assinado, precisa ser catalogado — é uma
+   história só, contada em duas telas que hoje não se falam. O trâmite tem
+   docTipo ("DL", "PE") e docNum ("359/2022"); a pasta tem modalidade (uma
+   das 5 fixas) e processo (texto livre, "DL 359/2022 - ..."). Não batem
+   sozinhos — dá para SUGERIR, não para criar calado.
+
+   Só dispara para tipo "assinatura": empréstimo é documento que JÁ estava
+   arquivado voltando de uma consulta — catalogar de novo duplicaria a
+   pasta. Parecer volta para dentro do processo em andamento, não para o
+   arquivo. E só quando o docTipo é um tipo de licitação reconhecido: mais
+   de um terço dos trâmites de assinatura são EXTRATOS, SÚMULAS, AVISO,
+   ADITIVOS — papelada do processo, não o processo virando pasta nova. */
+const DOCTIPO_PARA_MODALIDADE = {
+  DL:'DISPENSA', DJ:'DISPENSA', DE:'DISPENSA', DISPENSA:'DISPENSA', DISPENSAS:'DISPENSA',
+  PE:'PREGÃO', PP:'PREGÃO', PREGÃO:'PREGÃO',
+  INEX:'INEXIGIBILIDADE', INEXIGIBILIDADE:'INEXIGIBILIDADE',
+  CP:'CONCORRÊNCIA', CONCORRÊNCIA:'CONCORRÊNCIA'
+};
+/* A abreviação de fato usada no "processo" das pastas reais (DL 45/2025,
+   PE. 10/2026, Inex 3/2026, Conc 01) — não é sempre igual ao docTipo. */
+const DOCTIPO_PREFIXO = {
+  DL:'DL', DJ:'DL', DE:'DL', DISPENSA:'DL', DISPENSAS:'DL',
+  PE:'PE.', PP:'PE.', PREGÃO:'PE.',
+  INEX:'Inex', INEXIGIBILIDADE:'Inex',
+  CP:'Conc', CONCORRÊNCIA:'Conc'
+};
+function sugestaoDeArquivo(t){
+  const doc = String(t.docTipo || '').toUpperCase().trim();
+  const modalidade = DOCTIPO_PARA_MODALIDADE[doc];
+  if(!modalidade) return null;
+  const prefixo = DOCTIPO_PREFIXO[doc] || '';
+  return {modalidade: modalidade, processo: (prefixo ? prefixo + ' ' : '') + (t.docNum || '')};
+}
+/* Sai do painel de "Na rua" e abre direto o formulário do Arquivo, na
+   modalidade certa e com o processo já escrito — a pessoa confere e
+   completa (vencedor, valor, pregoeiro), não digita do zero. Nada é
+   gravado sozinho: quem decide se cataloga agora é sempre a pessoa, no
+   confirm() antes e no "Salvar" depois. */
+function ofereceCatalogar(t, hoje){
+  const sugestao = t.tipo === 'assinatura' ? sugestaoDeArquivo(t) : null;
+  if(!sugestao) return;
+  if(!confirm((t.docTipo || 'Documento') + ' ' + (t.docNum || '') + ' voltou da assinatura.\n\n'
+    + 'Catalogar agora no Arquivo, em ' + sugestao.modalidade + '?')) return;
+  telaAtual = 'arq';
+  fecharPop();
+  MOD_ATUAL = sugestao.modalidade;
+  lembrarModalidade(sugestao.modalidade);
+  CARREGADA.delete('arq'); PASTAS = [];
+  renderAbas(); render();
+  lerTela('arq');
+  abrirPasta(null, {processo: sugestao.processo, arquivadoEm: hoje});
+}
 function marcarVolta(id){
   if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
   const t = TRAMITES.find(x => x._id === id);
@@ -1350,6 +1490,7 @@ function marcarVolta(id){
     /* some da lista: a tela é "o que está fora", e isto acabou de voltar */
     TRAMITES = TRAMITES.filter(x => x._id !== id);
     renderAbas(); render();
+    ofereceCatalogar(t, hoje);
   }).catch(e => alert('Não consegui gravar: ' + e.message));
 }
 
@@ -1369,12 +1510,17 @@ function novaPasta(){
   if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
   abrirPasta(null);
 }
-function abrirPasta(id){
+/* "preenchido" é usado só quando o processo NASCE de um trâmite que
+   voltou da assinatura (ver sugestaoDeArquivo): um objeto solto, com
+   processo e arquivadoEm, que preenche o formulário sem ser um registro
+   de verdade — pastaEditando continua null, então salvarPasta() trata
+   como cadastro novo. */
+function abrirPasta(id, preenchido){
   if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
   pastaEditando = id;
-  const p = id ? PASTAS.find(x => x._id === id) : null;
+  const p = id ? PASTAS.find(x => x._id === id) : (preenchido || null);
   document.getElementById('pastaTit').textContent =
-    p ? 'Processo arquivado' : 'Novo processo no arquivo';
+    id ? 'Processo arquivado' : 'Novo processo no arquivo';
   const sel = document.getElementById('paMod');
   sel.innerHTML = MODALIDADES_ARQUIVO.map(m =>
     '<option value="' + esc(m) + '">' + esc(m) + '</option>').join('');
@@ -1522,11 +1668,11 @@ function importarEscolhidos(input){
       const lote = firebase.firestore().batch();
       fatia.forEach(item => {
         /* O ano entra AQUI, na porta do banco, e não no conversor: é o
-           que a janela "Este ano" pergunta, e o Firestore só filtra por
-           campo que existe no documento. Carga velha, gerada por um
-           conversor que não escrevia "ano", entra recortável do mesmo
-           jeito. */
-        const pronto = temJanelaDeAno(tela)
+           que a janela "Este ano" das Anulações pergunta, e o Firestore só
+           filtra por campo que existe no documento. Carga velha, gerada
+           por um conversor que não escrevia "ano", entra recortável do
+           mesmo jeito. */
+        const pronto = temAnoDerivado(tela)
           ? Object.assign({}, item, {ano: anoDe(item, CAMPO_DATA[tela])})
           : item;
         lote.set(col(tela).doc(String(item.id)), pronto);
@@ -1561,6 +1707,7 @@ function authShowApp(){
   const sair = authEl('btnSair'); if(sair) sair.style.display = '';
   document.querySelectorAll('.so-editor').forEach(el => { el.style.display = arqPodeEditar() ? '' : 'none'; });
   MOD_ATUAL = modalidadeLembrada();
+  SEC_MEMO_ATUAL = secretariaMemoLembrada();
   renderAbas(); render();
   /* Só agora — com o acesso confirmado — a primeira coleção é pedida.
      Pedir antes tomaria "permissão negada" e a leitura morreria sem
