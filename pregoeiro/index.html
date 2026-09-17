@@ -256,6 +256,31 @@
   .badge-pedro { background: var(--blue-bg); color: var(--blue-text); }
   .badge-lucilda { background: #f0e8f8; color: #6a20b0; }
   .status-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+
+  /* ── Prazo do pregoeiro: adiar um processo até a hora de decidir ──────────
+     O problema não é falta de informação, é excesso: dez processos parados
+     na tela, todos exigindo atenção ao mesmo tempo, e nenhum deles podendo
+     andar hoje. Quem marca "volto nisso amanhã às 11h30" está dizendo que
+     JÁ decidiu — e o card sai da frente até essa hora. */
+  .barra-prazo { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:#fff7e6; border:1px solid #f0dca3; border-radius:12px;
+    padding:10px 14px; margin-bottom:14px; font-size:13.5px; color:#6b4500; font-weight:600; }
+  .barra-prazo b { font-weight:800; }
+  .barra-prazo button { background:#fff; border:1.5px solid #e6c88a; color:#6b4500;
+    border-radius:20px; padding:5px 13px; font-family:inherit; font-size:12.5px;
+    font-weight:700; cursor:pointer; }
+  .barra-prazo button:hover { background:#fdf0d5; }
+  .card-prazo-btn { background:#fff; border:1px solid #e2e8f0; color:#475569; border-radius:8px;
+    padding:5px 10px; font-family:inherit; font-size:12px; font-weight:700; cursor:pointer; }
+  .card-prazo-btn:hover { border-color:#94a3b8; background:#f8fafc; }
+  .card-prazo-btn.on { background:#fff7e6; border-color:#f0dca3; color:#8a5a00; }
+  .card-prazo-btn.venceu { background:#fbe7e7; border-color:#f3bdbd; color:#a3282a; }
+  /* O modal do prazo: uma pergunta só, com as respostas comuns a um clique. */
+  .prazo-rapido { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
+  .prazo-rapido button { background:#f1f5f9; border:1.5px solid #e2e8f0; color:#0f172a;
+    border-radius:20px; padding:7px 13px; font-family:inherit; font-size:12.5px;
+    font-weight:700; cursor:pointer; }
+  .prazo-rapido button:hover { border-color:#94a3b8; background:#e2e8f0; }
   .status-tag[data-action="status-pop"] { cursor: pointer; transition: filter .12s, box-shadow .12s; }
   .status-tag[data-action="status-pop"]:hover { filter: brightness(1.08); box-shadow: 0 0 0 2px rgba(255,255,255,.45) inset, 0 1px 4px rgba(0,0,0,.25); }
   .status-tag .status-caret { font-size: 9px; opacity: .85; margin-left: 1px; }
@@ -1855,6 +1880,9 @@
     <a class="quick-link-btn quick-link-impug" href="https://operacao.portaldecompraspublicas.com.br/3/Impugnacoes/" onclick="return abrirQuickPortal(this)" target="_blank" rel="noopener" title="Dentro da Central abre nos painéis de todos os pregoeiros ao mesmo tempo">&#9888; IMPUGNAÇÕES</a>
     <a class="quick-link-btn quick-link-escl" href="https://operacao.portaldecompraspublicas.com.br/3/Esclarecimentos/" onclick="return abrirQuickPortal(this)" target="_blank" rel="noopener" title="Dentro da Central abre nos painéis de todos os pregoeiros ao mesmo tempo">&#10067; ESCLARECIMENTOS</a>
   </div>
+  <!-- O que está adiado não some do sistema: some da TELA, e o número fica
+       aqui em cima. Sem esta barra, "ocultar" viraria "perder". -->
+  <div id="barraPrazo" class="barra-prazo" style="display:none"></div>
   <div class="grid" id="grid"></div>
 </main>
 
@@ -1912,6 +1940,43 @@
 </div>
 
 <!-- MODAL GERENCIAR AGENTES -->
+<!-- PRAZO DO PREGOEIRO
+     Uma pergunta só: quando você volta a este processo? As respostas
+     comuns estão a um clique porque digitar data e hora inteiras para
+     adiar é atrito suficiente para a pessoa desistir e deixar o card
+     entulhando a tela — que é exatamente o problema. -->
+<div class="overlay" id="modalPrazo">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <h2>&#9200; Prazo do processo</h2>
+      <button class="modal-close" onclick="fecharPrazo()">&#10005;</button>
+    </div>
+    <div class="modal-body" style="gap:14px">
+      <div style="font-size:13.5px;font-weight:700;color:var(--navy)" id="prazoProc"></div>
+      <div style="font-size:12.5px;color:#64748b;line-height:1.5">
+        Marcando um prazo, este processo <b>sai da tela</b> até a data e a hora
+        escolhidas — e volta sozinho quando chegar a hora.
+      </div>
+      <div class="prazo-rapido">
+        <button onclick="prazoRapido(0,'14:00')">Hoje &agrave; tarde</button>
+        <button onclick="prazoRapido(1,'09:00')">Amanh&atilde; 9h</button>
+        <button onclick="prazoRapido(1,'14:00')">Amanh&atilde; 14h</button>
+        <button onclick="prazoRapido(2,'09:00')">Depois de amanh&atilde;</button>
+        <button onclick="prazoRapido(7,'09:00')">Semana que vem</button>
+      </div>
+      <div class="field">
+        <label>Data e hora</label>
+        <input type="datetime-local" id="prazoInput">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sm" id="prazoTirar" onclick="tirarPrazo()" style="background:#fff;color:#a3282a;border-color:#f3bdbd">Tirar o prazo</button>
+      <button class="btn-sm" onclick="fecharPrazo()">Cancelar</button>
+      <button class="btn-sm" onclick="salvarPrazo()" style="background:#102040;color:#fff;border-color:#102040">Marcar prazo</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="modalAgentes">
   <div class="modal" style="max-width:520px">
     <div class="modal-header">
@@ -2833,6 +2898,7 @@ document.addEventListener("click", function(e){
   if(action === "share-proc" && pid){ compartilharProcWhatsapp(pid); return; }
   if(action === "share-concluido" && pid){ abrirWhatsappConcluido(pid); return; }
   if(action === "pin" && pid){ togglePin(pid); return; }
+  if(action === "prazo" && pid){ abrirPrazo(pid); return; }
   if(action === "editar"    && pid) editarProcesso(pid);
   if(action === "excluir"   && pid) excluirProcesso(pid);
   if(action === "editar-ag")  editarAgente(btn.dataset.agid);
@@ -3848,6 +3914,7 @@ function renderizar(){
   var _notas={};   /* nota de relevância por processo, para ordenar depois */
   /* "busca" = há algum filtro de texto ativo (mostra concluídos e aberturas futuras) */
   var busca=(fTipo!=="todos")||fNum||fObj;
+  var _adiados=0;
   renderFiltroAnos();
   var lista=processos.filter(function(p){
     if(fTipo!=="todos" && tipoLicitacao(p.numero)!==fTipo)return false;
@@ -3872,6 +3939,10 @@ function renderizar(){
     if(!busca&&isArquivado(p.status))return false;
     /* esconde processos com abertura futura: aparecem só na agenda até o dia da abertura (a busca ainda os encontra) */
     if(!busca&&p.dataLicit&&p.dataLicit>hoje())return false;
+    /* prazo marcado para depois: fora da tela até a hora de decidir. Como o
+       arquivado e a abertura futura, a busca continua achando — adiar tira
+       da vista, não do sistema. */
+    if(!busca&&!verAdiados&&prazoPendente(p)){ _adiados++; return false; }
     if(filtroAno!=="todos"){ var ano=p.dataLicit?p.dataLicit.split("-")[0]:null; if(ano!==filtroAno)return false; }
     return true;
   });
@@ -3898,8 +3969,14 @@ function renderizar(){
     var _rAntes=_cardsAntes[_ci].getBoundingClientRect();
     if(_rAntes.bottom>0){ _anchor={pid:_cardsAntes[_ci].getAttribute("data-pid"), top:_rAntes.top}; break; }
   }
+  renderBarraPrazo(_adiados);
   if(!lista.length){
-    grid.innerHTML='<div class="empty"><div class="empty-icon">&#128194;</div><h3>Nenhum processo encontrado</h3><p>Ajuste os filtros ou cadastre um novo processo.</p></div>';
+    /* Tela limpa POR TER ADIADO tudo é uma notícia boa, e diferente de
+       "não achei nada": quem esvaziou a fila decidindo precisa ler isso. */
+    grid.innerHTML = (_adiados && !busca)
+      ? '<div class="empty"><div class="empty-icon">&#9749;</div><h3>Nada para decidir agora</h3>'
+        + '<p>Os '+_adiados+' processo'+(_adiados>1?'s':'')+' em aberto t&ecirc;m prazo marcado para depois.</p></div>'
+      : '<div class="empty"><div class="empty-icon">&#128194;</div><h3>Nenhum processo encontrado</h3><p>Ajuste os filtros ou cadastre um novo processo.</p></div>';
     atualizarStats(); return;
   }
   var html="";
@@ -3944,6 +4021,14 @@ function renderizar(){
     html+='<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
     html+='<button class="card-wa-btn" data-action="share-proc" title="Compartilhar no WhatsApp">&#128242;</button>';
     html+='<button class="card-pin-btn'+(p.fixado?' on':'')+'" data-action="pin" title="'+(p.fixado?'Desafixar':'Fixar no topo')+'">&#128204;</button>';
+    /* O prazo fica ao lado do fixar de propósito: são os dois gestos que
+       dizem onde este processo deve ficar na sua atenção — um puxa para
+       cima, o outro tira da frente. */
+    var _prz = p.prazo
+      ? '<button class="card-prazo-btn '+(prazoVenceu(p)?'venceu':'on')+'" data-action="prazo" title="Prazo marcado — clique para mudar">&#9200; '
+        + escHtml(fmtPrazo(p.prazo)) + '</button>'
+      : '<button class="card-prazo-btn" data-action="prazo" title="Voltar a este processo em outro momento — ele sai da tela at\u00e9 l\u00e1">&#9200; Prazo</button>';
+    html+=_prz;
     if(p.link){
       html+='<a class="card-portal-btn" href="'+escHtml(p.link)+'" target="_blank" rel="noopener" title="Abrir o processo direto no portal">'
         +'<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 18 L12 5 L19 18" stroke="#F26B21" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -4021,6 +4106,120 @@ function renderizar(){
   }
   atualizarStats();
 }
+
+
+/* ══════════════ PRAZO DO PREGOEIRO ══════════════
+   "Volto nisso amanhã às 11h30."
+
+   Dez processos parados na tela, todos pedindo atenção ao mesmo tempo, e
+   nenhum deles podendo andar hoje — o cansaço não vem de falta de
+   informação, vem do excesso dela. Marcar um prazo é dizer que a decisão
+   sobre ESTE processo já foi tomada: ela é depois. Até lá o card sai da
+   frente, e a tela fica com o que dá para resolver agora.
+
+   Ocultar não é esquecer: o número do que está adiado fica numa barra em
+   cima da grade, com o botão que traz todos de volta à vista. E quando a
+   hora chega o processo volta sozinho — inclusive com a tela aberta, pelo
+   relógio lá embaixo.
+
+   O prazo mora no processo, não na conta de quem marcou: a tela é
+   compartilhada, e "parado até quinta, aguardando recurso" é informação do
+   processo, que a colega ao lado também precisa ver. Quem trabalha só com
+   os seus já tem o filtro por pregoeiro. */
+function agoraISO(){
+  var d=new Date();
+  return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)
+    +"T"+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+}
+/* Adiado = tem prazo, e o prazo ainda não chegou. Comparação de texto
+   funciona porque o formato é ISO: "2026-09-18T09:00" < "2026-09-18T11:30". */
+function prazoPendente(p){ return !!(p && p.prazo && p.prazo > agoraISO()); }
+function prazoVenceu(p){ return !!(p && p.prazo && p.prazo <= agoraISO()); }
+function fmtPrazo(iso){
+  if(!iso) return "";
+  var d=iso.split("T"); if(d.length<2) return iso;
+  var dia=d[0].split("-"), hora=d[1].slice(0,5);
+  var q=new Date(+dia[0], +dia[1]-1, +dia[2]);
+  var h=new Date(); h.setHours(0,0,0,0);
+  var difDias=Math.round((q-h)/86400000);
+  var quando = difDias===0 ? "hoje" : difDias===1 ? "amanhã"
+             : difDias===-1 ? "ontem"
+             : dia[2]+"/"+dia[1];
+  return quando+" às "+hora.replace(":","h");
+}
+var verAdiados=false;
+function alternarAdiados(){ verAdiados=!verAdiados; renderizar(); }
+
+/* A barra do que está fora da tela. Só aparece quando há algo escondido —
+   barra vazia todo dia vira parte do cenário e some do olhar. */
+function renderBarraPrazo(quantos){
+  var el=document.getElementById("barraPrazo");
+  if(!el) return;
+  if(!quantos && !verAdiados){ el.style.display="none"; return; }
+  el.style.display="flex";
+  el.innerHTML = verAdiados
+    ? '<span>&#9200; Mostrando tamb&eacute;m os processos com prazo marcado.</span>'
+      + '<button onclick="alternarAdiados()">Esconder de novo</button>'
+    : '<span>&#9200; <b>'+quantos+'</b> processo'+(quantos>1?'s':'')+' com prazo marcado para depois — '
+      + 'fora da tela at&eacute; a hora de decidir.</span>'
+      + '<button onclick="alternarAdiados()">Ver assim mesmo</button>';
+}
+
+/* ── Marcar o prazo ── */
+var _prazoPid=null;
+function abrirPrazo(pid){
+  var p=processos.find(function(x){ return x.id===pid; }); if(!p) return;
+  _prazoPid=pid;
+  document.getElementById("prazoProc").textContent=rotuloProcesso(p);
+  document.getElementById("prazoInput").value=p.prazo||"";
+  document.getElementById("prazoTirar").style.display=p.prazo?"":"none";
+  document.getElementById("modalPrazo").classList.add("open");
+}
+function fecharPrazo(){ document.getElementById("modalPrazo").classList.remove("open"); _prazoPid=null; }
+/* As respostas comuns a um clique: quem adia um processo quase sempre adia
+   para uma destas horas, e digitar data e hora inteiras para isso é atrito
+   que faz a pessoa desistir e deixar o card na tela. */
+function prazoRapido(dias, hora){
+  var d=new Date(); d.setDate(d.getDate()+dias);
+  var hm=hora.split(":");
+  d.setHours(+hm[0], +hm[1], 0, 0);
+  document.getElementById("prazoInput").value =
+    d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)
+    +"T"+("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+}
+function salvarPrazo(){
+  var pid=_prazoPid; if(!pid) return;
+  var v=document.getElementById("prazoInput").value;
+  if(!v){ alert("Escolha a data e a hora, ou clique em “Tirar o prazo”."); return; }
+  gravarPrazo(pid, v, "Prazo marcado para "+fmtPrazo(v)+".");
+}
+function tirarPrazo(){ if(_prazoPid) gravarPrazo(_prazoPid, null, "Prazo retirado."); }
+function gravarPrazo(pid, valor, recado){
+  var p=processos.find(function(x){ return x.id===pid; });
+  if(p) p.prazo=valor;                      /* otimista: a tela responde na hora */
+  colRef.doc(pid).update({prazo:valor, updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){ toast(recado); })
+    .catch(function(e){ alert("Erro ao gravar o prazo: "+e.message); });
+  fecharPrazo();
+  renderizar();
+}
+
+/* Quando o prazo chega, o processo volta sozinho — sem F5. O relógio só
+   redesenha se algo de fato virou, para não reconstruir a grade de minuto
+   em minuto por nada. */
+var _prazoUltimo="";
+setInterval(function(){
+  if(!processos || !processos.length) return;
+  var agora=agoraISO();
+  if(agora===_prazoUltimo) return;
+  _prazoUltimo=agora;
+  var venceuAgora=processos.some(function(p){
+    return p.prazo && p.prazo<=agora && p.prazo>_prazoAnterior;
+  });
+  _prazoAnterior=agora;
+  if(venceuAgora) renderizar();
+}, 30000);
+var _prazoAnterior=agoraISO();
 
 /* ── Fixar processo no topo ─────────────────────────────────────────────────── */
 function togglePin(pid){
