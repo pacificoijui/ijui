@@ -76,6 +76,42 @@ saiu da tabela junto: a faixa já diz onde se está.
 **📨 Memorandos** — as 19 abas viram uma lista com busca. O memorando é o
 *porquê* de quase tudo: é ele que a anulação cita.
 
+## Quanto do cadastro cada tela lê
+
+Nenhuma coleção é lida na abertura, e nenhuma tela lê a sua inteira. É a
+conta que `/contratos/` já pagou — 1.294 documentos lidos por abertura
+para mostrar 141 — e que aqui vem resolvida de saída:
+
+| Tela | Recorte | Lê |
+|---|---|---|
+| Na rua | `where('voltouEm','==',null)` | **51** dos 978 trâmites |
+| Arquivo | `where('modalidade','==',…)` | até 449 das 659 pastas |
+| Anulações | `where('ano','==',…)` + os sem ano | 298 do ano, não de todos |
+| Memorandos | `where('ano','==',…)` + os sem ano | 512 do ano, não de todos |
+
+Cada tela lê a sua coleção **uma vez por visita**, e só quando é aberta:
+quem entra para ver o que está na rua não paga pelo arquivo, pelas
+anulações nem pelos memorandos.
+
+**O ano precisa ser um CAMPO.** O Firestore não filtra por "os quatro
+primeiros caracteres de `recebidoEm`". A anulação já traz o `ano` da
+planilha; o memorando não, e ganha o dele **na importação** — é por isso
+que o recorte tinha de nascer antes da primeira carga, e não depois:
+acrescentar o campo com o cadastro já no banco é reimportar tudo.
+
+**A consulta dos SEM ANO vem sempre junto.** Data torta — célula vazia,
+`#VALUE!`, o `24/07/2062` que a planilha guarda — vira `ano: null` em vez
+de um ano inventado, e o documento aparece em qualquer ano escolhido.
+Arquivar um registro num ano que ninguém vai abrir é escondê-lo, e
+esconder é pior que pagar a leitura.
+
+Enquanto o recorte está de pé, um aviso na tela diz qual ano está à mostra
+e traz **Ver todos os anos** — o mesmo desenho do aviso de `/contratos/`.
+
+A tela do Arquivo **não** recorta por ano além da modalidade: seria uma
+consulta composta (modalidade + ano), que no Firestore exige criar um
+índice à mão, para economizar 29 leituras de 449. Não paga.
+
 ## Os filtros
 
 Um motor só, igual nas quatro telas — o comportamento não muda de aba para

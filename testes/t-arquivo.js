@@ -41,9 +41,22 @@ const tramites = {
   '4': {id:4, docTipo:'Processo', docNum:'104', comQuem:'DENER',  saiuEm:'2026-02-02', voltouEm:'2026-02-03', tipo:'assinatura'},
   '5': {id:5, docTipo:'Processo', docNum:'105', comQuem:'DENER',  saiuEm:'2026-03-02', voltouEm:'2026-03-04', tipo:'assinatura'}
 };
-const anulacoes = { '1': {id:1, num:1, valor:1000, secretaria:'SMED', reqSec:'SMED', lancadoPor:'ANA', anuladoEm:'2026-05-01'},
-                    '2': {id:2, num:2, valor:2500, secretaria:'SMS',  reqSec:'SMS',  lancadoPor:'ANA', anuladoEm:'2026-05-02'} };
-const memorandos = { '1': {id:1, num:'10', secretaria:'SMED', entregueA:'ANDREI', recebidoEm:'2026-04-01', descricao:'assunto'} };
+/* Anulações e memorandos são cadernos ANUAIS, lidos um ano por vez. A
+   semente tem os três casos que importam: o ano corrente, um ano velho (que
+   NÃO pode vir na abertura) e a data torta — o "24/07/2062" que a planilha
+   de verdade guarda —, que vira ano nulo e TEM de vir sempre, porque
+   documento escondido é pior que leitura paga. */
+const ANO = new Date().getFullYear();
+const anulacoes = {
+  '1': {id:1, num:1, valor:1000, secretaria:'SMED', reqSec:'SMED', quem:'ANA', ano:ANO,   contabilidadeEm:ANO+'-05-01'},
+  '2': {id:2, num:2, valor:2500, secretaria:'SMS',  reqSec:'SMS',  quem:'ANA', ano:ANO,   contabilidadeEm:ANO+'-05-02'},
+  '3': {id:3, num:3, valor:700,  secretaria:'SMS',  reqSec:'SMS',  quem:'ANA', ano:ANO-2, contabilidadeEm:(ANO-2)+'-03-09'}
+};
+const memorandos = {
+  '1': {id:1, num:'10', secretaria:'SMED', entregueA:'ANDREI', recebidoEm:ANO+'-04-01',     ano:ANO,   descricao:'do ano'},
+  '2': {id:2, num:'11', secretaria:'SMS',  entregueA:'ANDREI', recebidoEm:(ANO-3)+'-04-01', ano:ANO-3, descricao:'de anos atrás'},
+  '3': {id:3, num:'12', secretaria:'SMS',  entregueA:'MAITÊ',  recebidoEm:'2062-07-24',     ano:null,  descricao:'data torta da planilha'}
+};
 
 const TOTAL_PASTAS = Object.keys(pastas).length;
 const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
@@ -172,10 +185,39 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     irPara('memo'); await new Promise(r => setTimeout(r, 400));
     return {depoisAnul, memo: MEMORANDOS.length, lidas: [...CARREGADA]};
   });
-  t('abrir Anulações lê as anulações', abas.depoisAnul.anul === Object.keys(anulacoes).length, abas);
+  /* Do ano corrente + os sem ano — não a coleção inteira. */
+  const ANUL_ANO = Object.values(anulacoes).filter(a => a.ano === ANO || a.ano === null).length;
+  const MEMO_ANO = Object.values(memorandos).filter(m => m.ano === ANO || m.ano === null).length;
+  t('abrir Anulações lê as anulações', abas.depoisAnul.anul === ANUL_ANO, {veio: abas.depoisAnul.anul, esperado: ANUL_ANO});
   t('e não lê os memorandos junto', abas.depoisAnul.memo === 0, abas);
-  t('abrir Memorandos lê os memorandos', abas.memo === Object.keys(memorandos).length, abas);
+  t('abrir Memorandos lê os memorandos', abas.memo === MEMO_ANO, {veio: abas.memo, esperado: MEMO_ANO});
   t('ao fim, as quatro foram lidas — uma por vez, sob demanda', abas.lidas.length === 4, abas);
+
+  console.log('\n5b) Anulações e memorandos são lidos UM ANO por vez');
+  const doAno = await pg.evaluate(() => ({
+    anul: ANULACOES.map(a => a.ano), memo: MEMORANDOS.map(m => m.ano),
+    aviso: document.getElementById('tela').textContent
+  }));
+  t('a anulação de anos atrás não vem na abertura',
+    doAno.anul.every(a => a === ANO || a === null), doAno.anul);
+  t('o memorando de anos atrás também não',
+    doAno.memo.every(a => a === ANO || a === null), doAno.memo);
+  /* O "24/07/2062" da planilha: ano nulo. Se o recorte o escondesse, o
+     sistema teria perdido um documento — pior que pagar a leitura. */
+  t('mas o de data torta vem SEMPRE, em qualquer ano escolhido',
+    doAno.memo.indexOf(null) >= 0, doAno.memo);
+  t('e a tela avisa que está recortada, em vez de fingir que é tudo',
+    /Os anos anteriores continuam no banco/.test(doAno.aviso), doAno.aviso.slice(0, 200));
+
+  const todos = await pg.evaluate(async () => {
+    verAno(null);
+    await new Promise(r => setTimeout(r, 500));
+    return {memo: MEMORANDOS.length, aviso: document.getElementById('tela').textContent};
+  });
+  t('"ver todos os anos" alcança o cadastro inteiro',
+    todos.memo === Object.keys(memorandos).length, {veio: todos.memo, esperado: Object.keys(memorandos).length});
+  t('e oferece voltar para o ano corrente', /Voltar para/.test(todos.aviso), todos.aviso.slice(0, 200));
+  await pg.evaluate(async () => { verAno(new Date().getFullYear()); await new Promise(r => setTimeout(r, 400)); });
 
   console.log('\n6) "✓ Voltou hoje" grava no banco, não só na tela');
   /* O CLIQUE, não a função. Chamar marcarVolta(alvo._id) direto daqui
@@ -246,6 +288,21 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     return Object.keys(window.__STORE.arquivo_pastas).length;
   });
   t('importar de novo reescreve, não duplica', denovo === TOTAL_PASTAS, {denovo, esperado: TOTAL_PASTAS});
+
+  /* O ano tem de ser gravado NA IMPORTAÇÃO. O Firestore não filtra por "os
+     quatro primeiros caracteres de recebidoEm": sem o campo no documento, o
+     recorte por ano não existe — e acrescentá-lo depois é reimportar o
+     cadastro inteiro. */
+  const anoNoBanco = await imp.evaluate(() => {
+    const m = window.__STORE.arquivo_memorandos, a = window.__STORE.arquivo_anulacoes;
+    return {memo: Object.values(m).map(x => x.ano), anul: Object.values(a).map(x => x.ano)};
+  });
+  t('a importação grava o ano do memorando, derivado da data de recebimento',
+    anoNoBanco.memo.indexOf(ANO) >= 0, anoNoBanco.memo);
+  t('a data torta da planilha vira ano nulo, não um ano inventado',
+    anoNoBanco.memo.indexOf(null) >= 0 && anoNoBanco.memo.indexOf(2062) < 0, anoNoBanco.memo);
+  t('e o ano da anulação, que já vem da planilha, é preservado',
+    anoNoBanco.anul.indexOf(ANO) >= 0, anoNoBanco.anul);
   await imp.close();
 
   console.log('\nerros JS: ' + (errs.length ? errs.join(' | ') : 'nenhum'));

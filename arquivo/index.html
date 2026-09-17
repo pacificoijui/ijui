@@ -931,6 +931,7 @@ function telaAnul(){
      + 'e o <b>memorando</b> que a pediu. São ponteiros para coisas que o sistema já tem: a requisição vive em '
      + '<b>/requisicao/</b> e o memorando, na aba ao lado. Hoje a ligação existe só na cabeça de quem digitou.</div>';
 
+  h += avisoDoAno('anul');
   h += barra('anul');
   h += '<div class="painel">';
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhuma anulação com esses filtros.</div></div>';
@@ -1019,6 +1020,7 @@ function telaMemo(){
   h += '<div class="nota">O memorando é o <b>porquê</b> de quase tudo: é ele que a anulação cita em "REF. MEMORANDO". '
      + 'Aqui é uma lista só, com busca — em vez de adivinhar em qual das 19 abas ele foi anotado.</div>';
 
+  h += avisoDoAno('memo');
   h += barra('memo');
   h += '<div class="painel">';
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum memorando com esses filtros.</div></div>';
@@ -1034,6 +1036,27 @@ function telaMemo(){
   h += '</tbody></table>';
   if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros — use os filtros acima</div>';
   return h + '</div>';
+}
+
+/* O recorte tem de se anunciar. Contrato de 2022 ainda vigente que não
+   aparecia na abertura já ensinou isso em /contratos/: sem o aviso, quem
+   procura o memorando do ano passado conclui que ele não existe. */
+function avisoDoAno(tela){
+  if(!temRecorteDeAno(tela)) return '';
+  if(ANO_ATUAL === null){
+    return '<div class="nota">Mostrando <b>todos os anos</b>. '
+      + '<button class="acao" onclick="verAno(' + ANO_CORRENTE + ')">Voltar para ' + ANO_CORRENTE + '</button></div>';
+  }
+  return '<div class="nota">Na tela, <b>' + ANO_ATUAL + '</b> — mais o que está sem data. '
+    + 'Os anos anteriores continuam no banco. '
+    + '<button class="acao" onclick="verAno(null)">Ver todos os anos</button></div>';
+}
+function verAno(ano){
+  ANO_ATUAL = ano;
+  ['anul', 'memo'].forEach(t => { CARREGADA.delete(t); });
+  ANULACOES = []; MEMORANDOS = [];
+  render();
+  lerTela(telaAtual);
 }
 
 function render(){
@@ -1057,6 +1080,29 @@ function render(){
 const COLECOES = { rua:'arquivo_tramites', anul:'arquivo_anulacoes',
                    memo:'arquivo_memorandos', arq:'arquivo_pastas' };
 const CARREGADA = new Set();     /* tela -> a leitura já foi feita */
+
+/* ── O recorte por ano ──
+   Anulações e memorandos são cadernos ANUAIS: "ANULAÇÕES 2026",
+   "MEMORANDOS 2026". Ler a coleção inteira funciona no primeiro ano e vai
+   ficando mais caro a cada janeiro — é a conta que /contratos/ já pagou
+   (1.294 documentos lidos por abertura para mostrar 141).
+
+   O Firestore não filtra por "os quatro primeiros caracteres de
+   recebidoEm", então o ano precisa ser um CAMPO. A anulação já traz o dela
+   da planilha; o memorando não, e ganha o seu na importação. */
+const ANO_CORRENTE = new Date().getFullYear();
+let ANO_ATUAL = ANO_CORRENTE;   /* null = todos os anos */
+/* Data torta não vira ano: célula vazia, "#VALUE!" e o "24/07/2062" que a
+   planilha guarda caem em null e entram pela consulta dos SEM ANO, que vem
+   sempre junto. Arquivar num ano que ninguém vai abrir é esconder. */
+function anoDe(item, campoData){
+  if(typeof item.ano === 'number' && item.ano >= 2000 && item.ano <= ANO_CORRENTE + 1) return item.ano;
+  const m = String((item && item[campoData]) || '').match(/^(\d{4})-/);
+  const n = m ? Number(m[1]) : null;
+  return (n && n >= 2000 && n <= ANO_CORRENTE + 1) ? n : null;
+}
+const CAMPO_DATA = { anul: 'contabilidadeEm', memo: 'recebidoEm' };
+function temRecorteDeAno(tela){ return tela === 'anul' || tela === 'memo'; }
 let _lendo = null;               /* tela sendo lida agora */
 
 function col(tela){ return firebase.firestore().collection(COLECOES[tela]); }
@@ -1111,11 +1157,25 @@ function lerTela(tela){
   if(tela === 'arq' && !MOD_ATUAL) return Promise.resolve();
   _lendo = tela;
   render();
-  let q = col(tela);
-  if(tela === 'rua')      q = q.where('voltouEm', '==', null);
-  else if(tela === 'arq') q = q.where('modalidade', '==', MOD_ATUAL);
-  return q.get().then(snap => {
-    const lista = comId(snap);
+  /* Duas consultas nas telas com recorte de ano: a do ano escolhido e a do
+     que ficou SEM ano. Sem a segunda, memorando com data torta sumia do
+     sistema — e sumir é pior que custar uma leitura. */
+  let pedidos;
+  if(temRecorteDeAno(tela) && ANO_ATUAL !== null){
+    pedidos = [col(tela).where('ano', '==', ANO_ATUAL).get(),
+               col(tela).where('ano', '==', null).get()];
+  } else {
+    let q = col(tela);
+    if(tela === 'rua')      q = q.where('voltouEm', '==', null);
+    else if(tela === 'arq') q = q.where('modalidade', '==', MOD_ATUAL);
+    pedidos = [q.get()];
+  }
+  return Promise.all(pedidos).then(snaps => {
+    const vistos = new Set(), lista = [];
+    snaps.forEach(snap => comId(snap).forEach(item => {
+      if(vistos.has(item._id)) return;      /* o mesmo doc pode vir nas duas */
+      vistos.add(item._id); lista.push(item);
+    }));
     if(tela === 'rua')       TRAMITES = lista;
     else if(tela === 'anul') ANULACOES = lista;
     else if(tela === 'memo') MEMORANDOS = lista;
@@ -1175,7 +1235,17 @@ function importarArquivo(){
       if(i >= itens.length) return Promise.resolve();
       const fatia = itens.slice(i, i + LOTE_IMPORT);
       const lote = firebase.firestore().batch();
-      fatia.forEach(item => lote.set(col(tela).doc(String(item.id)), item));
+      fatia.forEach(item => {
+        /* O ano entra AQUI, na porta do banco, e não no conversor: é o
+           recorte das telas de anulação e memorando, e o Firestore só
+           filtra por campo que existe no documento. Carga velha, gerada
+           por um conversor que não escrevia "ano", entra recortável do
+           mesmo jeito. */
+        const pronto = temRecorteDeAno(tela)
+          ? Object.assign({}, item, {ano: anoDe(item, CAMPO_DATA[tela])})
+          : item;
+        lote.set(col(tela).doc(String(item.id)), pronto);
+      });
       return lote.commit().then(() => {
         feitos += fatia.length;
         dizer('subindo… ' + feitos + ' de ' + total);
