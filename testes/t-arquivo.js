@@ -21,6 +21,10 @@ function t(n, c, e){ if(c){ console.log('  ✓', n); ok++; } else { console.log(
 /* Carga de mentira, com a forma da de verdade: as cinco modalidades que
    existem nos dados do setor, em quantidades diferentes — é o que permite
    conferir que o recorte trouxe UMA e não todas. */
+function haDias(n){
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+}
 const MODS = ['DISPENSA', 'PREGÃO', 'CONCORRÊNCIA', 'INEXIGIBILIDADE', 'REQ. NÃO SE APLICA'];
 const QUANTAS = { 'DISPENSA': 9, 'PREGÃO': 5, 'CONCORRÊNCIA': 3, 'INEXIGIBILIDADE': 2, 'REQ. NÃO SE APLICA': 1 };
 const pastas = {};
@@ -28,11 +32,18 @@ let idp = 0;
 MODS.forEach(m => {
   for(let i = 0; i < QUANTAS[m]; i++){
     idp++;
+    /* arquivadas DENTRO dos 30 dias: é nelas que a tela abre */
     pastas[String(idp)] = { id: idp, modalidade: m, processo: m.slice(0, 4) + ' ' + (i + 1) + ' - objeto de teste',
-      pregoeiro: i % 2 ? 'RODRIGO' : 'ANDREI', arquivadoEm: '2026-0' + ((i % 9) + 1) + '-10',
+      pregoeiro: i % 2 ? 'RODRIGO' : 'ANDREI', arquivadoEm: haDias(i % 25),
       checklist: i % 3 !== 0, vencedor: 'Empresa ' + (i + 1), origem: 'Controle do Arquivo' };
   }
 });
+/* E duas de meses atrás, que a janela de 30 dias NÃO pode trazer — são elas
+   que provam que a economia existe. */
+pastas['901'] = { id: 901, modalidade: 'PREGÃO', processo: 'PREG ANTIGO - arquivado há meses',
+  pregoeiro: 'RODRIGO', arquivadoEm: haDias(200), checklist: true, vencedor: 'Empresa Antiga', origem: 'Controle do Arquivo' };
+pastas['902'] = { id: 902, modalidade: 'DISPENSA', processo: 'DL 45/2025 - o processo que se procura',
+  pregoeiro: 'ANDREI', arquivadoEm: haDias(300), checklist: true, vencedor: 'Empresa Velha', origem: 'Controle do Arquivo' };
 /* Trâmites: o que importa é que só os SEM volta sejam lidos. */
 const tramites = {
   '1': {id:1, docTipo:'Processo', docNum:'101', comQuem:'ANDREI', saiuEm:'2026-01-05', voltouEm:null, tipo:'assinatura'},
@@ -47,18 +58,21 @@ const tramites = {
    de verdade guarda —, que vira ano nulo e TEM de vir sempre, porque
    documento escondido é pior que leitura paga. */
 const ANO = new Date().getFullYear();
+const RECENTE = haDias(5), VELHO_MES = haDias(120);
 const anulacoes = {
-  '1': {id:1, num:1, valor:1000, secretaria:'SMED', reqSec:'SMED', quem:'ANA', ano:ANO,   contabilidadeEm:ANO+'-05-01'},
-  '2': {id:2, num:2, valor:2500, secretaria:'SMS',  reqSec:'SMS',  quem:'ANA', ano:ANO,   contabilidadeEm:ANO+'-05-02'},
+  '1': {id:1, num:1, valor:1000, secretaria:'SMED', reqSec:'SMED', quem:'ANA', ano:ANO,   contabilidadeEm:RECENTE},
+  '2': {id:2, num:2, valor:2500, secretaria:'SMS',  reqSec:'SMS',  quem:'ANA', ano:ANO,   contabilidadeEm:VELHO_MES},
   '3': {id:3, num:3, valor:700,  secretaria:'SMS',  reqSec:'SMS',  quem:'ANA', ano:ANO-2, contabilidadeEm:(ANO-2)+'-03-09'}
 };
 const memorandos = {
-  '1': {id:1, num:'10', secretaria:'SMED', entregueA:'ANDREI', recebidoEm:ANO+'-04-01',     ano:ANO,   descricao:'do ano'},
-  '2': {id:2, num:'11', secretaria:'SMS',  entregueA:'ANDREI', recebidoEm:(ANO-3)+'-04-01', ano:ANO-3, descricao:'de anos atrás'},
-  '3': {id:3, num:'12', secretaria:'SMS',  entregueA:'MAITÊ',  recebidoEm:'2062-07-24',     ano:null,  descricao:'data torta da planilha'}
+  '1': {id:1, num:'10', secretaria:'SMED', entregueA:'ANDREI', recebidoEm:RECENTE,          ano:ANO,   descricao:'deste mes'},
+  '2': {id:2, num:'11', secretaria:'SMS',  entregueA:'ANDREI', recebidoEm:VELHO_MES,        ano:ANO,   descricao:'do ano, fora do mes'},
+  '3': {id:3, num:'12', secretaria:'SMS',  entregueA:'ANDREI', recebidoEm:(ANO-3)+'-04-01', ano:ANO-3, descricao:'de anos atras'},
+  '4': {id:4, num:'13', secretaria:'SMS',  entregueA:'MAITÊ',  recebidoEm:null,             ano:null,  descricao:'sem data na planilha'}
 };
 
 const TOTAL_PASTAS = Object.keys(pastas).length;
+const PASTAS_ANTIGAS = 2;   /* fora da janela de 30 dias */
 const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
 
 (async () => {
@@ -174,6 +188,26 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
 
   /* A faceta "Modalidade" saiu: a faixa já é o recorte, e uma lista de
      opções com uma opção só é lugar de clicar sem nada acontecer. */
+  /* A janela de 30 dias também vale no arquivo: o pregão de 200 dias atrás
+     não é lido na abertura, e é isso que economiza. Ele continua alcançável
+     — por "Tudo" ou pela busca. */
+  const janelaArq = await pg.evaluate(async () => {
+    escolherModalidade('PREGÃO');
+    await new Promise(r => setTimeout(r, 600));
+    const doMes = PASTAS.map(x => x.processo);
+    trocarJanela('arq', 'tudo');
+    await new Promise(r => setTimeout(r, 600));
+    const tudo = PASTAS.map(x => x.processo);
+    trocarJanela('arq', '30');
+    await new Promise(r => setTimeout(r, 600));
+    return {doMes, tudo};
+  });
+  t('o pregão arquivado há 200 dias não é lido na abertura',
+    janelaArq.doMes.indexOf('PREG ANTIGO - arquivado há meses') < 0, janelaArq.doMes);
+  t('mas "Tudo" alcança ele', janelaArq.tudo.indexOf('PREG ANTIGO - arquivado há meses') >= 0, janelaArq.tudo);
+  t('e "Tudo" traz só a modalidade escolhida, não as cinco',
+    janelaArq.tudo.every(x => /^PREG/.test(x)), janelaArq.tudo);
+
   t('a faceta de modalidade saiu dos filtros — a faixa ocupou o lugar dela',
     await pg.evaluate(() => !/Modalidade/.test(document.querySelector('.barra') ? document.querySelector('.barra').textContent : '')
       || !document.querySelector('[onclick*="modalidade"]')));
@@ -185,39 +219,63 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     irPara('memo'); await new Promise(r => setTimeout(r, 400));
     return {depoisAnul, memo: MEMORANDOS.length, lidas: [...CARREGADA]};
   });
-  /* Do ano corrente + os sem ano — não a coleção inteira. */
-  const ANUL_ANO = Object.values(anulacoes).filter(a => a.ano === ANO || a.ano === null).length;
-  const MEMO_ANO = Object.values(memorandos).filter(m => m.ano === ANO || m.ano === null).length;
-  t('abrir Anulações lê as anulações', abas.depoisAnul.anul === ANUL_ANO, {veio: abas.depoisAnul.anul, esperado: ANUL_ANO});
+  /* Últimos 30 dias + os sem data — não o ano, muito menos a coleção. */
+  t('abrir Anulações lê só as do mês', abas.depoisAnul.anul === 1, {veio: abas.depoisAnul.anul});
   t('e não lê os memorandos junto', abas.depoisAnul.memo === 0, abas);
-  t('abrir Memorandos lê os memorandos', abas.memo === MEMO_ANO, {veio: abas.memo, esperado: MEMO_ANO});
+  t('abrir Memorandos lê só os do mês, mais o sem data',
+    abas.memo === 2, {veio: abas.memo});
   t('ao fim, as quatro foram lidas — uma por vez, sob demanda', abas.lidas.length === 4, abas);
 
-  console.log('\n5b) Anulações e memorandos são lidos UM ANO por vez');
-  const doAno = await pg.evaluate(() => ({
-    anul: ANULACOES.map(a => a.ano), memo: MEMORANDOS.map(m => m.ano),
-    aviso: document.getElementById('tela').textContent
+  console.log('\n5b) A janela de leitura: 30 dias por padrão, e o resto a um clique');
+  const janela = await pg.evaluate(() => ({
+    atual: janelaDe('memo'),
+    botoes: [...document.querySelectorAll('.mod-btn')].map(b => b.textContent.trim()),
+    descricoes: MEMORANDOS.map(m => m.descricao),
+    nota: document.getElementById('tela').textContent
   }));
-  t('a anulação de anos atrás não vem na abertura',
-    doAno.anul.every(a => a === ANO || a === null), doAno.anul);
-  t('o memorando de anos atrás também não',
-    doAno.memo.every(a => a === ANO || a === null), doAno.memo);
-  /* O "24/07/2062" da planilha: ano nulo. Se o recorte o escondesse, o
-     sistema teria perdido um documento — pior que pagar a leitura. */
-  t('mas o de data torta vem SEMPRE, em qualquer ano escolhido',
-    doAno.memo.indexOf(null) >= 0, doAno.memo);
-  t('e a tela avisa que está recortada, em vez de fingir que é tudo',
-    /Os anos anteriores continuam no banco/.test(doAno.aviso), doAno.aviso.slice(0, 200));
+  t('a tela abre nos últimos 30 dias, não no ano', janela.atual === '30', janela);
+  t('e oferece 30 dias, 90 dias, este ano e tudo',
+    janela.botoes.join('|') === '30 dias|90 dias|Este ano|Tudo', janela.botoes);
+  t('o memorando deste mês vem', janela.descricoes.indexOf('deste mes') >= 0, janela.descricoes);
+  t('o de quatro meses atrás NÃO vem — é o que economiza leitura',
+    janela.descricoes.indexOf('do ano, fora do mes') < 0, janela.descricoes);
+  /* Documento sem data tem de aparecer em qualquer janela: se o recorte o
+     escondesse, o sistema teria perdido um registro. */
+  t('mas o sem data vem sempre, em qualquer janela',
+    janela.descricoes.indexOf('sem data na planilha') >= 0, janela.descricoes);
+  t('e a tela diz qual janela está lendo', /últimos 30 dias/.test(janela.nota), janela.nota.slice(0, 200));
 
-  const todos = await pg.evaluate(async () => {
-    verAno(null);
-    await new Promise(r => setTimeout(r, 500));
-    return {memo: MEMORANDOS.length, aviso: document.getElementById('tela').textContent};
+  const ano = await pg.evaluate(async () => {
+    trocarJanela('memo', 'ano');
+    await new Promise(r => setTimeout(r, 600));
+    return MEMORANDOS.map(m => m.descricao);
   });
-  t('"ver todos os anos" alcança o cadastro inteiro',
-    todos.memo === Object.keys(memorandos).length, {veio: todos.memo, esperado: Object.keys(memorandos).length});
-  t('e oferece voltar para o ano corrente', /Voltar para/.test(todos.aviso), todos.aviso.slice(0, 200));
-  await pg.evaluate(async () => { verAno(new Date().getFullYear()); await new Promise(r => setTimeout(r, 400)); });
+  t('"Este ano" alcança o que ficou fora do mês', ano.indexOf('do ano, fora do mes') >= 0, ano);
+  t('e ainda não traz os de anos atrás', ano.indexOf('de anos atras') < 0, ano);
+
+  const tudo = await pg.evaluate(async () => {
+    trocarJanela('memo', 'tudo');
+    await new Promise(r => setTimeout(r, 600));
+    return MEMORANDOS.length;
+  });
+  t('"Tudo" alcança o cadastro inteiro', tudo === Object.keys(memorandos).length, {tudo});
+
+  /* Procurar é dizer "não está à vista". Buscar dentro de 30 dias não
+     acharia o processo antigo, e a pessoa concluiria que ele não existe. */
+  const busca = await pg.evaluate(async () => {
+    trocarJanela('memo', '30');
+    await new Promise(r => setTimeout(r, 600));
+    const antes = {janela: janelaDe('memo'), n: MEMORANDOS.length};
+    aoBuscar('memo', 'a');
+    await new Promise(r => setTimeout(r, 700));
+    return {antes, depois: janelaDe('memo'), n: MEMORANDOS.length,
+            recado: (document.getElementById('impNota') || {}).textContent || ''};
+  });
+  t('digitar na busca abre o cadastro inteiro sozinho',
+    busca.antes.janela === '30' && busca.depois === 'tudo' && busca.n > busca.antes.n, busca);
+  t('e a tela avisa que abriu, em vez de alargar calada',
+    /busca abriu o cadastro inteiro/.test(busca.recado), busca.recado);
+  await pg.evaluate(async () => { aoBuscar('memo', ''); trocarJanela('memo', '30'); await new Promise(r => setTimeout(r, 500)); });
 
   console.log('\n6) "✓ Voltou hoje" grava no banco, não só na tela');
   /* O CLIQUE, não a função. Chamar marcarVolta(alvo._id) direto daqui
@@ -240,6 +298,74 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   t('e a pendência sai da tela — ela é "o que está fora"',
     voltou.saiuDaLista && voltou.depois === antes - 1, {antes, ...voltou});
   await pg.close();
+
+  console.log('\n6b) Cadastrar um processo novo e mover um de modalidade');
+  const pg2 = await b.newPage({viewport:{width:1280, height:900}});
+  pg2.on('dialog', d => d.accept());
+  await abrirArquivo(pg2, 'editar');
+  await pg2.evaluate(async () => {
+    irPara('arq'); escolherModalidade('PREGÃO');
+    await new Promise(r => setTimeout(r, 500));
+  });
+
+  const criou = await pg2.evaluate(async () => {
+    const antes = PASTAS.length;
+    novaPasta();
+    const abriu = document.getElementById('ovPasta').classList.contains('open');
+    /* já nasce na modalidade que está na tela — ninguém abre o formulário
+       para cadastrar noutro lugar que não o que está olhando */
+    const modPadrao = document.getElementById('paMod').value;
+    document.getElementById('paProc').value = 'PE 99/2026 - Processo cadastrado pela tela';
+    document.getElementById('paPreg').value = 'rodrigo';
+    document.getElementById('paValor').value = '1.234,56';
+    document.getElementById('paData').value = '2026-09-10';
+    document.getElementById('paCheck').checked = true;
+    salvarPasta();
+    await new Promise(r => setTimeout(r, 600));
+    const novo = PASTAS.find(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
+    return {abriu, modPadrao, antes, depois: PASTAS.length, novo: novo || null,
+            noBanco: novo ? window.__STORE.arquivo_pastas[novo._id] : null,
+            fechou: !document.getElementById('ovPasta').classList.contains('open')};
+  });
+  t('o formulário abre já na modalidade que está na tela', criou.abriu && criou.modPadrao === 'PREGÃO', criou);
+  t('o processo novo entra na lista', criou.depois === criou.antes + 1 && !!criou.novo, criou);
+  t('e vai para o banco', !!criou.noBanco && criou.noBanco.processo === 'PE 99/2026 - Processo cadastrado pela tela', criou.noBanco);
+  t('o valor "1.234,56" vira número, não texto', criou.noBanco && criou.noBanco.valor === 1234.56, criou.noBanco);
+  t('o pregoeiro entra em maiúsculas, como o resto do cadastro',
+    criou.noBanco && criou.noBanco.pregoeiro === 'RODRIGO', criou.noBanco);
+  /* O id da planilha é da IMPORTAÇÃO: é por ele que reimportar reescreve em
+     vez de duplicar. Processo nascido na tela não tem — senão uma
+     reimportação passaria por cima dele. */
+  t('processo nascido na tela não carrega o id da planilha',
+    criou.noBanco && criou.noBanco.id === undefined, criou.noBanco);
+  t('o formulário fecha sozinho depois de salvar', criou.fechou, criou);
+
+  const moveu = await pg2.evaluate(async () => {
+    const alvo = PASTAS.find(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
+    const antes = PASTAS.length;
+    abrirPasta(alvo._id);
+    document.getElementById('paMod').value = 'CONCORRÊNCIA';
+    salvarPasta();
+    await new Promise(r => setTimeout(r, 600));
+    return {antes, depois: PASTAS.length,
+            aindaNaLista: PASTAS.some(x => x._id === alvo._id),
+            noBanco: window.__STORE.arquivo_pastas[alvo._id].modalidade,
+            recado: (document.getElementById('impNota') || {}).textContent || ''};
+  });
+  t('trocar a modalidade move o processo no banco', moveu.noBanco === 'CONCORRÊNCIA', moveu);
+  t('e ele sai desta lista, que mostra uma modalidade só',
+    !moveu.aindaNaLista && moveu.depois === moveu.antes - 1, moveu);
+  /* Sumir sem explicação é o que faz a pessoa achar que perdeu o registro. */
+  t('a tela diz para onde ele foi, em vez de ele só sumir',
+    /movido para CONCORRÊNCIA/.test(moveu.recado), moveu.recado);
+
+  const achou = await pg2.evaluate(async () => {
+    escolherModalidade('CONCORRÊNCIA');
+    await new Promise(r => setTimeout(r, 600));
+    return PASTAS.some(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
+  });
+  t('e ele está lá, na modalidade nova', achou);
+  await pg2.close();
 
   console.log('\n7) Quem só visualiza não grava');
   const ver = await b.newPage({viewport:{width:1280, height:900}});

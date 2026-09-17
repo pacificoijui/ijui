@@ -216,6 +216,37 @@
   .mod-btn.on { background: var(--navy); border-color: var(--navy); color: #fff; }
   .mod-n { background: rgba(0,0,0,.14); border-radius: 20px; padding: 1px 8px; font-size: 11.5px; font-weight: 800; }
   .mod-btn.on .mod-n { background: rgba(255,255,255,.22); }
+
+  /* ── Cadastrar e mover um processo do arquivo ──
+     O caderno de papel tinha uma aba por modalidade, e mover um processo
+     entre abas era mover a pasta de lugar. Aqui é o mesmo gesto: trocar a
+     modalidade no formulário tira o processo da faixa em que ele está e
+     põe na outra. */
+  .ov { position: fixed; inset: 0; background: rgba(8,18,45,.55); z-index: 700;
+    display: none; align-items: center; justify-content: center; padding: 18px; }
+  .ov.open { display: flex; }
+  .ov-cx { background: #fff; border-radius: 16px; width: 100%; max-width: 620px;
+    max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,.3); }
+  .ov-tp { background: var(--navy); color: #fff; padding: 16px 20px; display: flex;
+    align-items: center; justify-content: space-between; position: sticky; top: 0; }
+  .ov-tp h3 { font-size: 16px; font-weight: 700; }
+  .ov-x { background: none; border: none; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; }
+  .ov-md { padding: 20px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 13px; }
+  .ov-pe { padding: 14px 20px; border-top: 1px solid var(--border); display: flex;
+    gap: 9px; justify-content: flex-end; flex-wrap: wrap; background: #f7f9fd;
+    position: sticky; bottom: 0; }
+  .cmp { display: flex; flex-direction: column; gap: 5px; }
+  .cmp label { font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .4px; }
+  .cmp input, .cmp select { padding: 9px 11px; border: 1.5px solid var(--border);
+    border-radius: 9px; font-family: inherit; font-size: 13.5px; background: #fff; outline: none; }
+  .cmp input:focus, .cmp select:focus { border-color: var(--navy-light); box-shadow: var(--ring); }
+  .cmp .dica { font-size: 11px; color: var(--muted); }
+  .s3 { grid-column: span 3; } .s4 { grid-column: span 4; }
+  .s6 { grid-column: span 6; } .s12 { grid-column: span 12; }
+  @media (max-width: 700px){ .ov-md > * { grid-column: span 12 !important; } }
+  .lin-clic { cursor: pointer; }
+  .lin-clic:hover td { background: var(--blue-bg); }
   /* ── Portão de acesso ── */
   .chip-auth { display: inline-flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--navy); background: var(--blue-bg); padding: 5px 11px; border-radius: 20px; }
   #authGate { position: fixed; inset: 0; z-index: 12000; display: none; align-items: center; justify-content: center; padding: 18px;
@@ -313,6 +344,36 @@
     </div>
   </div>
 </header>
+
+<!-- CADASTRAR / MOVER UM PROCESSO DO ARQUIVO -->
+<div class="ov" id="ovPasta" onclick="if(event.target===this)fecharPasta()">
+  <div class="ov-cx">
+    <div class="ov-tp"><h3 id="pastaTit">Novo processo</h3>
+      <button class="ov-x" onclick="fecharPasta()">✕</button></div>
+    <div class="ov-md">
+      <div class="cmp s6"><label>Modalidade</label>
+        <select id="paMod"></select>
+        <span class="dica">Trocar aqui <b>move o processo de lugar</b> — ele sai desta faixa e vai para a outra.</span>
+      </div>
+      <div class="cmp s6"><label>Arquivado em</label><input type="date" id="paData"></div>
+      <div class="cmp s12"><label>Processo</label>
+        <input type="text" id="paProc" placeholder="Ex: DL 45/2025 - Aquisição de material">
+      </div>
+      <div class="cmp s6"><label>Pregoeiro</label><input type="text" id="paPreg" list="listaPregoeiros"></div>
+      <div class="cmp s6"><label>Secretaria</label><input type="text" id="paSec"></div>
+      <div class="cmp s8"><label>Vencedor</label><input type="text" id="paVenc"></div>
+      <div class="cmp s4"><label>Valor (R$)</label><input type="text" id="paValor" inputmode="decimal" placeholder="0,00"></div>
+      <div class="cmp s12"><label class="cmp" style="flex-direction:row;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="paCheck" style="width:auto"> <span>✓ Checklist conferido</span></label></div>
+    </div>
+    <div class="ov-pe">
+      <button class="mini-btn" onclick="fecharPasta()">Cancelar</button>
+      <button class="mini-btn" style="background:var(--navy);color:#fff;border-color:var(--navy)"
+              onclick="salvarPasta()">Salvar</button>
+    </div>
+  </div>
+</div>
+<datalist id="listaPregoeiros"></datalist>
 
 <main>
   <div class="abas" id="abas"></div>
@@ -774,12 +835,17 @@ function barra(tela){
 
   let h = '<div class="barra">';
   h += '<input class="busca" placeholder="Procurar…" value="' + esc(e.busca)
-     + '" oninput="est(\'' + tela + '\').busca=this.value;render()">';
+     + '" oninput="aoBuscar(\'' + tela + '\', this.value)">';
 
-  /* período — uma escolha só */
-  h += '<div class="segm">' + PERIODOS.map(p =>
-        '<button class="' + (e.periodo === p.k ? 'on' : '') + '" title="pela data de ' + esc(cfg.rotData)
-        + '" onclick="est(\'' + tela + '\').periodo=\'' + p.k + '\';render()">' + p.rot + '</button>').join('') + '</div>';
+  /* Período — só onde NÃO existe janela de leitura. Onde existe, quem
+     manda no recorte é ela: dois controles com a mesma pergunta, um lendo
+     do banco e outro peneirando o que veio, dariam respostas diferentes
+     para a mesma escolha. */
+  if(!temJanela(tela)){
+    h += '<div class="segm">' + PERIODOS.map(p =>
+          '<button class="' + (e.periodo === p.k ? 'on' : '') + '" title="pela data de ' + esc(cfg.rotData)
+          + '" onclick="est(\'' + tela + '\').periodo=\'' + p.k + '\';render()">' + p.rot + '</button>').join('') + '</div>';
+  }
 
   /* facetas — várias marcadas ao mesmo tempo */
   cfg.facetas.forEach(f => {
@@ -830,6 +896,14 @@ function marcar(tela, k, v){
   render();
 }
 function limparFaceta(tela, k){ est(tela).sel[k] = new Set(); render(); }
+/* A primeira letra digitada abre o cadastro inteiro daquela tela, uma vez
+   por visita. Depois disso é só filtrar o que já está na memória. */
+function aoBuscar(tela, texto){
+  const primeira = !est(tela).busca && texto;
+  est(tela).busca = texto;
+  if(primeira && buscaAlargaJanela(tela)) return;   /* o lerTela redesenha */
+  render();
+}
 function limparBusca(tela){ est(tela).busca = ''; render(); }
 function limparTudo(tela){
   const e = est(tela);
@@ -933,7 +1007,7 @@ function telaAnul(){
      + 'e o <b>memorando</b> que a pediu. São ponteiros para coisas que o sistema já tem: a requisição vive em '
      + '<b>/requisicao/</b> e o memorando, na aba ao lado. Hoje a ligação existe só na cabeça de quem digitou.</div>';
 
-  h += avisoDoAno('anul');
+  h += botoesDaJanela('anul');
   h += barra('anul');
   h += '<div class="painel">';
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhuma anulação com esses filtros.</div></div>';
@@ -985,8 +1059,18 @@ function telaArq(){
      + 'abrir quatro cadernos e olhar aba por aba. Aqui é a modalidade acima mais uma linha de busca, e o '
      + 'empréstimo (quem levou, quando) vira pendência na primeira tela sozinho.</div>';
 
+  h += botoesDaJanela('arq');
   h += barra('arq');
   h += '<div class="painel">';
+  /* A classe .so-editor é aplicada UMA vez, quando o portão abre; este
+     bloco nasce a cada render e não seria alcançado por ela. Quem decide
+     aqui é a própria pergunta. */
+  if(arqPodeEditar()){
+    h += '<div style="margin-bottom:12px">'
+       + '<button class="mini-btn" onclick="novaPasta()">＋ Novo processo em ' + esc(MOD_ATUAL) + '</button>'
+       + '<span style="font-size:12px;color:var(--muted);margin-left:10px">'
+       + 'Clique em qualquer linha para corrigir — inclusive para mover o processo de modalidade.</span></div>';
+  }
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum processo com esses filtros.</div></div>';
 
   /* Sem coluna de modalidade: a faixa acima já diz em qual delas se está, e
@@ -995,7 +1079,9 @@ function telaArq(){
   h += '<table><thead><tr><th>Processo</th><th>Vencedor e valor</th><th>Pregoeiro</th>'
      + '<th>Arquivado em</th><th>Checklist</th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(p => {
-    h += '<tr>'
+    h += (arqPodeEditar()
+        ? '<tr class="lin-clic" onclick="abrirPasta(' + JSON.stringify(p._id).replace(/"/g, '&quot;') + ')">'
+        : '<tr>')
        + '<td><b>' + esc(p.processo) + '</b>' + (p.secretaria ? '<div style="font-size:11.5px;color:var(--muted)">' + esc(p.secretaria) + '</div>' : '') + '</td>'
        + '<td>' + esc(p.vencedor || '—') + (p.valor ? ' <b>' + money(p.valor) + '</b>' : '') + '</td>'
        + '<td>' + esc(p.pregoeiro || '—') + '</td>'
@@ -1022,7 +1108,7 @@ function telaMemo(){
   h += '<div class="nota">O memorando é o <b>porquê</b> de quase tudo: é ele que a anulação cita em "REF. MEMORANDO". '
      + 'Aqui é uma lista só, com busca — em vez de adivinhar em qual das 19 abas ele foi anotado.</div>';
 
-  h += avisoDoAno('memo');
+  h += botoesDaJanela('memo');
   h += barra('memo');
   h += '<div class="painel">';
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum memorando com esses filtros.</div></div>';
@@ -1040,25 +1126,45 @@ function telaMemo(){
   return h + '</div>';
 }
 
-/* O recorte tem de se anunciar. Contrato de 2022 ainda vigente que não
-   aparecia na abertura já ensinou isso em /contratos/: sem o aviso, quem
-   procura o memorando do ano passado conclui que ele não existe. */
-function avisoDoAno(tela){
-  if(!temRecorteDeAno(tela)) return '';
-  if(ANO_ATUAL === null){
-    return '<div class="nota">Mostrando <b>todos os anos</b>. '
-      + '<button class="acao" onclick="verAno(' + ANO_CORRENTE + ')">Voltar para ' + ANO_CORRENTE + '</button></div>';
-  }
-  return '<div class="nota">Na tela, <b>' + ANO_ATUAL + '</b> — mais o que está sem data. '
-    + 'Os anos anteriores continuam no banco. '
-    + '<button class="acao" onclick="verAno(null)">Ver todos os anos</button></div>';
+/* Os botões da janela. É o mesmo desenho do período que já existia na
+   barra de filtros — só que agora ele MANDA NA CONSULTA, em vez de
+   peneirar o que já foi baixado. Um controle só: dois, um filtrando e
+   outro lendo, seria a mesma pergunta em dois lugares com respostas
+   diferentes. */
+function botoesDaJanela(tela){
+  if(!temJanela(tela)) return '';
+  const atual = janelaDe(tela);
+  const bts = JANELAS_DA_TELA[tela].map(k =>
+    '<button class="mod-btn' + (k === atual ? ' on' : '') + '"'
+    + ' onclick="trocarJanela(' + JSON.stringify(tela) + ',' + JSON.stringify(k) + ')">'
+    + esc(JANELAS[k].rot) + '</button>').join('');
+  const nota = atual === 'tudo' ? 'Lendo o cadastro inteiro desta tela.'
+    : atual === 'ano' ? 'Lendo <b>' + ANO_CORRENTE + '</b> — mais o que está sem data.'
+    : 'Lendo os <b>últimos ' + JANELAS[atual].dias + ' dias</b> — mais o que está sem data. '
+      + 'O resto continua no banco, e a busca alcança.';
+  return '<div class="mod-faixa" style="margin-bottom:10px">' + bts + '</div>'
+       + '<div class="nota">' + nota + '</div>';
 }
-function verAno(ano){
-  ANO_ATUAL = ano;
-  ['anul', 'memo'].forEach(t => { CARREGADA.delete(t); });
-  ANULACOES = []; MEMORANDOS = [];
+function trocarJanela(tela, k){
+  if(janelaDe(tela) === k) return;
+  JANELA[tela] = k;
+  CARREGADA.delete(tela);
+  if(tela === 'anul') ANULACOES = []; else if(tela === 'memo') MEMORANDOS = []; else if(tela === 'arq') PASTAS = [];
   render();
-  lerTela(telaAtual);
+  lerTela(tela);
+}
+/* Procurar é dizer "não está à vista". Buscar a DL 45/2025 dentro de 30
+   dias não acharia nada — e a pessoa concluiria que o processo não existe,
+   que é o pior resultado possível num sistema de arquivo. Por isso a
+   primeira letra alarga a janela, uma vez, e a tela avisa que alargou. */
+function buscaAlargaJanela(tela){
+  if(!temJanela(tela) || janelaDe(tela) === 'tudo') return false;
+  JANELA[tela] = 'tudo';
+  CARREGADA.delete(tela);
+  if(tela === 'anul') ANULACOES = []; else if(tela === 'memo') MEMORANDOS = []; else if(tela === 'arq') PASTAS = [];
+  avisar('A busca abriu o cadastro inteiro desta tela — 30 dias não alcançariam.');
+  lerTela(tela);
+  return true;
 }
 
 function render(){
@@ -1083,19 +1189,49 @@ const COLECOES = { rua:'arquivo_tramites', anul:'arquivo_anulacoes',
                    memo:'arquivo_memorandos', arq:'arquivo_pastas' };
 const CARREGADA = new Set();     /* tela -> a leitura já foi feita */
 
-/* ── O recorte por ano ──
-   Anulações e memorandos são cadernos ANUAIS: "ANULAÇÕES 2026",
-   "MEMORANDOS 2026". Ler a coleção inteira funciona no primeiro ano e vai
-   ficando mais caro a cada janeiro — é a conta que /contratos/ já pagou
-   (1.294 documentos lidos por abertura para mostrar 141).
+/* ── A JANELA DE LEITURA ──
+   O sistema abre nos ÚLTIMOS 30 DIAS, não no ano inteiro. Não é filtro em
+   cima do que já foi baixado: é o que a consulta pede ao banco. Ler 533
+   memorandos do ano para mostrar os 45 do mês é o mesmo erro que
+   /contratos/ cometeu com 1.294 documentos, e cada leitura dessas é paga.
 
-   O Firestore não filtra por "os quatro primeiros caracteres de
-   recebidoEm", então o ano precisa ser um CAMPO. A anulação já traz o dela
-   da planilha; o memorando não, e ganha o seu na importação. */
+   Quem precisa de mais tem os botões — "Este ano", "Tudo" — e a BUSCA
+   alarga sozinha: procurar a DL 45/2025 em 30 dias não acharia nada, e
+   quem digita está justamente procurando o que não está à vista.
+
+   Cada janela é uma consulta de UM campo só, de propósito. Cruzar dois
+   (modalidade E data) obrigaria a criar índice composto no console a cada
+   combinação — trabalho manual, fora do repositório, que quebra calado
+   quando falta. Por isso, na janela de 30 dias, a tela do arquivo pergunta
+   ao banco pela DATA e separa a modalidade aqui dentro: 55 documentos do
+   mês, em vez dos 449 que a dispensa tem no ano.
+
+   A tela "Na rua" fica de fora, e isso é o ponto do módulo: das 51
+   pendências, 45 estão abertas há MAIS de 30 dias — a janela esconderia
+   justamente as que precisam ser cobradas. Ela continua lendo por
+   voltouEm == null, que já é pequeno. */
 const ANO_CORRENTE = new Date().getFullYear();
-let ANO_ATUAL = ANO_CORRENTE;   /* null = todos os anos */
+const JANELAS = {
+  '30':   {rot: '30 dias',   dias: 30},
+  '90':   {rot: '90 dias',   dias: 90},
+  'ano':  {rot: 'Este ano',  dias: null},
+  'tudo': {rot: 'Tudo',      dias: null}
+};
+/* Cada tela oferece as janelas que sabe cumprir. O arquivo não tem "este
+   ano" porque ele já é lido uma modalidade por vez, e cruzar modalidade
+   com ano seria o índice composto de novo. */
+const JANELAS_DA_TELA = { anul: ['30','90','ano','tudo'], memo: ['30','90','ano','tudo'], arq: ['30','90','tudo'] };
+const CAMPO_DATA = { anul: 'contabilidadeEm', memo: 'recebidoEm', arq: 'arquivadoEm' };
+function temJanela(tela){ return !!JANELAS_DA_TELA[tela]; }
+function temJanelaDeAno(tela){ return (JANELAS_DA_TELA[tela] || []).indexOf('ano') >= 0; }
+const JANELA = {};   /* tela -> chave da janela */
+function janelaDe(tela){ return JANELA[tela] || (JANELA[tela] = '30'); }
+function isoHaDias(n){
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
 /* Data torta não vira ano: célula vazia, "#VALUE!" e o "24/07/2062" que a
-   planilha guarda caem em null e entram pela consulta dos SEM ANO, que vem
+   planilha guarda caem em null e entram pela consulta dos SEM DATA, que vem
    sempre junto. Arquivar num ano que ninguém vai abrir é esconder. */
 function anoDe(item, campoData){
   if(typeof item.ano === 'number' && item.ano >= 2000 && item.ano <= ANO_CORRENTE + 1) return item.ano;
@@ -1103,8 +1239,6 @@ function anoDe(item, campoData){
   const n = m ? Number(m[1]) : null;
   return (n && n >= 2000 && n <= ANO_CORRENTE + 1) ? n : null;
 }
-const CAMPO_DATA = { anul: 'contabilidadeEm', memo: 'recebidoEm' };
-function temRecorteDeAno(tela){ return tela === 'anul' || tela === 'memo'; }
 let _lendo = null;               /* tela sendo lida agora */
 
 function col(tela){ return firebase.firestore().collection(COLECOES[tela]); }
@@ -1159,12 +1293,18 @@ function lerTela(tela){
   if(tela === 'arq' && !MOD_ATUAL) return Promise.resolve();
   _lendo = tela;
   render();
-  /* Duas consultas nas telas com recorte de ano: a do ano escolhido e a do
-     que ficou SEM ano. Sem a segunda, memorando com data torta sumia do
-     sistema — e sumir é pior que custar uma leitura. */
+  /* A janela vira consulta aqui. Em toda janela por DATA vai junto a
+     consulta dos SEM DATA: memorando com célula vazia ou "#VALUE!" tem de
+     aparecer em qualquer recorte, porque sumir é pior que custar leitura. */
+  const jan = temJanela(tela) ? janelaDe(tela) : null;
+  const campo = CAMPO_DATA[tela];
   let pedidos;
-  if(temRecorteDeAno(tela) && ANO_ATUAL !== null){
-    pedidos = [col(tela).where('ano', '==', ANO_ATUAL).get(),
+  if(jan && JANELAS[jan].dias){
+    const limite = isoHaDias(JANELAS[jan].dias);
+    pedidos = [col(tela).where(campo, '>=', limite).get(),
+               col(tela).where(campo, '==', null).get()];
+  } else if(jan === 'ano'){
+    pedidos = [col(tela).where('ano', '==', ANO_CORRENTE).get(),
                col(tela).where('ano', '==', null).get()];
   } else {
     let q = col(tela);
@@ -1181,7 +1321,12 @@ function lerTela(tela){
     if(tela === 'rua')       TRAMITES = lista;
     else if(tela === 'anul') ANULACOES = lista;
     else if(tela === 'memo') MEMORANDOS = lista;
-    else                     PASTAS = lista;
+    /* Consulta por data traz TODAS as modalidades — é o preço de não
+       precisar de índice composto, e sai barato: o mês inteiro do arquivo
+       é menor que um ano de uma modalidade só. A faixa separa aqui. */
+    else                     PASTAS = (jan && JANELAS[jan].dias)
+                                        ? lista.filter(x => x.modalidade === MOD_ATUAL)
+                                        : lista;
     CARREGADA.add(tela);
     _lendo = null;
     renderAbas(); render();
@@ -1206,6 +1351,109 @@ function marcarVolta(id){
     TRAMITES = TRAMITES.filter(x => x._id !== id);
     renderAbas(); render();
   }).catch(e => alert('Não consegui gravar: ' + e.message));
+}
+
+/* ══════════════ CADASTRAR E MOVER UM PROCESSO ══════════════
+   O "Controle do Arquivo" de papel tinha uma aba por modalidade, e mover
+   um processo entre abas era mover a pasta de lugar. Aqui é o mesmo gesto,
+   e ele acontece no mesmo formulário que cadastra: trocar a modalidade
+   move. Não existe um "mover" à parte porque não existiam duas ações — a
+   pessoa está corrigindo onde o processo está guardado.
+
+   Processo novo NÃO leva o campo "id": esse número é da planilha, e quem o
+   usa é a importação, para reescrever em vez de duplicar. Um processo
+   nascido aqui ganha id próprio do Firestore, e assim uma reimportação da
+   planilha nunca passa por cima dele. */
+let pastaEditando = null;   /* _id do documento, ou null = novo */
+function novaPasta(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  abrirPasta(null);
+}
+function abrirPasta(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  pastaEditando = id;
+  const p = id ? PASTAS.find(x => x._id === id) : null;
+  document.getElementById('pastaTit').textContent =
+    p ? 'Processo arquivado' : 'Novo processo no arquivo';
+  const sel = document.getElementById('paMod');
+  sel.innerHTML = MODALIDADES_ARQUIVO.map(m =>
+    '<option value="' + esc(m) + '">' + esc(m) + '</option>').join('');
+  /* processo novo já nasce na modalidade em que a pessoa está olhando */
+  sel.value = (p && p.modalidade) || MOD_ATUAL || MODALIDADES_ARQUIVO[0];
+  const por = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  por('paProc', p && p.processo);
+  por('paPreg', p && p.pregoeiro);
+  por('paSec',  p && p.secretaria);
+  por('paVenc', p && p.vencedor);
+  por('paValor', p && p.valor != null ? String(p.valor).replace('.', ',') : '');
+  por('paData', p && p.arquivadoEm);
+  document.getElementById('paCheck').checked = !!(p && p.checklist);
+  /* as sugestões de pregoeiro saem de quem já está no recorte carregado */
+  document.getElementById('listaPregoeiros').innerHTML =
+    [...new Set(PASTAS.map(x => x.pregoeiro).filter(Boolean))].sort()
+      .map(v => '<option value="' + esc(v) + '"></option>').join('');
+  document.getElementById('ovPasta').classList.add('open');
+  setTimeout(() => document.getElementById('paProc').focus(), 60);
+}
+function fecharPasta(){ document.getElementById('ovPasta').classList.remove('open'); pastaEditando = null; }
+function valorDigitado(txt){
+  const t = String(txt || '').trim();
+  if(!t) return null;
+  const n = Number(t.replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? null : n;
+}
+function salvarPasta(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const v = id => document.getElementById(id).value.trim();
+  const processo = v('paProc');
+  if(!processo){ alert('Escreva qual é o processo.'); return; }
+  const bruto = v('paValor');
+  const valor = valorDigitado(bruto);
+  if(bruto && valor === null){ alert('Não entendi o valor "' + bruto + '".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
+
+  const dados = {
+    modalidade: document.getElementById('paMod').value,
+    processo: processo,
+    pregoeiro: v('paPreg').toUpperCase(),
+    secretaria: v('paSec').toUpperCase(),
+    vencedor: v('paVenc'),
+    valor: valor,
+    arquivadoEm: v('paData') || null,
+    checklist: document.getElementById('paCheck').checked,
+    origem: 'Controle do Arquivo'
+  };
+  const antes = pastaEditando ? PASTAS.find(x => x._id === pastaEditando) : null;
+  const mudouDeLugar = !!(antes && antes.modalidade !== dados.modalidade);
+  const gravacao = pastaEditando
+    ? col('arq').doc(pastaEditando).set(dados, {merge: true}).then(() => pastaEditando)
+    : col('arq').add(dados).then(ref => ref.id);
+
+  gravacao.then(idFinal => {
+    fecharPasta();
+    /* A tela mostra UMA modalidade. Processo que mudou de modalidade sai
+       daqui — e some sem explicação se ninguém disser para onde foi. */
+    if(mudouDeLugar){
+      PASTAS = PASTAS.filter(x => x._id !== idFinal);
+      avisar('Processo movido para ' + dados.modalidade + '. Ele saiu desta lista.');
+    } else if(dados.modalidade === MOD_ATUAL){
+      const novo = Object.assign({_id: idFinal}, dados);
+      const i = PASTAS.findIndex(x => x._id === idFinal);
+      if(i >= 0) PASTAS[i] = novo; else PASTAS.unshift(novo);
+      avisar(antes ? 'Processo atualizado.' : 'Processo cadastrado no arquivo.');
+    } else {
+      /* cadastrou em outra modalidade que não a da tela */
+      avisar('Processo cadastrado em ' + dados.modalidade + '. Escolha essa modalidade acima para vê-lo.');
+    }
+    renderAbas(); render();
+  }).catch(e => alert('Não consegui gravar: ' + e.message));
+}
+/* Recado curto, no mesmo lugar do recado da importação. */
+function avisar(msg){
+  const n = document.getElementById('impNota');
+  if(!n) return;
+  n.style.display = ''; n.className = 'nota'; n.textContent = msg;
+  clearTimeout(avisar._t);
+  avisar._t = setTimeout(() => { n.style.display = 'none'; }, 6000);
 }
 
 /* ══════════════ IMPORTAÇÃO ══════════════
@@ -1274,11 +1522,11 @@ function importarEscolhidos(input){
       const lote = firebase.firestore().batch();
       fatia.forEach(item => {
         /* O ano entra AQUI, na porta do banco, e não no conversor: é o
-           recorte das telas de anulação e memorando, e o Firestore só
-           filtra por campo que existe no documento. Carga velha, gerada
-           por um conversor que não escrevia "ano", entra recortável do
-           mesmo jeito. */
-        const pronto = temRecorteDeAno(tela)
+           que a janela "Este ano" pergunta, e o Firestore só filtra por
+           campo que existe no documento. Carga velha, gerada por um
+           conversor que não escrevia "ano", entra recortável do mesmo
+           jeito. */
+        const pronto = temJanelaDeAno(tela)
           ? Object.assign({}, item, {ano: anoDe(item, CAMPO_DATA[tela])})
           : item;
         lote.set(col(tela).doc(String(item.id)), pronto);

@@ -78,39 +78,71 @@ saiu da tabela junto: a faixa já diz onde se está.
 
 ## Quanto do cadastro cada tela lê
 
-Nenhuma coleção é lida na abertura, e nenhuma tela lê a sua inteira. É a
-conta que `/contratos/` já pagou — 1.294 documentos lidos por abertura
-para mostrar 141 — e que aqui vem resolvida de saída:
+Nenhuma coleção é lida na abertura, nenhuma tela lê a sua inteira, e o que
+chega é **dos últimos 30 dias**. É a conta que `/contratos/` já pagou —
+1.294 documentos lidos por abertura para mostrar 141.
 
-| Tela | Recorte | Lê |
+| Tela | O que a consulta pede | Lê |
 |---|---|---|
-| Na rua | `where('voltouEm','==',null)` | **51** dos 978 trâmites |
-| Arquivo | `where('modalidade','==',…)` | até 449 das 659 pastas |
-| Anulações | `where('ano','==',…)` + os sem ano | 298 do ano, não de todos |
-| Memorandos | `where('ano','==',…)` + os sem ano | 512 do ano, não de todos |
+| Na rua | `voltouEm == null` | **51** dos 978 trâmites |
+| Arquivo | `arquivadoEm >= hoje-30` | ~55 das 659 pastas |
+| Anulações | `contabilidadeEm >= hoje-30` | ~25 das 298 |
+| Memorandos | `recebidoEm >= hoje-30` | ~45 das 533 |
 
-Cada tela lê a sua coleção **uma vez por visita**, e só quando é aberta:
-quem entra para ver o que está na rua não paga pelo arquivo, pelas
-anulações nem pelos memorandos.
+Cada tela lê a sua coleção **uma vez por visita**, e só quando é aberta.
 
-**O ano precisa ser um CAMPO.** O Firestore não filtra por "os quatro
-primeiros caracteres de `recebidoEm`". A anulação já traz o `ano` da
-planilha; o memorando não, e ganha o dele **na importação** — é por isso
-que o recorte tinha de nascer antes da primeira carga, e não depois:
-acrescentar o campo com o cadastro já no banco é reimportar tudo.
+**A janela é um controle só.** Antes havia um período (7/30/90/tudo) que
+peneirava o que já tinha sido baixado — a mesma pergunta em dois lugares,
+uma lendo do banco e outra filtrando o resultado, com respostas
+diferentes. Agora os botões **30 dias · 90 dias · Este ano · Tudo** mandam
+na consulta. A tela diz qual janela está lendo.
 
-**A consulta dos SEM ANO vem sempre junto.** Data torta — célula vazia,
+**A busca alarga sozinha.** Procurar é dizer "não está à vista": buscar a
+DL 45/2025 dentro de 30 dias não acharia nada, e a pessoa concluiria que o
+processo não existe — o pior resultado possível num sistema de arquivo. A
+primeira letra digitada abre o cadastro inteiro daquela tela, uma vez por
+visita, e a tela avisa que abriu.
+
+**"Na rua" fica de fora, e isso é o ponto do módulo.** Das 51 pendências,
+45 estão abertas há MAIS de 30 dias — a janela esconderia justamente as
+que precisam ser cobradas. Ela continua lendo por `voltouEm == null`, que
+já é pequeno.
+
+**Cada janela é uma consulta de um campo só, de propósito.** Cruzar dois
+(modalidade E data) obrigaria a criar índice composto no console a cada
+combinação: trabalho manual, fora do repositório, que quebra calado quando
+falta. Por isso, na janela por data, a tela do arquivo pergunta ao banco
+pela DATA e separa a modalidade no navegador — 55 documentos do mês, em
+vez dos 449 que a dispensa tem no ano. Em "Tudo", volta a perguntar pela
+modalidade.
+
+**A consulta dos SEM DATA vem sempre junto.** Data torta — célula vazia,
 `#VALUE!`, o `24/07/2062` que a planilha guarda — vira `ano: null` em vez
-de um ano inventado, e o documento aparece em qualquer ano escolhido.
-Arquivar um registro num ano que ninguém vai abrir é escondê-lo, e
-esconder é pior que pagar a leitura.
+de um ano inventado, e o documento aparece em qualquer janela. Esconder um
+registro é pior que pagar a leitura dele.
 
-Enquanto o recorte está de pé, um aviso na tela diz qual ano está à mostra
-e traz **Ver todos os anos** — o mesmo desenho do aviso de `/contratos/`.
+O `ano` precisa ser um CAMPO para a janela "Este ano" funcionar: o
+Firestore não filtra por "os quatro primeiros caracteres de `recebidoEm`".
+A anulação já traz o dela da planilha; o memorando ganha o dele **na
+importação** — por isso isso tinha de nascer antes da primeira carga.
 
-A tela do Arquivo **não** recorta por ano além da modalidade: seria uma
-consulta composta (modalidade + ano), que no Firestore exige criar um
-índice à mão, para economizar 29 leituras de 449. Não paga.
+## Cadastrar e mover um processo
+
+O "Controle do Arquivo" de papel tinha uma aba por modalidade, e mover um
+processo entre abas era mover a pasta de lugar. Aqui é o mesmo gesto, no
+mesmo formulário que cadastra: **＋ Novo processo** abre em branco, clicar
+numa linha abre preenchido, e **trocar a modalidade move**. Não existe um
+"mover" à parte porque nunca foram duas ações — a pessoa está corrigindo
+onde o processo está guardado.
+
+Processo que muda de modalidade sai da lista na hora, porque a tela mostra
+uma modalidade só. A tela diz para onde ele foi: sumir sem explicação é o
+que faz alguém achar que perdeu o registro.
+
+Processo nascido na tela **não leva o campo `id`** — esse número é da
+planilha, e quem o usa é a importação, para reescrever em vez de duplicar.
+Ele ganha id próprio do Firestore, e assim uma reimportação da planilha
+nunca passa por cima dele.
 
 ## Os filtros
 
