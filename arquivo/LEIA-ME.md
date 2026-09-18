@@ -65,15 +65,15 @@ pontas da mesma história — o documento sai para assinatura, volta assinado,
 precisa ser catalogado. Um "✓ Voltou hoje" num trâmite de assinatura, com um
 `docTipo` reconhecido (DL, PE, Inex, Conc — os mesmos tipos que viram
 modalidade), pergunta na hora se é para catalogar; aceitando, a tela pula
-para o Arquivo, já na modalidade certa, com o formulário de **Novo processo**
-aberto e o campo "Processo" escrito (`DL 999/2026`) e a data de hoje — a
-pessoa confere e completa (vencedor, valor, pregoeiro), não digita do zero.
-O retorno em si é gravado de qualquer jeito, sim ou não na pergunta: o que
-muda é só se o Arquivo abre atrás. Nada entra no cadastro sem o "Salvar" de
-sempre — a sugestão nunca cria pasta sozinha. Papelada do processo (EXTRATOS,
-SÚMULAS, ADITIVOS…) e empréstimo (documento que já estava arquivado, só saiu
-para uma consulta) não disparam a pergunta — não são processo novo virando
-pasta.
+para o Arquivo, já na modalidade certa, com uma **linha nova** na tabela e a
+célula "Processo" aberta, já escrita (`DL 999/2026`) e a data de hoje
+preenchida — a pessoa confere e completa (vencedor, valor, pregoeiro), não
+digita do zero. O retorno em si é gravado de qualquer jeito, sim ou não na
+pergunta: o que muda é só se o Arquivo abre atrás. Nada entra no cadastro
+sem confirmar a célula — a sugestão nunca cria pasta sozinha. Papelada do
+processo (EXTRATOS, SÚMULAS, ADITIVOS…) e empréstimo (documento que já
+estava arquivado, só saiu para uma consulta) não disparam a pergunta — não
+são processo novo virando pasta.
 
 É lido **uma modalidade por vez**, pela faixa do alto — do mesmo jeito que
 as Requisições são lidas uma secretaria por vez, e pela mesma razão: o
@@ -85,8 +85,12 @@ dispensas não são lidas para mostrar os 26 da concorrência.
 Não há "Todas", pela mesma razão das Requisições: seria a única leitura a
 custar a coleção inteira, e é justamente a que ninguém precisa para
 trabalhar. O número ao lado do botão só aparece na modalidade carregada —
-nas outras seria invenção, porque a tela não as leu. A coluna "Modalidade"
-saiu da tabela junto: a faixa já diz onde se está.
+nas outras seria invenção, porque a tela não as leu.
+
+A tabela tem uma coluna "Modalidade", mesmo a faixa já dizendo onde se
+está: é dali que se **move** um processo para outra modalidade (trocar o
+valor da célula), e uma coluna que só existe quando se está editando seria
+mais estranha que uma coluna sempre visível, mas discreta.
 
 **📨 Memorandos** — as 18 abas (16 secretarias e dois "genéricos" que a
 planilha mistura junto, "DOCUMENTAÇÕES DIVERSAS" e "GP") viram uma faixa de
@@ -152,26 +156,37 @@ Firestore não filtra por "os quatro primeiros caracteres de `recebidoEm`".
 A anulação já traz o dela da planilha; o memorando ganha o dele **na
 importação** — por isso isso tinha de nascer antes da primeira carga.
 
-## Cadastrar direto pela tela
+## Cadastrar e editar dentro da própria tabela
 
 Até aqui, um documento só entrava numa das quatro coleções pela planilha e
 pela importação — mesmo algo tão simples quanto "isto saiu hoje para
-assinatura" esperava a próxima conversão. As quatro telas agora cadastram
-e editam: **Arquivo** (＋ Novo processo), **Na rua** (＋ Novo documento na
-rua), **Anulações** (＋ Nova anulação) e **Memorandos** (＋ Novo
-memorando).
+assinatura" esperava a próxima conversão. Agora as quatro cadastram e
+editam, e fazem isso **na própria tabela, sem modal e sem card** — o mesmo
+motor das Requisições: clicar numa célula vira um campo ali mesmo; Enter
+ou clicar fora salva; Esc desiste.
 
-O gesto é o mesmo nas quatro: o botão **＋** abre o formulário em branco, e
-**clicar numa linha existente abre o mesmo formulário preenchido** — não
-existe um "editar" à parte, porque cadastrar e corrigir nunca foram duas
-telas diferentes, só o mesmo formulário com ou sem dado dentro. Em Arquivo
-e Memorandos, esse formulário também **move**: trocar a modalidade ou a
-secretaria no mesmo "Salvar" tira o registro da faixa em que ele estava e
+O botão **＋** (Novo processo, Novo documento na rua, Nova anulação, Novo
+memorando) insere uma linha em branco no topo da tabela e já abre a
+primeira célula que faz sentido preencher. Uma linha assim **não toca o
+banco até o primeiro campo de verdade ser gravado** — uma linha aberta por
+engano e nunca tocada não vira lixo permanente, porque as regras não
+deixam apagar depois; ela só existe na tela, com um ✕ para descartá-la, e
+some sozinha se a pessoa apertar Esc sem ter escrito nada.
+
+Em Arquivo e Memorandos, a própria célula também **move**: trocar a
+modalidade ou a secretaria tira o registro da faixa em que ele estava e
 manda para a outra — a tela avisa para onde foi, porque sumir sem
-explicação é o que faz alguém achar que perdeu o registro. "Na rua" e
+explicação é o que faz alguém achar que perdeu o registro. É por isso que
+as duas telas mantêm a coluna (Modalidade, Secretaria) mesmo a faixa já
+dizendo qual é: é dali que se corrige o lugar de um registro. "Na rua" e
 Anulações não têm essa faixa para mover entre (docTipo e requisição não
-particionam a leitura como modalidade e secretaria fazem), então ali o
-formulário só cadastra e corrige.
+particionam a leitura como modalidade e secretaria fazem), então ali a
+edição só corrige, nunca move.
+
+**"Na rua" não é tabela** — é agrupada por pessoa, de propósito (ver
+adiante). Por isso ali o clique abre a **linha inteira** como formulário
+plano, em vez de célula por célula: mesmo espírito ("nada de modal"),
+adaptado ao layout que já existia.
 
 Registro nascido na tela **não leva o campo `id`** da planilha — quem usa
 esse número é a importação, para reescrever em vez de duplicar. Ele ganha
@@ -181,14 +196,34 @@ dele.
 **A anulação é a exceção: ela tem numeração própria e sequencial**, que a
 planilha nunca pula (1, 2, 3…) — diferente do número de um memorando ou de
 um trâmite, que é só o que está escrito no papel físico. Por isso o campo
-"Nº" não se digita: ao abrir o formulário, a tela pergunta ao banco pelo
+"Nº" não se digita: ao abrir a linha nova, a tela pergunta ao banco pelo
 maior número do **ano corrente** (`where('ano','==',ANO)`, uma consulta de
 campo só — sem `orderBy`, para não pedir índice composto) e usa aquele
 mais um. Essa consulta é separada do que está carregado na tela de
 propósito: se a janela aberta for "30 dias", a maior anulação do ano pode
 nem estar em memória, e tirar o próximo número dali repetiria um nº que já
-existe no banco. É uma leitura a mais, só ao abrir o formulário — não a
+existe no banco. É uma leitura a mais, só ao abrir uma linha nova — não a
 cada render, e não presa ao que a tela está mostrando.
+
+A anulação também **não pede secretaria** — não há coluna nem célula para
+`reqSec`: o campo continua existindo para o que já veio importado da
+planilha (a faceta "Secretaria" nos filtros usa ele), mas nada na tela
+pede esse dado para um registro novo, porque ele não ajuda em nada que se
+faça ali.
+
+E ela ganhou uma célula que faltava: **"Voltou"** (o campo `retornoEm`) —
+antes só a importação preenchia essa data; não havia jeito nenhum de
+marcar pela tela que uma anulação tinha voltado da contabilidade, então
+ela ficava em branco para sempre. Agora é uma célula de data como
+qualquer outra, editável clicando nela.
+
+**Pregoeiro muda de nome, ou some, conforme a modalidade.** Como a tabela
+do Arquivo só mostra uma modalidade por vez, a tela decide a coluna uma
+vez por render: em **Inexigibilidade** a coluna nem aparece (não existe
+pregoeiro numa inexigibilidade), e em **Concorrência** o mesmo campo do
+banco (`pregoeiro`) aparece rotulado **"Agente de Contratação"** — é só o
+rótulo que muda, não o dado nem a coluna, então não precisou mexer no
+schema nem migrar nada que já estava arquivado.
 
 Não há trava contra duas pessoas cadastrando no mesmo minuto e calculando
 o mesmo próximo número — é um escritório pequeno, o caso é raro, e
@@ -212,8 +247,11 @@ contar, limpar, mostrar o que está ligado) é o mesmo código.
 Mais o **período** (7, 30, 90 dias ou tudo) e a **busca**, em todas — em
 Memorandos, o período filtra dentro da secretaria já lida, não o banco.
 
-A coluna "Secretaria" saiu da tabela de Memorandos, como a de "Modalidade"
-saiu do Arquivo: a faixa de secretarias acima já diz qual é.
+A **faceta** de secretaria saiu dos filtros — não a coluna. A tabela de
+Memorandos mantém a coluna "Secretaria" (assim como o Arquivo mantém
+"Modalidade"), porque é editando essa célula que um memorando **move** de
+secretaria; mas como opção de filtro ela some, porque a faixa acima já é
+o recorte, e oferecer a mesma escolha duas vezes é confuso.
 
 Três decisões que valem explicação:
 

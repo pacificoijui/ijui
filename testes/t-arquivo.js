@@ -292,7 +292,7 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     sms.indexOf('sem data na planilha') >= 0, sms);
 
   t('a faceta de secretaria saiu dos filtros — a faixa ocupou o lugar dela',
-    await pg.evaluate(() => !document.querySelector('[onclick*="secretaria"]')));
+    await pg.evaluate(() => !document.querySelector('[onchange*="marcar(\'memo\',\'secretaria\'"]')));
 
   console.log('\n6) "✓ Voltou hoje" grava no banco, não só na tela');
   /* O CLIQUE, não a função. Chamar marcarVolta(alvo._id) direto daqui
@@ -316,62 +316,76 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     voltou.saiuDaLista && voltou.depois === antes - 1, {antes, ...voltou});
   await pg.close();
 
-  console.log('\n6b) Cadastrar um processo novo e mover um de modalidade');
-  const pg2 = await b.newPage({viewport:{width:1280, height:900}});
+  console.log('\n6b) Cadastrar e editar direto na tabela do Arquivo, como nas Requisições');
+  /* Sem modal, sem card: clicar na célula vira um campo ali mesmo. */
+  const pg2 = await b.newPage({viewport:{width:1400, height:900}});
   pg2.on('dialog', d => d.accept());
   await abrirArquivo(pg2, 'editar');
-  await pg2.evaluate(async () => {
-    irPara('arq'); escolherModalidade('PREGÃO');
-    await new Promise(r => setTimeout(r, 500));
-  });
+  await pg2.click('.abas button:has-text("Arquivo")');
+  await pg2.click('.mod-faixa button:has-text("PREGÃO")');
+  await pg2.waitForTimeout(500);
 
-  const criou = await pg2.evaluate(async () => {
-    const antes = PASTAS.length;
-    novaPasta();
-    const abriu = document.getElementById('ovPasta').classList.contains('open');
-    /* já nasce na modalidade que está na tela — ninguém abre o formulário
-       para cadastrar noutro lugar que não o que está olhando */
-    const modPadrao = document.getElementById('paMod').value;
-    document.getElementById('paProc').value = 'PE 99/2026 - Processo cadastrado pela tela';
-    document.getElementById('paPreg').value = 'rodrigo';
-    document.getElementById('paValor').value = '1.234,56';
-    document.getElementById('paData').value = '2026-09-10';
-    document.getElementById('paCheck').checked = true;
-    salvarPasta();
-    await new Promise(r => setTimeout(r, 600));
-    const novo = PASTAS.find(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
-    return {abriu, modPadrao, antes, depois: PASTAS.length, novo: novo || null,
-            noBanco: novo ? window.__STORE.arquivo_pastas[novo._id] : null,
-            fechou: !document.getElementById('ovPasta').classList.contains('open')};
+  const antesCriar = await pg2.evaluate(() => PASTAS.length);
+  await pg2.click('button:has-text("＋ Novo processo")');
+  await pg2.waitForTimeout(200);
+  const abriuNoProcesso = await pg2.evaluate(() => {
+    const el = document.querySelector('td.editando');
+    return {campo: el && el.dataset.campo, temInput: !!(el && el.querySelector('input'))};
   });
-  t('o formulário abre já na modalidade que está na tela', criou.abriu && criou.modPadrao === 'PREGÃO', criou);
-  t('o processo novo entra na lista', criou.depois === criou.antes + 1 && !!criou.novo, criou);
-  t('e vai para o banco', !!criou.noBanco && criou.noBanco.processo === 'PE 99/2026 - Processo cadastrado pela tela', criou.noBanco);
-  t('o valor "1.234,56" vira número, não texto', criou.noBanco && criou.noBanco.valor === 1234.56, criou.noBanco);
-  t('o pregoeiro entra em maiúsculas, como o resto do cadastro',
-    criou.noBanco && criou.noBanco.pregoeiro === 'RODRIGO', criou.noBanco);
+  t('"+ Novo processo" já abre a célula "Processo" para digitar — sem card, sem modal',
+    abriuNoProcesso.campo === 'processo' && abriuNoProcesso.temInput, abriuNoProcesso);
+  await pg2.fill('td.editando input', 'PE 99/2026 - Processo cadastrado pela tela');
+  await pg2.keyboard.press('Enter');
+  await pg2.waitForTimeout(500);
+  const criou = await pg2.evaluate(() => {
+    const novo = PASTAS.find(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
+    return {depois: PASTAS.length, novo: novo || null,
+            noBanco: novo ? window.__STORE.arquivo_pastas[novo._id] : null};
+  });
+  t('o processo novo entra na lista', criou.depois === antesCriar + 1 && !!criou.novo, criou);
+  t('e vai para o banco, já na modalidade da tela',
+    !!criou.noBanco && criou.noBanco.processo === 'PE 99/2026 - Processo cadastrado pela tela'
+    && criou.noBanco.modalidade === 'PREGÃO', criou.noBanco);
   /* O id da planilha é da IMPORTAÇÃO: é por ele que reimportar reescreve em
      vez de duplicar. Processo nascido na tela não tem — senão uma
      reimportação passaria por cima dele. */
   t('processo nascido na tela não carrega o id da planilha',
     criou.noBanco && criou.noBanco.id === undefined, criou.noBanco);
-  t('o formulário fecha sozinho depois de salvar', criou.fechou, criou);
 
-  const moveu = await pg2.evaluate(async () => {
-    const alvo = PASTAS.find(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
-    const antes = PASTAS.length;
-    abrirPasta(alvo._id);
-    document.getElementById('paMod').value = 'CONCORRÊNCIA';
-    salvarPasta();
-    await new Promise(r => setTimeout(r, 600));
-    return {antes, depois: PASTAS.length,
-            aindaNaLista: PASTAS.some(x => x._id === alvo._id),
-            noBanco: window.__STORE.arquivo_pastas[alvo._id].modalidade,
-            recado: (document.getElementById('impNota') || {}).textContent || ''};
-  });
-  t('trocar a modalidade move o processo no banco', moveu.noBanco === 'CONCORRÊNCIA', moveu);
-  t('e ele sai desta lista, que mostra uma modalidade só',
-    !moveu.aindaNaLista && moveu.depois === moveu.antes - 1, moveu);
+  const idNovo = await pg2.evaluate(() => PASTAS.find(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela')._id);
+  await pg2.click('td[data-campo="pregoeiro"][data-id="' + idNovo + '"]');
+  await pg2.waitForTimeout(150);
+  await pg2.fill('td.editando input', 'rodrigo');
+  await pg2.keyboard.press('Enter');
+  await pg2.waitForTimeout(500);
+  const pregoeiroGravado = await pg2.evaluate((id) => window.__STORE.arquivo_pastas[id].pregoeiro, idNovo);
+  t('o pregoeiro entra em maiúsculas, como o resto do cadastro', pregoeiroGravado === 'RODRIGO', pregoeiroGravado);
+
+  await pg2.click('td[data-campo="valor"][data-id="' + idNovo + '"]');
+  await pg2.waitForTimeout(150);
+  await pg2.fill('td.editando input', '1.234,56');
+  await pg2.keyboard.press('Enter');
+  await pg2.waitForTimeout(500);
+  const valorGravado = await pg2.evaluate((id) => window.__STORE.arquivo_pastas[id].valor, idNovo);
+  t('o valor "1.234,56" vira número, não texto', valorGravado === 1234.56, valorGravado);
+
+  /* trocar a modalidade na célula MOVE o processo — é o mesmo gesto de
+     sempre, só que clicando na célula em vez de abrir um formulário */
+  const antesMover = await pg2.evaluate(() => Object.keys(window.__STORE.arquivo_pastas).length);
+  await pg2.click('td[data-campo="modalidade"][data-id="' + idNovo + '"]');
+  await pg2.waitForTimeout(150);
+  await pg2.selectOption('td.editando select', 'CONCORRÊNCIA');
+  await pg2.click('.nota', {force: true});   /* clique de verdade fora da célula, fecha e grava */
+  await pg2.waitForTimeout(500);
+  const moveu = await pg2.evaluate((id) => ({
+    docsNoBanco: Object.keys(window.__STORE.arquivo_pastas).length,
+    aindaNaLista: PASTAS.some(x => x._id === id),
+    noBanco: window.__STORE.arquivo_pastas[id].modalidade,
+    recado: (document.getElementById('impNota') || {}).textContent || ''
+  }), idNovo);
+  t('trocar a modalidade move o processo no banco, sem duplicar o documento',
+    moveu.noBanco === 'CONCORRÊNCIA' && moveu.docsNoBanco === antesMover, moveu);
+  t('e ele sai desta lista, que mostra uma modalidade só', !moveu.aindaNaLista, moveu);
   /* Sumir sem explicação é o que faz a pessoa achar que perdeu o registro. */
   t('a tela diz para onde ele foi, em vez de ele só sumir',
     /movido para CONCORRÊNCIA/.test(moveu.recado), moveu.recado);
@@ -382,222 +396,269 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     return PASTAS.some(x => x.processo === 'PE 99/2026 - Processo cadastrado pela tela');
   });
   t('e ele está lá, na modalidade nova', achou);
+
+  console.log('\n6c) Inexigibilidade tira o pregoeiro; Concorrência chama de "Agente de Contratação"');
+  await pg2.evaluate(async () => { escolherModalidade('INEXIGIBILIDADE'); await new Promise(r => setTimeout(r, 500)); });
+  const semPregoeiro = await pg2.evaluate(() => [...document.querySelectorAll('th')].map(th => th.textContent.trim()));
+  t('Inexigibilidade não tem coluna de Pregoeiro', semPregoeiro.indexOf('Pregoeiro') < 0, semPregoeiro);
+  const cabecalhosConc = await pg2.evaluate(() => [...document.querySelectorAll('th')].map(th => th.textContent.trim()));
+  t('e Concorrência (aba já aberta) mostra "Agente de Contratação" em vez de "Pregoeiro"',
+    cabecalhosConc.indexOf('Pregoeiro') < 0, cabecalhosConc);
+  await pg2.evaluate(async () => { escolherModalidade('CONCORRÊNCIA'); await new Promise(r => setTimeout(r, 500)); });
+  const cabecalhosConc2 = await pg2.evaluate(() => [...document.querySelectorAll('th')].map(th => th.textContent.trim()));
+  t('Concorrência mostra "Agente de Contratação"', cabecalhosConc2.indexOf('Agente de Contratação') >= 0, cabecalhosConc2);
   await pg2.close();
 
-  console.log('\n6c) "Na rua" → Arquivo: sugere catalogar quando volta da assinatura');
+  console.log('\n6d) "Na rua" → Arquivo: sugere catalogar quando volta da assinatura');
   /* docTipo ("DL") e docNum ("999/2026") do trâmite não batem sozinhos com
      modalidade+processo da pasta — dá para SUGERIR, com a pessoa confirmando
-     duas vezes: no confirm() antes de sair de "Na rua", e no "Salvar" do
-     formulário que abre já preenchido. Os três casos que importam: docTipo
+     duas vezes: no confirm() antes de sair de "Na rua", e no "Salvar" da
+     linha que abre já preenchida. Os três casos que importam: docTipo
      reconhecido soma para DISPENSA; docTipo de papelada (EXTRATOS) não
      sugere nada; e um empréstimo — documento já arquivado voltando de uma
      consulta — não sugere de novo, mesmo com docTipo mapeado. */
-  const pg3 = await b.newPage({viewport:{width:1280, height:900}});
+  const pg3 = await b.newPage({viewport:{width:1400, height:900}});
   const dialogos = [];
   pg3.on('dialog', d => { dialogos.push(d.message()); d.accept(); });
   await abrirArquivo(pg3, 'editar');
   const hojeISO = new Date().toISOString().slice(0, 10);
 
-  const posId = await pg3.evaluate(() => TRAMITES.find(x => x.docNum === '999/2026')._id);
   await pg3.click('.linha:has-text("999/2026") .btn-voltou');
   await pg3.waitForTimeout(700);
-  const positivo = await pg3.evaluate((id) => ({
-    gravou: window.__STORE.arquivo_tramites[id].voltouEm,
-    tela: telaAtual, mod: MOD_ATUAL,
-    formAberto: document.getElementById('ovPasta').classList.contains('open'),
-    proc: document.getElementById('paProc').value,
-    data: document.getElementById('paData').value,
-    modNoForm: document.getElementById('paMod').value
-  }), posId);
+  const positivo = await pg3.evaluate(() => {
+    const draft = PASTAS.find(p => !p._gravada);
+    const el = document.querySelector('td.editando');
+    return {
+      tela: telaAtual, mod: MOD_ATUAL,
+      draftProcesso: draft && draft.processo, draftArquivadoEm: draft && draft.arquivadoEm,
+      celulaAberta: el && el.dataset.campo,
+      valorNaCelula: el && el.querySelector('input') ? el.querySelector('input').value : null
+    };
+  });
   t('pergunta antes de sugerir, citando o documento e o motivo',
     dialogos.some(m => /DL/.test(m) && /999\/2026/.test(m) && /assinatura/.test(m)), dialogos);
+  const grav999 = await pg3.evaluate(() => {
+    const id = Object.keys(window.__STORE.arquivo_tramites).find(x => window.__STORE.arquivo_tramites[x].docNum === '999/2026');
+    return window.__STORE.arquivo_tramites[id];
+  });
   t('mas o retorno é gravado de qualquer forma — o "voltou" não depende do "sim"',
-    /^\d{4}-\d{2}-\d{2}$/.test(positivo.gravou || ''), positivo);
+    grav999 && /^\d{4}-\d{2}-\d{2}$/.test(grav999.voltouEm || ''), grav999);
   t('a tela pula direto para o Arquivo', positivo.tela === 'arq', positivo);
   t('já na modalidade certa, vinda do docTipo "DL"', positivo.mod === 'DISPENSA', positivo);
-  t('o formulário de processo novo abre sozinho', positivo.formAberto, positivo);
-  t('com o processo pré-preenchido a partir do trâmite', positivo.proc === 'DL 999/2026', positivo);
-  t('e a data de hoje, sem precisar digitar', positivo.data === hojeISO, positivo);
-  t('o formulário concorda com a modalidade da tela', positivo.modNoForm === 'DISPENSA', positivo);
+  t('nasce uma linha nova, com o processo pré-preenchido a partir do trâmite',
+    positivo.draftProcesso === 'DL 999/2026', positivo);
+  t('e a data de hoje, sem precisar digitar', positivo.draftArquivadoEm === hojeISO, positivo);
+  t('a célula "Processo" já abre pronta para conferir e completar',
+    positivo.celulaAberta === 'processo' && positivo.valorNaCelula === 'DL 999/2026', positivo);
   /* Nada foi gravado no arquivo ainda — só sugerido. Cadastrar de verdade é
-     o "Salvar" de sempre, já coberto em 6b. */
-  t('mas nada entrou de fato no arquivo — é sugestão, não cadastro automático',
-    await pg3.evaluate(() => !PASTAS.some(x => x.processo === 'DL 999/2026')));
-  await pg3.evaluate(() => fecharPasta());
+     o Enter de sempre, já coberto em 6b. */
+  t('mas nada entrou de fato no banco do arquivo — é sugestão, não cadastro automático',
+    await pg3.evaluate(() => !Object.values(window.__STORE.arquivo_pastas).some(p => p.processo === 'DL 999/2026')));
+  await pg3.keyboard.press('Escape');   /* desiste da sugestão — descarta a linha nunca gravada */
+  await pg3.waitForTimeout(300);
 
   dialogos.length = 0;
-  await pg3.evaluate(async () => { irPara('rua'); await new Promise(r => setTimeout(r, 300)); });
+  await pg3.click('.abas button:has-text("Na rua")');
+  await pg3.waitForTimeout(300);
   await pg3.click('.linha:has-text("50/2026") .btn-voltou');
   await pg3.waitForTimeout(500);
-  const semMapa = await pg3.evaluate(() => ({
-    tela: telaAtual, formAberto: document.getElementById('ovPasta').classList.contains('open')
-  }));
+  const semMapa = await pg3.evaluate(() => ({tela: telaAtual}));
   t('documento que é papelada (EXTRATOS), não processo, não sugere nada',
-    dialogos.length === 0 && semMapa.tela === 'rua' && !semMapa.formAberto, {dialogos, semMapa});
+    dialogos.length === 0 && semMapa.tela === 'rua', {dialogos, semMapa});
 
   dialogos.length = 0;
   await pg3.click('.linha:has-text("888/2026") .btn-voltou');
   await pg3.waitForTimeout(500);
-  const emprestimo = await pg3.evaluate(() => ({
-    tela: telaAtual, formAberto: document.getElementById('ovPasta').classList.contains('open')
-  }));
+  const emprestimo = await pg3.evaluate(() => ({tela: telaAtual}));
   t('documento emprestado — já catalogado — não sugere de novo, mesmo com docTipo mapeado',
-    dialogos.length === 0 && emprestimo.tela === 'rua' && !emprestimo.formAberto, {dialogos, emprestimo});
+    dialogos.length === 0 && emprestimo.tela === 'rua', {dialogos, emprestimo});
   await pg3.close();
 
-  console.log('\n6d) Cadastrar direto pela tela: trâmite, anulação e memorando');
-  const pg4 = await b.newPage({viewport:{width:1280, height:900}});
+  console.log('\n6e) Cadastrar direto na tabela: trâmite, anulação e memorando');
+  const pg4 = await b.newPage({viewport:{width:1400, height:900}});
   pg4.on('dialog', d => d.accept());
   await abrirArquivo(pg4, 'editar');
-  const hojeISO2 = new Date().toISOString().slice(0, 10);
+
+  /* --- Editar um trâmite existente pelo ✏️ (linha inteira, "Na rua" não é tabela) --- */
+  const antesEditarTr = await pg4.evaluate(() => Object.keys(window.__STORE.arquivo_tramites).length);
+  await pg4.click('.linha:has-text("101") .mini-btn');
+  await pg4.waitForTimeout(200);
+  const formEdicaoTr = await pg4.evaluate(() => ({
+    aberto: !!document.querySelector('[data-linha-edit]'),
+    comQuem: document.querySelector('[data-linha-edit] [data-campo="comQuem"]').value
+  }));
+  t('o ✏️ abre a linha inteira como formulário, ali mesmo — não é modal',
+    formEdicaoTr.aberto && formEdicaoTr.comQuem === 'ANDREI', formEdicaoTr);
+  await pg4.fill('[data-linha-edit] [data-campo="comQuem"]', 'corrigido');
+  await pg4.click('[data-linha-edit] button:has-text("Salvar")');
+  await pg4.waitForTimeout(500);
+  const salvouEdicaoTr = await pg4.evaluate(() => {
+    const alvo = TRAMITES.find(x => x.docNum === '101');
+    return {docsNoBanco: Object.keys(window.__STORE.arquivo_tramites).length,
+            comQuem: window.__STORE.arquivo_tramites[alvo._id].comQuem};
+  });
+  t('editar corrige o registro sem duplicar',
+    salvouEdicaoTr.docsNoBanco === antesEditarTr && salvouEdicaoTr.comQuem === 'CORRIGIDO', salvouEdicaoTr);
 
   /* --- Novo documento "na rua" --- */
-  await pg4.evaluate(async () => { irPara('rua'); await new Promise(r => setTimeout(r, 300)); });
   const antesRua = await pg4.evaluate(() => TRAMITES.length);
   await pg4.click('button:has-text("＋ Novo documento na rua")');
+  await pg4.waitForTimeout(200);
   const abriuTramite = await pg4.evaluate(() => ({
-    aberto: document.getElementById('ovTramite').classList.contains('open'),
-    tipoPadrao: document.getElementById('trTipo').value,
-    dataPadrao: document.getElementById('trData').value
+    aberto: !!document.querySelector('[data-linha-edit]'),
+    tipoPadrao: document.querySelector('[data-linha-edit] [data-campo="tipo"]').value,
+    dataPadrao: document.querySelector('[data-linha-edit] [data-campo="saiuEm"]').value
   }));
-  t('o formulário de novo documento abre com tipo "assinatura" e a data de hoje',
+  const hojeISO2 = new Date().toISOString().slice(0, 10);
+  t('a linha nova já nasce com tipo "assinatura" e a data de hoje',
     abriuTramite.aberto && abriuTramite.tipoPadrao === 'assinatura' && abriuTramite.dataPadrao === hojeISO2, abriuTramite);
-
-  const novoTr = await pg4.evaluate(async () => {
-    document.getElementById('trDocTipo').value = 'dl';
-    document.getElementById('trDocNum').value = '500/2026';
-    document.getElementById('trComQuem').value = 'testando';
-    salvarTramite();
-    await new Promise(r => setTimeout(r, 500));
+  await pg4.fill('[data-linha-edit] [data-campo="docTipo"]', 'dl');
+  await pg4.fill('[data-linha-edit] [data-campo="docNum"]', '500/2026');
+  await pg4.fill('[data-linha-edit] [data-campo="comQuem"]', 'testando');
+  await pg4.click('[data-linha-edit] button:has-text("Salvar")');
+  await pg4.waitForTimeout(500);
+  const novoTr = await pg4.evaluate(() => {
     const achado = TRAMITES.find(x => x.docNum === '500/2026');
     return {depois: TRAMITES.length, achado: achado || null,
-            noBanco: achado ? window.__STORE.arquivo_tramites[achado._id] : null,
-            fechou: !document.getElementById('ovTramite').classList.contains('open')};
+            noBanco: achado ? window.__STORE.arquivo_tramites[achado._id] : null};
   });
   t('o documento novo entra na lista de "Na rua"', novoTr.depois === antesRua + 1 && !!novoTr.achado, novoTr);
   t('docTipo e comQuem entram em maiúsculas',
     novoTr.noBanco && novoTr.noBanco.docTipo === 'DL' && novoTr.noBanco.comQuem === 'TESTANDO', novoTr.noBanco);
   t('nasce sem voltouEm — é isso que o deixa "na rua"', novoTr.noBanco && novoTr.noBanco.voltouEm === null, novoTr.noBanco);
-  t('o formulário fecha sozinho', novoTr.fechou, novoTr);
 
-  /* editar um trâmite existente pelo ✏️, sem usar "✓ Voltou hoje" */
-  await pg4.click('.linha:has-text("101") .mini-btn');
-  const formEdicaoTr = await pg4.evaluate(() => ({
-    titulo: document.getElementById('tramiteTit').textContent,
-    comQuem: document.getElementById('trComQuem').value
-  }));
-  t('editar um trâmite existente abre com "Documento na rua" e os dados dele',
-    formEdicaoTr.titulo === 'Documento na rua' && formEdicaoTr.comQuem === 'ANDREI', formEdicaoTr);
-  const salvouEdicaoTr = await pg4.evaluate(async () => {
-    document.getElementById('trComQuem').value = 'corrigido';
-    salvarTramite();
-    await new Promise(r => setTimeout(r, 500));
-    const alvo = TRAMITES.find(x => x.docNum === '101');
-    return {total: TRAMITES.length, comQuem: window.__STORE.arquivo_tramites[alvo._id].comQuem};
-  });
-  t('editar corrige o registro sem duplicar',
-    salvouEdicaoTr.total === novoTr.depois && salvouEdicaoTr.comQuem === 'CORRIGIDO', salvouEdicaoTr);
+  /* uma linha nova nunca tocada e cancelada não vira lixo no banco */
+  const antesCancelarTr = await pg4.evaluate(() => TRAMITES.length);
+  await pg4.click('button:has-text("＋ Novo documento na rua")');
+  await pg4.waitForTimeout(200);
+  await pg4.click('[data-linha-edit] button:has-text("Cancelar")');
+  await pg4.waitForTimeout(300);
+  const depoisCancelarTr = await pg4.evaluate(() => TRAMITES.length);
+  t('cancelar uma linha nunca gravada a descarta, em vez de deixá-la pairando',
+    depoisCancelarTr === antesCancelarTr, {antesCancelarTr, depoisCancelarTr});
 
   /* --- Nova anulação: o número vem do banco, não da janela carregada --- */
-  await pg4.evaluate(async () => { irPara('anul'); await new Promise(r => setTimeout(r, 400)); });
+  await pg4.click('.abas button:has-text("Anulações")');
+  await pg4.waitForTimeout(500);
   const anulCarregadas = await pg4.evaluate(() => ANULACOES.map(a => a.num));
   t('a janela padrão (30 dias) não traz a anulação nº 2 do ano — ela é mais antiga que 30 dias',
     anulCarregadas.indexOf(2) < 0, anulCarregadas);
+  t('secretaria não é pedida na anulação — não há coluna nem célula para ela',
+    await pg4.evaluate(() => !document.querySelector('th') || ![...document.querySelectorAll('th')].some(th => th.textContent.trim() === 'Secretaria')));
 
   await pg4.click('button:has-text("＋ Nova anulação")');
-  await pg4.waitForTimeout(600);   /* aguarda a consulta do próximo número */
-  const numCalculado = await pg4.evaluate(() => document.getElementById('anNum').value);
+  await pg4.waitForTimeout(700);
+  const numCalculado = await pg4.evaluate(() => document.querySelector('tbody tr td:first-child').textContent.trim());
   t('o próximo número é 3 — o maior do ANO (2, mesmo fora da tela) mais um, não 2 (o maior CARREGADO)',
     numCalculado === '3/' + ANO, {numCalculado, esperado: '3/' + ANO});
 
-  const novaAn = await pg4.evaluate(async () => {
-    document.getElementById('anReq').value = '09-99-2026-SMED';
-    document.getElementById('anSec').value = 'smed';
-    document.getElementById('anQuem').value = 'testando';
-    document.getElementById('anCredor').value = 'Fornecedor Teste';
-    document.getElementById('anValor').value = '1.500,00';
-    salvarAnul();
-    await new Promise(r => setTimeout(r, 500));
-    const achado = ANULACOES.find(x => x.requisicao === '09-99-2026-SMED');
-    return {achado: achado || null, noBanco: achado ? window.__STORE.arquivo_anulacoes[achado._id] : null,
-            naTela: [...document.querySelectorAll('table tbody tr td b')].some(td => /^3\//.test(td.textContent))};
-  });
-  t('a anulação nova grava com nº 3 e ano corrente',
-    novaAn.noBanco && novaAn.noBanco.num === 3 && novaAn.noBanco.ano === ANO, novaAn.noBanco);
-  t('secretaria e quem entram em maiúsculas',
-    novaAn.noBanco && novaAn.noBanco.reqSec === 'SMED' && novaAn.noBanco.quem === 'TESTANDO', novaAn.noBanco);
-  t('e o valor "1.500,00" vira número', novaAn.noBanco && novaAn.noBanco.valor === 1500, novaAn.noBanco);
-  t('aparece na tela mesmo sem estar na janela de 30 dias — acabou de ser criada', novaAn.naTela, novaAn);
+  await pg4.fill('td.editando input', '09-99-2026-SMED');   /* requisição, já aberta pelo foco inicial */
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(400);
+  /* o primeiro campo gravado troca o id de rascunho pelo id de verdade do
+     Firestore (ver gravarItem) — por isso o id só é lido DEPOIS desse Enter */
+  const idAnulNova = await pg4.evaluate(() => ANULACOES.find(a => a.requisicao === '09-99-2026-SMED')._id);
+  await pg4.click('td[data-campo="quem"][data-id="' + idAnulNova + '"]');
+  await pg4.fill('td.editando input', 'testando');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(400);
+  await pg4.click('td[data-campo="credor"][data-id="' + idAnulNova + '"]');
+  await pg4.fill('td.editando input', 'Fornecedor Teste');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(400);
+  await pg4.click('td[data-campo="valor"][data-id="' + idAnulNova + '"]');
+  await pg4.fill('td.editando input', '1.500,00');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(500);
+  const novaAn = await pg4.evaluate((id) => window.__STORE.arquivo_anulacoes[id], idAnulNova);
+  t('a anulação nova grava com nº 3 e ano corrente', novaAn && novaAn.num === 3 && novaAn.ano === ANO, novaAn);
+  t('secretaria não entra em lugar nenhum — o campo nem existe no cadastro',
+    novaAn && novaAn.reqSec === undefined, novaAn);
+  t('quem lançou entra em maiúsculas', novaAn && novaAn.quem === 'TESTANDO', novaAn);
+  t('e o valor "1.500,00" vira número', novaAn && novaAn.valor === 1500, novaAn);
 
   /* editar não recalcula o número */
-  const antesEdicaoAn = await pg4.evaluate(() => ANULACOES.length);
-  await pg4.click('tr.lin-clic:has-text("09-99-2026-SMED")');
-  const numEdicaoAn = await pg4.evaluate(() => document.getElementById('anNum').value);
-  t('editar a anulação recém-criada mantém o número — não recalcula',
-    numEdicaoAn === '3/' + ANO, {numEdicaoAn});
-  const editouAn = await pg4.evaluate(async () => {
-    document.getElementById('anCredor').value = 'Fornecedor Corrigido';
-    salvarAnul();
-    await new Promise(r => setTimeout(r, 500));
-    const achado = ANULACOES.find(x => x.requisicao === '09-99-2026-SMED');
-    return {total: ANULACOES.length, credor: window.__STORE.arquivo_anulacoes[achado._id].credor};
-  });
+  const antesEdicaoAn = await pg4.evaluate(() => Object.keys(window.__STORE.arquivo_anulacoes).length);
+  const numAntesEditar = await pg4.evaluate((id) => window.__STORE.arquivo_anulacoes[id].num, idAnulNova);
+  await pg4.click('td[data-campo="credor"][data-id="' + idAnulNova + '"]');
+  await pg4.fill('td.editando input', 'Fornecedor Corrigido');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(500);
+  const editouAn = await pg4.evaluate((id) => window.__STORE.arquivo_anulacoes[id], idAnulNova);
   t('editar corrige sem duplicar nem mudar o número',
-    editouAn.total === antesEdicaoAn && editouAn.credor === 'Fornecedor Corrigido', editouAn);
+    editouAn.credor === 'Fornecedor Corrigido' && editouAn.num === numAntesEditar
+    && Object.keys(await pg4.evaluate(() => window.__STORE.arquivo_anulacoes)).length === antesEdicaoAn, editouAn);
+
+  console.log('\n6f) Marcar "voltou" numa anulação, direto na tabela');
+  const idAnul1 = await pg4.evaluate(() => ANULACOES.find(a => a.num === 1)._id);
+  const antesVoltouAnul = await pg4.evaluate(() => Object.keys(window.__STORE.arquivo_anulacoes).length);
+  await pg4.click('td[data-campo="retornoEm"][data-id="' + idAnul1 + '"]');
+  await pg4.waitForTimeout(150);
+  await pg4.fill('td.editando input[type=date]', '2026-09-10');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(500);
+  const anul1Depois = await pg4.evaluate((id) => window.__STORE.arquivo_anulacoes[id], idAnul1);
+  const depoisVoltouAnul = await pg4.evaluate(() => Object.keys(window.__STORE.arquivo_anulacoes).length);
+  t('antes não havia nenhum jeito de marcar — agora a célula "Voltou" grava a data',
+    anul1Depois.retornoEm === '2026-09-10', anul1Depois);
+  t('sem duplicar o documento', depoisVoltouAnul === antesVoltouAnul, {antesVoltouAnul, depoisVoltouAnul});
 
   /* --- Novo memorando, na secretaria da tela --- */
-  await pg4.evaluate(async () => {
-    irPara('memo'); escolherSecretariaMemo('SMED');
-    await new Promise(r => setTimeout(r, 500));
-  });
+  await pg4.click('.abas button:has-text("Memorandos")');
+  await pg4.waitForTimeout(300);
+  await pg4.click('.mod-faixa button:has-text("SMED")');
+  await pg4.waitForTimeout(500);
   const antesMemo = await pg4.evaluate(() => MEMORANDOS.length);
   await pg4.click('button:has-text("＋ Novo memorando")');
-  const abriuMemo = await pg4.evaluate(() => ({
-    aberto: document.getElementById('ovMemo').classList.contains('open'),
-    secPadrao: document.getElementById('moSec').value,
-    dataPadrao: document.getElementById('moData').value
-  }));
-  t('o formulário de novo memorando já nasce na secretaria da tela',
-    abriuMemo.aberto && abriuMemo.secPadrao === 'SMED' && abriuMemo.dataPadrao === hojeISO2, abriuMemo);
-
-  const novoMe = await pg4.evaluate(async () => {
-    document.getElementById('moNum').value = '99/2026';
-    document.getElementById('moPara').value = 'testando';
-    document.getElementById('moDesc').value = 'Memorando de teste';
-    salvarMemo();
-    await new Promise(r => setTimeout(r, 500));
+  await pg4.waitForTimeout(200);
+  const abriuMemo = await pg4.evaluate(() => {
+    const el = document.querySelector('td.editando');
+    return {campo: el && el.dataset.campo, temInput: !!(el && el.querySelector('input'))};
+  });
+  t('"+ Novo memorando" já abre a célula do número, na secretaria da tela',
+    abriuMemo.campo === 'num' && abriuMemo.temInput, abriuMemo);
+  await pg4.fill('td.editando input', '99/2026');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(500);
+  const novoMe = await pg4.evaluate(() => {
     const achado = MEMORANDOS.find(x => x.num === '99/2026');
     return {depois: MEMORANDOS.length, achado: achado || null,
             noBanco: achado ? window.__STORE.arquivo_memorandos[achado._id] : null};
   });
   t('o memorando novo entra na secretaria atual', novoMe.depois === antesMemo + 1 && !!novoMe.achado, novoMe);
-  t('entregue para entra em maiúsculas, e o ano é derivado da data de recebimento',
-    novoMe.noBanco && novoMe.noBanco.entregueA === 'TESTANDO' && novoMe.noBanco.ano === ANO, novoMe.noBanco);
+  t('nasce na secretaria SMED, e o ano é derivado da data de recebimento',
+    novoMe.noBanco && novoMe.noBanco.secretaria === 'SMED' && novoMe.noBanco.ano === ANO, novoMe.noBanco);
 
-  /* trocar a secretaria no formulário MOVE o memorando, como nas pastas */
-  const moveuMemo = await pg4.evaluate(async () => {
-    const alvo = MEMORANDOS.find(x => x.num === '99/2026');
-    abrirMemo(alvo._id);
-    document.getElementById('moSec').value = 'SMS';
-    salvarMemo();
-    await new Promise(r => setTimeout(r, 500));
-    return {aindaAqui: MEMORANDOS.some(x => x.num === '99/2026'),
-            noBanco: window.__STORE.arquivo_memorandos[alvo._id].secretaria,
-            recado: (document.getElementById('impNota') || {}).textContent || ''};
-  });
+  await pg4.click('td[data-campo="entregueA"][data-id="' + novoMe.achado._id + '"]');
+  await pg4.fill('td.editando input', 'testando');
+  await pg4.keyboard.press('Enter');
+  await pg4.waitForTimeout(500);
+  const entregueGravado = await pg4.evaluate((id) => window.__STORE.arquivo_memorandos[id].entregueA, novoMe.achado._id);
+  t('entregue para entra em maiúsculas', entregueGravado === 'TESTANDO', entregueGravado);
+
+  /* trocar a secretaria na célula MOVE o memorando, como nas pastas */
+  const idMemoNovo = novoMe.achado._id;
+  await pg4.click('td[data-campo="secretaria"][data-id="' + idMemoNovo + '"]');
+  await pg4.waitForTimeout(150);
+  await pg4.selectOption('td.editando select', 'SMS');
+  await pg4.click('.nota', {force: true});
+  await pg4.waitForTimeout(500);
+  const moveuMemo = await pg4.evaluate((id) => ({
+    aindaAqui: MEMORANDOS.some(x => x._id === id),
+    noBanco: window.__STORE.arquivo_memorandos[id].secretaria,
+    recado: (document.getElementById('impNota') || {}).textContent || ''
+  }), idMemoNovo);
   t('trocar a secretaria move o memorando e ele some desta lista',
     !moveuMemo.aindaAqui && moveuMemo.noBanco === 'SMS', moveuMemo);
   t('a tela avisa para onde foi', /movido para SMS/.test(moveuMemo.recado), moveuMemo.recado);
 
   /* o rótulo encurtado do botão não pode mudar o valor usado na consulta */
-  const nucleo = await pg4.evaluate(async () => {
-    escolherSecretariaMemo('NUCLEO PROJETOSENGENHEIROS');
-    await new Promise(r => setTimeout(r, 500));
-    return {
-      descricoes: MEMORANDOS.map(m => m.descricao),
-      botaoOn: document.querySelector('.mod-btn.on').textContent.trim()
-    };
-  });
+  await pg4.click('.mod-faixa button:has-text("NUCLEO PROJETOS")');
+  await pg4.waitForTimeout(500);
+  const nucleo = await pg4.evaluate(() => ({
+    descricoes: MEMORANDOS.map(m => m.descricao),
+    botaoOn: document.querySelector('.mod-btn.on').textContent.trim()
+  }));
   t('o botão mostra o rótulo curto "NUCLEO PROJETOS", não o nome inteiro da aba',
     nucleo.botaoOn.indexOf('NUCLEO PROJETOS') >= 0 && nucleo.botaoOn.indexOf('ENGENHEIROS') < 0, nucleo);
   t('mas a consulta usa o valor real da secretaria e acha o memorando certo',
@@ -622,19 +683,18 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     avisos.some(m => /leitura/i.test(m)), avisos);
   t('o botão de importar não aparece para ele', !leitura.botaoImportar, leitura);
 
-  /* Os três formulários de cadastro (trâmite, anulação, memorando) usam a
-     mesma trava de sempre — chamar a função direto, sem passar pelo botão,
-     porque quem só visualiza nem vê o botão para clicar. */
+  /* "+ Novo..." e o ✏️ de "Na rua" usam a mesma trava — chamar a função
+     direto, sem passar pelo botão, porque quem só visualiza nem vê o
+     botão para clicar. */
   const semCadastro = await ver.evaluate(() => {
-    novoTramite(); novaAnul(); novoMemo();
-    return {
-      tramite: document.getElementById('ovTramite').classList.contains('open'),
-      anul: document.getElementById('ovAnul').classList.contains('open'),
-      memo: document.getElementById('ovMemo').classList.contains('open')
-    };
+    novaLinha('arq'); novaLinha('anul'); novaLinha('memo'); novaLinha('rua');
+    return {pastas: PASTAS.length, anul: ANULACOES.length, memo: MEMORANDOS.length,
+            celulaAberta: !!document.querySelector('td.editando'),
+            formTramite: !!document.querySelector('[data-linha-edit]')};
   });
-  t('quem só visualiza não consegue abrir nenhum dos três formulários de cadastro',
-    !semCadastro.tramite && !semCadastro.anul && !semCadastro.memo, semCadastro);
+  t('quem só visualiza não consegue abrir nenhuma célula nem criar nenhuma linha',
+    semCadastro.pastas === 0 && semCadastro.anul === 0 && semCadastro.memo === 0
+    && !semCadastro.celulaAberta && !semCadastro.formTramite, semCadastro);
   t('e foi avisado do motivo em cada tentativa', avisos.filter(m => /leitura/i.test(m)).length >= 4, avisos);
   await ver.close();
 

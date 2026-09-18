@@ -1704,6 +1704,21 @@ function pdfTexto(v){
   /* o que sobrou fora do que a fonte conhece sai, em vez de estragar a linha */
   return t.replace(/[^ -ÿ–—‘’“”…€]/g, '');
 }
+/* splitTextToSize do jsPDF NÃO trata "\n" como quebra de linha — ele só separa
+   por espaço, e o "\n" embutido (usado para separar nº/ano de modalidade, ou
+   vencimento de "NAO PRORROGA") vira parte de uma "palavra" sem espaço, que
+   é cortada no meio do caractere quando não cabe na coluna. Foi isso que
+   produzia "141/2026CONC. E. 31/2026" e "NAO PRORROGA" grudados e cortados
+   ao meio. Por isso quebramos por "\n" nós mesmos, e só depois pedimos para
+   cada pedaço se ajustar à largura da coluna — cada pedaço vira sua(s)
+   própria(s) linha(s), nunca emendado com o pedaço seguinte. */
+function pdfQuebrarCelula(doc, texto, largura){
+  let linhas = [];
+  String(texto).split('\n').forEach(trecho => {
+    linhas = linhas.concat(doc.splitTextToSize(trecho, largura));
+  });
+  return linhas;
+}
 
 const HOJE = new Date(); HOJE.setHours(0,0,0,0);
 const fmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
@@ -3474,7 +3489,7 @@ function pdfRows(doc, itens, yStart, tituloPag, sub){
   doc.setFont('helvetica','normal'); doc.setFontSize(PDF_FS);
   let zebra = false;
   itens.forEach(c=>{
-    const cells = COLS.map(col=>doc.splitTextToSize(pdfTexto(col.f(c)), col.w-4.5));
+    const cells = COLS.map(col=>pdfQuebrarCelula(doc, pdfTexto(col.f(c)), col.w-4.5));
     const h = Math.max(...cells.map(l=>l.length))*PDF_LH + 3;
     if(y+h > PH-MB){
       doc.addPage(); pdfHeader(doc, tituloPag, sub); y = pdfTableHeader(doc, MT-4);

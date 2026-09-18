@@ -343,6 +343,17 @@ O cadastro tem 75 setas `→` e 28 setas de Wingdings coladas do Word, todas
 separando o valor total do mensal; `pdfTexto()` troca por `->` antes de
 desenhar. Ao colar objeto novo vindo do Word, é isso que segura o estrago.
 
+Outro cuidado, esse dentro de uma célula só: colunas estreitas como "Nº/Ano"
+e "Venc." combinam dois dados numa célula com `"\n"` entre eles (o número
+embaixo da modalidade, a data embaixo do aviso "NAO PRORROGA"). O jsPDF não
+trata esse `"\n"` como quebra de linha — só separa por espaço — e o `"\n"`
+embutido virava parte de uma "palavra" sem espaço, cortada no meio do
+caractere quando não cabia na coluna: `"141/2026CONC. E. 31/2026"` saía
+grudado e cortado ao meio. `pdfQuebrarCelula()` separa por `"\n"` primeiro,
+em JavaScript puro, e só depois pede pro jsPDF ajustar cada pedaço à
+largura da coluna — cada pedaço vira sua própria linha, nunca emendado com
+o seguinte.
+
 ## Histórico de edições
 
 Toda gravação — contrato novo, edição, aditivo cadastrado, alterado ou

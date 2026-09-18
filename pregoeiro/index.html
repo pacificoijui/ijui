@@ -240,7 +240,13 @@
   /* ── Filtros recolhíveis (aparecem só em telas estreitas / celular) ─────── */
   .filtros-colapsavel { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 20px; }
+  /* align-items:start — sem isso, o grid usa o padrão "stretch" e estica
+     todo card até a altura do vizinho mais alto da mesma linha. Um card
+     com objeto curto ao lado de um com objeto de dez linhas ficava esticado
+     por baixo: o conteúdo (cabeçalho, progresso, rodapé) some no topo, e o
+     espaço extra vira uma faixa em branco depois do último botão — nada
+     quebrado, só um card que não devia ter aquele tamanho. */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 20px; align-items: start; }
 
   .card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); border: 1.5px solid var(--border); overflow: hidden; display: flex; flex-direction: column; }
   .card-header { padding: 16px 19px 13px; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, #f5f7fd 0%, #fff 100%); border-top: 3px solid var(--navy); }
