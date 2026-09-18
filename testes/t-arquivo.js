@@ -75,7 +75,10 @@ const memorandos = {
   '1': {id:1, num:'10', secretaria:'SMED', entregueA:'ANDREI', recebidoEm:RECENTE,          ano:ANO,   descricao:'deste mes'},
   '2': {id:2, num:'11', secretaria:'SMS',  entregueA:'ANDREI', recebidoEm:VELHO_MES,        ano:ANO,   descricao:'do ano, fora do mes'},
   '3': {id:3, num:'12', secretaria:'SMS',  entregueA:'ANDREI', recebidoEm:(ANO-3)+'-04-01', ano:ANO-3, descricao:'de anos atras'},
-  '4': {id:4, num:'13', secretaria:'SMS',  entregueA:'MAITÊ',  recebidoEm:null,             ano:null,  descricao:'sem data na planilha'}
+  '4': {id:4, num:'13', secretaria:'SMS',  entregueA:'MAITÊ',  recebidoEm:null,             ano:null,  descricao:'sem data na planilha'},
+  /* O nome real da aba é longo — é ele que a consulta usa (ver 6d). O botão
+     mostra um rótulo curto, mas isso não pode mudar o valor gravado. */
+  '5': {id:5, num:'77', secretaria:'NUCLEO PROJETOSENGENHEIROS', entregueA:'FULANO', recebidoEm:RECENTE, ano:ANO, descricao:'projeto de engenharia'}
 };
 
 const TOTAL_PASTAS = Object.keys(pastas).length;
@@ -442,6 +445,165 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     dialogos.length === 0 && emprestimo.tela === 'rua' && !emprestimo.formAberto, {dialogos, emprestimo});
   await pg3.close();
 
+  console.log('\n6d) Cadastrar direto pela tela: trâmite, anulação e memorando');
+  const pg4 = await b.newPage({viewport:{width:1280, height:900}});
+  pg4.on('dialog', d => d.accept());
+  await abrirArquivo(pg4, 'editar');
+  const hojeISO2 = new Date().toISOString().slice(0, 10);
+
+  /* --- Novo documento "na rua" --- */
+  await pg4.evaluate(async () => { irPara('rua'); await new Promise(r => setTimeout(r, 300)); });
+  const antesRua = await pg4.evaluate(() => TRAMITES.length);
+  await pg4.click('button:has-text("＋ Novo documento na rua")');
+  const abriuTramite = await pg4.evaluate(() => ({
+    aberto: document.getElementById('ovTramite').classList.contains('open'),
+    tipoPadrao: document.getElementById('trTipo').value,
+    dataPadrao: document.getElementById('trData').value
+  }));
+  t('o formulário de novo documento abre com tipo "assinatura" e a data de hoje',
+    abriuTramite.aberto && abriuTramite.tipoPadrao === 'assinatura' && abriuTramite.dataPadrao === hojeISO2, abriuTramite);
+
+  const novoTr = await pg4.evaluate(async () => {
+    document.getElementById('trDocTipo').value = 'dl';
+    document.getElementById('trDocNum').value = '500/2026';
+    document.getElementById('trComQuem').value = 'testando';
+    salvarTramite();
+    await new Promise(r => setTimeout(r, 500));
+    const achado = TRAMITES.find(x => x.docNum === '500/2026');
+    return {depois: TRAMITES.length, achado: achado || null,
+            noBanco: achado ? window.__STORE.arquivo_tramites[achado._id] : null,
+            fechou: !document.getElementById('ovTramite').classList.contains('open')};
+  });
+  t('o documento novo entra na lista de "Na rua"', novoTr.depois === antesRua + 1 && !!novoTr.achado, novoTr);
+  t('docTipo e comQuem entram em maiúsculas',
+    novoTr.noBanco && novoTr.noBanco.docTipo === 'DL' && novoTr.noBanco.comQuem === 'TESTANDO', novoTr.noBanco);
+  t('nasce sem voltouEm — é isso que o deixa "na rua"', novoTr.noBanco && novoTr.noBanco.voltouEm === null, novoTr.noBanco);
+  t('o formulário fecha sozinho', novoTr.fechou, novoTr);
+
+  /* editar um trâmite existente pelo ✏️, sem usar "✓ Voltou hoje" */
+  await pg4.click('.linha:has-text("101") .mini-btn');
+  const formEdicaoTr = await pg4.evaluate(() => ({
+    titulo: document.getElementById('tramiteTit').textContent,
+    comQuem: document.getElementById('trComQuem').value
+  }));
+  t('editar um trâmite existente abre com "Documento na rua" e os dados dele',
+    formEdicaoTr.titulo === 'Documento na rua' && formEdicaoTr.comQuem === 'ANDREI', formEdicaoTr);
+  const salvouEdicaoTr = await pg4.evaluate(async () => {
+    document.getElementById('trComQuem').value = 'corrigido';
+    salvarTramite();
+    await new Promise(r => setTimeout(r, 500));
+    const alvo = TRAMITES.find(x => x.docNum === '101');
+    return {total: TRAMITES.length, comQuem: window.__STORE.arquivo_tramites[alvo._id].comQuem};
+  });
+  t('editar corrige o registro sem duplicar',
+    salvouEdicaoTr.total === novoTr.depois && salvouEdicaoTr.comQuem === 'CORRIGIDO', salvouEdicaoTr);
+
+  /* --- Nova anulação: o número vem do banco, não da janela carregada --- */
+  await pg4.evaluate(async () => { irPara('anul'); await new Promise(r => setTimeout(r, 400)); });
+  const anulCarregadas = await pg4.evaluate(() => ANULACOES.map(a => a.num));
+  t('a janela padrão (30 dias) não traz a anulação nº 2 do ano — ela é mais antiga que 30 dias',
+    anulCarregadas.indexOf(2) < 0, anulCarregadas);
+
+  await pg4.click('button:has-text("＋ Nova anulação")');
+  await pg4.waitForTimeout(600);   /* aguarda a consulta do próximo número */
+  const numCalculado = await pg4.evaluate(() => document.getElementById('anNum').value);
+  t('o próximo número é 3 — o maior do ANO (2, mesmo fora da tela) mais um, não 2 (o maior CARREGADO)',
+    numCalculado === '3/' + ANO, {numCalculado, esperado: '3/' + ANO});
+
+  const novaAn = await pg4.evaluate(async () => {
+    document.getElementById('anReq').value = '09-99-2026-SMED';
+    document.getElementById('anSec').value = 'smed';
+    document.getElementById('anQuem').value = 'testando';
+    document.getElementById('anCredor').value = 'Fornecedor Teste';
+    document.getElementById('anValor').value = '1.500,00';
+    salvarAnul();
+    await new Promise(r => setTimeout(r, 500));
+    const achado = ANULACOES.find(x => x.requisicao === '09-99-2026-SMED');
+    return {achado: achado || null, noBanco: achado ? window.__STORE.arquivo_anulacoes[achado._id] : null,
+            naTela: [...document.querySelectorAll('table tbody tr td b')].some(td => /^3\//.test(td.textContent))};
+  });
+  t('a anulação nova grava com nº 3 e ano corrente',
+    novaAn.noBanco && novaAn.noBanco.num === 3 && novaAn.noBanco.ano === ANO, novaAn.noBanco);
+  t('secretaria e quem entram em maiúsculas',
+    novaAn.noBanco && novaAn.noBanco.reqSec === 'SMED' && novaAn.noBanco.quem === 'TESTANDO', novaAn.noBanco);
+  t('e o valor "1.500,00" vira número', novaAn.noBanco && novaAn.noBanco.valor === 1500, novaAn.noBanco);
+  t('aparece na tela mesmo sem estar na janela de 30 dias — acabou de ser criada', novaAn.naTela, novaAn);
+
+  /* editar não recalcula o número */
+  const antesEdicaoAn = await pg4.evaluate(() => ANULACOES.length);
+  await pg4.click('tr.lin-clic:has-text("09-99-2026-SMED")');
+  const numEdicaoAn = await pg4.evaluate(() => document.getElementById('anNum').value);
+  t('editar a anulação recém-criada mantém o número — não recalcula',
+    numEdicaoAn === '3/' + ANO, {numEdicaoAn});
+  const editouAn = await pg4.evaluate(async () => {
+    document.getElementById('anCredor').value = 'Fornecedor Corrigido';
+    salvarAnul();
+    await new Promise(r => setTimeout(r, 500));
+    const achado = ANULACOES.find(x => x.requisicao === '09-99-2026-SMED');
+    return {total: ANULACOES.length, credor: window.__STORE.arquivo_anulacoes[achado._id].credor};
+  });
+  t('editar corrige sem duplicar nem mudar o número',
+    editouAn.total === antesEdicaoAn && editouAn.credor === 'Fornecedor Corrigido', editouAn);
+
+  /* --- Novo memorando, na secretaria da tela --- */
+  await pg4.evaluate(async () => {
+    irPara('memo'); escolherSecretariaMemo('SMED');
+    await new Promise(r => setTimeout(r, 500));
+  });
+  const antesMemo = await pg4.evaluate(() => MEMORANDOS.length);
+  await pg4.click('button:has-text("＋ Novo memorando")');
+  const abriuMemo = await pg4.evaluate(() => ({
+    aberto: document.getElementById('ovMemo').classList.contains('open'),
+    secPadrao: document.getElementById('moSec').value,
+    dataPadrao: document.getElementById('moData').value
+  }));
+  t('o formulário de novo memorando já nasce na secretaria da tela',
+    abriuMemo.aberto && abriuMemo.secPadrao === 'SMED' && abriuMemo.dataPadrao === hojeISO2, abriuMemo);
+
+  const novoMe = await pg4.evaluate(async () => {
+    document.getElementById('moNum').value = '99/2026';
+    document.getElementById('moPara').value = 'testando';
+    document.getElementById('moDesc').value = 'Memorando de teste';
+    salvarMemo();
+    await new Promise(r => setTimeout(r, 500));
+    const achado = MEMORANDOS.find(x => x.num === '99/2026');
+    return {depois: MEMORANDOS.length, achado: achado || null,
+            noBanco: achado ? window.__STORE.arquivo_memorandos[achado._id] : null};
+  });
+  t('o memorando novo entra na secretaria atual', novoMe.depois === antesMemo + 1 && !!novoMe.achado, novoMe);
+  t('entregue para entra em maiúsculas, e o ano é derivado da data de recebimento',
+    novoMe.noBanco && novoMe.noBanco.entregueA === 'TESTANDO' && novoMe.noBanco.ano === ANO, novoMe.noBanco);
+
+  /* trocar a secretaria no formulário MOVE o memorando, como nas pastas */
+  const moveuMemo = await pg4.evaluate(async () => {
+    const alvo = MEMORANDOS.find(x => x.num === '99/2026');
+    abrirMemo(alvo._id);
+    document.getElementById('moSec').value = 'SMS';
+    salvarMemo();
+    await new Promise(r => setTimeout(r, 500));
+    return {aindaAqui: MEMORANDOS.some(x => x.num === '99/2026'),
+            noBanco: window.__STORE.arquivo_memorandos[alvo._id].secretaria,
+            recado: (document.getElementById('impNota') || {}).textContent || ''};
+  });
+  t('trocar a secretaria move o memorando e ele some desta lista',
+    !moveuMemo.aindaAqui && moveuMemo.noBanco === 'SMS', moveuMemo);
+  t('a tela avisa para onde foi', /movido para SMS/.test(moveuMemo.recado), moveuMemo.recado);
+
+  /* o rótulo encurtado do botão não pode mudar o valor usado na consulta */
+  const nucleo = await pg4.evaluate(async () => {
+    escolherSecretariaMemo('NUCLEO PROJETOSENGENHEIROS');
+    await new Promise(r => setTimeout(r, 500));
+    return {
+      descricoes: MEMORANDOS.map(m => m.descricao),
+      botaoOn: document.querySelector('.mod-btn.on').textContent.trim()
+    };
+  });
+  t('o botão mostra o rótulo curto "NUCLEO PROJETOS", não o nome inteiro da aba',
+    nucleo.botaoOn.indexOf('NUCLEO PROJETOS') >= 0 && nucleo.botaoOn.indexOf('ENGENHEIROS') < 0, nucleo);
+  t('mas a consulta usa o valor real da secretaria e acha o memorando certo',
+    nucleo.descricoes.indexOf('projeto de engenharia') >= 0, nucleo);
+  await pg4.close();
+
   console.log('\n7) Quem só visualiza não grava');
   const ver = await b.newPage({viewport:{width:1280, height:900}});
   const avisos = []; ver.on('dialog', d => { avisos.push(d.message()); d.accept(); });
@@ -459,6 +621,21 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   t('e é avisado, em vez de o clique não fazer nada',
     avisos.some(m => /leitura/i.test(m)), avisos);
   t('o botão de importar não aparece para ele', !leitura.botaoImportar, leitura);
+
+  /* Os três formulários de cadastro (trâmite, anulação, memorando) usam a
+     mesma trava de sempre — chamar a função direto, sem passar pelo botão,
+     porque quem só visualiza nem vê o botão para clicar. */
+  const semCadastro = await ver.evaluate(() => {
+    novoTramite(); novaAnul(); novoMemo();
+    return {
+      tramite: document.getElementById('ovTramite').classList.contains('open'),
+      anul: document.getElementById('ovAnul').classList.contains('open'),
+      memo: document.getElementById('ovMemo').classList.contains('open')
+    };
+  });
+  t('quem só visualiza não consegue abrir nenhum dos três formulários de cadastro',
+    !semCadastro.tramite && !semCadastro.anul && !semCadastro.memo, semCadastro);
+  t('e foi avisado do motivo em cada tentativa', avisos.filter(m => /leitura/i.test(m)).length >= 4, avisos);
   await ver.close();
 
   console.log('\n8) A importação sobe os arquivos ESCOLHIDOS no computador');

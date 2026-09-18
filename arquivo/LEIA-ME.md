@@ -152,23 +152,48 @@ Firestore não filtra por "os quatro primeiros caracteres de `recebidoEm`".
 A anulação já traz o dela da planilha; o memorando ganha o dele **na
 importação** — por isso isso tinha de nascer antes da primeira carga.
 
-## Cadastrar e mover um processo
+## Cadastrar direto pela tela
 
-O "Controle do Arquivo" de papel tinha uma aba por modalidade, e mover um
-processo entre abas era mover a pasta de lugar. Aqui é o mesmo gesto, no
-mesmo formulário que cadastra: **＋ Novo processo** abre em branco, clicar
-numa linha abre preenchido, e **trocar a modalidade move**. Não existe um
-"mover" à parte porque nunca foram duas ações — a pessoa está corrigindo
-onde o processo está guardado.
+Até aqui, um documento só entrava numa das quatro coleções pela planilha e
+pela importação — mesmo algo tão simples quanto "isto saiu hoje para
+assinatura" esperava a próxima conversão. As quatro telas agora cadastram
+e editam: **Arquivo** (＋ Novo processo), **Na rua** (＋ Novo documento na
+rua), **Anulações** (＋ Nova anulação) e **Memorandos** (＋ Novo
+memorando).
 
-Processo que muda de modalidade sai da lista na hora, porque a tela mostra
-uma modalidade só. A tela diz para onde ele foi: sumir sem explicação é o
-que faz alguém achar que perdeu o registro.
+O gesto é o mesmo nas quatro: o botão **＋** abre o formulário em branco, e
+**clicar numa linha existente abre o mesmo formulário preenchido** — não
+existe um "editar" à parte, porque cadastrar e corrigir nunca foram duas
+telas diferentes, só o mesmo formulário com ou sem dado dentro. Em Arquivo
+e Memorandos, esse formulário também **move**: trocar a modalidade ou a
+secretaria no mesmo "Salvar" tira o registro da faixa em que ele estava e
+manda para a outra — a tela avisa para onde foi, porque sumir sem
+explicação é o que faz alguém achar que perdeu o registro. "Na rua" e
+Anulações não têm essa faixa para mover entre (docTipo e requisição não
+particionam a leitura como modalidade e secretaria fazem), então ali o
+formulário só cadastra e corrige.
 
-Processo nascido na tela **não leva o campo `id`** — esse número é da
-planilha, e quem o usa é a importação, para reescrever em vez de duplicar.
-Ele ganha id próprio do Firestore, e assim uma reimportação da planilha
-nunca passa por cima dele.
+Registro nascido na tela **não leva o campo `id`** da planilha — quem usa
+esse número é a importação, para reescrever em vez de duplicar. Ele ganha
+id próprio do Firestore, e assim uma reimportação nunca passa por cima
+dele.
+
+**A anulação é a exceção: ela tem numeração própria e sequencial**, que a
+planilha nunca pula (1, 2, 3…) — diferente do número de um memorando ou de
+um trâmite, que é só o que está escrito no papel físico. Por isso o campo
+"Nº" não se digita: ao abrir o formulário, a tela pergunta ao banco pelo
+maior número do **ano corrente** (`where('ano','==',ANO)`, uma consulta de
+campo só — sem `orderBy`, para não pedir índice composto) e usa aquele
+mais um. Essa consulta é separada do que está carregado na tela de
+propósito: se a janela aberta for "30 dias", a maior anulação do ano pode
+nem estar em memória, e tirar o próximo número dali repetiria um nº que já
+existe no banco. É uma leitura a mais, só ao abrir o formulário — não a
+cada render, e não presa ao que a tela está mostrando.
+
+Não há trava contra duas pessoas cadastrando no mesmo minuto e calculando
+o mesmo próximo número — é um escritório pequeno, o caso é raro, e
+corrige-se editando o número depois. Não é um problema que pede a
+complexidade de uma transação.
 
 ## Os filtros
 
@@ -287,9 +312,11 @@ mão, que serviu ao protótipo.
 
 ## O que falta
 
-1. **Cadastrar pela tela**: a anulação (com numeração automática), o
-   trâmite novo e o "passar para outra pessoa" — hoje a tela grava a volta,
-   e o resto ainda entra pela planilha e pela importação.
+1. **Um gesto próprio para "passar para outra pessoa"** — hoje isso é só
+   editar o campo "Com quem" no formulário de "Na rua" (ver *Cadastrar
+   direto pela tela*), o que funciona mas não deixa rastro de que houve uma
+   troca de mãos, só o estado final. O `SERAFIM` escrito na coluna "DATA
+   RETORNO" da planilha é exatamente esse caso sem forma própria.
 2. **Ligar na requisição** — a anulação cita `09-72-2026-SMED`, que já
    existe em `/requisicao/`. Clicar e abrir a requisição fecha o ciclo.
 

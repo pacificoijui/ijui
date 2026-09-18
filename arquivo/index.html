@@ -375,6 +375,79 @@
 </div>
 <datalist id="listaPregoeiros"></datalist>
 
+<!-- CADASTRAR / EDITAR UM DOCUMENTO "NA RUA" -->
+<div class="ov" id="ovTramite" onclick="if(event.target===this)fecharTramite()">
+  <div class="ov-cx">
+    <div class="ov-tp"><h3 id="tramiteTit">Novo documento na rua</h3>
+      <button class="ov-x" onclick="fecharTramite()">✕</button></div>
+    <div class="ov-md">
+      <div class="cmp s4"><label>Tipo</label><select id="trTipo"></select></div>
+      <div class="cmp s4"><label>Documento</label><input type="text" id="trDocTipo" list="listaDocTipo" placeholder="Ex: DL"></div>
+      <div class="cmp s4"><label>Número</label><input type="text" id="trDocNum" placeholder="Ex: 45/2026"></div>
+      <div class="cmp s6"><label>Com quem</label><input type="text" id="trComQuem" list="listaComQuem"></div>
+      <div class="cmp s6"><label>Secretaria</label><input type="text" id="trSec"></div>
+      <div class="cmp s12"><label>Saiu em</label><input type="date" id="trData"></div>
+    </div>
+    <div class="ov-pe">
+      <button class="mini-btn" onclick="fecharTramite()">Cancelar</button>
+      <button class="mini-btn" style="background:var(--navy);color:#fff;border-color:var(--navy)"
+              onclick="salvarTramite()">Salvar</button>
+    </div>
+  </div>
+</div>
+<datalist id="listaDocTipo"></datalist>
+<datalist id="listaComQuem"></datalist>
+
+<!-- CADASTRAR / EDITAR UMA ANULAÇÃO -->
+<div class="ov" id="ovAnul" onclick="if(event.target===this)fecharAnul()">
+  <div class="ov-cx">
+    <div class="ov-tp"><h3 id="anulTit">Nova anulação</h3>
+      <button class="ov-x" onclick="fecharAnul()">✕</button></div>
+    <div class="ov-md">
+      <div class="cmp s4"><label>Nº</label><input type="text" id="anNum" disabled></div>
+      <div class="cmp s4"><label>Contabilidade em</label><input type="date" id="anData"></div>
+      <div class="cmp s4"><label>Quem lançou</label><input type="text" id="anQuem" list="listaQuemAnul"></div>
+      <div class="cmp s12"><label>Requisição</label><input type="text" id="anReq" placeholder="Ex: 09-72-2026-SMED"></div>
+      <div class="cmp s6"><label>Secretaria</label><input type="text" id="anSec"></div>
+      <div class="cmp s6"><label>Memorando</label><input type="text" id="anMemo" placeholder="Ex: 33/2026"></div>
+      <div class="cmp s6"><label>Pedido</label><input type="text" id="anPedido"></div>
+      <div class="cmp s6"><label>Empenho</label><input type="text" id="anEmpenho"></div>
+      <div class="cmp s8"><label>Credor</label><input type="text" id="anCredor"></div>
+      <div class="cmp s4"><label>Valor (R$)</label><input type="text" id="anValor" inputmode="decimal" placeholder="0,00"></div>
+    </div>
+    <div class="ov-pe">
+      <button class="mini-btn" onclick="fecharAnul()">Cancelar</button>
+      <button class="mini-btn" style="background:var(--navy);color:#fff;border-color:var(--navy)"
+              onclick="salvarAnul()">Salvar</button>
+    </div>
+  </div>
+</div>
+<datalist id="listaQuemAnul"></datalist>
+
+<!-- CADASTRAR / EDITAR UM MEMORANDO -->
+<div class="ov" id="ovMemo" onclick="if(event.target===this)fecharMemo()">
+  <div class="ov-cx">
+    <div class="ov-tp"><h3 id="memoTit">Novo memorando</h3>
+      <button class="ov-x" onclick="fecharMemo()">✕</button></div>
+    <div class="ov-md">
+      <div class="cmp s6"><label>Secretaria</label>
+        <select id="moSec"></select>
+        <span class="dica">Trocar aqui <b>move o memorando de lugar</b> — ele sai desta faixa e vai para a outra.</span>
+      </div>
+      <div class="cmp s6"><label>Recebido em</label><input type="date" id="moData"></div>
+      <div class="cmp s4"><label>Memorando nº</label><input type="text" id="moNum" placeholder="Ex: 45/2026"></div>
+      <div class="cmp s8"><label>Entregue para</label><input type="text" id="moPara" list="listaEntregues"></div>
+      <div class="cmp s12"><label>Assunto</label><input type="text" id="moDesc"></div>
+    </div>
+    <div class="ov-pe">
+      <button class="mini-btn" onclick="fecharMemo()">Cancelar</button>
+      <button class="mini-btn" style="background:var(--navy);color:#fff;border-color:var(--navy)"
+              onclick="salvarMemo()">Salvar</button>
+    </div>
+  </div>
+</div>
+<datalist id="listaEntregues"></datalist>
+
 <main>
   <div class="abas" id="abas"></div>
   <!-- O recado da importação mora FORA de #tela: render() reescreve #tela
@@ -944,6 +1017,15 @@ function telaRua(){
 
   h += barra('rua');
 
+  /* O botão vem ANTES dos retornos vazios de propósito: é exatamente com a
+     tela "Nada fora" que alguém precisa registrar o primeiro documento que
+     acabou de sair — esconder o botão aí seria trocar "está tudo em dia"
+     por "não dá para começar". */
+  if(arqPodeEditar()){
+    h += '<div style="margin-bottom:12px">'
+       + '<button class="mini-btn" onclick="novoTramite()">＋ Novo documento na rua</button></div>';
+  }
+
   if(!todos.length) return h + '<div class="painel"><div class="vazio"><span>✅</span>Nada fora. Todo documento que saiu, voltou.</div></div>';
   if(!fora.length) return h + '<div class="painel"><div class="vazio"><span>🔎</span>Nenhum documento com esses filtros.</div></div>';
 
@@ -981,6 +1063,10 @@ function blocoPessoa(nome, lista){
        + 'saiu em ' + fmtD(t.saiuEm) + '</div></div>'
        /* o id que vai aqui é o do DOCUMENTO no banco (_id), não o número da
           planilha (id): é por ele que a gravação encontra a linha */
+       + (arqPodeEditar()
+           ? '<button class="mini-btn" style="padding:6px 10px" title="Corrigir"'
+             + ' onclick="abrirTramite(' + JSON.stringify(t._id).replace(/"/g, '&quot;') + ')">✏️</button>'
+           : '')
        + '<button class="btn-voltou" onclick="marcarVolta(' + JSON.stringify(t._id).replace(/"/g, '&quot;') + ')">✓ Voltou hoje</button>'
        + '</div>';
   });
@@ -1015,12 +1101,21 @@ function telaAnul(){
   h += botoesDaJanela('anul');
   h += barra('anul');
   h += '<div class="painel">';
+  if(arqPodeEditar()){
+    h += '<div style="margin-bottom:12px">'
+       + '<button class="mini-btn" onclick="novaAnul()">＋ Nova anulação</button>'
+       + '<span style="font-size:12px;color:var(--muted);margin-left:10px">'
+       + 'Clique em qualquer linha para corrigir.</span></div>';
+  }
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhuma anulação com esses filtros.</div></div>';
 
   h += '<table><thead><tr><th>Nº</th><th>Requisição</th><th>Memorando</th><th>Pedido</th><th>Empenho</th>'
      + '<th>Credor</th><th class="num">Valor</th><th>Contabilidade</th><th>Voltou</th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(a => {
-    h += '<tr><td><b>' + a.num + '/' + a.ano + '</b><div style="font-size:11px;color:var(--muted)">' + esc(a.quem || '') + '</div></td>'
+    h += (arqPodeEditar()
+        ? '<tr class="lin-clic" onclick="abrirAnul(' + JSON.stringify(a._id).replace(/"/g, '&quot;') + ')">'
+        : '<tr>')
+       + '<td><b>' + a.num + '/' + a.ano + '</b><div style="font-size:11px;color:var(--muted)">' + esc(a.quem || '') + '</div></td>'
        + '<td>' + esc(a.requisicao || '—') + '</td>'
        + '<td>' + esc(a.memorando || '—') + '</td>'
        + '<td>' + esc(a.pedido || '—') + '</td>'
@@ -1112,13 +1207,13 @@ function telaMemo(){
       + 'são 533 memorandos no ano, e ninguém procura em todos ao mesmo tempo.</span></div></div>';
   }
   if(_lendo === 'memo' || !CARREGADA.has('memo')){
-    return h + '<div class="painel"><div class="vazio"><span>⏳</span>Carregando ' + esc(SEC_MEMO_ATUAL) + '…</div></div>';
+    return h + '<div class="painel"><div class="vazio"><span>⏳</span>Carregando ' + esc(rotSecretariaMemo(SEC_MEMO_ATUAL)) + '…</div></div>';
   }
 
   const lista = ordenada('memo');
 
   h += '<div class="resumo">'
-    + cartao(lista.length, 'memorandos recebidos', 'em ' + SEC_MEMO_ATUAL, '')
+    + cartao(lista.length, 'memorandos recebidos', 'em ' + rotSecretariaMemo(SEC_MEMO_ATUAL), '')
     + cartao(new Set(lista.map(m => m.entregueA).filter(Boolean)).size, 'pessoas que receberam', 'a coluna "entregue para"', '')
     + '</div>';
 
@@ -1127,6 +1222,12 @@ function telaMemo(){
 
   h += barra('memo');
   h += '<div class="painel">';
+  if(arqPodeEditar()){
+    h += '<div style="margin-bottom:12px">'
+       + '<button class="mini-btn" onclick="novoMemo()">＋ Novo memorando em ' + esc(rotSecretariaMemo(SEC_MEMO_ATUAL)) + '</button>'
+       + '<span style="font-size:12px;color:var(--muted);margin-left:10px">'
+       + 'Clique em qualquer linha para corrigir — inclusive para mover o memorando de secretaria.</span></div>';
+  }
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum memorando com esses filtros.</div></div>';
 
   /* Sem coluna de secretaria: a faixa acima já diz qual é, como no
@@ -1134,7 +1235,10 @@ function telaMemo(){
      do assunto, que é o que se lê. */
   h += '<table><thead><tr><th>Memorando</th><th>Recebido</th><th>Assunto</th><th>Entregue para</th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(m => {
-    h += '<tr><td><b>' + esc(m.num || '—') + '</b></td>'
+    h += (arqPodeEditar()
+        ? '<tr class="lin-clic" onclick="abrirMemo(' + JSON.stringify(m._id).replace(/"/g, '&quot;') + ')">'
+        : '<tr>')
+       + '<td><b>' + esc(m.num || '—') + '</b></td>'
        + '<td style="white-space:nowrap">' + fmtD(m.recebidoEm) + '</td>'
        + '<td>' + esc(m.descricao || '—') + '</td>'
        + '<td>' + esc(m.entregueA || '—') + '</td></tr>';
@@ -1331,25 +1435,37 @@ function escolherModalidade(m){
    planilha "MEMORANDOS 2026", que incluem catch-alls que não são
    secretaria de verdade ("DOCUMENTAÇÕES DIVERSAS", "GP") — por isso não é
    a mesma lista de dados/secretarias.json das Requisições, que são só as
-   secretarias oficiais. Aba nova na planilha = linha nova aqui. */
-const SECRETARIAS_MEMO = ['SMA', 'SMCT', 'SMDR', 'SMDS', 'SMED', 'SMEL', 'SMF', 'SMG', 'SMH',
+   secretarias oficiais. Aba nova na planilha = linha nova aqui.
+
+   {v, rot}, não uma string só: "v" é o que está gravado em `secretaria`
+   nos documentos (o nome real da aba, "NUCLEO PROJETOSENGENHEIROS" — é
+   ISSO que a consulta usa) e "rot" é só o texto do botão. Encurtar o rótulo
+   sem mudar "v" quebraria a consulta calado: o botão continuaria bonito e
+   pararia de achar os memorandos da secretaria. */
+const SECRETARIAS_MEMO = [
+  'SMA', 'SMCT', 'SMDR', 'SMDS', 'SMED', 'SMEL', 'SMF', 'SMG', 'SMH',
   'SMMA', 'SMODUTRAN', 'SMS', 'SMS - CAPS II', 'SEMDEC', 'SEPLAN', 'GP',
-  'NUCLEO PROJETOSENGENHEIROS', 'DOCUMENTAÇÕES DIVERSAS'];
+  'NUCLEO PROJETOSENGENHEIROS', 'DOCUMENTAÇÕES DIVERSAS'
+].map(v => ({v: v, rot: v === 'NUCLEO PROJETOSENGENHEIROS' ? 'NUCLEO PROJETOS' : v}));
 const CHAVE_SEC_MEMO = 'arquivo_ijui_secretaria_memo';
 let SEC_MEMO_ATUAL = '';
+function rotSecretariaMemo(v){ const x = SECRETARIAS_MEMO.find(s => s.v === v); return x ? x.rot : v; }
 function lembrarSecretariaMemo(s){ try{ localStorage.setItem(CHAVE_SEC_MEMO, s); }catch(e){} }
 function secretariaMemoLembrada(){
-  try{ const s = localStorage.getItem(CHAVE_SEC_MEMO); return SECRETARIAS_MEMO.indexOf(s) >= 0 ? s : ''; }catch(e){ return ''; }
+  try{
+    const s = localStorage.getItem(CHAVE_SEC_MEMO);
+    return SECRETARIAS_MEMO.some(x => x.v === s) ? s : '';
+  }catch(e){ return ''; }
 }
 /* Sem "Todas", pela mesma razão de sempre: seria a única leitura a custar
    o cadastro inteiro, e ninguém precisa dela para trabalhar. O número só
    aparece na secretaria carregada. */
 function faixaSecretariasMemo(){
-  return '<div class="mod-faixa">' + SECRETARIAS_MEMO.map(s =>
-    '<button class="mod-btn' + (SEC_MEMO_ATUAL === s ? ' on' : '') + '"'
-    + ' onclick="escolherSecretariaMemo(' + JSON.stringify(s).replace(/"/g, '&quot;') + ')">'
-    + esc(s)
-    + (SEC_MEMO_ATUAL === s ? '<span class="mod-n">' + MEMORANDOS.length + '</span>' : '')
+  return '<div class="mod-faixa">' + SECRETARIAS_MEMO.map(x =>
+    '<button class="mod-btn' + (SEC_MEMO_ATUAL === x.v ? ' on' : '') + '"'
+    + ' onclick="escolherSecretariaMemo(' + JSON.stringify(x.v).replace(/"/g, '&quot;') + ')">'
+    + esc(x.rot)
+    + (SEC_MEMO_ATUAL === x.v ? '<span class="mod-n">' + MEMORANDOS.length + '</span>' : '')
     + '</button>').join('') + '</div>';
 }
 function escolherSecretariaMemo(s){
@@ -1494,6 +1610,77 @@ function marcarVolta(id){
   }).catch(e => alert('Não consegui gravar: ' + e.message));
 }
 
+/* ══════════════ CADASTRAR UM DOCUMENTO "NA RUA" ══════════════
+   Hoje um documento só entra em `arquivo_tramites` pela importação da
+   planilha. Quando algo sai HOJE para assinatura, a pessoa precisa de um
+   jeito de registrar isso na hora, e não esperar a próxima conversão. Só
+   cadastra: quem marca a volta é sempre o "✓ Voltou hoje" que já existe —
+   este formulário nunca toca `voltouEm`, porque editar um trâmite só faz
+   sentido enquanto ele está aberto (é só o que a tela lista). */
+const TIPOS_TRAMITE = [
+  {k:'assinatura', rot:'Assinatura'},
+  {k:'parecer',    rot:'Parecer'},
+  {k:'emprestimo', rot:'Empréstimo'}
+];
+let tramiteEditando = null;
+function novoTramite(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  abrirTramite(null);
+}
+function abrirTramite(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  tramiteEditando = id;
+  const t = id ? TRAMITES.find(x => x._id === id) : null;
+  document.getElementById('tramiteTit').textContent = id ? 'Documento na rua' : 'Novo documento na rua';
+  document.getElementById('trTipo').innerHTML = TIPOS_TRAMITE.map(x =>
+    '<option value="' + x.k + '">' + esc(x.rot) + '</option>').join('');
+  document.getElementById('trTipo').value = (t && t.tipo) || 'assinatura';
+  const por = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  por('trDocTipo', t && t.docTipo);
+  por('trDocNum', t && t.docNum);
+  por('trComQuem', t && t.comQuem);
+  por('trSec', t && t.secretaria);
+  por('trData', (t && t.saiuEm) || new Date().toISOString().slice(0, 10));
+  /* sugestões de quem já apareceu, e não uma lista fixa — como paPreg */
+  document.getElementById('listaDocTipo').innerHTML =
+    [...new Set(TRAMITES.map(x => x.docTipo).filter(Boolean))].sort()
+      .map(v => '<option value="' + esc(v) + '"></option>').join('');
+  document.getElementById('listaComQuem').innerHTML =
+    [...new Set(TRAMITES.map(x => x.comQuem).filter(Boolean))].sort()
+      .map(v => '<option value="' + esc(v) + '"></option>').join('');
+  document.getElementById('ovTramite').classList.add('open');
+  setTimeout(() => document.getElementById('trDocNum').focus(), 60);
+}
+function fecharTramite(){ document.getElementById('ovTramite').classList.remove('open'); tramiteEditando = null; }
+function salvarTramite(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const v = id => document.getElementById(id).value.trim();
+  const docNum = v('trDocNum');
+  if(!docNum){ alert('Escreva o número do documento.'); return; }
+  const dados = {
+    tipo: document.getElementById('trTipo').value,
+    docTipo: v('trDocTipo').toUpperCase(),
+    docNum: docNum,
+    comQuem: v('trComQuem').toUpperCase(),
+    secretaria: v('trSec').toUpperCase(),
+    saiuEm: v('trData') || null,
+    voltouEm: null,
+    origem: 'Controle do Arquivo'
+  };
+  const antes = tramiteEditando;
+  const gravacao = tramiteEditando
+    ? col('rua').doc(tramiteEditando).set(dados, {merge:true}).then(() => tramiteEditando)
+    : col('rua').add(dados).then(ref => ref.id);
+  gravacao.then(idFinal => {
+    fecharTramite();
+    const novo = Object.assign({_id: idFinal}, dados);
+    const i = TRAMITES.findIndex(x => x._id === idFinal);
+    if(i >= 0) TRAMITES[i] = novo; else TRAMITES.unshift(novo);
+    avisar(antes ? 'Documento atualizado.' : 'Documento registrado como "na rua".');
+    renderAbas(); render();
+  }).catch(e => alert('Não consegui gravar: ' + e.message));
+}
+
 /* ══════════════ CADASTRAR E MOVER UM PROCESSO ══════════════
    O "Controle do Arquivo" de papel tinha uma aba por modalidade, e mover
    um processo entre abas era mover a pasta de lugar. Aqui é o mesmo gesto,
@@ -1600,6 +1787,171 @@ function avisar(msg){
   n.style.display = ''; n.className = 'nota'; n.textContent = msg;
   clearTimeout(avisar._t);
   avisar._t = setTimeout(() => { n.style.display = 'none'; }, 6000);
+}
+
+/* ══════════════ CADASTRAR UMA ANULAÇÃO ══════════════
+   A anulação tem numeração PRÓPRIA e sequencial (a planilha nunca pula:
+   1, 2, 3…) — diferente de memorando e trâmite, cujo número é o que está
+   escrito no papel físico. Por isso o Nº não é digitado, é calculado.
+
+   O cálculo pede ao banco só as anulações do ANO CORRENTE — uma consulta
+   de campo só (`ano == X`, sem orderBy), então não cria índice composto —
+   e não depende da janela aberta na tela: se estiver em "30 dias", as
+   anulações mais antigas do ano não estariam em ANULACOES, e tirar o
+   próximo número dali repetiria um nº já usado. É uma leitura a mais, só
+   ao abrir o formulário — não a cada render.
+
+   Se duas pessoas cadastrarem no mesmo minuto, as duas podem calcular o
+   mesmo próximo número: não há transação travando isso, de propósito —
+   é um escritório pequeno, o caso é raro, e corrige-se editando o número
+   depois. Não vale a complexidade de uma transação para um caso assim. */
+let anulEditando = null;
+function novaAnul(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  abrirAnul(null);
+}
+function proximoNumeroAnulacao(){
+  return col('anul').where('ano', '==', ANO_CORRENTE).get().then(snap => {
+    let max = 0;
+    snap.forEach(doc => { const n = Number(doc.data().num) || 0; if(n > max) max = n; });
+    return max + 1;
+  });
+}
+function abrirAnul(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  anulEditando = id;
+  const a = id ? ANULACOES.find(x => x._id === id) : null;
+  document.getElementById('anulTit').textContent = id ? 'Anulação' : 'Nova anulação';
+  const por = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  document.getElementById('anNum').value = a ? (a.num + '/' + a.ano) : 'calculando…';
+  por('anData', (a && a.contabilidadeEm) || new Date().toISOString().slice(0, 10));
+  por('anQuem', a && a.quem);
+  por('anReq', a && a.requisicao);
+  por('anSec', a && a.reqSec);
+  por('anMemo', a && a.memorando);
+  por('anPedido', a && a.pedido);
+  por('anEmpenho', a && a.empenho);
+  por('anCredor', a && a.credor);
+  por('anValor', a && a.valor != null ? String(a.valor).replace('.', ',') : '');
+  document.getElementById('listaQuemAnul').innerHTML =
+    [...new Set(ANULACOES.map(x => x.quem).filter(Boolean))].sort()
+      .map(v => '<option value="' + esc(v) + '"></option>').join('');
+  document.getElementById('ovAnul').classList.add('open');
+  if(!id){
+    proximoNumeroAnulacao().then(n => {
+      /* a pessoa pode ter fechado o formulário antes da consulta voltar */
+      if(!anulEditando) document.getElementById('anNum').value = n + '/' + ANO_CORRENTE;
+    });
+  }
+  setTimeout(() => document.getElementById('anReq').focus(), 60);
+}
+function fecharAnul(){ document.getElementById('ovAnul').classList.remove('open'); anulEditando = null; }
+function salvarAnul(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const v = id => document.getElementById(id).value.trim();
+  const bruto = v('anValor');
+  const valor = valorDigitado(bruto);
+  if(bruto && valor === null){ alert('Não entendi o valor "' + bruto + '".\n\nEscreva como 1.234,56 ou 1234,56.'); return; }
+  const antes = anulEditando ? ANULACOES.find(x => x._id === anulEditando) : null;
+  const gravarComNum = (num, ano) => {
+    const dados = {
+      num: num, ano: ano,
+      contabilidadeEm: v('anData') || null,
+      quem: v('anQuem').toUpperCase(),
+      requisicao: v('anReq'),
+      reqSec: v('anSec').toUpperCase(),
+      memorando: v('anMemo'),
+      pedido: v('anPedido'),
+      empenho: v('anEmpenho'),
+      credor: v('anCredor'),
+      valor: valor,
+      origem: 'ANULAÇÕES/GERAL'
+    };
+    const gravacao = anulEditando
+      ? col('anul').doc(anulEditando).set(dados, {merge:true}).then(() => anulEditando)
+      : col('anul').add(dados).then(ref => ref.id);
+    gravacao.then(idFinal => {
+      fecharAnul();
+      const novo = Object.assign({_id: idFinal}, dados);
+      const i = ANULACOES.findIndex(x => x._id === idFinal);
+      if(i >= 0) ANULACOES[i] = novo; else ANULACOES.unshift(novo);
+      avisar(antes ? 'Anulação atualizada.' : 'Anulação nº ' + num + '/' + ano + ' cadastrada.');
+      renderAbas(); render();
+    }).catch(e => alert('Não consegui gravar: ' + e.message));
+  };
+  if(anulEditando) gravarComNum(antes.num, antes.ano);
+  else proximoNumeroAnulacao().then(num => gravarComNum(num, ANO_CORRENTE));
+}
+
+/* ══════════════ CADASTRAR UM MEMORANDO ══════════════
+   Mesmo gesto do Arquivo: um formulário só para criar e para mover de
+   secretaria, porque nunca foram duas ações — a secretaria escolhida na
+   faixa é só onde a pessoa está olhando, não onde o memorando "pertence".
+   Sem numeração automática, ao contrário da anulação: o número do
+   memorando é o que está escrito no papel que chegou, não algo que este
+   sistema inventa. */
+let memoEditando = null;
+function novoMemo(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  abrirMemo(null);
+}
+function abrirMemo(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  memoEditando = id;
+  const m = id ? MEMORANDOS.find(x => x._id === id) : null;
+  document.getElementById('memoTit').textContent = id ? 'Memorando' : 'Novo memorando';
+  const sel = document.getElementById('moSec');
+  sel.innerHTML = SECRETARIAS_MEMO.map(x =>
+    '<option value="' + esc(x.v) + '">' + esc(x.rot) + '</option>').join('');
+  sel.value = (m && m.secretaria) || SEC_MEMO_ATUAL || SECRETARIAS_MEMO[0].v;
+  const por = (campo, v) => { document.getElementById(campo).value = (v == null ? '' : v); };
+  por('moData', (m && m.recebidoEm) || new Date().toISOString().slice(0, 10));
+  por('moNum', m && m.num);
+  por('moPara', m && m.entregueA);
+  por('moDesc', m && m.descricao);
+  document.getElementById('listaEntregues').innerHTML =
+    [...new Set(MEMORANDOS.map(x => x.entregueA).filter(Boolean))].sort()
+      .map(v => '<option value="' + esc(v) + '"></option>').join('');
+  document.getElementById('ovMemo').classList.add('open');
+  setTimeout(() => document.getElementById('moNum').focus(), 60);
+}
+function fecharMemo(){ document.getElementById('ovMemo').classList.remove('open'); memoEditando = null; }
+function salvarMemo(){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const v = id => document.getElementById(id).value.trim();
+  const num = v('moNum');
+  if(!num){ alert('Escreva o número do memorando.'); return; }
+  const recebidoEm = v('moData') || null;
+  const dados = {
+    secretaria: document.getElementById('moSec').value,
+    num: num,
+    recebidoEm: recebidoEm,
+    entregueA: v('moPara').toUpperCase(),
+    descricao: v('moDesc'),
+    ano: anoDe({recebidoEm: recebidoEm}, 'recebidoEm')
+  };
+  const antes = memoEditando ? MEMORANDOS.find(x => x._id === memoEditando) : null;
+  const mudouDeSecretaria = !!(antes && antes.secretaria !== dados.secretaria);
+  const gravacao = memoEditando
+    ? col('memo').doc(memoEditando).set(dados, {merge:true}).then(() => memoEditando)
+    : col('memo').add(dados).then(ref => ref.id);
+  gravacao.then(idFinal => {
+    fecharMemo();
+    /* A tela mostra UMA secretaria. Memorando que mudou de secretaria sai
+       daqui — e some sem explicação se ninguém disser para onde foi. */
+    if(mudouDeSecretaria){
+      MEMORANDOS = MEMORANDOS.filter(x => x._id !== idFinal);
+      avisar('Memorando movido para ' + rotSecretariaMemo(dados.secretaria) + '. Ele saiu desta lista.');
+    } else if(dados.secretaria === SEC_MEMO_ATUAL){
+      const novo = Object.assign({_id: idFinal}, dados);
+      const i = MEMORANDOS.findIndex(x => x._id === idFinal);
+      if(i >= 0) MEMORANDOS[i] = novo; else MEMORANDOS.unshift(novo);
+      avisar(antes ? 'Memorando atualizado.' : 'Memorando cadastrado.');
+    } else {
+      avisar('Memorando cadastrado em ' + rotSecretariaMemo(dados.secretaria) + '. Escolha essa secretaria acima para vê-lo.');
+    }
+    renderAbas(); render();
+  }).catch(e => alert('Não consegui gravar: ' + e.message));
 }
 
 /* ══════════════ IMPORTAÇÃO ══════════════
