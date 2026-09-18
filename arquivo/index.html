@@ -1753,7 +1753,23 @@ function celEditar(tela, id, campo, td){
   td.querySelectorAll('input,select,textarea').forEach(el => {
     el.onkeydown = e => {
       if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); celFechar(false); return; }
-      if(e.key === 'Enter'){ e.preventDefault(); celFechar(true); }
+      if(e.key === 'Enter'){ e.preventDefault(); celFechar(true); return; }
+      /* Tab anda pela linha inteira sem soltar o teclado — é o que faz
+         preencher um cadastro ser rápido, em vez de mirar cada campo com
+         o mouse. Espera a gravação terminar (celFechar devolve Promise)
+         antes de focar a próxima: numa linha nova, é só depois de gravar
+         o primeiro campo que ela ganha o id de verdade do Firestore — e é
+         por esse id que a próxima célula é encontrada no HTML. */
+      if(e.key === 'Tab'){
+        e.preventDefault();
+        const campos = camposDe(tela).filter(c => c.tipo !== 'check');
+        const i = campos.findIndex(c => c.k === campo);
+        const prox = campos[e.shiftKey ? i - 1 : i + 1];
+        const itemAtual = item;
+        celFechar(true).then(() => {
+          if(prox && itemAtual) focarCelula(tela, itemAtual._id, prox.k);
+        });
+      }
     };
   });
 }
@@ -1770,15 +1786,17 @@ document.addEventListener('mousedown', e => {
   if(!_cel) return;
   if(e.target.closest('td.editando')) return;
   const outra = e.target.closest('td[data-campo]');
-  const alvo = outra ? {tela: outra.dataset.tela, id: outra.dataset.id, campo: outra.dataset.campo} : null;
-  celFechar(true);
-  if(alvo){
-    e.preventDefault();
-    setTimeout(() => {
-      const td = document.querySelector('td[data-tela="' + alvo.tela + '"][data-id="' + alvo.id + '"][data-campo="' + alvo.campo + '"]');
-      if(td) celEditar(alvo.tela, alvo.id, alvo.campo, td);
-    }, 0);
-  }
+  const alvo = outra ? {tela: outra.dataset.tela, campo: outra.dataset.campo} : null;
+  /* O item é pego pela referência AGORA, antes de fechar — se o clique
+     pousou numa célula da MESMA linha nova que está sendo fechada, o id
+     no atributo (o rascunho) troca pelo id de verdade do Firestore assim
+     que a gravação termina, e é a mesma referência de objeto que carrega
+     essa troca até aqui. */
+  const itemAlvo = alvo ? itemDe(alvo.tela, outra.dataset.id) : null;
+  celFechar(true).then(() => {
+    if(alvo && itemAlvo) focarCelula(alvo.tela, itemAlvo._id, alvo.campo);
+  });
+  if(alvo) e.preventDefault();
 }, true);
 function celEditorHTML(tela, item, campo){
   const cfg = camposDe(tela).find(c => c.k === campo) || {};
@@ -1796,22 +1814,32 @@ function celEditorHTML(tela, item, campo){
   return '<input class="cel-inp" placeholder="' + esc(cfg.placeholder || '') + '"' + lista
     + ' value="' + esc(v == null ? '' : v) + '">';
 }
+/* Devolve uma Promise sempre — quem chama (Tab, clique noutra célula)
+   precisa saber quando a gravação (que pode ser assíncrona, se a linha é
+   nova) realmente terminou antes de abrir a próxima célula, senão corre
+   atrás de um <td> que o render() ainda não desenhou. */
 function celFechar(salvando){
-  if(!_cel) return;
+  if(!_cel) return Promise.resolve();
   const {tela, id, campo, td} = _cel;
   _cel = null;
   const item = itemDe(tela, id);
-  if(!salvando || !item){ render(); return; }
+  /* Esc numa linha nunca gravada descarta a linha inteira — é a mesma
+     lógica do "Cancelar" de "Na rua": ninguém quer uma linha em branco
+     pairando na tabela só porque desistiu de UM campo dela. Clicar fora
+     (salvando=true) não descarta: a pessoa pode estar preenchendo campo a
+     campo, não desistindo. */
+  if(!salvando && item && item._novo && !item._gravada){ descartarLinha(tela, id); return Promise.resolve(); }
+  if(!salvando || !item){ render(); return Promise.resolve(); }
   const cfg = camposDe(tela).find(c => c.k === campo) || {};
   const el = td.querySelector('input,select,textarea');
-  if(!el){ render(); return; }
+  if(!el){ render(); return Promise.resolve(); }
   let valor = el.value;
   if(cfg.tipo === 'valor'){
     const bruto = valor.trim();
     const num = valorDigitado(bruto);
     if(bruto && num === null){
       alert('Não entendi o valor "' + bruto + '".\n\nEscreva como 1.234,56 ou 1234,56.');
-      render(); return;
+      render(); return Promise.resolve();
     }
     valor = num;
   } else if(cfg.tipo === 'data'){
@@ -1822,11 +1850,19 @@ function celFechar(salvando){
   }
   if(cfg.obrigatorio && !valor){
     alert('Escreva ' + (cfg.erro || cfg.rot || 'o campo') + '.');
-    render(); return;
+    render(); return Promise.resolve();
   }
-  if(item[campo] === valor){ render(); return; }   /* nada mudou: não grava à toa */
+  if(item[campo] === valor){ render(); return Promise.resolve(); }   /* nada mudou: não grava à toa */
   item[campo] = valor;
-  gravarItem(tela, item, campo);
+  return gravarItem(tela, item, campo);
+}
+/* Tab anda pelas colunas da linha, na mesma ordem da tabela — é o que faz
+   preencher uma linha inteira ser rápido, em vez de mirar célula por
+   célula com o mouse. "check" (o toggle do checklist) fica de fora: não
+   tem editor de texto para focar. */
+function focarCelula(tela, id, campo){
+  const td = document.querySelector('td[data-tela="' + tela + '"][data-id="' + id + '"][data-campo="' + campo + '"]');
+  if(td) celEditar(tela, id, campo, td);
 }
 /* toggle direto — checklist é sim/não, não precisa de campo de texto */
 function alternarChecklist(id){
@@ -1852,7 +1888,7 @@ function gravarItem(tela, item, campo){
         item._gravada = true;
         if(i >= 0) arr[i] = item;
       });
-  promessa.then(() => {
+  return promessa.then(() => {
     /* Trocar a modalidade (Arquivo) ou a secretaria (Memorandos) MOVE o
        registro — a tela mostra um recorte só, e o item some daqui assim
        que deixa de pertencer a ele. Sumir sem explicação é o que faz

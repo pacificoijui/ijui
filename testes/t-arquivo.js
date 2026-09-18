@@ -369,6 +369,61 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   const valorGravado = await pg2.evaluate((id) => window.__STORE.arquivo_pastas[id].valor, idNovo);
   t('o valor "1.234,56" vira número, não texto', valorGravado === 1234.56, valorGravado);
 
+  console.log('\n6b2) Tab anda pela linha, como nas Requisições — sem precisar do mouse');
+  await pg2.click('td[data-campo="processo"][data-id="' + idNovo + '"]');
+  await pg2.waitForTimeout(150);
+  await pg2.keyboard.press('Tab');
+  await pg2.waitForTimeout(300);
+  const depoisTab1 = await pg2.evaluate(() => document.querySelector('td.editando') && document.querySelector('td.editando').dataset.campo);
+  t('Tab sai de "Processo" e abre "Secretaria" — a próxima coluna da tabela', depoisTab1 === 'secretaria', depoisTab1);
+  await pg2.keyboard.type('smed');
+  await pg2.keyboard.press('Tab');
+  await pg2.waitForTimeout(300);
+  const depoisTab2 = await pg2.evaluate(() => document.querySelector('td.editando') && document.querySelector('td.editando').dataset.campo);
+  t('e o segundo Tab abre "Vencedor"', depoisTab2 === 'vencedor', depoisTab2);
+  const secretariaPeloTab = await pg2.evaluate((id) => window.__STORE.arquivo_pastas[id].secretaria, idNovo);
+  t('a secretaria foi gravada no banco entre um Tab e outro, sem precisar de Enter',
+    secretariaPeloTab === 'SMED', secretariaPeloTab);
+  await pg2.keyboard.press('Shift+Tab');
+  await pg2.waitForTimeout(300);
+  const depoisShiftTab = await pg2.evaluate(() => document.querySelector('td.editando') && document.querySelector('td.editando').dataset.campo);
+  t('Shift+Tab volta para a coluna anterior', depoisShiftTab === 'secretaria', depoisShiftTab);
+  await pg2.keyboard.press('Escape');
+  await pg2.waitForTimeout(300);
+
+  console.log('\n6b3) Tab numa linha nova — o id troca de rascunho para o de verdade no meio do caminho');
+  const antesTabNovo = await pg2.evaluate(() => Object.keys(window.__STORE.arquivo_pastas).length);
+  await pg2.click('button:has-text("＋ Novo processo")');
+  await pg2.waitForTimeout(200);
+  await pg2.keyboard.type('PE 501/2026 - criado com Tab');
+  await pg2.keyboard.press('Tab');   /* este Tab grava o 1º campo — é aqui que o id de rascunho vira id de verdade */
+  await pg2.waitForTimeout(400);
+  const abriuComTab = await pg2.evaluate(() => {
+    const el = document.querySelector('td.editando');
+    return el ? {campo: el.dataset.campo, id: el.dataset.id} : null;
+  });
+  t('depois do Tab que criou a linha, a célula seguinte abre com o id de verdade do Firestore (não "rascunho-N")',
+    abriuComTab && abriuComTab.campo === 'secretaria' && !/^rascunho-/.test(abriuComTab.id), abriuComTab);
+  await pg2.keyboard.type('sms');
+  await pg2.keyboard.press('Escape');
+  await pg2.waitForTimeout(400);
+  const depoisTabNovo = await pg2.evaluate(() => ({
+    docs: Object.keys(window.__STORE.arquivo_pastas).length,
+    achado: PASTAS.find(x => x.processo === 'PE 501/2026 - criado com Tab')
+  }));
+  t('só um documento novo foi criado — nenhuma duplicação pelo caminho',
+    depoisTabNovo.docs === antesTabNovo + 1 && !!depoisTabNovo.achado, depoisTabNovo);
+
+  console.log('\n6b4) Esc numa linha nunca gravada descarta a linha — não fica pairando em branco');
+  const antesDescartar = await pg2.evaluate(() => PASTAS.length);
+  await pg2.click('button:has-text("＋ Novo processo")');
+  await pg2.waitForTimeout(200);
+  await pg2.keyboard.press('Escape');   /* nada foi digitado ainda */
+  await pg2.waitForTimeout(300);
+  const depoisDescartar = await pg2.evaluate(() => PASTAS.length);
+  t('a linha some da tela — nunca chegou a existir no banco',
+    depoisDescartar === antesDescartar, {antesDescartar, depoisDescartar});
+
   /* trocar a modalidade na célula MOVE o processo — é o mesmo gesto de
      sempre, só que clicando na célula em vez de abrir um formulário */
   const antesMover = await pg2.evaluate(() => Object.keys(window.__STORE.arquivo_pastas).length);

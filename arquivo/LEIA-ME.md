@@ -188,6 +188,25 @@ adiante). Por isso ali o clique abre a **linha inteira** como formulário
 plano, em vez de célula por célula: mesmo espírito ("nada de modal"),
 adaptado ao layout que já existia.
 
+**Tab anda pela linha inteira**, na mesma ordem das colunas — Shift+Tab
+volta. É o que faz preencher um cadastro ser rápido: a mão nunca sai do
+teclado para mirar a próxima célula com o mouse. Cada Tab grava a célula
+que está fechando antes de abrir a próxima (por isso funciona até numa
+linha ainda não gravada — o primeiro Tab é o que cria o documento no
+Firestore e troca o id de rascunho pelo id de verdade; só depois disso a
+segunda célula é encontrada e aberta).
+
+**Apagar não existe — corrigir é editar.** Nenhuma das quatro telas tem
+"excluir": um lançamento errado se corrige clicando na célula errada e
+escrevendo o valor certo, exatamente como qualquer outra edição. Isso não
+é uma limitação esquecida, é a regra do Firestore (`allow delete: if
+false` nas quatro coleções, de propósito — ver o arquivo de regras): o
+módulo existe para registrar por onde cada papel andou, e apagar uma linha
+destruiria justamente esse rastro. A única exceção prática é uma linha
+**nunca gravada** (criada com ＋ e ainda sem nenhum campo salvo) — essa
+pode ser descartada com Esc ou o ✕ da linha, porque ela nunca existiu no
+banco para começo de conversa.
+
 Registro nascido na tela **não leva o campo `id`** da planilha — quem usa
 esse número é a importação, para reescrever em vez de duplicar. Ele ganha
 id próprio do Firestore, e assim uma reimportação nunca passa por cima

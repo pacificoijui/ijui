@@ -250,7 +250,14 @@
 
   .card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); border: 1.5px solid var(--border); overflow: hidden; display: flex; flex-direction: column; }
   .card-header { padding: 16px 19px 13px; border-bottom: 1px solid var(--border); background: linear-gradient(135deg, #f5f7fd 0%, #fff 100%); border-top: 3px solid var(--navy); }
-  .card-header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+  /* flex-wrap:wrap — em tela estreita, "📲 📌 ⏰ hoje às 16h23" não cabe ao
+     lado do título sem espremer o texto: cabeçalho e objeto viravam uma
+     coluna de ~100px, e "Aquisição de equipamentos..." quebrava em treze
+     linhas de uma ou duas palavras, com metade de cada linha em branco.
+     Com wrap, os ícones descem para a própria linha quando não cabem, e o
+     texto usa a largura toda do card — em vez de dividir um espaço apertado
+     com botões que se recusam a encolher (flex-shrink:0). */
+  .card-header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 9px; flex-wrap: wrap; }
   .card-num { font-size: 17px; font-weight: 700; color: var(--navy); line-height: 1.2; }
   .card-obj { font-size: 14px; color: var(--text); margin-top: 3px; line-height: 1.4; font-weight: 500; }
   .card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 7px; }
@@ -4017,7 +4024,14 @@ function renderizar(){
     html+='<div class="card'+(p.fixado?' pinned':'')+'" data-pid="'+escHtml(p.id)+'"'+_cardStyle+'>';
     html+='<div class="card-header"'+_hdrStyle+'>';
     html+='<div class="card-header-top">';
-    html+='<div><div class="card-num">'+escHtml(rotuloProcesso(p))+escHtml(dataHeaderLabel)+'</div>';
+    /* flex:1;min-width:0 — sem isso, este <div> (que só tem texto dentro,
+       sem largura própria) encolhe para o tamanho mínimo que o flexbox
+       calcula a partir do conteúdo, em vez de ocupar o espaço que sobra ao
+       lado dos botões. O objeto virava uma coluna de ~100px, quebrando
+       "Aquisição de equipamentos..." em treze linhas de uma ou duas
+       palavras — muito espaço em branco ao lado de cada linha, porque a
+       caixa de texto nunca chegava a usar a largura real do card. */
+    html+='<div style="flex:1 1 180px;min-width:0"><div class="card-num">'+escHtml(rotuloProcesso(p))+escHtml(dataHeaderLabel)+'</div>';
     html+='<div class="card-obj">'+escHtml(p.objeto)+'</div></div>';
     html+='<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">';
     html+='<button class="card-wa-btn" data-action="share-proc" title="Compartilhar no WhatsApp">&#128242;</button>';
