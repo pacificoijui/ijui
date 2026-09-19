@@ -307,12 +307,22 @@ service cloud.firestore {
     // que está arquivado. Nada é público — ver exige o painel "arquivo"
     // liberado, como nos contratos e nas requisições.
     //
-    // Apagar não existe em nenhuma das quatro, de propósito: o módulo é
-    // registro de trâmite, e o que precisa acontecer com um trâmite errado
-    // é ele ser CORRIGIDO, não sumir. Documento que sai do arquivo e volta
-    // vira "voltouEm" preenchido — a linha continua lá, contando o que
-    // houve. Sem a linha, ninguém consegue responder depois por onde o
-    // papel andou, que é a única coisa que este módulo existe para saber.
+    // Apagar não existe em TRÊS das quatro, de propósito: trâmite, anulação
+    // e memorando são registro de que algo ACONTECEU — o papel saiu, o
+    // empenho foi anulado, o memorando chegou — e o que precisa acontecer
+    // com um deles lançado errado é ser CORRIGIDO, não sumir. Documento que
+    // sai do arquivo e volta vira "voltouEm" preenchido: a linha continua
+    // lá, contando o que houve. Sem a linha, ninguém consegue responder
+    // depois por onde o papel andou, que é a única coisa que este módulo
+    // existe para saber.
+    //
+    // A pasta (arquivo_pastas) é a exceção, e por isso apaga: ela não conta
+    // um acontecimento, ela DIZ O QUE ESTÁ NA PRATELEIRA. Processo lançado
+    // duas vezes, ou na modalidade errada, ou aberto por engano, corrigido
+    // "editando" deixaria uma linha de um processo que não existe — e aí o
+    // arquivo passa a mentir sobre o que guarda, que é pior que a linha não
+    // estar lá. Quem apaga é quem pode editar: o mesmo painel, a mesma
+    // pessoa que a cadastrou.
     match /arquivo_tramites/{id} {
       allow get, list: if arquivo();
       allow create, update: if arquivoEdit();
@@ -331,7 +341,7 @@ service cloud.firestore {
     match /arquivo_pastas/{id} {
       allow get, list: if arquivo();
       allow create, update: if arquivoEdit();
-      allow delete: if false;
+      allow delete: if arquivoEdit();
     }
 
     // Histórico de edições dos contratos: um registro por gravação, com o

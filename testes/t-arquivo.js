@@ -33,7 +33,10 @@ MODS.forEach(m => {
   for(let i = 0; i < QUANTAS[m]; i++){
     idp++;
     /* arquivadas DENTRO dos 30 dias: é nelas que a tela abre */
-    pastas[String(idp)] = { id: idp, modalidade: m, processo: m.slice(0, 4) + ' ' + (i + 1) + ' - objeto de teste',
+    /* o processo tem a forma do de verdade ("PE. 77/2026 - objeto"): é dele
+       que sai o número do documento quando a pasta vai para a rua (ver 6g) */
+    pastas[String(idp)] = { id: idp, modalidade: m,
+      processo: m.slice(0, 4) + ' ' + (i + 1) + '/' + new Date().getFullYear() + ' - objeto de teste',
       pregoeiro: i % 2 ? 'RODRIGO' : 'ANDREI', arquivadoEm: haDias(i % 25),
       checklist: i % 3 !== 0, vencedor: 'Empresa ' + (i + 1), origem: 'Controle do Arquivo' };
   }
@@ -120,9 +123,15 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   t('a carga real continua fora do repositório',
     !fs.existsSync('../arquivo/dados/pastas.json') || fs.readFileSync('../arquivo/dados/.gitignore','utf8').indexOf('*.json') >= 0);
   const regras = fs.readFileSync('../firestore-processos-ijui.rules', 'utf8');
-  t('as quatro coleções têm regra, e nenhuma delas apaga',
-    ['arquivo_tramites','arquivo_anulacoes','arquivo_memorandos','arquivo_pastas']
+  t('trâmite, anulação e memorando não apagam — são registro de que algo aconteceu',
+    ['arquivo_tramites','arquivo_anulacoes','arquivo_memorandos']
       .every(c => new RegExp('match /' + c + '/\\{id\\} \\{[^}]*allow delete: if false;', 's').test(regras)));
+  /* A pasta é a exceção, e por isso apaga: ela não conta um acontecimento,
+     diz o que está na prateleira. Processo lançado duas vezes ou na
+     modalidade errada, "corrigido editando", deixaria uma linha de um
+     processo que não existe — e aí o arquivo mente sobre o que guarda. */
+  t('a pasta do arquivo apaga, e só para quem pode editar',
+    /match \/arquivo_pastas\/\{id\} \{[^}]*allow delete: if arquivoEdit\(\);/s.test(regras));
   t('conta nova não nasce com o painel Arquivo marcado',
     /get\('arquivo', 'nenhum'\) +in \['nenhum', false\]/.test(regras));
   t('o painel Arquivo aparece no cadastro de contas',
@@ -555,42 +564,18 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
   t('editar corrige o registro sem duplicar',
     salvouEdicaoTr.docsNoBanco === antesEditarTr && salvouEdicaoTr.comQuem === 'CORRIGIDO', salvouEdicaoTr);
 
-  /* --- Novo documento "na rua" --- */
-  const antesRua = await pg4.evaluate(() => TRAMITES.length);
-  await pg4.click('button:has-text("＋ Novo documento na rua")');
-  await pg4.waitForTimeout(200);
-  const abriuTramite = await pg4.evaluate(() => ({
-    aberto: !!document.querySelector('[data-linha-edit]'),
-    tipoPadrao: document.querySelector('[data-linha-edit] [data-campo="tipo"]').value,
-    dataPadrao: document.querySelector('[data-linha-edit] [data-campo="saiuEm"]').value
+  /* --- Aqui não se cadastra mais nada ---
+     "Na rua" era um SEGUNDO cadastro do mesmo papel: a mesma DL digitada de
+     novo, noutra tela, sem ligação com a pasta — e era por isso que a volta
+     não devolvia nada a lugar nenhum. Agora o processo é cadastrado uma vez,
+     no Arquivo, e de lá sai para a rua (ver 6g). */
+  const semCadastroRua = await pg4.evaluate(() => ({
+    botao: [...document.querySelectorAll('button')].some(b => /Novo documento na rua/.test(b.textContent)),
+    diz: document.getElementById('tela').textContent
   }));
-  const hojeISO2 = new Date().toISOString().slice(0, 10);
-  t('a linha nova já nasce com tipo "assinatura" e a data de hoje',
-    abriuTramite.aberto && abriuTramite.tipoPadrao === 'assinatura' && abriuTramite.dataPadrao === hojeISO2, abriuTramite);
-  await pg4.fill('[data-linha-edit] [data-campo="docTipo"]', 'dl');
-  await pg4.fill('[data-linha-edit] [data-campo="docNum"]', '500/2026');
-  await pg4.fill('[data-linha-edit] [data-campo="comQuem"]', 'testando');
-  await pg4.click('[data-linha-edit] button:has-text("Salvar")');
-  await pg4.waitForTimeout(500);
-  const novoTr = await pg4.evaluate(() => {
-    const achado = TRAMITES.find(x => x.docNum === '500/2026');
-    return {depois: TRAMITES.length, achado: achado || null,
-            noBanco: achado ? window.__STORE.arquivo_tramites[achado._id] : null};
-  });
-  t('o documento novo entra na lista de "Na rua"', novoTr.depois === antesRua + 1 && !!novoTr.achado, novoTr);
-  t('docTipo e comQuem entram em maiúsculas',
-    novoTr.noBanco && novoTr.noBanco.docTipo === 'DL' && novoTr.noBanco.comQuem === 'TESTANDO', novoTr.noBanco);
-  t('nasce sem voltouEm — é isso que o deixa "na rua"', novoTr.noBanco && novoTr.noBanco.voltouEm === null, novoTr.noBanco);
-
-  /* uma linha nova nunca tocada e cancelada não vira lixo no banco */
-  const antesCancelarTr = await pg4.evaluate(() => TRAMITES.length);
-  await pg4.click('button:has-text("＋ Novo documento na rua")');
-  await pg4.waitForTimeout(200);
-  await pg4.click('[data-linha-edit] button:has-text("Cancelar")');
-  await pg4.waitForTimeout(300);
-  const depoisCancelarTr = await pg4.evaluate(() => TRAMITES.length);
-  t('cancelar uma linha nunca gravada a descarta, em vez de deixá-la pairando',
-    depoisCancelarTr === antesCancelarTr, {antesCancelarTr, depoisCancelarTr});
+  t('a tela "Na rua" não cadastra documento nenhum', !semCadastroRua.botao, semCadastroRua.botao);
+  t('e diz onde se faz, em vez de só não ter botão',
+    /📤/.test(semCadastroRua.diz) && /Arquivo/.test(semCadastroRua.diz), semCadastroRua.diz.slice(0, 200));
 
   /* --- Nova anulação: o número vem do banco, não da janela carregada --- */
   await pg4.click('.abas button:has-text("Anulações")');
@@ -720,6 +705,198 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     nucleo.descricoes.indexOf('projeto de engenharia') >= 0, nucleo);
   await pg4.close();
 
+  console.log('\n6g) Do Arquivo para a rua, e da rua de volta para o Arquivo');
+  /* A pasta não é cadastrada duas vezes: ela MUDA DE ESTADO. O 📤 na linha
+     do Arquivo cria o trâmite ligado à pasta (pastaId) e a tira da
+     prateleira (naRua); o "✓ Voltou hoje" fecha o trâmite e a devolve. O
+     teste cobre a volta inteira, sempre olhando o banco — não só a tela. */
+  const pg5 = await b.newPage({viewport:{width:1400, height:900}});
+  const dlg5 = []; pg5.on('dialog', d => { dlg5.push(d.message()); d.accept(); });
+  await abrirArquivo(pg5, 'editar');
+  await pg5.click('.abas button:has-text("Arquivo")');
+  await pg5.click('.mod-faixa button:has-text("PREGÃO")');
+  await pg5.waitForTimeout(600);
+  const pastaAlvo = await pg5.evaluate(() => {
+    const p = ordenada('arq')[0];
+    return {id: p._id, processo: p.processo, quantas: pastasNoArquivo().length};
+  });
+  const trAntes = await pg5.evaluate(() => Object.keys(window.__STORE.arquivo_tramites).length);
+  await pg5.click('button[data-acao="rua"][data-id="' + pastaAlvo.id + '"]');
+  await pg5.waitForTimeout(800);
+  const mandou = await pg5.evaluate(() => {
+    const cx = document.querySelector('[data-linha-edit]');
+    const val = c => { const el = cx && cx.querySelector('[data-campo="' + c + '"]'); return el ? el.value : null; };
+    return {tela: telaAtual, aberto: !!cx, tipo: val('tipo'), docTipo: val('docTipo'), docNum: val('docNum'),
+            saiuEm: val('saiuEm'), foco: document.activeElement ? document.activeElement.dataset.campo : null};
+  });
+  t('o 📤 leva para "Na rua" com a linha já aberta — sem digitar o processo de novo',
+    mandou.tela === 'rua' && mandou.aberto, mandou);
+  t('o tipo do documento vem da modalidade, e o número vem do processo',
+    mandou.docTipo === 'PE' && mandou.docNum === pastaAlvo.processo.match(/\d+\/\d{4}/)[0], mandou);
+  t('é empréstimo, com a data de hoje — a pasta estava arquivada e saiu',
+    mandou.tipo === 'emprestimo' && mandou.saiuEm === new Date().toISOString().slice(0, 10), mandou);
+  t('e o cursor entra na única coisa que falta: com quem o papel está',
+    mandou.foco === 'comQuem', mandou);
+
+  /* Pasta que sai do arquivo sem destino anotado é o que o módulo existe
+     para não deixar acontecer: sem nome, não há a quem cobrar. */
+  dlg5.length = 0;
+  await pg5.click('[data-linha-edit] button:has-text("Salvar")');
+  await pg5.waitForTimeout(400);
+  const semDestino = await pg5.evaluate((alvo) => ({
+    aberto: !!document.querySelector('[data-linha-edit]'),
+    naRua: !!(window.__STORE.arquivo_pastas[alvo.id] || {}).naRua,
+    tramites: Object.keys(window.__STORE.arquivo_tramites).length
+  }), pastaAlvo);
+  t('salvar sem dizer com quem está é recusado, e nada vai para o banco',
+    dlg5.some(m => /com quem/i.test(m)) && semDestino.aberto
+    && semDestino.tramites === trAntes && !semDestino.naRua, {dlg5, semDestino, trAntes});
+
+  await pg5.fill('[data-linha-edit] [data-campo="comQuem"]', 'maitê');
+  await pg5.click('[data-linha-edit] button:has-text("Salvar")');
+  await pg5.waitForTimeout(900);
+  const foiParaRua = await pg5.evaluate((alvo) => {
+    const tr = Object.values(window.__STORE.arquivo_tramites).find(x => x.pastaId === alvo.id);
+    return {tramite: tr || null, pasta: window.__STORE.arquivo_pastas[alvo.id],
+            docs: Object.keys(window.__STORE.arquivo_tramites).length,
+            naFila: TRAMITES.some(x => x.pastaId === alvo.id),
+            noArquivo: pastasNoArquivo().some(p => p._id === alvo.id),
+            etiqueta: /do arquivo/.test(document.getElementById('tela').textContent)};
+  }, pastaAlvo);
+  t('o trâmite nasce ligado à pasta, com quem está e sem volta marcada',
+    foiParaRua.tramite && foiParaRua.tramite.comQuem === 'MAITÊ' && !foiParaRua.tramite.voltouEm
+    && foiParaRua.docs === trAntes + 1, foiParaRua.tramite);
+  t('a pasta fica marcada como "na rua" no banco', foiParaRua.pasta.naRua === true, foiParaRua.pasta);
+  t('e sai da lista do arquivo — ela não está mais na prateleira', !foiParaRua.noArquivo, foiParaRua);
+  t('a fila mostra que este papel veio do arquivo', foiParaRua.naFila && foiParaRua.etiqueta, foiParaRua);
+
+  await pg5.click('.abas button:has-text("Arquivo")');
+  await pg5.waitForTimeout(600);
+  const arqSemEla = await pg5.evaluate((alvo) => ({
+    lista: pastasNoArquivo().length, linha: !!document.querySelector('td[data-id="' + alvo.id + '"]'),
+    diz: document.getElementById('tela').textContent
+  }), pastaAlvo);
+  /* Sumir sem explicação é o que faz alguém cadastrar o mesmo processo de
+     novo — a tela conta quantos estão na rua e leva até eles. */
+  t('o Arquivo mostra uma pasta menos e diz que ela está na rua',
+    arqSemEla.lista === pastaAlvo.quantas - 1 && !arqSemEla.linha && /na rua/.test(arqSemEla.diz),
+    {agora: arqSemEla.lista, antes: pastaAlvo.quantas});
+
+  dlg5.length = 0;
+  const idTr = await pg5.evaluate((alvo) => TRAMITES.find(x => x.pastaId === alvo.id)._id, pastaAlvo);
+  await pg5.click('.abas button:has-text("Na rua")');
+  await pg5.waitForTimeout(400);
+  await pg5.click('.btn-voltou[onclick*="' + idTr + '"]');
+  await pg5.waitForTimeout(900);
+  const voltouPasta = await pg5.evaluate((alvo) => ({
+    pasta: window.__STORE.arquivo_pastas[alvo.id],
+    tramite: Object.values(window.__STORE.arquivo_tramites).find(x => x.pastaId === alvo.id),
+    naFila: TRAMITES.some(x => x.pastaId === alvo.id),
+    noArquivo: pastasNoArquivo().some(p => p._id === alvo.id)
+  }), pastaAlvo);
+  t('a volta fecha o trâmite com a data de hoje',
+    /^\d{4}-\d{2}-\d{2}$/.test((voltouPasta.tramite || {}).voltouEm || ''), voltouPasta.tramite);
+  t('a pasta deixa de estar na rua e volta para o arquivo',
+    voltouPasta.pasta.naRua === false && voltouPasta.noArquivo && !voltouPasta.naFila, voltouPasta);
+  t('e não pergunta se quer catalogar — a pasta já existe, catalogar duplicaria',
+    !dlg5.some(m => /Catalogar/i.test(m)), dlg5);
+
+  console.log('\n6h) Excluir um processo lançado errado');
+  /* Das quatro coleções só a pasta apaga (ver 1): ela diz o que está na
+     prateleira, e uma linha de processo que não existe faz o arquivo mentir. */
+  dlg5.length = 0;
+  await pg5.click('.abas button:has-text("Arquivo")');
+  await pg5.waitForTimeout(600);
+  const antesEx = await pg5.evaluate(() => ({
+    docs: Object.keys(window.__STORE.arquivo_pastas).length,
+    alvo: ordenada('arq')[0]._id, processo: ordenada('arq')[0].processo
+  }));
+  await pg5.click('button[data-acao="excluir"][data-id="' + antesEx.alvo + '"]');
+  await pg5.waitForTimeout(800);
+  const depoisEx = await pg5.evaluate((id) => ({
+    docs: Object.keys(window.__STORE.arquivo_pastas).length,
+    aindaNoBanco: !!window.__STORE.arquivo_pastas[id],
+    naLista: PASTAS.some(p => p._id === id),
+    recado: (document.getElementById('impNota') || {}).textContent || ''
+  }), antesEx.alvo);
+  t('pergunta antes, dizendo o nome do processo que vai sair',
+    dlg5.some(m => /Excluir/.test(m) && m.indexOf(antesEx.processo) >= 0), dlg5);
+  t('e o processo sai do banco de verdade, não só da tela',
+    !depoisEx.aindaNoBanco && depoisEx.docs === antesEx.docs - 1 && !depoisEx.naLista, {antesEx, depoisEx});
+  t('a tela confirma o que foi excluído', /Exclu/.test(depoisEx.recado), depoisEx.recado);
+
+  /* Com uma célula aberta noutra linha, o botão TEM de funcionar. É por isso
+     que quem despacha as ações da linha é o mousedown, e não um onclick:
+     fechar a célula chama render(), e o botão em que o clique começou deixa
+     de existir antes de o "click" acontecer — ele parecia enguiçado. */
+  dlg5.length = 0;
+  const antesEx2 = await pg5.evaluate(() => ({
+    docs: Object.keys(window.__STORE.arquivo_pastas).length,
+    alvo: ordenada('arq')[0]._id, outra: ordenada('arq')[1]._id
+  }));
+  await pg5.click('td[data-campo="vencedor"][data-id="' + antesEx2.outra + '"]');
+  await pg5.waitForTimeout(200);
+  await pg5.fill('td.editando input', 'Empresa Corrigida');
+  await pg5.click('button[data-acao="excluir"][data-id="' + antesEx2.alvo + '"]');
+  await pg5.waitForTimeout(900);
+  const comCelulaAberta = await pg5.evaluate((e) => ({
+    excluida: !window.__STORE.arquivo_pastas[e.alvo],
+    docs: Object.keys(window.__STORE.arquivo_pastas).length,
+    vencedor: (window.__STORE.arquivo_pastas[e.outra] || {}).vencedor
+  }), antesEx2);
+  t('o 🗑 funciona com uma célula aberta noutra linha, e o que estava digitado é salvo',
+    comCelulaAberta.excluida && comCelulaAberta.docs === antesEx2.docs - 1
+    && comCelulaAberta.vencedor === 'Empresa Corrigida', {antesEx2, comCelulaAberta});
+
+  console.log('\n6i) A tabela para de mudar de tamanho quando se clica numa célula');
+  /* A queixa era esta: clicar numa célula troca o texto por um campo de
+     digitar e, com a largura saindo do CONTEÚDO, a tabela inteira se
+     redesenhava a cada clique. Agora a largura é declarada em <colgroup>. */
+  const larguras = await pg5.evaluate(async () => {
+    const medir = () => [...document.querySelectorAll('thead th')].map(x => Math.round(x.getBoundingClientRect().width));
+    const tabela = () => Math.round(document.querySelector('table').getBoundingClientRect().height);
+    /* o vencedor é o texto mais comprido da linha: é ele que ocupa três
+       linhas e vira um campo de uma só quando a célula abre */
+    const td = document.querySelector('td[data-campo="vencedor"]');
+    const linha = () => Math.round(td.parentElement.getBoundingClientRect().height);
+    const antes = medir(), altaAntes = linha(), tabAntes = tabela();
+    td.click();
+    await new Promise(r => setTimeout(r, 250));
+    return {antes, durante: medir(), altaAntes, altaDurante: linha(),
+            tabAntes, tabDurante: tabela(), editando: !!document.querySelector('td.editando'),
+            layout: getComputedStyle(document.querySelector('table')).tableLayout,
+            cols: document.querySelectorAll('colgroup col').length,
+            colunas: document.querySelectorAll('thead th').length};
+  });
+  t('a tabela declara a largura das colunas, uma por coluna',
+    larguras.layout === 'fixed' && larguras.cols === larguras.colunas, larguras);
+  t('e nenhuma coluna muda de largura com a célula aberta',
+    larguras.editando && larguras.antes.join() === larguras.durante.join(), larguras);
+  /* O texto de três linhas virando um campo de uma encolhia a linha, e a
+     tabela subia debaixo do cursor no mesmo instante do clique. */
+  t('a linha também não encolhe — nada se mexe debaixo do cursor',
+    larguras.altaDurante === larguras.altaAntes && larguras.tabDurante === larguras.tabAntes, larguras);
+
+  /* Os cartões de resumo saíram das três telas de cadastro: quem abre vem
+     procurar ou lançar, e eles empurravam a primeira linha para baixo da
+     dobra. "Na rua" mantém os seus — lá o número É a tela. */
+  const cards = await pg5.evaluate(async () => {
+    const conta = () => document.querySelectorAll('.resumo .rc').length;
+    const arq = conta();
+    irPara('anul'); await new Promise(r => setTimeout(r, 700));
+    const anul = conta();
+    irPara('memo'); await new Promise(r => setTimeout(r, 500));
+    document.querySelectorAll('.mod-btn').forEach(b => { if(/SMED/.test(b.textContent)) b.click(); });
+    await new Promise(r => setTimeout(r, 600));
+    const memo = conta();
+    irPara('rua'); await new Promise(r => setTimeout(r, 500));
+    return {arq, anul, memo, rua: conta()};
+  });
+  t('o painel de cartões saiu do Arquivo, das Anulações e dos Memorandos',
+    !cards.arq && !cards.anul && !cards.memo, cards);
+  t('mas continua em "Na rua", onde o número é a própria tela', cards.rua > 0, cards);
+  await pg5.close();
+
   console.log('\n7) Quem só visualiza não grava');
   const ver = await b.newPage({viewport:{width:1280, height:900}});
   const avisos = []; ver.on('dialog', d => { avisos.push(d.message()); d.accept(); });
@@ -751,6 +928,24 @@ const ABERTOS = Object.values(tramites).filter(x => !x.voltouEm).length;
     semCadastro.pastas === 0 && semCadastro.anul === 0 && semCadastro.memo === 0
     && !semCadastro.celulaAberta && !semCadastro.formTramite, semCadastro);
   t('e foi avisado do motivo em cada tentativa', avisos.filter(m => /leitura/i.test(m)).length >= 4, avisos);
+
+  /* Excluir e mandar para a rua têm a mesma trava — e nem aparecem na linha. */
+  const semAcoes = await ver.evaluate(async () => {
+    irPara('arq');
+    escolherModalidade('DISPENSA');
+    await new Promise(r => setTimeout(r, 700));
+    const alvo = PASTAS[0];
+    const botoes = document.querySelectorAll('button[data-acao]').length;
+    excluirPasta(alvo._id);
+    mandarParaRua(alvo._id);
+    await new Promise(r => setTimeout(r, 400));
+    return {botoes, linhas: PASTAS.length, tela: telaAtual,
+            aindaNoBanco: !!window.__STORE.arquivo_pastas[alvo._id]};
+  });
+  t('a linha de quem só visualiza não tem botão de ação nenhum',
+    semAcoes.linhas > 0 && semAcoes.botoes === 0, semAcoes);
+  t('e nem chamando as funções por fora ele exclui ou manda para a rua',
+    semAcoes.aindaNoBanco && semAcoes.tela === 'arq', semAcoes);
   await ver.close();
 
   console.log('\n8) A importação sobe os arquivos ESCOLHIDOS no computador');

@@ -50,15 +50,22 @@ dados — até 7 dias é o normal, acima de 30 é esquecimento. Um clique em
 abas.
 
 **✂️ Anulações** — o mesmo cadastro de hoje, com os mesmos campos, mas
-numerado em sequência única e com o valor somado no alto (R$ 11,1 milhões em
-298 anulações no ano). Cada anulação já cita a **requisição interna**
+numerado em sequência única. Cada anulação já cita a **requisição interna**
 (`09-72-2026-SMED`) e o **memorando** — dois ponteiros para coisas que o
 sistema já tem: a requisição vive em `/requisicao/`, o memorando na aba ao
 lado. Hoje essa ligação existe só na cabeça de quem digitou.
 
 **🗄️ Arquivo** — responde "onde está a DL 45/2025?" com a modalidade e uma
-linha de busca, em vez de quatro cadernos e aba por aba. O empréstimo (quem
-levou, quando) vira pendência na primeira tela sozinho.
+linha de busca, em vez de quatro cadernos e aba por aba. É aqui que o
+processo é cadastrado, e é daqui que ele sai para a rua pelo botão **📤**:
+a pasta deixa a prateleira e vira pendência na primeira tela, com quem está
+com ela (ver *A pasta que sai e a pasta que volta*).
+
+As três telas de cadastro (Arquivo, Anulações, Memorandos) **não têm painel
+de cartões** em cima da tabela. Quem abre uma delas vem procurar um
+registro ou lançar outro; "valor anulado no recorte" e "secretaria que mais
+anula" são números de relatório, e empurravam a primeira linha para baixo
+da dobra. 📍 Na rua mantém os seus — lá o número **é** a tela.
 
 Fica **ao lado de 📍 Na rua** na barra de abas, e não por acaso: são as duas
 pontas da mesma história — o documento sai para assinatura, volta assinado,
@@ -165,13 +172,20 @@ editam, e fazem isso **na própria tabela, sem modal e sem card** — o mesmo
 motor das Requisições: clicar numa célula vira um campo ali mesmo; Enter
 ou clicar fora salva; Esc desiste.
 
-O botão **＋** (Novo processo, Novo documento na rua, Nova anulação, Novo
-memorando) insere uma linha em branco no topo da tabela e já abre a
-primeira célula que faz sentido preencher. Uma linha assim **não toca o
-banco até o primeiro campo de verdade ser gravado** — uma linha aberta por
-engano e nunca tocada não vira lixo permanente, porque as regras não
-deixam apagar depois; ela só existe na tela, com um ✕ para descartá-la, e
-some sozinha se a pessoa apertar Esc sem ter escrito nada.
+O botão **＋** (Novo processo, Nova anulação, Novo memorando) insere uma
+linha em branco no topo da tabela e já abre a primeira célula que faz
+sentido preencher. Uma linha assim **não toca o banco até o primeiro campo
+de verdade ser gravado** — e isso importa porque anulação, memorando e
+trâmite não apagam: uma linha aberta por engano e nunca tocada não vira
+lixo permanente. Ela só existe na tela, com um ✕ para descartá-la, e some
+sozinha se a pessoa apertar Esc sem ter escrito nada.
+
+**A largura das colunas é declarada, não medida.** Cada campo traz o seu
+peso (`larg`), a tabela sai com `<colgroup>` e `table-layout: fixed`, e a
+célula aberta guarda a altura que a linha tinha. Sem isso, clicar numa
+célula trocava o texto por um campo de digitar — que mede outra coisa — e
+a tabela inteira se redesenhava a cada clique: as colunas mudando de
+largura, a linha encolhendo, tudo se mexendo debaixo do cursor.
 
 Em Arquivo e Memorandos, a própria célula também **move**: trocar a
 modalidade ou a secretaria tira o registro da faixa em que ele estava e
@@ -186,7 +200,9 @@ edição só corrige, nunca move.
 **"Na rua" não é tabela** — é agrupada por pessoa, de propósito (ver
 adiante). Por isso ali o clique abre a **linha inteira** como formulário
 plano, em vez de célula por célula: mesmo espírito ("nada de modal"),
-adaptado ao layout que já existia.
+adaptado ao layout que já existia. E ali não se **cadastra**: o processo é
+cadastrado uma vez, no Arquivo, e de lá muda de estado (ver *A pasta que
+sai e a pasta que volta*).
 
 **Tab anda pela linha inteira**, na mesma ordem das colunas — Shift+Tab
 volta. É o que faz preencher um cadastro ser rápido: a mão nunca sai do
@@ -196,16 +212,58 @@ linha ainda não gravada — o primeiro Tab é o que cria o documento no
 Firestore e troca o id de rascunho pelo id de verdade; só depois disso a
 segunda célula é encontrada e aberta).
 
-**Apagar não existe — corrigir é editar.** Nenhuma das quatro telas tem
-"excluir": um lançamento errado se corrige clicando na célula errada e
-escrevendo o valor certo, exatamente como qualquer outra edição. Isso não
-é uma limitação esquecida, é a regra do Firestore (`allow delete: if
-false` nas quatro coleções, de propósito — ver o arquivo de regras): o
-módulo existe para registrar por onde cada papel andou, e apagar uma linha
-destruiria justamente esse rastro. A única exceção prática é uma linha
-**nunca gravada** (criada com ＋ e ainda sem nenhum campo salvo) — essa
-pode ser descartada com Esc ou o ✕ da linha, porque ela nunca existiu no
-banco para começo de conversa.
+## A pasta que sai e a pasta que volta
+
+O processo que sai do arquivo **não é um cadastro novo: é a mesma pasta,
+noutro estado.** Antes não era assim — "Na rua" tinha o seu próprio ＋, e a
+mesma DL era digitada duas vezes, em duas telas, sem nada ligando uma à
+outra. Era por isso que o "✓ Voltou hoje" não devolvia nada a lugar nenhum:
+não havia a quem devolver.
+
+Agora o caminho é um só:
+
+1. o processo é cadastrado **uma vez**, no Arquivo;
+2. o botão **📤** na linha dele manda a pasta para a rua — a linha já nasce
+   preenchida a partir da pasta (o tipo do documento sai da modalidade, o
+   número sai do processo, a data é hoje, é um empréstimo) e o cursor entra
+   na única coisa que falta: **com quem** o papel está. Sem esse nome a
+   gravação é recusada — pendência sem dono não cobra ninguém;
+3. a pasta **sai da lista do Arquivo** e passa a viver em 📍 Na rua, com a
+   etiqueta "🗄️ do arquivo". A tela do Arquivo conta quantas estão fora e
+   leva até elas, porque sumir sem explicação é o que faz alguém cadastrar
+   o mesmo processo de novo;
+4. **✓ Voltou hoje** fecha o trâmite e devolve a pasta à prateleira. Aqui
+   não se pergunta se é para catalogar (a sugestão de catalogar continua
+   valendo para o trâmite que **não** veio de uma pasta): a pasta já existe,
+   catalogar de novo duplicaria.
+
+Duas marcas sustentam isso: `pastaId` no trâmite (é por ele que a volta
+sabe qual pasta devolver) e `naRua` na pasta (é o que a tira da lista do
+Arquivo). O filtro é na tela, não na consulta — perguntar modalidade **e**
+`naRua` ao Firestore pediria índice composto, pelo motivo de sempre.
+
+## Apagar: só a pasta, e de propósito
+
+Trâmite, anulação e memorando **não apagam**. Um lançamento errado neles se
+corrige clicando na célula e escrevendo o valor certo. Não é limitação
+esquecida, é a regra do Firestore (`allow delete: if false` nas três, ver o
+arquivo de regras): elas são registro de que **algo aconteceu** — o papel
+saiu, o empenho foi anulado, o memorando chegou — e apagar uma linha
+destruiria justamente o rastro que o módulo existe para guardar.
+
+**A pasta do arquivo é a exceção, e tem 🗑 na linha.** Ela não conta um
+acontecimento: ela diz **o que está na prateleira**. Processo lançado duas
+vezes, na modalidade errada ou aberto por engano, "corrigido editando",
+deixaria uma linha de um processo que não existe — e aí o arquivo passa a
+mentir sobre o que guarda, que é pior que a linha não estar lá. A regra é
+`allow delete: if arquivoEdit()`: quem apaga é quem pode editar. Pergunta
+antes, dizendo o nome do processo, e não pede senha de novo (diferente do
+`/requisicao/`, onde excluir mexe no despacho de terceiro) — o registro é
+do próprio setor, e o portão de edição do painel é o que protege.
+
+Vale para as quatro telas a linha **nunca gravada** (criada com ＋ e ainda
+sem nenhum campo salvo): essa se descarta com Esc ou o ✕ da linha, porque
+ela nunca existiu no banco para começo de conversa.
 
 Registro nascido na tela **não leva o campo `id`** da planilha — quem usa
 esse número é a importação, para reescrever em vez de duplicar. Ele ganha
@@ -370,10 +428,11 @@ mão, que serviu ao protótipo.
 ## O que falta
 
 1. **Um gesto próprio para "passar para outra pessoa"** — hoje isso é só
-   editar o campo "Com quem" no formulário de "Na rua" (ver *Cadastrar
-   direto pela tela*), o que funciona mas não deixa rastro de que houve uma
-   troca de mãos, só o estado final. O `SERAFIM` escrito na coluna "DATA
-   RETORNO" da planilha é exatamente esse caso sem forma própria.
+   editar o campo "Com quem" no formulário de "Na rua" (ver *Cadastrar e
+   editar dentro da própria tabela*), o que funciona mas não deixa rastro
+   de que houve uma troca de mãos, só o estado final. O `SERAFIM` escrito
+   na coluna "DATA RETORNO" da planilha é exatamente esse caso sem forma
+   própria.
 2. **Ligar na requisição** — a anulação cita `09-72-2026-SMED`, que já
    existe em `/requisicao/`. Clicar e abrir a requisição fecha o ciclo.
 

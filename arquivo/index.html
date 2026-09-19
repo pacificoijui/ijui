@@ -123,10 +123,19 @@
   .busca{flex:1;min-width:220px;max-width:420px;border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;
     font-family:inherit;font-size:14px;background:#f8fafd}
   .busca:focus{outline:none;border-color:var(--navy-light);background:#fff}
-  table{width:100%;border-collapse:collapse}
+  /* table-layout:fixed + <colgroup> (ver colunasHTML): sem isso, a largura de
+     cada coluna sai do CONTEÚDO — e clicar numa célula troca o texto por um
+     campo de digitar, que mede outra coisa. A tabela inteira se redesenhava
+     a cada clique, as colunas pulando de tamanho a cada célula aberta e
+     fechada. Com largura declarada, a coluna não sabe nem se importa com o
+     que tem dentro: o clique só troca o miolo da célula. */
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
   th{background:#f5f8fc;text-align:left;font-size:10.5px;font-weight:800;letter-spacing:1.1px;color:var(--muted);
-    text-transform:uppercase;padding:11px 14px;border-bottom:1.5px solid var(--border);white-space:nowrap}
-  td{padding:11px 14px;border-bottom:1px solid #eef2f8;font-size:13.5px;vertical-align:top}
+    text-transform:uppercase;padding:11px 14px;border-bottom:1.5px solid var(--border)}
+  /* Largura fixa e texto longo: sem quebrar palavra, "PAVIMENTAÇÃO..." passa
+     por cima da coluna vizinha em vez de descer de linha. */
+  td{padding:11px 14px;border-bottom:1px solid #eef2f8;font-size:13.5px;vertical-align:top;
+    overflow-wrap:anywhere;word-break:break-word}
   tbody tr:hover{background:#f8fafd}
   .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .vazio{padding:48px 20px;text-align:center;color:var(--muted)}
@@ -152,6 +161,11 @@
   .linha-nova>td{background:#fffaf0 !important}
   .linha-nova>td:first-child{box-shadow:inset 3px 0 0 var(--gold,#e8a020)}
   .cel-check{cursor:pointer;user-select:none}
+  /* A coluna das ações da linha: botões pequenos, lado a lado, sem empurrar
+     a largura da coluna (que é declarada em colunasHTML). */
+  .cel-acoes{white-space:nowrap;text-align:right}
+  .cel-acao{padding:4px 8px;font-size:12px;margin-left:4px}
+  .cel-apagar:hover{border-color:#e9b9b9;background:var(--red-bg);color:var(--red)}
 
   /* ── Barra de filtros ──
      As opções não são lista fixa: saem do que existe nos dados, com a
@@ -615,6 +629,12 @@ function dias(iso){
 function classeDias(n){ return n==null?'d-novo' : n>30?'d-velho' : n>7?'d-medio' : 'd-novo'; }
 
 function abertos(){ return TRAMITES.filter(t => t.saiuEm && !t.voltouEm); }
+/* A pasta que está na rua NÃO está no arquivo: é o mesmo registro em dois
+   estados, e mostrá-lo nos dois lugares faria a lista do arquivo mentir
+   sobre o que está na prateleira. O filtro é aqui, na tela, e não na
+   consulta: perguntar modalidade E naRua ao Firestore pediria índice
+   composto — o mesmo motivo de sempre. */
+function pastasNoArquivo(){ return PASTAS.filter(p => !p.naRua); }
 function normalizar(s){ return String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 
 /* ══════════════ ABAS ══════════════ */
@@ -628,7 +648,7 @@ const TELAS = [
      ofereceCatalogar). Ficarem vizinhas é o que faz esse salto parecer
      natural, em vez de pular para o fim da barra. */
   {id:'rua',  rot:'📍 Na rua',     conta:()=>CARREGADA.has('rua')  ? abertos().length   : null, alerta:true},
-  {id:'arq',  rot:'🗄️ Arquivo',    conta:()=>CARREGADA.has('arq')  ? PASTAS.length      : null},
+  {id:'arq',  rot:'🗄️ Arquivo',    conta:()=>CARREGADA.has('arq')  ? pastasNoArquivo().length : null},
   {id:'anul', rot:'✂️ Anulações',  conta:()=>CARREGADA.has('anul') ? ANULACOES.length   : null},
   {id:'memo', rot:'📨 Memorandos', conta:()=>CARREGADA.has('memo') ? MEMORANDOS.length  : null}
 ];
@@ -695,7 +715,7 @@ const CFG = {
     ]
   },
   arq: {
-    lista: () => PASTAS,
+    lista: () => pastasNoArquivo(),
     data: 'arquivadoEm', rotData: 'arquivamento',
     busca: p => [p.processo, p.vencedor, p.modalidade, p.pregoeiro, p.secretaria].join(' '),
     facetas: [
@@ -919,13 +939,15 @@ function telaRua(){
 
   h += barra('rua');
 
-  /* O botão vem ANTES dos retornos vazios de propósito: é exatamente com a
-     tela "Nada fora" que alguém precisa registrar o primeiro documento que
-     acabou de sair — esconder o botão aí seria trocar "está tudo em dia"
-     por "não dá para começar". */
+  /* Aqui não se cadastra nada, e isso é o desenho: o processo é cadastrado
+     UMA vez, no Arquivo, e de lá sai para a rua pelo botão 📤 (ver
+     mandarParaRua). O que existia antes era um segundo cadastro do mesmo
+     papel — a mesma DL digitada de novo, em outra tela, sem ligação com a
+     pasta — e era por isso que a volta não devolvia nada a lugar nenhum. */
   if(arqPodeEditar()){
-    h += '<div style="margin-bottom:12px">'
-       + '<button class="mini-btn" onclick="novaLinha(\'rua\')">＋ Novo documento na rua</button></div>';
+    h += '<div class="nota" style="margin-bottom:12px">Para mandar um processo para a rua, use o botão '
+       + '<b>📤</b> na linha dele, na aba <b>🗄️ Arquivo</b>: ele sai da prateleira e vira pendência aqui. '
+       + 'Quando alguém marcar <b>✓ Voltou hoje</b>, a pasta volta para o arquivo sozinha.</div>';
   }
 
   if(!todos.length) return h + '<div class="painel"><div class="vazio"><span>✅</span>Nada fora. Todo documento que saiu, voltou.</div></div>';
@@ -962,6 +984,9 @@ function blocoPessoa(nome, lista){
        + '<div class="selo-dias ' + classeDias(n) + '">' + (n == null ? '—' : n + 'd') + '</div>'
        + '<div class="doc"><b>' + esc(t.docTipo || 'documento') + ' ' + esc(t.docNum || '') + '</b>'
        + '<div class="met"><span class="etq">' + esc(t.tipo || '') + '</span>'
+       /* quem veio do arquivo diz que veio: é o que explica que o
+          "✓ Voltou hoje" vai devolver a pasta para a prateleira */
+       + (t.pastaId ? '<span class="etq">🗄️ do arquivo</span>' : '')
        + (t.secretaria ? esc(t.secretaria) + ' · ' : '')
        + 'saiu em ' + fmtD(t.saiuEm) + '</div></div>'
        /* o id que vai aqui é o do DOCUMENTO no banco (_id), não o número da
@@ -982,26 +1007,17 @@ function cartao(valor, rotulo, sub, classe){
 /* No protótipo a baixa só vive na memória da aba — é para sentir o gesto:
    um clique fecha a pendência, em vez de procurar a linha certa em 30 abas. */
 
-/* ══════════════ TELA 2: ANULAÇÕES ══════════════ */
+/* ══════════════ TELA 2: ANULAÇÕES ══════════════
+   Sem painel de resumo em cima da tabela: quem abre esta tela vem procurar
+   uma anulação ou lançar outra — "valor anulado no recorte" e "secretaria
+   que mais anula" são números de relatório, e ocupavam a primeira tela
+   inteira antes da primeira linha aparecer. O mesmo vale para o Arquivo e
+   os Memorandos. Na rua mantém os cartões: lá o número É a tela (o que
+   está fora, com quem, há quantos dias). */
 function telaAnul(){
   const lista = ordenada('anul');
-  const soma = lista.reduce((s, a) => s + (Number(a.valor) || 0), 0);
-  const quem = {}; lista.forEach(a => { if(a.quem) quem[a.quem] = (quem[a.quem] || 0) + 1; });
-  const secs = {}; lista.forEach(a => { if(a.reqSec) secs[a.reqSec] = (secs[a.reqSec] || 0) + 1; });
-  const topo = Object.entries(secs).sort((a, b) => b[1] - a[1])[0];
 
-  let h = '<div class="resumo">'
-    + cartao(lista.length, 'anulações', 'no recorte escolhido abaixo', '')
-    + cartao(money(soma), 'valor anulado', 'empenhos que voltaram para a dotação', '')
-    + cartao(Object.entries(quem).map(([k, v]) => k + ' ' + v).join(' · ') || '—', 'quem lançou', 'a planilha guarda isso entre parênteses no número', '')
-    + cartao(topo ? topo[0] : '—', 'secretaria que mais anula', topo ? topo[1] + ' anulações' : '', '')
-    + '</div>';
-
-  h += '<div class="nota">Cada anulação já cita a <b>requisição interna</b> (ex.: <code>09-72-2026-SMED</code>) '
-     + 'e o <b>memorando</b> que a pediu. São ponteiros para coisas que o sistema já tem: a requisição vive em '
-     + '<b>/requisicao/</b> e o memorando, na aba ao lado. Hoje a ligação existe só na cabeça de quem digitou.</div>';
-
-  h += botoesDaJanela('anul');
+  let h = botoesDaJanela('anul');
   h += barra('anul');
   h += '<div class="painel">';
   if(arqPodeEditar()){
@@ -1014,7 +1030,8 @@ function telaAnul(){
 
   /* O Nº não entra em CAMPOS_ANUL: é calculado (ver proximoNumeroAnulacao),
      ninguém digita — por isso não é uma célula clicável como as outras. */
-  h += '<table><thead><tr><th>Nº</th>' + CAMPOS_ANUL.map(c => '<th>' + esc(c.rot) + '</th>').join('') + '<th></th></tr></thead><tbody>';
+  h += '<table>' + colunasHTML(CAMPOS_ANUL, [8], [5])
+     + '<thead><tr><th>Nº</th>' + CAMPOS_ANUL.map(c => '<th>' + esc(c.rot) + '</th>').join('') + '<th></th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(a => {
     const numTxt = a.num == null ? '<span class="cel-vazia">calculando…</span>' : ('<b>' + a.num + '/' + a.ano + '</b>');
     h += linhaEditavelHTML('anul', a, CAMPOS_ANUL, '<td>' + numTxt + '</td>');
@@ -1041,20 +1058,19 @@ function telaArq(){
   }
 
   const lista = ordenada('arq');
-  const semCheck = lista.filter(p => p.arquivadoEm && !p.checklist).length;
-
-  h += '<div class="resumo">'
-    + cartao(lista.length, 'processos arquivados', 'em ' + MOD_ATUAL.toLowerCase(), '')
-    + cartao(abertos().filter(t => t.tipo === 'emprestimo').length, 'emprestados agora', 'saíram do arquivo e não voltaram', '')
-    + cartao(semCheck, 'sem checklist conferido', 'arquivado, mas a conferência não foi marcada', semCheck ? 'perigo' : 'bom')
-    + '</div>';
-
-  h += '<div class="nota">A pergunta que esta tela responde é <b>"onde está a DL 45/2025?"</b> — hoje ela custa '
-     + 'abrir quatro cadernos e olhar aba por aba. Aqui é a modalidade acima mais uma linha de busca, e o '
-     + 'empréstimo (quem levou, quando) vira pendência na primeira tela sozinho.</div>';
+  const naRua = PASTAS.filter(p => p.naRua).length;
 
   h += botoesDaJanela('arq');
   h += barra('arq');
+  /* A pasta que está na rua saiu desta lista — e sumir sem explicação é o
+     que faz alguém achar que perdeu o processo, ou cadastrá-lo de novo. */
+  if(naRua){
+    h += '<div style="margin-bottom:12px;font-size:13px;color:var(--muted)">📍 '
+       + (naRua > 1
+           ? naRua + ' processos desta modalidade estão na rua e não aparecem na lista.'
+           : 'Um processo desta modalidade está na rua e não aparece na lista.')
+       + ' <button class="mini-btn" onclick="irPara(\'rua\')">Ver com quem está</button></div>';
+  }
   h += '<div class="painel">';
   /* A classe .so-editor é aplicada UMA vez, quando o portão abre; este
      bloco nasce a cada render e não seria alcançado por ela. Quem decide
@@ -1063,12 +1079,14 @@ function telaArq(){
     h += '<div style="margin-bottom:12px">'
        + '<button class="mini-btn" onclick="novaLinha(\'arq\')">＋ Novo processo em ' + esc(MOD_ATUAL) + '</button>'
        + '<span style="font-size:12px;color:var(--muted);margin-left:10px">'
-       + 'Clique em qualquer célula para corrigir — inclusive a modalidade, para mover o processo.</span></div>';
+       + 'Clique em qualquer célula para corrigir — inclusive a modalidade, para mover o processo. '
+       + 'No fim da linha: <b>📤</b> manda para a rua, <b>🗑</b> exclui.</span></div>';
   }
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum processo com esses filtros.</div></div>';
 
   const campos = camposArq();
-  h += '<table><thead><tr>' + campos.map(c => '<th>' + esc(c.rot) + '</th>').join('') + '<th></th></tr></thead><tbody>';
+  h += '<table>' + colunasHTML(campos, [], [11])
+     + '<thead><tr>' + campos.map(c => '<th>' + esc(c.rot) + '</th>').join('') + '<th></th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(p => { h += linhaEditavelHTML('arq', p, campos); });
   h += '</tbody></table>';
   if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros — use os filtros acima</div>';
@@ -1093,14 +1111,6 @@ function telaMemo(){
 
   const lista = ordenada('memo');
 
-  h += '<div class="resumo">'
-    + cartao(lista.length, 'memorandos recebidos', 'em ' + rotSecretariaMemo(SEC_MEMO_ATUAL), '')
-    + cartao(new Set(lista.map(m => m.entregueA).filter(Boolean)).size, 'pessoas que receberam', 'a coluna "entregue para"', '')
-    + '</div>';
-
-  h += '<div class="nota">O memorando é o <b>porquê</b> de quase tudo: é ele que a anulação cita em "REF. MEMORANDO". '
-     + 'Aqui é a secretaria acima mais uma linha de busca — em vez de adivinhar em qual das abas ele foi anotado.</div>';
-
   h += barra('memo');
   h += '<div class="painel">';
   if(arqPodeEditar()){
@@ -1111,7 +1121,8 @@ function telaMemo(){
   }
   if(!lista.length) return h + '<div class="vazio"><span>🔎</span>Nenhum memorando com esses filtros.</div></div>';
 
-  h += '<table><thead><tr>' + CAMPOS_MEMO.map(c => '<th>' + esc(c.rot) + '</th>').join('') + '<th></th></tr></thead><tbody>';
+  h += '<table>' + colunasHTML(CAMPOS_MEMO, [], [5])
+     + '<thead><tr>' + CAMPOS_MEMO.map(c => '<th>' + esc(c.rot) + '</th>').join('') + '<th></th></tr></thead><tbody>';
   lista.slice(0, 300).forEach(m => { h += linhaEditavelHTML('memo', m, CAMPOS_MEMO); });
   h += '</tbody></table>';
   if(lista.length > 300) h += '<div class="vazio" style="padding:16px">mostrando os 300 primeiros — use os filtros acima</div>';
@@ -1277,7 +1288,7 @@ function faixaModalidades(){
     '<button class="mod-btn' + (MOD_ATUAL === m ? ' on' : '') + '"'
     + ' onclick="escolherModalidade(' + JSON.stringify(m).replace(/"/g, '&quot;') + ')">'
     + esc(m)
-    + (MOD_ATUAL === m ? '<span class="mod-n">' + PASTAS.length + '</span>' : '')
+    + (MOD_ATUAL === m ? '<span class="mod-n">' + pastasNoArquivo().length + '</span>' : '')
     + '</button>').join('') + '</div>';
 }
 function escolherModalidade(m){
@@ -1484,6 +1495,14 @@ function marcarVolta(id){
     /* some da lista: a tela é "o que está fora", e isto acabou de voltar */
     TRAMITES = TRAMITES.filter(x => x._id !== id);
     renderAbas(); render();
+    /* Pasta do arquivo: a volta é o fim do estado "na rua" — ela sai desta
+       tela e reaparece no arquivo, onde já estava cadastrada. Catalogar de
+       novo duplicaria a pasta, por isso aqui nem se oferece. */
+    if(t.pastaId){
+      marcarPastaNaRua(t, false).then(() =>
+        avisar('Voltou para o arquivo: ' + ((t.docTipo || '') + ' ' + (t.docNum || '')).trim() + '.'));
+      return;
+    }
     ofereceCatalogar(t, hoje);
   }).catch(e => alert('Não consegui gravar: ' + e.message));
 }
@@ -1496,8 +1515,9 @@ function marcarVolta(id){
 
    "+ Novo..." insere uma linha em branco na hora, só na tela: ela NÃO
    toca o banco até o primeiro campo de verdade ser preenchido (`_gravada`
-   continua false) — uma linha aberta por engano e nunca tocada não vira
-   lixo permanente, porque as regras não deixam apagar depois. */
+   continua false) — e isso importa porque anulação, memorando e trâmite
+   não apagam: uma linha aberta por engano e nunca tocada não vira lixo
+   permanente. A pasta do arquivo é a única que apaga (ver excluirPasta). */
 const TIPOS_TRAMITE = [
   {k:'assinatura', rot:'Assinatura'},
   {k:'parecer',    rot:'Parecer'},
@@ -1512,21 +1532,25 @@ const CAMPO_FOCO_INICIAL = {arq:'processo', rua:'docNum', anul:'requisicao', mem
    vez, então dá para decidir a coluna uma vez por render. INEXIGIBILIDADE
    não tem pregoeiro; CONCORRÊNCIA chama a mesma coluna de "Agente de
    Contratação" — é o mesmo campo do banco (`pregoeiro`), só o rótulo muda,
-   para não precisar de uma coluna nova nem migrar dado nenhum. */
+   para não precisar de uma coluna nova nem migrar dado nenhum.
+
+   "larg" é o PESO da coluna na largura da tabela (ver colunasHTML): sem
+   largura declarada, a coluna se mede pelo conteúdo e muda de tamanho no
+   instante em que o texto vira um campo de digitar. */
 function camposArq(){
   const c = [
-    {k:'modalidade', tipo:'select', opcoes:()=>MODALIDADES_ARQUIVO, rot:'Modalidade'},
-    {k:'processo', tipo:'texto', obrigatorio:true, placeholder:'Ex: DL 45/2025 - Aquisição de material', rot:'Processo', erro:'o processo'},
-    {k:'secretaria', tipo:'texto', maiusc:true, rot:'Secretaria'},
-    {k:'vencedor', tipo:'texto', rot:'Vencedor'},
-    {k:'valor', tipo:'valor', rot:'Valor'}
+    {k:'modalidade', tipo:'select', opcoes:()=>MODALIDADES_ARQUIVO, rot:'Modalidade', larg:11},
+    {k:'processo', tipo:'texto', obrigatorio:true, placeholder:'Ex: DL 45/2025 - Aquisição de material', rot:'Processo', erro:'o processo', larg:25},
+    {k:'secretaria', tipo:'texto', maiusc:true, rot:'Secretaria', larg:10},
+    {k:'vencedor', tipo:'texto', rot:'Vencedor', larg:16},
+    {k:'valor', tipo:'valor', rot:'Valor', larg:9}
   ];
   if(MOD_ATUAL !== 'INEXIGIBILIDADE'){
-    c.push({k:'pregoeiro', tipo:'texto', maiusc:true, lista:'listaPregoeiros',
+    c.push({k:'pregoeiro', tipo:'texto', maiusc:true, lista:'listaPregoeiros', larg:12,
       rot: MOD_ATUAL === 'CONCORRÊNCIA' ? 'Agente de Contratação' : 'Pregoeiro'});
   }
-  c.push({k:'arquivadoEm', tipo:'data', rot:'Arquivado em'});
-  c.push({k:'checklist', tipo:'check', rot:'Checklist'});
+  c.push({k:'arquivadoEm', tipo:'data', rot:'Arquivado em', larg:9});
+  c.push({k:'checklist', tipo:'check', rot:'Checklist', larg:9});
   return c;
 }
 const CAMPOS_RUA = [
@@ -1541,28 +1565,40 @@ const CAMPOS_RUA = [
    (nem coluna, nem facet obrigatória) — só reqSec, que vem da planilha e
    continua servindo o filtro por quem já foi importado. */
 const CAMPOS_ANUL = [
-  {k:'contabilidadeEm', tipo:'data', rot:'Contabilidade'},
-  {k:'quem', tipo:'texto', maiusc:true, lista:'listaQuemAnul', rot:'Quem lançou'},
-  {k:'requisicao', tipo:'texto', rot:'Requisição'},
-  {k:'memorando', tipo:'texto', rot:'Memorando'},
-  {k:'pedido', tipo:'texto', rot:'Pedido'},
-  {k:'empenho', tipo:'texto', rot:'Empenho'},
-  {k:'credor', tipo:'texto', rot:'Credor'},
-  {k:'valor', tipo:'valor', rot:'Valor'},
+  {k:'contabilidadeEm', tipo:'data', rot:'Contabilidade', larg:9},
+  {k:'quem', tipo:'texto', maiusc:true, lista:'listaQuemAnul', rot:'Quem lançou', larg:8},
+  {k:'requisicao', tipo:'texto', rot:'Requisição', larg:12},
+  {k:'memorando', tipo:'texto', rot:'Memorando', larg:9},
+  {k:'pedido', tipo:'texto', rot:'Pedido', larg:8},
+  {k:'empenho', tipo:'texto', rot:'Empenho', larg:8},
+  {k:'credor', tipo:'texto', rot:'Credor', larg:17},
+  {k:'valor', tipo:'valor', rot:'Valor', larg:10},
   /* Antes só a importação preenchia "voltou": não tinha como marcar pela
      tela, então uma anulação que voltasse da contabilidade ficava presa
      em branco para sempre. Agora é uma data como outra qualquer. */
-  {k:'retornoEm', tipo:'data', rot:'Voltou'}
+  {k:'retornoEm', tipo:'data', rot:'Voltou', larg:9}
 ];
 const CAMPOS_MEMO = [
-  {k:'secretaria', tipo:'select', opcoes:()=>SECRETARIAS_MEMO.map(x=>x.v), rotOpc:v=>rotSecretariaMemo(v), rot:'Secretaria'},
-  {k:'num', tipo:'texto', obrigatorio:true, placeholder:'Ex: 45/2026', rot:'Memorando', erro:'o número do memorando'},
-  {k:'recebidoEm', tipo:'data', rot:'Recebido em'},
-  {k:'entregueA', tipo:'texto', maiusc:true, lista:'listaEntregues', rot:'Entregue para'},
-  {k:'descricao', tipo:'texto', rot:'Assunto'}
+  {k:'secretaria', tipo:'select', opcoes:()=>SECRETARIAS_MEMO.map(x=>x.v), rotOpc:v=>rotSecretariaMemo(v), rot:'Secretaria', larg:13},
+  {k:'num', tipo:'texto', obrigatorio:true, placeholder:'Ex: 45/2026', rot:'Memorando', erro:'o número do memorando', larg:10},
+  {k:'recebidoEm', tipo:'data', rot:'Recebido em', larg:10},
+  {k:'entregueA', tipo:'texto', maiusc:true, lista:'listaEntregues', rot:'Entregue para', larg:15},
+  {k:'descricao', tipo:'texto', rot:'Assunto', larg:38}
 ];
 function camposDe(tela){
   return tela === 'arq' ? camposArq() : tela === 'rua' ? CAMPOS_RUA : tela === 'anul' ? CAMPOS_ANUL : CAMPOS_MEMO;
+}
+/* ── As larguras das colunas ──
+   Os números de "larg" são PESOS, não porcentagens: a soma é normalizada
+   aqui. Assim uma coluna que entra ou sai (o Pregoeiro, que não existe em
+   INEXIGIBILIDADE) não obriga ninguém a reequilibrar as outras à mão. As
+   colunas que não saem da config de campos — o Nº calculado das anulações,
+   antes; a dos botões, depois — entram como peso solto. */
+function colunasHTML(campos, antes, depois){
+  const pesos = (antes || []).concat(campos.map(c => c.larg || 10), depois || []);
+  const total = pesos.reduce((s, n) => s + n, 0) || 1;
+  return '<colgroup>' + pesos.map(p =>
+    '<col style="width:' + (Math.round(p / total * 10000) / 100) + '%">').join('') + '</colgroup>';
 }
 function listaDe(tela){
   return tela === 'rua' ? TRAMITES : tela === 'anul' ? ANULACOES : tela === 'arq' ? PASTAS : MEMORANDOS;
@@ -1574,9 +1610,10 @@ function itemDe(tela, id){ return listaDe(tela).find(x => x._id === id); }
    pessoa) e por isso não entra aqui. */
 function linhaEditavelHTML(tela, item, campos, celulasAntes){
   const pode = arqPodeEditar();
-  let h = '<tr' + ((item._novo && !item._gravada) ? ' class="linha-nova"' : '') + '>' + (celulasAntes || '');
+  const idJs = JSON.stringify(item._id).replace(/"/g, '&quot;');
+  const rascunho = item._novo && !item._gravada;
+  let h = '<tr' + (rascunho ? ' class="linha-nova"' : '') + '>' + (celulasAntes || '');
   campos.forEach(c => {
-    const idJs = JSON.stringify(item._id).replace(/"/g, '&quot;');
     if(c.tipo === 'check'){
       h += '<td' + (pode ? ' class="cel-check" onclick="alternarChecklist(' + idJs + ')"' : '') + '>'
          + (item[c.k] ? '<span style="color:var(--green);font-weight:800">✓ conferido</span>'
@@ -1594,10 +1631,21 @@ function linhaEditavelHTML(tela, item, campos, celulasAntes){
         + ' onclick="celEditar(\'' + tela + '\',' + idJs + ',\'' + c.k + '\',this)">' + texto + '</td>'
       : '<td>' + texto + '</td>';
   });
-  h += '<td>' + ((item._novo && !item._gravada)
-    ? '<button class="mini-btn" style="padding:4px 8px;font-size:11px" title="Descartar esta linha"'
-      + ' onclick="descartarLinha(\'' + tela + '\',' + JSON.stringify(item._id).replace(/"/g, '&quot;') + ')">✕</button>'
-    : '') + '</td>';
+  /* A última coluna é a das ações da linha. Os botões não têm onclick: quem
+     os despacha é o mesmo mousedown que fecha a célula aberta (ver
+     ACOES_LINHA). Com onclick, clicar num deles com uma célula em edição
+     não fazia nada — fechar a célula chama render(), o <td> do clique morre
+     antes do "click" chegar, e o botão parecia enguiçado. */
+  const btn = (acao, titulo, rotulo, extra) =>
+    '<button class="mini-btn cel-acao' + (extra || '') + '" title="' + esc(titulo) + '"'
+    + ' data-acao="' + acao + '" data-tela="' + tela + '" data-id="' + esc(item._id) + '">' + rotulo + '</button>';
+  let acoes = '';
+  if(rascunho) acoes = btn('descartar', 'Descartar esta linha', '✕');
+  else if(tela === 'arq' && pode){
+    acoes = btn('rua', 'Mandar este processo para a rua', '📤')
+          + btn('excluir', 'Excluir este processo do arquivo', '🗑', ' cel-apagar');
+  }
+  h += '<td class="cel-acoes">' + acoes + '</td>';
   return h + '</tr>';
 }
 
@@ -1642,6 +1690,90 @@ function novaLinha(tela, extra, focoInicial){
   }, 30);
   return item;
 }
+/* ── Excluir uma pasta do arquivo ──
+   Das quatro coleções, só esta apaga — e é de propósito. Trâmite, anulação
+   e memorando são registro de que ALGO ACONTECEU: o papel saiu, o empenho
+   foi anulado, o memorando chegou. Apagar um desses é apagar o histórico
+   que o módulo existe para guardar, e por isso as regras do Firestore nem
+   deixam (ver firestore-processos-ijui.rules).
+
+   A pasta é outra coisa: é a prateleira, não o acontecimento. Processo
+   lançado na modalidade errada, digitado duas vezes, aberto por engano —
+   nesses casos corrigir editando deixaria uma linha que nunca existiu de
+   verdade, e o arquivo passaria a mentir sobre o que está guardado.
+
+   Sem reautenticação (diferente do /requisicao/, onde excluir uma
+   requisição mexe em despacho de terceiro): aqui o registro é do próprio
+   setor, o confirm diz o nome do processo, e o pedido foi por algo
+   "bem tranquilo" de usar. O que protege é o portão de edição do painel. */
+function excluirPasta(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const p = itemDe('arq', id);
+  if(!p) return;
+  if(!p._gravada){ descartarLinha('arq', id); return; }
+  if(!confirm('Excluir do arquivo:\n\n' + (p.processo || '(processo sem nome)')
+    + '\n\nA linha sai do banco de vez — não tem como desfazer.')) return;
+  col('arq').doc(id).delete().then(() => {
+    PASTAS = PASTAS.filter(x => x._id !== id);
+    _cel = null;
+    avisar('Excluído: ' + (p.processo || 'processo sem nome') + '.');
+    renderAbas(); render();
+  }).catch(e => alert('Não consegui excluir: ' + e.message));
+}
+
+/* ══════════════ ARQUIVO → RUA → ARQUIVO ══════════════
+   O processo que sai do arquivo não é um cadastro novo: é a MESMA pasta,
+   noutro estado. Por isso não se digita nada na tela "Na rua" — cadastra-se
+   uma vez, no Arquivo, e de lá a pasta é mandada para a rua pelo botão 📤.
+   Ela sai da lista do arquivo (não está na prateleira) e passa a viver na
+   primeira tela, como pendência de quem está com ela. O "✓ Voltou hoje"
+   fecha o trâmite e devolve a pasta ao arquivo, no mesmo lugar de antes.
+
+   Duas marcas fazem isso funcionar: `pastaId` no trâmite (é por ele que a
+   volta sabe qual pasta devolver) e `naRua` na pasta (é o que a tira da
+   lista do arquivo). Sem as duas, a pasta ou some sem voltar, ou aparece
+   nos dois lugares ao mesmo tempo. */
+const MODALIDADE_PARA_DOCTIPO = {
+  'DISPENSA':'DL', 'PREGÃO':'PE', 'CONCORRÊNCIA':'CP', 'INEXIGIBILIDADE':'INEX', 'REQ. NÃO SE APLICA':''
+};
+function mandarParaRua(id){
+  if(!arqPodeEditar()){ alert('Seu acesso ao Arquivo é de leitura.'); return; }
+  const p = itemDe('arq', id);
+  if(!p || !p._gravada) return;
+  /* Do "DL 45/2025 - Aquisição de material" só o número vai para o trâmite:
+     é o que se escreve no caderno, e o tipo do documento já sai da
+     modalidade. */
+  const m = String(p.processo || '').match(/\d+\s*\/\s*\d{2,4}/);
+  telaAtual = 'rua'; fecharPop(); _cel = null;
+  renderAbas();
+  lerTela('rua').then(() => {
+    const t = novaLinha('rua', {
+      pastaId: p._id,
+      tipo: 'emprestimo',
+      docTipo: MODALIDADE_PARA_DOCTIPO[p.modalidade] || '',
+      docNum: m ? m[0].replace(/\s/g, '') : String(p.processo || ''),
+      secretaria: p.secretaria || ''
+    });
+    /* Falta uma coisa só para a pendência existir: com quem o papel está.
+       É nela que o cursor entra — o resto já veio da pasta. */
+    if(t) setTimeout(() => {
+      const el = document.querySelector('[data-linha-edit="' + t._id + '"] [data-campo="comQuem"]');
+      if(el) el.focus();
+    }, 40);
+  });
+}
+/* A pasta entra e sai do estado "na rua" por aqui, nos dois sentidos — é
+   uma gravação só, num campo só, e a lista da tela acompanha na memória
+   para não precisar reler a modalidade inteira. */
+function marcarPastaNaRua(t, naRua){
+  if(!t || !t.pastaId || !t._gravada) return Promise.resolve();
+  return col('arq').doc(t.pastaId).set({naRua: naRua}, {merge: true}).then(() => {
+    const p = PASTAS.find(x => x._id === t.pastaId);
+    if(p) p.naRua = naRua;
+    renderAbas(); render();
+  }).catch(e => alert('O trâmite foi gravado, mas não consegui marcar a pasta: ' + e.message));
+}
+
 /* Linha em branco nunca tocada: sai da tela sem nunca ter ido ao banco. */
 function descartarLinha(tela, id){
   const arr = listaDe(tela);
@@ -1685,14 +1817,23 @@ function salvarLinhaTramite(id){
   const val = campo => { const el = caixa.querySelector('[data-campo="' + campo + '"]'); return el ? el.value : ''; };
   const docNum = val('docNum').trim();
   if(!docNum){ alert('Escreva o número do documento.'); return; }
+  const comQuem = val('comQuem').trim().toUpperCase();
+  /* Pasta que sai do arquivo sem destino anotado é exatamente o que este
+     módulo existe para não deixar acontecer: sem nome, não há a quem
+     cobrar — e a pasta teria saído da prateleira para lugar nenhum. */
+  if(item.pastaId && !comQuem){ alert('Escreva com quem o processo está.'); return; }
+  const novo = !item._gravada;
   item.tipo = val('tipo');
   item.docTipo = val('docTipo').trim().toUpperCase();
   item.docNum = docNum;
-  item.comQuem = val('comQuem').trim().toUpperCase();
+  item.comQuem = comQuem;
   item.secretaria = val('secretaria').trim().toUpperCase();
   item.saiuEm = val('saiuEm') || null;
   _tramiteEmEdicao = null;
-  gravarItem('rua', item, 'todos');
+  /* Só na PRIMEIRA gravação a pasta é marcada: corrigir um trâmite que já
+     existe não precisa reescrever o campo da pasta, que já está marcado. */
+  const gravou = gravarItem('rua', item, 'todos');
+  if(novo && item.pastaId) gravou.then(() => marcarPastaNaRua(item, true));
 }
 function linhaTramiteEdicaoHTML(t){
   const inp = c => {
@@ -1744,7 +1885,14 @@ function celEditar(tela, id, campo, td){
   if(!item) return;
   popularListasDe(tela);
   _cel = {tela, id, campo, td};
+  /* A largura das colunas já é declarada (colunasHTML); falta a ALTURA da
+     linha. Um vencedor que ocupa três linhas de texto vira um campo de uma
+     só, e a tabela inteira sobe debaixo do cursor no instante do clique.
+     Guardar a altura que a linha tinha na própria célula aberta segura tudo
+     no lugar — e ela vai embora sozinha no render() que fecha a célula. */
+  const altura = td.parentElement ? td.parentElement.getBoundingClientRect().height : 0;
   td.classList.add('editando');
+  if(altura) td.style.height = altura + 'px';
   td.innerHTML = celEditorHTML(tela, item, campo);
   const alvo = td.querySelector('input,select,textarea');
   if(!alvo){ _cel = null; td.classList.remove('editando'); return; }
@@ -1782,7 +1930,33 @@ function celEditar(tela, id, campo, td){
    num elemento que render() já tinha substituído, e a segunda célula nunca
    abria — foi o que aconteceu tentando marcar "voltou" numa anulação logo
    depois de abrir uma linha nova (ver t-arquivo.js). */
+/* Os botões da última coluna (descartar, mandar para a rua, excluir) passam
+   por aqui, e não por um onclick próprio, pela mesma razão do parágrafo
+   acima: fechar a célula aberta chama render(), e o botão em que o clique
+   começou deixa de existir antes de o "click" acontecer. Aqui a ação é
+   guardada no mousedown e executada depois que a gravação termina. */
+const ACOES_LINHA = {
+  rua:     id => mandarParaRua(id),
+  excluir: id => excluirPasta(id)
+};
 document.addEventListener('mousedown', e => {
+  const bt = e.target.closest('button[data-acao]');
+  if(bt){
+    const tela = bt.dataset.tela, acao = bt.dataset.acao, id = bt.dataset.id;
+    if(acao === 'descartar'){
+      /* Descartar é jogar a linha fora: o que estava digitado nela NÃO é
+         gravado antes. Se a célula aberta for de OUTRA linha, essa sim é
+         salva — não é ela que está sendo descartada. */
+      celFechar(!(_cel && _cel.id === id));
+      descartarLinha(tela, id);
+      return;
+    }
+    /* pela referência, não pelo id do atributo: se a linha ainda era
+       rascunho, gravar troca o id do rascunho pelo do Firestore */
+    const item = itemDe(tela, id);
+    celFechar(true).then(() => { if(item && ACOES_LINHA[acao]) ACOES_LINHA[acao](item._id); });
+    return;
+  }
   if(!_cel) return;
   if(e.target.closest('td.editando')) return;
   const outra = e.target.closest('td[data-campo]');
