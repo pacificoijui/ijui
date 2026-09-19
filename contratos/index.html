@@ -697,17 +697,13 @@
   .c-valor { width: 8%; font-size: 13px; }
   .fis-linha { line-height: 1.3; }
   .fis-rot { display: inline-block; min-width: 24px; }
-  /* O objeto de um contrato tem de 1 a 12 linhas, e era ele que fazia a
-     tabela virar uma escada: linhas de 30px ao lado de linhas de 120px,
-     sem nada para o olho seguir. Três linhas é o que cabe sem cortar a
-     ideia — o resto está na ficha, a um clique, e a busca continua
-     procurando no texto inteiro. */
-  .obj-txt { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-    overflow: hidden; line-height: 1.45; }
+  /* O objeto aparece INTEIRO na tabela, sem corte e sem reticências. Ele
+     chegou a ser limitado a três linhas, para as linhas ficarem todas da
+     mesma altura; quem usa a tela preferiu ler o objeto por completo aqui,
+     sem ter de abrir a ficha para ver o fim da frase — e é quem usa que
+     decide. A linha cresce com o texto. */
+  .obj-txt { display: block; line-height: 1.45; }
   @media (max-width: 860px) {
-    /* No celular a lista já é um bloco por contrato, com espaço de sobra:
-       lá o objeto pode respirar em quatro linhas. */
-    .obj-txt { -webkit-line-clamp: 4; }
     .tab td { font-size: 12.5px; }
   }
 
@@ -749,15 +745,20 @@
   @media (max-width: 860px) { .previa-chip { display: none !important; } }
 
   /* ── Alinhamento da lista ──
-     Tudo centrado, e só o objeto justificado. As colunas curtas (nº,
-     secretaria, tipo, situação, vencimento) são etiquetas e selos: centradas,
-     elas viram uma coluna de blocos alinhados em vez de um texto encostado à
-     esquerda com sobra à direita. O objeto é o único texto longo da linha, e
-     justificado ele fecha as três linhas no mesmo retângulo — sem a borda
-     serrilhada que sobrava ao lado. */
+     Tudo centrado, VALOR inclusive: as colunas curtas são etiquetas e selos,
+     e centradas viram uma coluna de blocos alinhados em vez de texto
+     encostado à esquerda com sobra à direita.
+
+     O objeto é a exceção e fica à esquerda. Justificado ele fechava as
+     linhas num retângulo certinho, mas abria vãos brancos no meio das
+     frases — numa coluna estreita, justificar cobra caro demais na leitura,
+     que é o que se faz com o objeto de um contrato. */
   .tab th, .tab td { text-align: center; }
-  .tab th.r, .tab .c-valor { text-align: right; }
-  .tab .c-obj { text-align: justify; text-justify: inter-word; hyphens: auto; }
+  /* ".tab th.r" (a coluna do valor, lá em cima) tem duas classes e ganharia
+     da regra acima por especificidade, não por ordem — por isso ela é
+     desfeita aqui, com o mesmo peso e mais abaixo. */
+  .tab th.r, .tab .c-valor { text-align: center; }
+  .tab .c-obj { text-align: left; }
   .tab .c-emp { text-align: center; }
   /* No celular a linha deixa de ser linha de tabela e vira um bloco por
      contrato (empresa de título, objeto embaixo, valor em destaque): ali

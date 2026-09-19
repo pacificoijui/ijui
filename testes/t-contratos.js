@@ -1788,18 +1788,35 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   t('o valor do contrato é escrito em Space Grotesk, de algarismo fixo',
     /Space Grotesk/.test(visual.numeroMono), visual.numeroMono);
 
-  /* Alinhamento da lista: as colunas curtas são etiquetas e selos, e
-     centradas viram uma coluna de blocos alinhados; o objeto é o único texto
-     longo da linha e fecha as três linhas no mesmo retângulo; o valor fica à
-     direita, que é como se compara número descendo a coluna. */
+  /* Alinhamento da lista: tudo centrado — as colunas curtas são etiquetas e
+     selos, e centradas viram uma coluna de blocos alinhados. O objeto é a
+     exceção e fica à esquerda: justificado, ele abria vãos brancos no meio
+     das frases, e é o texto que de fato se lê na tabela. */
   const alinhamento = await pg.evaluate(() => {
     const al = s => getComputedStyle(document.querySelector(s)).textAlign;
-    return {cab: al('.tab th'), sec: al('td.c-sec'), obj: al('td.c-obj'), valor: al('td.c-valor')};
+    return {cab: al('.tab th'), cabValor: al('.tab th.r'), sec: al('td.c-sec'),
+            obj: al('td.c-obj'), valor: al('td.c-valor')};
   });
   t('cabeçalho e colunas curtas ficam centrados',
     alinhamento.cab === 'center' && alinhamento.sec === 'center', alinhamento);
-  t('o objeto do contrato fica justificado', alinhamento.obj === 'justify', alinhamento);
-  t('e o valor, à direita', alinhamento.valor === 'right', alinhamento);
+  t('o valor também — coluna e cabeçalho',
+    alinhamento.valor === 'center' && alinhamento.cabValor === 'center', alinhamento);
+  t('e o objeto do contrato, à esquerda', alinhamento.obj === 'left', alinhamento);
+
+  /* O objeto INTEIRO na tabela: ele já foi limitado a três linhas para as
+     linhas ficarem da mesma altura, e quem usa a tela pediu o texto todo —
+     ler o fim da frase não pode depender de abrir a ficha. */
+  const objetoInteiro = await pg.evaluate(() => {
+    const el = [...document.querySelectorAll('td.c-obj .obj-txt')]
+      .sort((a, b) => b.textContent.length - a.textContent.length)[0];
+    const c = CONTRATOS.find(x => x.objeto === el.textContent);
+    return {naTela: el.textContent.length, noCadastro: c ? c.objeto.length : -1,
+            cortado: el.scrollHeight > el.clientHeight + 1,
+            reticencias: /…$/.test(el.textContent.trim())};
+  });
+  t('o objeto mais longo da tela aparece inteiro, sem corte nem reticências',
+    objetoInteiro.naTela === objetoInteiro.noCadastro
+    && !objetoInteiro.cortado && !objetoInteiro.reticencias, objetoInteiro);
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

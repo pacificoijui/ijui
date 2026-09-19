@@ -55,13 +55,16 @@ uma, e é o que deixa a troca reversível. Toda a aparência nova mora num bloco
 só, no fim da folha de estilo, sob o título `IDENTIDADE`: mexer na identidade
 um dia é mexer ali, não nos 400 seletores de cima.
 
-Na lista, **o objeto ocupa no máximo três linhas**. Ele tem de 1 a 12 no
-cadastro, e era isso que fazia a tabela virar uma escada — linha de 30px ao
-lado de linha de 120px, sem nada para o olho seguir. O texto inteiro continua
-na ficha, a um clique, e a busca continua procurando nele todo. O alinhamento
-segue a mesma ideia: colunas curtas centradas (são etiquetas e selos), o
-objeto justificado (é o único texto longo da linha) e o valor à direita, que é
-como se compara número.
+Na lista, **o objeto aparece inteiro** — sem corte e sem reticências. Ele
+chegou a ser limitado a três linhas, para as linhas ficarem todas da mesma
+altura; quem usa a tela preferiu ler o objeto por completo ali, sem ter de
+abrir a ficha para ver o fim da frase, e a linha passou a crescer com o texto.
+
+O alinhamento: **tudo centrado, o objeto à esquerda**. As colunas curtas são
+etiquetas e selos, e centradas viram uma coluna de blocos alinhados em vez de
+texto encostado à esquerda com sobra à direita. O objeto é a exceção porque é
+o texto que de fato se lê na tabela — justificado, ele fechava as linhas num
+retângulo certinho e abria vãos brancos no meio das frases.
 
 **O peso.** Medido com os 1.294 contratos reais, na conta de quem é
 administrador — que era quem pagava mais caro:
