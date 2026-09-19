@@ -41,6 +41,63 @@ da primeira importação**. Ele não é mais a fonte da tela: se o Firestore
 negar a leitura, a tela mostra o erro em vez de cair no arquivo — o arquivo
 é público, e usá-lo como plano B furaria a proteção inteira.
 
+## O desenho, e o que desce a cada visita
+
+A identidade é a mesma do `/pregoeiro/`: fonte **Sora**, números em **Space
+Grotesk** (valor, nº do contrato, contagem — algarismo de largura fixa, que é
+o que deixa comparar valor com valor descendo a coluna), paleta **Mosaico das
+Etnias** com a faixa do município no pé do cabeçalho, no topo da lista e no pé
+dos modais, cabeçalho como painel escuro e botões chapados.
+
+Os nomes antigos das cores (`--navy`, `--gold`…) viraram **apelidos** da
+paleta nova. É o que fez ~500 regras mudarem de cor sem serem reescritas uma a
+uma, e é o que deixa a troca reversível. Toda a aparência nova mora num bloco
+só, no fim da folha de estilo, sob o título `IDENTIDADE`: mexer na identidade
+um dia é mexer ali, não nos 400 seletores de cima.
+
+Na lista, **o objeto ocupa no máximo três linhas**. Ele tem de 1 a 12 no
+cadastro, e era isso que fazia a tabela virar uma escada — linha de 30px ao
+lado de linha de 120px, sem nada para o olho seguir. O texto inteiro continua
+na ficha, a um clique, e a busca continua procurando nele todo. O alinhamento
+segue a mesma ideia: colunas curtas centradas (são etiquetas e selos), o
+objeto justificado (é o único texto longo da linha) e o valor à direita, que é
+como se compara número.
+
+**O peso.** Medido com os 1.294 contratos reais, na conta de quem é
+administrador — que era quem pagava mais caro:
+
+| | antes | agora |
+|---|---|---|
+| primeira visita | 1.057 KB | 1.007 KB |
+| visitas seguintes | 1.057 KB | **244 KB** |
+
+Três coisas saíram da mochila:
+
+1. **O brasão embutido no HTML** — 27 KB em base64 baixados a cada visita, do
+   mesmo brasão que o ícone da aba já pedia — virou `../logo-ijui-180.jpg`, de
+   5,7 KB, que serve aos três tamanhos em que ele aparece (16px na aba, 46px
+   no cabeçalho, 180px na tela de início do iPhone) e fica no cache.
+2. **A conferência com o arquivo** lia `dados/contratos.json` inteiro (763 KB)
+   em toda visita de administrador, mesmo com o banco em dia. Agora ela
+   pergunta primeiro a *versão* do arquivo — um `HEAD`, que não traz corpo
+   nenhum: se for a mesma da última conferência e o banco tiver o mesmo tanto
+   de contratos, não há o que conferir. O arquivo só desce quando um dos dois
+   lados mexeu (ver `conferirImportacao`), e a resposta fica lembrada no
+   próprio navegador.
+3. **O brasão do PDF** (29 KB) era buscado na entrada "para estar pronto", e
+   quase nenhuma visita imprime. Agora desce no primeiro PDF da visita — os
+   dois caminhos que geram PDF já esperavam por ele.
+
+Nada disso é grátis para sempre: as seções 21 e 22 de `../testes/t-contratos.js`
+cobram cada uma dessas três (inclusive que o brasão não voltou para dentro do
+HTML) e a identidade — fonte, cabeçalho escuro, faixa e alinhamento.
+
+**Mudança grande se prova numa cópia antes.** A suíte inteira roda contra
+qualquer pasta: `CONTRATOS_DIR=teste node t-contratos.js` aponta os 310 testes
+para `/teste/index.html`. Foi assim que este desenho entrou — publicado em
+`ijui.net/teste`, com a suíte passando contra ele, antes de substituir o
+original.
+
 ## A tela abre recortada, e a busca abre o recorte
 
 A tela abre nos contratos **do ano corrente**, do último cadastrado para
@@ -444,4 +501,5 @@ seja, a tela não carrega.
 | `dados/contratos.json` | os contratos, um por linha — histórico e semente da primeira importação |
 | `../firestore-processos-ijui.rules` | as regras, incluindo `match /contratos/{id}` |
 | `../CONTROLE-DE-ACESSO.md` | como funcionam as contas e os três painéis |
-| `../testes/t-contratos.js` | confere a tela, o portão e a atualização ao vivo |
+| `../logo-ijui-180.jpg` | o brasão em 5,7 KB: ícone da aba, cabeçalho e ícone do iPhone |
+| `../testes/t-contratos.js` | confere a tela, o portão, a atualização ao vivo, o peso e a identidade |

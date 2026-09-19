@@ -18,41 +18,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#1a3a6b">
 <meta name="description" content="Agenda de vencimentos dos contratos do Município de Ijuí.">
-<link rel="icon" href="../../logo-ijui.jpg">
-<link rel="apple-touch-icon" href="../../logo-ijui.jpg">
+<link rel="icon" href="../../logo-ijui-180.jpg">
+<link rel="apple-touch-icon" href="../../logo-ijui-180.jpg">
 <title>Agenda de Contratos – Município de Ijuí</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- jsPDF: a mesma ficha em PDF do sistema de contratos, gerada aqui -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <style>
+  /* ── Paleta "Mosaico das Etnias" ──
+     A mesma do /pregoeiro/ e do guia de Ramais, com os mesmos valores: as
+     sete faixas do mosaico (vermelho, laranja, amarelo, verde, verde-2,
+     petróleo, real) são a identidade visual do município, e a faixa em si
+     aparece no rodapé do cabeçalho, no topo da lista e no pé dos modais.
+
+     Os nomes antigos (--navy, --gold…) continuam existindo como APELIDOS da
+     paleta nova. É o que faz as ~500 regras deste arquivo mudarem de cor
+     sem serem reescritas uma a uma — e o que deixa a troca reversível. */
   :root {
-    --navy:      #1a3a6b;
-    --navy-mid:  #1e4a8a;
-    --navy-dark: #12294d;
-    --navy-light:#2e5da8;
-    --gold:      #e8a020;
-    --gold-light:#f6b93b;
-    --card:      #ffffff;
-    --bg:        #eaeef6;
-    --text:      #1c2433;
-    --muted:     #6b7793;
-    --border:    #dde4f0;
-    --shadow:    0 2px 10px rgba(20,40,80,0.07);
-    --shadow-md: 0 6px 22px rgba(20,40,80,0.10);
-    --shadow-lg: 0 18px 50px rgba(15,30,70,0.22);
-    --blue-bg:   #e7eefb;
-    --blue-text: #1e4a8a;
-    --green:     #2a8a3a;  --green-bg:  #e6f4ea;
-    --red:       #c0282a;  --red-bg:    #fbe7e7;
-    --amber:     #c07000;  --amber-bg:  #fef3dc;
+    --noite:#081C52; --marinho:#12306B; --real:#1440A8; --real-2:#1E52CC;
+    --vermelho:#E3242B; --laranja:#F26B21; --amarelo:#FFC20E;
+    --verde:#8CC63F; --verde-2:#1E7A34; --petroleo:#0B6E7F;
+    --faixa: linear-gradient(90deg,var(--vermelho) 0 14%,var(--laranja) 0 28%,var(--amarelo) 0 42%,var(--verde) 0 58%,var(--verde-2) 0 72%,var(--petroleo) 0 86%,var(--real) 0 100%);
+    --navy:      var(--marinho);
+    --navy-mid:  var(--real);
+    --navy-dark: var(--noite);
+    --navy-light:var(--real-2);
+    --gold:      var(--amarelo);
+    --gold-light:var(--laranja);
+    --card:      #FFFFFF;
+    --bg:        #F2F5FB;
+    --text:      #101A33;
+    --muted:     #5A6685;
+    --border:    #E3E8F4;
+    --shadow:    0 1px 2px rgba(8,28,82,.06),0 8px 28px -12px rgba(8,28,82,.18);
+    --shadow-md: 0 6px 22px rgba(8,28,82,0.12);
+    --shadow-lg: 0 18px 50px rgba(8,28,82,0.25);
+    --blue-bg:   #E8EEFB;
+    --blue-text: var(--real);
+    --green:     #1E7A34;  --green-bg:  #EAF6EC;
+    --red:       #E3242B;  --red-bg:    #FDECEC;
+    --amber:     #C05300;  --amber-bg:  #FEF0E3;
     --radius:    18px;
-    --ring:      0 0 0 3px rgba(46,93,168,0.14);
+    --ring:      0 0 0 3px rgba(20,64,168,0.12);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: 'Inter', Arial, sans-serif; font-size: 15px;
+    font-family: 'Sora', system-ui, sans-serif; font-size: 15px;
     background:
       radial-gradient(1200px 600px at 100% -10%, rgba(46,93,168,0.10), transparent 60%),
       radial-gradient(900px 500px at -10% 0%, rgba(232,160,32,0.07), transparent 55%),
@@ -513,7 +526,11 @@
      celular. */
   .cal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg,#fbfcff,#f4f7fd); flex-wrap: wrap; gap: 12px;
     position: sticky; top: var(--topo-cab, 78px); z-index: 40; border-radius: var(--radius) var(--radius) 0 0; }
-  .cal-title { font-size: 22px; font-weight: 800; color: var(--navy); text-transform: capitalize; letter-spacing: -0.4px; }
+  .cal-title { font-size: 22px; font-weight: 800; color: var(--navy); letter-spacing: -0.4px; }
+  /* Sem text-transform:capitalize — ele subia a primeira letra de CADA
+     palavra e escrevia "Setembro De 2026". A maiúscula do mês vem da
+     primeira letra só, no ::first-letter. */
+  .cal-title::first-letter { text-transform: uppercase; }
   .cal-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .cal-nav button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: #fff; color: var(--navy); font-size: 17px; cursor: pointer; transition: all .14s; display: flex; align-items: center; justify-content: center; }
   .cal-nav button:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
@@ -557,6 +574,127 @@
     .cal-ev { font-size: 9px; padding: 2px 4px; border-left-width: 2px; border-radius: 4px; }
     .cal-holiday-name, .cal-aniv { font-size: 8.5px; padding: 1px 4px; }
     .cal-title { font-size: 17px; }
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     IDENTIDADE — a mesma do /pregoeiro/
+     ══════════════════════════════════════════════════════════════════════
+     Esta camada vem DEPOIS de tudo de propósito, como no /pregoeiro/: as
+     regras acima continuam descrevendo o comportamento de cada peça
+     (tamanho, encaixe, o que aparece no celular) e daqui para baixo mora
+     só a aparência — cor, faixa, canto, fonte. Trocar a identidade um dia
+     é mexer neste bloco, não nos 400 seletores de cima.
+
+     Três coisas fazem o sistema parecer o do pregoeiro:
+       · o cabeçalho é um painel ESCURO com a faixa do mosaico no pé;
+       · botão de ação é chapado (azul --real), sem gradiente;
+       · número é Space Grotesk — valor, nº do contrato, contagem. Numa
+         tela cujo assunto é dinheiro e prazo, o número é o que se lê. */
+
+  /* ── Cabeçalho ── */
+  header {
+    background:
+      radial-gradient(900px 420px at 12% -40%, #1E52CC 0%, transparent 55%),
+      linear-gradient(160deg, #0D2B7E 0%, #081C52 75%);
+    border-bottom: none; border-image: none;
+    box-shadow: 0 8px 26px -10px rgba(8,28,82,.5);
+  }
+  header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--faixa); }
+  .logo-mark { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.28); }
+  .logo-divider { background: rgba(255,255,255,.22); }
+  .logo-text h1 { color: #fff; font-weight: 800; letter-spacing: -.01em; }
+  .logo-text p { color: #AFC4F5; letter-spacing: .18em; }
+  /* Os botões do cabeçalho vivem sobre o escuro — e só eles. Em modal e
+     rodapé, .btn-ghost continua claro (é o "Cancelar" de sempre), por isso
+     o seletor é preso ao header em vez de valer para a classe inteira. */
+  .header-actions .btn-ghost,
+  .header-actions .mini-btn {
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16);
+    color: #fff; border-radius: 12px; font-weight: 600;
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .header-actions .btn-ghost:hover,
+  .header-actions .mini-btn:hover { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.35); transform: translateY(-1px); }
+  .header-actions .btn-gold { background: var(--amarelo); color: #3A2A00; border-radius: 12px; box-shadow: none; }
+  .header-actions .btn-gold:hover { background: var(--laranja); color: #fff; filter: none; }
+  .header-actions .chip-auth { background: rgba(255,255,255,.08); color: var(--amarelo); border-radius: 12px; }
+  /* A tarja da fonte dos dados ("141 CONTRATOS · DADOS AO VIVO") é a única
+     informação do cabeçalho, e não um botão: fica translúcida, com o número
+     no amarelo do mosaico. */
+  .proto-chip { background: rgba(255,255,255,.08); color: #E8EEFB; border-radius: 12px; letter-spacing: .08em; padding: 5px 12px; }
+  .lc-pill { background: rgba(0,0,0,.18); font-family: 'Space Grotesk', monospace; }
+
+  /* ── Botões ── */
+  .btn-primary { background: var(--real); border-radius: 12px; box-shadow: none; }
+  .btn-primary:hover { background: var(--real-2); filter: none; box-shadow: none; }
+  .btn-gold { background: var(--amarelo); color: #3A2A00; border-radius: 12px; box-shadow: none; }
+  .btn-gold:hover { background: var(--laranja); color: #fff; filter: none; box-shadow: none; }
+  .btn-danger { background: var(--vermelho); border-radius: 12px; box-shadow: none; }
+  .btn-danger:hover { background: #C01B22; filter: none; box-shadow: none; }
+  .btn-ghost { border-radius: 12px; }
+  .btn-ghost:hover { border-color: var(--real-2); }
+  .btn-ghost.active { background: var(--real); border-color: var(--real); }
+  .mini-btn { border-radius: 12px; }
+  .link-clear:hover { color: var(--vermelho); }
+
+  /* ── Campos e foco ── */
+  .busca-box { border-radius: 14px; }
+  .busca-box:focus-within { border-color: var(--real-2); }
+  .sort-sel, .pop-busca, .lc-busca, .auth-input,
+  .fcampo input, .fcampo select, .fcampo textarea { border-radius: 11px; }
+  .sort-sel:focus, .pop-busca:focus, .lc-busca:focus, .auth-input:focus,
+  .fcampo input:focus, .fcampo select:focus, .fcampo textarea:focus { border-color: var(--real-2); box-shadow: var(--ring); }
+
+  /* ── A lista ──
+     A faixa no topo da caixa é o mesmo gesto do card do pregoeiro: é ela
+     que diz, sem escrever, que esta tela é do mesmo sistema. */
+  .tab-box { border-radius: 14px; position: relative; }
+  .tab-box::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 4px; background: var(--faixa); z-index: 2; }
+  .tab thead tr:first-child th { padding-top: 12px; }
+  .tab th { background: #EEF2FB; color: var(--marinho); letter-spacing: .06em; }
+  .tab .th-titulos th:hover { background: #E2E9F8; color: var(--real); }
+  .tab .th-titulos th.ord-asc, .tab .th-titulos th.ord-desc { background: #DFE7F7; color: var(--real); }
+  .tab .th-filtros th { background: #EEF2FB; }
+  .cf { border-radius: 9px; }
+  .cf:hover { border-color: var(--real-2); color: var(--real); }
+  .cf.ativo { background: var(--real); border-color: var(--real); }
+  .tab tbody tr:hover td { background: #EEF3FD; }
+  /* Número é número: o nº do contrato, o valor e a contagem em Space
+     Grotesk, com os algarismos todos da mesma largura — é o que deixa
+     comparar valor com valor descendo a coluna, em vez de ler palavra. */
+  .n-num, .c-valor, .badge-num, .result-count b, .adit-n, .lc-n,
+  .hist-quando, .anos-txt b { font-family: 'Space Grotesk', monospace; }
+  .badge-num { background: var(--marinho); }
+  .badge-sec { background: var(--blue-bg); color: var(--real); }
+  .badge-tipo { background: #EDE6FA; color: #5B2BAF; }
+
+  /* ── Menus, modais e avisos ── */
+  .pop { border-radius: 14px; }
+  .pop-tit { color: var(--marinho); }
+  .pop-ord button.on { background: var(--real); border-color: var(--real); }
+  .pop-op input { accent-color: var(--real); }
+  .modal { border-radius: var(--radius); }
+  .modal-header { background: linear-gradient(120deg, var(--noite), var(--marinho)); border-bottom: none; position: sticky; }
+  .modal-header::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--faixa); }
+  .modal-close { border-radius: 9px; }
+  .overlay { background: rgba(8,28,82,.55); }
+  .aviso { border-radius: 12px; }
+  .toast { background: var(--noite); border-radius: 99px; box-shadow: 0 10px 30px rgba(8,28,82,.4); }
+  .chip { background: var(--blue-bg); color: var(--real); }
+
+  /* ── Portão de acesso ── */
+  .auth-card { border-radius: 20px; position: relative; overflow: hidden; }
+  .auth-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--faixa); }
+  .auth-titulo { color: var(--marinho); }
+  .auth-btn { background: var(--real); border-radius: 12px; }
+  .auth-btn:hover { background: var(--real-2); }
+
+  /* ── Celular ── */
+  @media (max-width: 860px) {
+    .mb-primary { background: var(--real); }
+    .mb-gold { background: var(--amarelo); color: #3A2A00; }
+    .mobile-bar { background: rgba(255,255,255,.95); }
+    .tab .c-valor { color: var(--marinho); }
   }
 </style>
 </head>
@@ -615,7 +753,7 @@
 <header>
   <div class="header-inner">
     <div class="logo-wrap">
-      <div class="logo-mark"><img src="../../logo-ijui.jpg" alt="Brasão de Ijuí"></div>
+      <div class="logo-mark"><img src="../../logo-ijui-180.jpg" alt="Brasão de Ijuí"></div>
       <div class="logo-divider"></div>
       <div class="logo-text">
         <h1>Agenda de Contratos</h1>
