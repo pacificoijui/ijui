@@ -9,6 +9,16 @@
    caminho de ida e volta entre as duas telas funciona. */
 const {chromium, executablePath} = require('./navegador');
 const fs=require('fs');
+/* ── Onde o módulo está ──
+   A prévia do desenho novo vive em /teste/ (o mesmo arquivo, a mesma lógica,
+   só a folha de estilo trocada) até ser aprovada. Com CONTRATOS_DIR=teste a
+   suíte inteira roda contra ela — é o que prova que trocar a aparência não
+   mexeu em nada do que a tela faz. */
+const CT_DIR = process.env.CONTRATOS_DIR || 'contratos';
+const CT_ARQ = '../' + CT_DIR + '/index.html';
+const CT_URL = 'http://127.0.0.1:8099/' + CT_DIR + '/index.html';
+const CT_AGENDA = 'http://127.0.0.1:8099/' + CT_DIR + '/agenda/index.html';
+
 let ok=0,mau=0;
 function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗',n,e!==undefined?'\n       '+JSON.stringify(e):'');mau++;process.exitCode=1;} }
 
@@ -73,7 +83,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       setInterval(()=>{ const e=document.getElementById('authEntradaBox');
         if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
     });
-    await pg.goto('http://127.0.0.1:8099/contratos/agenda/index.html',{waitUntil:'networkidle'});
+    await pg.goto(CT_AGENDA,{waitUntil:'networkidle'});
     await pg.waitForTimeout(900);
   }
 
@@ -127,7 +137,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   });
   await pgMes.addInitScript((u)=>{ window.__AUTH_SEED=u; },
     {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pgMes.goto('http://127.0.0.1:8099/contratos/agenda/index.html',{waitUntil:'networkidle'});
+  await pgMes.goto(CT_AGENDA,{waitUntil:'networkidle'});
   await pgMes.waitForTimeout(900);
 
   const h=new Date();
@@ -343,7 +353,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     (await pgCel.evaluate(()=>document.querySelectorAll('.cal-ev').length))>0);
 
   console.log('\n10) A ida e a volta entre as duas telas');
-  const sistema=fs.readFileSync('../contratos/index.html','utf8');
+  const sistema=fs.readFileSync(CT_ARQ,'utf8');
   t('o sistema de contratos tem o botão Agenda', /id="btnAgenda"[^>]*href="agenda\/"/.test(sistema));
   t('a agenda tem o botão de voltar para o sistema',
     /class="btn-gold btn-voltar" href="\.\.\/"/.test(html) && /Voltar ao sistema de/.test(html));

@@ -11,12 +11,29 @@
    tela da outra sem recarregar. */
 const {chromium, executablePath} = require('./navegador');
 const fs=require('fs');
+/* ── Onde o módulo está ──
+   A prévia do desenho novo vive em /teste/ (o mesmo arquivo, a mesma lógica,
+   só a folha de estilo trocada) até ser aprovada. Com CONTRATOS_DIR=teste a
+   suíte inteira roda contra ela — é o que prova que trocar a aparência não
+   mexeu em nada do que a tela faz. */
+const CT_DIR = process.env.CONTRATOS_DIR || 'contratos';
+const CT_ARQ = '../' + CT_DIR + '/index.html';
+const CT_URL = 'http://127.0.0.1:8099/' + CT_DIR + '/index.html';
+/* A importação de estreia lê dados/contratos.json AO LADO do index.html. A
+   prévia em /teste/ não carrega uma segunda cópia dos 780 KB do cadastro —
+   quando a suíte roda contra ela, a carga vem daqui. Rodando contra o
+   /contratos/ de verdade, nada é interceptado: o arquivo tem de estar lá. */
+async function rotaCarga(pg, corpo){
+  if(CT_DIR==='contratos') return;
+  await pg.route('**/dados/contratos.json', r=>r.fulfill({status:200,contentType:'application/json',body:corpo}));
+}
+
 let ok=0,mau=0;
 function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗',n,e!==undefined?'\n       '+JSON.stringify(e):'');mau++;process.exitCode=1;} }
 
 (async()=>{
   console.log('1) Os dados saíram do HTML e viraram arquivo');
-  const html=fs.readFileSync('../contratos/index.html','utf8');
+  const html=fs.readFileSync(CT_ARQ,'utf8');
   const json=fs.readFileSync('../contratos/dados/contratos.json','utf8');
   const dados=JSON.parse(json);
   /* Quantos são muda a cada planilha nova que o setor manda — o teste
@@ -59,6 +76,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     await pg.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
     await pg.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:corpoJspdf||'window.jspdf={jsPDF:function(){}};'}));
     await pg.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+    await rotaCarga(pg, json);
     await pg.addInitScript((sd)=>{ window.__SEED=sd; }, seedCom(nivel));
     await pg.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
     /* vigia o piscar do formulário de login — ver seção 15 */
@@ -67,7 +85,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
       setInterval(()=>{ const e=document.getElementById('authEntradaBox');
         if(e && getComputedStyle(e).display!=='none' && e.offsetParent!==null) window.__LOGIN_APARECEU=true; }, 15);
     });
-    await pg.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+    await pg.goto(CT_URL,{waitUntil:'networkidle'});
     await pg.waitForTimeout(900);
   }
   /* A tela lê só o ano corrente. Quase todo teste daqui para baixo fala do
@@ -937,7 +955,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   });
   t('a marca é gravada no contrato', naoProrroga && marcado.gravado===true, marcado);
   t('aparece na lista, na coluna do vencimento', marcado.naLinha && marcado.naCelulaDoVenc, marcado);
-  t('em vermelho', /rgb\(19[0-9], 4[0-9], 4[0-9]\)|rgb\(192, 40, 42\)/.test(marcado.cor), marcado.cor);
+  /* Vermelho, e não UM vermelho exato: o que a marca precisa é chegar em cor
+     de alerta. Preso ao hexadecimal, este teste de comportamento quebrava
+     junto com qualquer troca de paleta — e não é disso que ele trata. */
+  const corMarca = (marcado.cor.match(/\d+/g)||[]).map(Number);
+  t('em vermelho', corMarca.length>=3 && corMarca[0]>150 && corMarca[1]<90 && corMarca[2]<90, marcado.cor);
   t('e na ficha do contrato', marcado.naFicha, marcado);
   /* E some quando desmarcado — um aviso que não sai é pior que não ter. */
   await pg.evaluate(()=>{
@@ -1220,6 +1242,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   await pgVazio.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
   await pgVazio.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pgVazio.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await rotaCarga(pgVazio, json);
   await pgVazio.addInitScript((sd)=>{ window.__SEED=sd; }, {
     contratos:{},
     usuarios_v2:{'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado',
@@ -1227,7 +1250,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
                             provedor:'google.com'}}
   });
   await pgVazio.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pgVazio.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgVazio.goto(CT_URL,{waitUntil:'networkidle'});
   await pgVazio.waitForTimeout(900);
   const vazio=await pgVazio.evaluate(()=>({
     texto: document.getElementById('vazio').textContent,
@@ -1266,6 +1289,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   await pgMeio.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
   await pgMeio.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pgMeio.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await rotaCarga(pgMeio, json);
   /* Só os 400 primeiros no banco: exatamente o estado em que o cadastro
      ficou quando a página foi embora depois do primeiro lote. */
   const meio={}; dados.slice(0,400).forEach(c=>{ meio[String(c.id)]=c; });
@@ -1276,7 +1300,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
                             provedor:'google.com'}}
   });
   await pgMeio.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pgMeio.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgMeio.goto(CT_URL,{waitUntil:'networkidle'});
   await pgMeio.waitForFunction(()=>typeof _faltamImportar!=='undefined' && _faltamImportar!==null, null, {timeout:30000});
   const pelaMetade=await pgMeio.evaluate(()=>({
     naTela: CONTRATOS.length,
@@ -1376,6 +1400,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   await pgLimpa.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
   await pgLimpa.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pgLimpa.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await rotaCarga(pgLimpa, json);
   await pgLimpa.addInitScript((sd)=>{ window.__SEED=sd; }, Object.assign(seedCom('editar'), {
     /* {__ts: ...} vira Timestamp dentro do stub — ver fbstub3.js */
     contratos_historico:{
@@ -1386,7 +1411,7 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     }
   }));
   await pgLimpa.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pgLimpa.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgLimpa.goto(CT_URL,{waitUntil:'networkidle'});
   await pgLimpa.waitForTimeout(900);
   await pgLimpa.evaluate(()=>abrirHistorico());
   await pgLimpa.waitForFunction(()=>!window.__STORE.contratos_historico.vencido,null,{timeout:15000});
@@ -1439,10 +1464,11 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
   await pgMuitas.route('**/firebasejs/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
   await pgMuitas.route('**/cdnjs.cloudflare.com/**',r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
   await pgMuitas.route('**/fonts.googleapis.com/**',r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+  await rotaCarga(pgMuitas, json);
   await pgMuitas.addInitScript((sd)=>{ window.__SEED=sd; },
     Object.assign(seedCom('editar'), {contratos_historico:muitas}));
   await pgMuitas.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
-  await pgMuitas.goto('http://127.0.0.1:8099/contratos/index.html',{waitUntil:'networkidle'});
+  await pgMuitas.goto(CT_URL,{waitUntil:'networkidle'});
   await pgMuitas.waitForTimeout(900);
   await pgMuitas.evaluate(()=>abrirHistorico());
   await pgMuitas.waitForFunction(()=>document.querySelectorAll('.hist-linha').length>0,null,{timeout:15000});
@@ -1673,6 +1699,103 @@ function t(n,c,e){ if(c){console.log('  ✓',n);ok++;} else {console.log('  ✗'
     /id="authCarregando"/.test(html) && /Verificando seu acesso/.test(html));
   t('e o formulário nasce escondido',
     /id="authEntradaBox" style="display:none"/.test(html));
+
+  /* ── SEÇÕES 21 e 22: o desenho novo ──
+     Enquanto a prévia não for aprovada ela mora em /teste/ e o /contratos/
+     segue com o desenho antigo — por isso estas duas seções só rodam onde o
+     novo está (CONTRATOS_DIR=teste). Quando a prévia virar o /contratos/,
+     esta condição sai e elas passam a valer sempre. */
+  if(CT_DIR === 'contratos'){
+    console.log('\n21-22) O peso e a identidade nova: rode com CONTRATOS_DIR=teste (a prévia ainda está em /teste/)');
+  } else {
+    console.log('\n21) O peso da página: o que desce a cada visita');
+    /* Três quilos tirados da mochila, e o teste existe para não voltarem:
+       o brasão embutido em base64, o brasão grande no ícone da aba, e o
+       cadastro inteiro baixado por conferência. */
+    t('o brasão não vai mais embutido no HTML',
+      html.indexOf('data:image/png;base64') < 0);
+    t('nenhuma linha longa sobrou no arquivo',
+      html.split('\n').every(l => l.length < 5000),
+      html.split('\n').filter(l => l.length > 5000).map(l => l.slice(0, 60)));
+    /* Um arquivo só serve aos três tamanhos em que o brasão aparece: 16px na
+       aba, 46px no cabeçalho e 180px na tela de início do iPhone. */
+    t('aba, cabeçalho e iPhone usam o mesmo brasão pequeno',
+      /rel="icon" href="\.\.\/logo-ijui-180\.jpg"/.test(html)
+      && /rel="apple-touch-icon" href="\.\.\/logo-ijui-180\.jpg"/.test(html)
+      && /<img src="\.\.\/logo-ijui-180\.jpg"/.test(html));
+    t('e ele é mesmo pequeno (menos de 8 KB, contra 21 do original)',
+      fs.statSync('../logo-ijui-180.jpg').size < 8 * 1024,
+      fs.statSync('../logo-ijui-180.jpg').size);
+
+    /* A conferência com o arquivo: pergunta a VERSÃO antes de baixar 763 KB. */
+    const pgConf = await b.newPage({viewport:{width:1280, height:900}});
+    const pedidos = [];
+    const imagens = [];
+    pgConf.on('request', r => {
+      if(/dados\/contratos\.json/.test(r.url())) pedidos.push(r.method());
+      if(r.resourceType() === 'image') imagens.push(r.url());
+    });
+    await pgConf.route('**/firebasejs/**', r=>r.fulfill({status:200,contentType:'application/javascript',body:stub}));
+    await pgConf.route('**/cdnjs.cloudflare.com/**', r=>r.fulfill({status:200,contentType:'application/javascript',body:'window.jspdf={jsPDF:function(){}};'}));
+    await pgConf.route('**/fonts.googleapis.com/**', r=>r.fulfill({status:200,contentType:'text/css',body:''}));
+    await rotaCarga(pgConf, json);
+    /* quem confere é ADMINISTRADOR com edição: é só para ele que a tela
+       oferece subir o que falta */
+    await pgConf.addInitScript((sd)=>{ window.__SEED=sd; }, {
+      contratos: contratosSeed,
+      usuarios_v2:{'g-pedro':{email:'pedrohhpacifico@gmail.com', nome:'Pedro', status:'aprovado',
+                              isAdmin:true, acessos:{agenda:'editar', pregoeiro:'editar', contratos:'editar'},
+                              provedor:'google.com'}}
+    });
+    await pgConf.addInitScript((u)=>{ window.__AUTH_SEED=u; }, {uid:'g-pedro', email:'pedrohhpacifico@gmail.com', displayName:'Pedro', photoURL:''});
+    await pgConf.goto(CT_URL, {waitUntil:'networkidle'});
+    await pgConf.waitForTimeout(1200);
+    const primeira = pedidos.slice();
+    t('na primeira visita ela pergunta a versão do arquivo antes de tudo',
+      primeira[0] === 'HEAD', primeira);
+    /* Na primeira visita o arquivo desce mesmo: é ela que descobre se falta
+       alguma coisa. Com o banco completo, a resposta fica lembrada. */
+    pedidos.length = 0;
+    await pgConf.reload({waitUntil:'networkidle'});
+    await pgConf.waitForTimeout(900);
+    t('na visita seguinte, nada mudando dos dois lados, o arquivo NÃO desce',
+      pedidos.length > 0 && pedidos.every(m => m === 'HEAD'), pedidos);
+    const semFalta = await pgConf.evaluate(() => ({
+      aviso: (document.getElementById('avisoImportacao') || {}).textContent || '',
+      lembrado: localStorage.getItem('contratos_conferencia_v1')
+    }));
+    t('e a tela não inventa contrato faltando por não ter lido o arquivo',
+      !/ainda não est/.test(semFalta.aviso) && !!semFalta.lembrado, semFalta);
+    /* O brasão do PDF são 29 KB que quase nenhuma visita usa. */
+    t('o brasão do PDF não desce na abertura',
+      !imagens.some(u => /logo-ijui-largo/.test(u)), imagens);
+    t('mas quem gera PDF espera por ele antes de desenhar',
+      /carregarLogoPdf\(\)\.then\(pdfContratoAgora\)/.test(html)
+      && /carregarLogoPdf\(\)\.then\(\(\) => gerarRelatorioAgora/.test(html));
+    await pgConf.close();
+
+    console.log('\n22) A identidade visual é a mesma do /pregoeiro/');
+    const visual = await pg.evaluate(() => {
+      const cs = el => getComputedStyle(el);
+      const h = document.querySelector('header');
+      const faixa = getComputedStyle(h, '::after');
+      return {
+        fonte: cs(document.body).fontFamily,
+        cabecalhoEscuro: cs(h).backgroundImage.includes('gradient'),
+        tituloClaro: cs(document.querySelector('.logo-text h1')).color,
+        faixaAltura: faixa.height,
+        faixaMosaico: faixa.backgroundImage.includes('gradient'),
+        numeroMono: cs(document.querySelector('.c-valor')).fontFamily
+      };
+    });
+    t('a tela usa a Sora, como o pregoeiro', /Sora/.test(visual.fonte), visual.fonte);
+    t('o cabeçalho é o painel escuro', visual.cabecalhoEscuro, visual);
+    t('com o título em branco sobre ele', visual.tituloClaro === 'rgb(255, 255, 255)', visual.tituloClaro);
+    t('e a faixa do mosaico no pé dele',
+      visual.faixaMosaico && visual.faixaAltura === '4px', visual);
+    t('o valor do contrato é escrito em Space Grotesk, de algarismo fixo',
+      /Space Grotesk/.test(visual.numeroMono), visual.numeroMono);
+  }
 
   console.log('\nerros JS:', errs.length||errsPdf.length?[...errs,...errsPdf]:'nenhum');
   console.log(`\n${ok} passaram, ${mau} falharam.`);

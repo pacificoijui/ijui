@@ -12,6 +12,15 @@
    splitTextToSize — nunca deixa um pedaço colado no seguinte. */
 const {chromium, executablePath} = require('./navegador');
 const fs = require('fs');
+/* ── Onde o módulo está ──
+   A prévia do desenho novo vive em /teste/ (o mesmo arquivo, a mesma lógica,
+   só a folha de estilo trocada) até ser aprovada. Com CONTRATOS_DIR=teste a
+   suíte inteira roda contra ela — é o que prova que trocar a aparência não
+   mexeu em nada do que a tela faz. */
+const CT_DIR = process.env.CONTRATOS_DIR || 'contratos';
+const CT_ARQ = '../' + CT_DIR + '/index.html';
+const CT_URL = 'http://127.0.0.1:8099/' + CT_DIR + '/index.html';
+
 let ok = 0, mau = 0;
 function t(n, c, e){ if(c){ console.log('  ✓', n); ok++; } else { console.log('  ✗', n, e !== undefined ? '\n       ' + JSON.stringify(e) : ''); mau++; process.exitCode = 1; } }
 
@@ -48,7 +57,7 @@ function splitFalso(texto, largura){
   await pg.route('**/cdnjs.cloudflare.com/**', r => r.fulfill({status:200, contentType:'application/javascript', body:'window.jspdf={jsPDF:function(){}};'}));
   await pg.addInitScript(() => localStorage.setItem('copam_auth', JSON.stringify({u:'teste', nome:'QA'})));
   await pg.addInitScript((u) => { window.__AUTH_SEED = u; }, {uid:'teste-admin', email:'pedrohhpacifico@gmail.com', displayName:'QA', photoURL:''});
-  await pg.goto('http://127.0.0.1:8099/contratos/index.html', {waitUntil:'networkidle'});
+  await pg.goto(CT_URL, {waitUntil:'networkidle'});
   await pg.waitForTimeout(1000);
 
   console.log('1) pdfQuebrarCelula separa por "\\n" antes de perguntar ao jsPDF');
